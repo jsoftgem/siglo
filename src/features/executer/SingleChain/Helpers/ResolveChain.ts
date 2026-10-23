@@ -27,7 +27,7 @@ export default class ResolveChain {
                 const rawOutput = toPOJO(ctx);
                 const cleanOutput: Record<string, any> = {};
                 for (const k of Object.keys(rawOutput)) {
-                    if (k !== '$chainId' && k !== '$stackId' && k !== '$tenantId' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+                    if (k !== '$chainId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
                         cleanOutput[k] = rawOutput[k];
                     }
                 }

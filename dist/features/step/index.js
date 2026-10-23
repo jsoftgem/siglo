@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isPipeline = exports.pipe = exports.Chain = exports.Step = exports.toPOJO = exports.normalizeError = exports.CheckpointVersionException = exports.TenantMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
+exports.isPipeline = exports.pipe = exports.Chain = exports.Step = exports.toPOJO = exports.normalizeError = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
 exports.isFlow = isFlow;
 exports.flattenSteps = flattenSteps;
 exports.flow = flow;
@@ -21,7 +21,7 @@ Object.defineProperty(exports, "CancellationException", { enumerable: true, get:
 Object.defineProperty(exports, "ValidationException", { enumerable: true, get: function () { return executer_2.ValidationException; } });
 Object.defineProperty(exports, "StorageAdapterException", { enumerable: true, get: function () { return executer_2.StorageAdapterException; } });
 Object.defineProperty(exports, "CheckpointConflictException", { enumerable: true, get: function () { return executer_2.CheckpointConflictException; } });
-Object.defineProperty(exports, "TenantMismatchException", { enumerable: true, get: function () { return executer_2.TenantMismatchException; } });
+Object.defineProperty(exports, "NamespaceMismatchException", { enumerable: true, get: function () { return executer_2.NamespaceMismatchException; } });
 Object.defineProperty(exports, "CheckpointVersionException", { enumerable: true, get: function () { return executer_2.CheckpointVersionException; } });
 Object.defineProperty(exports, "normalizeError", { enumerable: true, get: function () { return executer_2.normalizeError; } });
 var proxy_1 = require("../context/proxy");
@@ -46,7 +46,7 @@ function sanitizeFlowData(data) {
     const pojo = (0, context_1.toPOJO)(data);
     const clean = {};
     for (const k of Object.keys(pojo)) {
-        if (k !== '$chainId' && k !== '$stepId' && k !== '$stackId' && k !== '$tenantId' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+        if (k !== '$chainId' && k !== '$stepId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
             clean[k] = pojo[k];
         }
     }
@@ -153,7 +153,7 @@ class Step {
         }
         let effParam = param;
         let effOptions = options;
-        if (options === undefined && param && (param.signal || param.tenantId || param.timeout || param.timeoutMs || param.pojo)) {
+        if (options === undefined && param && (param.signal || param.namespace || param.timeout || param.timeoutMs || param.pojo)) {
             effOptions = param;
             effParam = {};
         }
@@ -271,7 +271,7 @@ class Step {
         let effParam = param;
         let effOptions = options;
         /* c8 ignore next 4 */
-        if (options === undefined && param && (param.signal || param.tenantId || param.timeout || param.timeoutMs || param.pojo)) {
+        if (options === undefined && param && (param.signal || param.namespace || param.timeout || param.timeoutMs || param.pojo)) {
             effOptions = param;
             effParam = {};
         }

@@ -3,7 +3,7 @@ export interface ExecutionErrorMetadata {
     phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry';
     retryable?: boolean;
     stackId?: string;
-    tenantId?: string;
+    namespace?: string;
     workflowId?: string;
     cause?: unknown;
     stateSnapshot?: Record<string, any>;
@@ -14,7 +14,7 @@ export declare class FluidFuncError extends Error {
     readonly phase?: string;
     readonly retryable: boolean;
     readonly stackId?: string;
-    readonly tenantId?: string;
+    readonly namespace?: string;
     readonly workflowId?: string;
     readonly stateSnapshot?: Record<string, any>;
     readonly cause?: unknown;
@@ -59,10 +59,10 @@ export declare class CheckpointConflictException extends FluidFuncError {
     get actualRevision(): number;
     constructor(stackId: string, currentRevision: number, attemptedRevision: number, metadata?: ExecutionErrorMetadata);
 }
-export declare class TenantMismatchException extends FluidFuncError {
-    readonly expectedTenantId: string;
-    readonly actualTenantId?: string;
-    constructor(expectedTenantId: string, actualTenantId?: string, metadata?: ExecutionErrorMetadata);
+export declare class NamespaceMismatchException extends FluidFuncError {
+    readonly expectedNamespace: string;
+    readonly actualNamespace?: string;
+    constructor(expectedNamespace: string, actualNamespace?: string, metadata?: ExecutionErrorMetadata);
 }
 export declare class CheckpointVersionException extends FluidFuncError {
     readonly version: any;

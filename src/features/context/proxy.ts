@@ -13,7 +13,7 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
         if (key === '$$$validators' || key === '$chainId' || key === '$stackId') {
             continue;
         }
-        if (key === '$signal' || key === 'signal' || key === '$tenantId') {
+        if (key === '$signal' || key === 'signal' || key === '$namespace') {
             result[key] = data[key];
             continue;
         }

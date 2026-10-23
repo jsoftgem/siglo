@@ -10,7 +10,7 @@ import { IMongoClient } from "../database/mongodb";
 
 export interface ExecutionLogRecord {
     _id?: string;
-    tenantId?: string;
+    namespace?: string;
     stackId: string;
     chainId: string;
     field: string;
@@ -21,7 +21,7 @@ export interface ExecutionLogRecord {
 export interface CheckpointRecord {
     _id?: string;
     stackId: string;
-    tenantId?: string;
+    namespace?: string;
     type: string;
     chains: string[];
     contexts: Record<string, any>;
@@ -50,7 +50,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
     }
 
     async onContextChange(entry: ContextChangeEvent): Promise<void> {
-        const { tenantId, stackId, stepId, field, value, timestamp } = entry;
+        const { namespace, stackId, stepId, field, value, timestamp } = entry;
         const serialized = JSON.stringify(value ?? null);
 
         // Redis: Fast distributed context lookups
@@ -61,7 +61,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
 
         // MongoDB: Execution audit event log
         await this.logsCollection.insertOne({
-            tenantId,
+            namespace,
             stackId,
             chainId: stepId,
             field,
@@ -80,7 +80,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         // MongoDB: Durable checkpoint record
         const record: CheckpointRecord = {
             stackId,
-            tenantId: checkpoint.tenantId,
+            namespace: checkpoint.namespace,
             type: checkpoint.type,
             chains: checkpoint.chains,
             contexts: checkpoint.contexts,
@@ -112,7 +112,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         if (doc) {
             return {
                 stackId: doc.stackId,
-                tenantId: doc.tenantId,
+                namespace: doc.namespace,
                 type: doc.type,
                 chains: doc.chains,
                 contexts: doc.contexts

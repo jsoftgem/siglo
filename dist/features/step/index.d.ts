@@ -3,7 +3,7 @@ import Spec, { SpecData } from '../spec';
 import { toPOJO } from '../context';
 import { RetryConfig } from '../executer';
 import { CacheOptions } from '../cache';
-export { FluidFuncError, ExecutionErrorMetadata, StepTimeoutException, FlowTimeoutException, CancellationException, ValidationException, ValidationErrorDetail, StorageAdapterException, CheckpointConflictException, TenantMismatchException, CheckpointVersionException, normalizeError, RetryConfig, RetryPredicate } from '../executer';
+export { FluidFuncError, ExecutionErrorMetadata, StepTimeoutException, FlowTimeoutException, CancellationException, ValidationException, ValidationErrorDetail, StorageAdapterException, CheckpointConflictException, NamespaceMismatchException, CheckpointVersionException, normalizeError, RetryConfig, RetryPredicate } from '../executer';
 export { SerializedExecutionStack, SerializedStorageState, StorageAdapter, ContextChangeEvent, CacheEvent, StorageErrorMode, CheckpointOptions } from '../storage';
 export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
@@ -11,7 +11,7 @@ export interface ExecutionOptions {
     signal?: AbortSignal;
     pojo?: boolean;
     mode?: 'pojo' | 'wrapped';
-    tenantId?: string;
+    namespace?: string;
     timeout?: number;
     timeoutMs?: number;
     workflowId?: string;

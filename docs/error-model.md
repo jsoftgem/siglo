@@ -15,7 +15,7 @@ Error
       ├── ValidationException
       ├── StorageAdapterException
       ├── CheckpointConflictException
-      ├── TenantMismatchException
+      ├── NamespaceMismatchException
       └── CheckpointVersionException
 ```
 
@@ -33,7 +33,7 @@ Every `FluidFuncError` includes the following metadata fields:
 | `stepName` | `string` | The human-readable name of the step that failed. |
 | `stepId` | `string` | The unique internal UUID of the failing step instance. |
 | `stackId` | `string` | The unique UUID of the execution stack. |
-| `tenantId` | `string` (optional) | The tenant identifier for multi-tenant executions. |
+| `namespace` | `string` (optional) | The namespace identifier for multi-tenant executions. |
 | `workflowId` | `string` (optional) | The workflow identifier if designated in execution options. |
 | `retryable` | `boolean` | Whether this error is eligible for retry. |
 | `stateSnapshot` | `Record<string, any>` (optional) | Sanitized snapshot of the context when the error occurred. |
@@ -71,9 +71,9 @@ Thrown when a configured `StorageAdapter` throws an error and storage error mode
 Thrown when optimistic concurrency check fails (`options.expectedRevision !== currentRevision`).
 - **Properties**: `stackId: string`, `currentRevision: number`, `attemptedRevision?: number`, `expectedRevision?: number`
 
-### `TenantMismatchException`
-Thrown when restoring a checkpoint created for a different tenant than the expected tenant.
-- **Properties**: `expectedTenant: string`, `actualTenant: string`
+### `NamespaceMismatchException`
+Thrown when restoring a checkpoint created for a different namespace than the expected namespace.
+- **Properties**: `expectedNamespace: string`, `actualNamespace: string`
 
 ### `CheckpointVersionException`
 Thrown when restoring a checkpoint produced by an incompatible future schema version.
@@ -114,7 +114,7 @@ Produces:
   "stepName": "processPayment",
   "stepId": "d1c5a7...",
   "stackId": "7e34b1...",
-  "tenantId": "org-42",
+  "namespace": "org-42",
   "retryable": true,
   "cause": {
     "name": "FetchError",

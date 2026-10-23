@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.propertyToContext = exports.Runner = void 0;
-const proxy_1 = require("../context/proxy");
+const context_1 = require("../context");
 const exceptions_1 = require("./exceptions");
 const signals_1 = require("./signals");
 const storage_1 = require("../storage");
@@ -40,9 +40,9 @@ class Runner {
     }
     start(param, chains, rawOptions) {
         if (chains) {
-            const tenantId = rawOptions?.tenantId;
-            const stackId = this.createExecutionStack(tenantId);
-            this.logInfo('Runner', `Started sequence stack#${stackId}${tenantId ? ` for tenant#${tenantId}` : ''}`);
+            const namespace = rawOptions?.namespace;
+            const stackId = this.createExecutionStack(namespace);
+            this.logInfo('Runner', `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`);
             const timeoutMs = rawOptions?.timeout ?? rawOptions?.timeoutMs;
             let flowController;
             let flowTimer;
@@ -70,7 +70,7 @@ class Runner {
                 const reason = effectiveSignal.reason || new Error('This operation was aborted');
                 const normalized = (0, exceptions_1.normalizeError)(reason, {
                     stackId,
-                    tenantId,
+                    namespace,
                     workflowId: rawOptions?.workflowId
                 });
                 normalized.stackId = stackId;
@@ -79,12 +79,12 @@ class Runner {
             const effectiveOptions = Object.assign({}, rawOptions, {
                 signal: effectiveSignal,
                 flowSignal: flowController?.signal,
-                tenantId,
+                namespace,
                 onStepComplete: () => {
                     completedSteps++;
                 }
             });
-            const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, tenantId);
+            const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, namespace);
             this.addChainToStack(stackId, newParam.$chainId());
             if (effectiveSignal) {
                 const sigFn = () => effectiveSignal;
@@ -92,9 +92,9 @@ class Runner {
                 newParam.$signal = sigFn;
                 newParam.signal = sigFn;
             }
-            if (tenantId) {
-                newParam.$tenantId = () => tenantId;
-                newParam.tenantId = () => tenantId;
+            if (namespace) {
+                newParam.$namespace = () => namespace;
+                newParam.namespace = () => namespace;
             }
             const singleChain = new this.SingleChain(this.getChain, this.Context, exports.propertyToContext, this.Reducer, this.addChainToStack, stackId, this.cache, this.logInfo, this.logError, this.executeAfter, this.executeBefore);
             const executionPromise = (chains instanceof Array)
@@ -118,7 +118,7 @@ class Runner {
                         }
                         this.deleteStack(stackId);
                         const isPojo = effectiveOptions?.pojo === true || effectiveOptions?.mode === 'pojo';
-                        resolve(isPojo ? (0, proxy_1.toPOJO)(result) : result);
+                        resolve(isPojo ? (0, context_1.toPOJO)(result) : result);
                     }
                     catch (err) {
                         reject(err);
@@ -144,7 +144,7 @@ class Runner {
                         this.deleteStack(stackId);
                         const normalized = (0, exceptions_1.normalizeError)(error, {
                             stackId,
-                            tenantId,
+                            namespace,
                             workflowId: rawOptions?.workflowId,
                             stepName: error?.func || error?.stepName,
                             phase: error?.phase || 'action'

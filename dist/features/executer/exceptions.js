@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CheckpointVersionException = exports.TenantMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
+exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
 exports.normalizeError = normalizeError;
 /* c8 ignore stop */
 class FluidFuncError extends Error {
@@ -8,7 +8,7 @@ class FluidFuncError extends Error {
     phase;
     retryable;
     stackId;
-    tenantId;
+    namespace;
     workflowId;
     stateSnapshot;
     cause;
@@ -19,7 +19,7 @@ class FluidFuncError extends Error {
         this.phase = metadata.phase;
         this.retryable = metadata.retryable !== undefined ? metadata.retryable : true;
         this.stackId = metadata.stackId;
-        this.tenantId = metadata.tenantId;
+        this.namespace = metadata.namespace;
         this.workflowId = metadata.workflowId;
         this.stateSnapshot = metadata.stateSnapshot;
         this.cause = metadata.cause;
@@ -69,7 +69,7 @@ class FluidFuncError extends Error {
             phase: this.phase,
             retryable: this.retryable,
             stackId: this.stackId,
-            tenantId: this.tenantId,
+            namespace: this.namespace,
             workflowId: this.workflowId,
             isTimeout: this.isTimeout,
             isCancellation: this.isCancellation,
@@ -186,23 +186,23 @@ class CheckpointConflictException extends FluidFuncError {
     }
 }
 exports.CheckpointConflictException = CheckpointConflictException;
-class TenantMismatchException extends FluidFuncError {
-    expectedTenantId;
-    actualTenantId;
-    constructor(expectedTenantId, actualTenantId, metadata = {}) {
-        super(`Tenant mismatch: checkpoint tenant '${actualTenantId}' does not match expected tenant '${expectedTenantId}'.`, {
+class NamespaceMismatchException extends FluidFuncError {
+    expectedNamespace;
+    actualNamespace;
+    constructor(expectedNamespace, actualNamespace, metadata = {}) {
+        super(`Namespace mismatch: checkpoint namespace '${actualNamespace}' does not match expected namespace '${expectedNamespace}'.`, {
             ...metadata,
-            tenantId: actualTenantId,
+            namespace: actualNamespace,
             phase: 'checkpoint',
             retryable: false
         });
-        this.name = 'TenantMismatchException';
-        this.expectedTenantId = expectedTenantId;
-        this.actualTenantId = actualTenantId;
-        Object.setPrototypeOf(this, TenantMismatchException.prototype);
+        this.name = 'NamespaceMismatchException';
+        this.expectedNamespace = expectedNamespace;
+        this.actualNamespace = actualNamespace;
+        Object.setPrototypeOf(this, NamespaceMismatchException.prototype);
     }
 }
-exports.TenantMismatchException = TenantMismatchException;
+exports.NamespaceMismatchException = NamespaceMismatchException;
 class CheckpointVersionException extends FluidFuncError {
     version;
     constructor(version, metadata = {}) {
@@ -221,8 +221,8 @@ function normalizeError(error, metadata = {}) {
     if (error instanceof FluidFuncError) {
         if (!error.stackId && metadata.stackId)
             error.stackId = metadata.stackId;
-        if (!error.tenantId && metadata.tenantId)
-            error.tenantId = metadata.tenantId;
+        if (!error.namespace && metadata.namespace)
+            error.namespace = metadata.namespace;
         if (!error.workflowId && metadata.workflowId)
             error.workflowId = metadata.workflowId;
         if (!error.stepName && metadata.stepName)

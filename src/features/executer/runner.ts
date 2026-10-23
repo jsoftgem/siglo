@@ -56,9 +56,9 @@ export class Runner {
 
     start(param: any, chains: any, rawOptions?: any): Promise<any> | undefined {
         if (chains) {
-            const tenantId = rawOptions?.tenantId;
-            const stackId = this.createExecutionStack(tenantId);
-            this.logInfo('Runner', `Started sequence stack#${stackId}${tenantId ? ` for tenant#${tenantId}` : ''}`);
+            const namespace = rawOptions?.namespace;
+            const stackId = this.createExecutionStack(namespace);
+            this.logInfo('Runner', `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`);
 
             const timeoutMs: number | undefined = rawOptions?.timeout ?? rawOptions?.timeoutMs;
             let flowController: AbortController | undefined;
@@ -95,7 +95,7 @@ export class Runner {
                 const reason = effectiveSignal.reason || new Error('This operation was aborted');
                 const normalized = normalizeError(reason, {
                     stackId,
-                    tenantId,
+                    namespace,
                     workflowId: rawOptions?.workflowId
                 });
                 (normalized as any).stackId = stackId;
@@ -105,13 +105,13 @@ export class Runner {
             const effectiveOptions = Object.assign({}, rawOptions, {
                 signal: effectiveSignal,
                 flowSignal: flowController?.signal,
-                tenantId,
+                namespace,
                 onStepComplete: () => {
                     completedSteps++;
                 }
             });
 
-            const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, tenantId);
+            const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, namespace);
             this.addChainToStack(stackId, newParam.$chainId());
             if (effectiveSignal) {
                 const sigFn = () => effectiveSignal;
@@ -119,9 +119,9 @@ export class Runner {
                 newParam.$signal = sigFn;
                 newParam.signal = sigFn;
             }
-            if (tenantId) {
-                newParam.$tenantId = () => tenantId;
-                newParam.tenantId = () => tenantId;
+            if (namespace) {
+                newParam.$namespace = () => namespace;
+                newParam.namespace = () => namespace;
             }
 
             const singleChain = new this.SingleChain(
@@ -187,7 +187,7 @@ export class Runner {
                             this.deleteStack(stackId);
                             const normalized = normalizeError(error, {
                                 stackId,
-                                tenantId,
+                                namespace,
                                 workflowId: rawOptions?.workflowId,
                                 stepName: (error as any)?.func || (error as any)?.stepName,
                                 phase: (error as any)?.phase || 'action'

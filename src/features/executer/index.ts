@@ -21,7 +21,7 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
-    TenantMismatchException,
+    NamespaceMismatchException,
     CheckpointVersionException,
     normalizeError
 } from './exceptions';

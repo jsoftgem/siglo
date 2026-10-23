@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clearStorage = exports.getStorage = exports.setPutChainContextPlugin = exports.setGetChainContextPlugin = exports.putChainContext = exports.getChainContext = exports.getErrorMode = exports.setErrorMode = exports.cleanExpiredCheckpoints = exports.hydrateState = exports.serializeState = exports.restoreCheckpoint = exports.getCheckpoint = exports.checkpoint = exports.getStorageAdapter = exports.useStorage = exports.storage = exports.defaultStorageManager = exports.StorageManager = exports.normalizeError = exports.CheckpointVersionException = exports.TenantMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = exports.isPipeline = exports.pipe = exports.Chain = exports.Func = exports.toPOJO = exports.isFlow = exports.flow = exports.Step = void 0;
+exports.clearStorage = exports.getStorage = exports.setPutChainContextPlugin = exports.setGetChainContextPlugin = exports.putChainContext = exports.getChainContext = exports.getErrorMode = exports.setErrorMode = exports.cleanExpiredCheckpoints = exports.hydrateState = exports.serializeState = exports.restoreCheckpoint = exports.getCheckpoint = exports.checkpoint = exports.getStorageAdapter = exports.useStorage = exports.storage = exports.defaultStorageManager = exports.StorageManager = exports.normalizeError = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = exports.isPipeline = exports.pipe = exports.Chain = exports.Func = exports.toPOJO = exports.isFlow = exports.flow = exports.Step = void 0;
 /* c8 ignore start */
 const step_1 = require("./features/step");
 Object.defineProperty(exports, "Step", { enumerable: true, get: function () { return step_1.Step; } });
@@ -21,7 +21,7 @@ Object.defineProperty(exports, "CancellationException", { enumerable: true, get:
 Object.defineProperty(exports, "ValidationException", { enumerable: true, get: function () { return step_1.ValidationException; } });
 Object.defineProperty(exports, "StorageAdapterException", { enumerable: true, get: function () { return step_1.StorageAdapterException; } });
 Object.defineProperty(exports, "CheckpointConflictException", { enumerable: true, get: function () { return step_1.CheckpointConflictException; } });
-Object.defineProperty(exports, "TenantMismatchException", { enumerable: true, get: function () { return step_1.TenantMismatchException; } });
+Object.defineProperty(exports, "NamespaceMismatchException", { enumerable: true, get: function () { return step_1.NamespaceMismatchException; } });
 Object.defineProperty(exports, "CheckpointVersionException", { enumerable: true, get: function () { return step_1.CheckpointVersionException; } });
 Object.defineProperty(exports, "normalizeError", { enumerable: true, get: function () { return step_1.normalizeError; } });
 const storage_1 = require("./features/storage");
@@ -70,7 +70,7 @@ if (typeof module !== 'undefined' && module.exports) {
         ValidationException: step_1.ValidationException,
         StorageAdapterException: step_1.StorageAdapterException,
         CheckpointConflictException: step_1.CheckpointConflictException,
-        TenantMismatchException: step_1.TenantMismatchException,
+        NamespaceMismatchException: step_1.NamespaceMismatchException,
         CheckpointVersionException: step_1.CheckpointVersionException,
         normalizeError: step_1.normalizeError,
         StorageManager: storage_1.StorageManager,

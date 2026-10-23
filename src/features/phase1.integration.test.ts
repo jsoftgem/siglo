@@ -15,7 +15,7 @@ import {
     ValidationException,
     StorageAdapterException,
     CheckpointConflictException,
-    TenantMismatchException,
+    NamespaceMismatchException,
     CheckpointVersionException,
     normalizeError,
     StorageAdapter,
@@ -92,7 +92,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 phase: 'action',
                 retryable: true,
                 stackId: 'stack-123',
-                tenantId: 'tenant-abc',
+                namespace: 'ns-abc',
                 workflowId: 'wf-999',
                 cause: causeErr,
                 stateSnapshot: {attempt: 1}
@@ -106,7 +106,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(err.phase).to.equal('action');
             expect(err.retryable).to.equal(true);
             expect(err.stackId).to.equal('stack-123');
-            expect(err.tenantId).to.equal('tenant-abc');
+            expect(err.namespace).to.equal('ns-abc');
             expect(err.workflowId).to.equal('wf-999');
             expect(err.cause).to.equal(causeErr);
             expect(err.isTimeout).to.be.false;
@@ -141,7 +141,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(stepTimeout.isTimeout).to.be.true;
             expect(stepTimeout.timeoutMs).to.equal(500);
 
-            const flowTimeout = new FlowTimeoutException('s3', 1000, 2, {tenantId: 't1'});
+            const flowTimeout = new FlowTimeoutException('s3', 1000, 2, {namespace: 't1'});
             expect(flowTimeout.name).to.equal('FlowTimeoutException');
             expect(flowTimeout.isTimeout).to.be.true;
             expect(flowTimeout.timeoutMs).to.equal(1000);
@@ -158,10 +158,10 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(conflictErr.expectedRevision).to.equal(2);
             expect(conflictErr.actualRevision).to.equal(1);
 
-            const tenantErr = new TenantMismatchException('tenantA', 'tenantB');
-            expect(tenantErr.name).to.equal('TenantMismatchException');
-            expect(tenantErr.expectedTenantId).to.equal('tenantA');
-            expect(tenantErr.actualTenantId).to.equal('tenantB');
+            const nsErr = new NamespaceMismatchException('nsA', 'nsB');
+            expect(nsErr.name).to.equal('NamespaceMismatchException');
+            expect(nsErr.expectedNamespace).to.equal('nsA');
+            expect(nsErr.actualNamespace).to.equal('nsB');
 
             const verErr = new CheckpointVersionException(99);
             expect(verErr.name).to.equal('CheckpointVersionException');
@@ -178,14 +178,14 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             const fErr = new FluidFuncError('orig');
             const norm1 = normalizeError(fErr, {
                 stackId: 'stk',
-                tenantId: 'tnt',
+                namespace: 'tnt',
                 workflowId: 'wf',
                 stepName: 'stp',
                 phase: 'action'
             });
             expect(norm1).to.equal(fErr);
             expect(norm1.stackId).to.equal('stk');
-            expect(norm1.tenantId).to.equal('tnt');
+            expect(norm1.namespace).to.equal('tnt');
             expect(norm1.workflowId).to.equal('wf');
             expect(norm1.stepName).to.equal('stp');
             expect(norm1.phase).to.equal('action');
@@ -224,13 +224,13 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 });
 
             try {
-                await flow(badStep).execute({}, {tenantId: 'tenant-1'});
+                await flow(badStep).execute({}, {namespace: 'ns-1'});
                 expect.fail('Flow should have rejected');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(FluidFuncError);
                 expect(err.stepName).to.equal('failingStep');
                 expect(err.phase).to.equal('action');
-                expect(err.tenantId).to.equal('tenant-1');
+                expect(err.namespace).to.equal('ns-1');
                 expect(err.stackId).to.be.a('string');
                 // backward compat
                 expect(err.error.message).to.equal('Something broke inside step');
@@ -545,14 +545,16 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 .onStart(({x}: any) => (typeof x === 'function' ? x() : x) * 2);
 
             const p = flow(cachedStep);
-            await p.execute({x: 5}, {tenantId: 't-events'});
-            await p.execute({x: 5}, {tenantId: 't-events'});
+            await p.execute({x: 5}, {namespace: 'ns-events'});
+            await p.execute({x: 5}, {namespace: 'ns-events'});
 
             expect(events.length).to.be.at.least(2);
             expect(events[0].type).to.equal('miss');
-            expect(events[0].tenantId).to.equal('t-events');
+            expect(events[0].namespace).to.equal('ns-events');
+            expect(events[0].stackId).to.be.a('string');
             expect(events[1].type).to.equal('hit');
-            expect(events[1].tenantId).to.equal('t-events');
+            expect(events[1].namespace).to.equal('ns-events');
+            expect(events[1].stackId).to.be.a('string');
         });
 
         it('supports Stale-While-Revalidate (SWR) returning stale data while revalidating in background', async () => {
@@ -645,7 +647,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
 
     describe('Workstream 6: Checkpoint & Storage Reliability', () => {
         it('checkpoints produce version 2, schemaVersion 2.0.0, status, and revision', () => {
-            const stackId = defaultStorageManager.createExecutionStack('tenant-cp');
+            const stackId = defaultStorageManager.createExecutionStack('ns-cp');
             defaultStorageManager.addChainToStack(stackId, 'step1');
             defaultStorageManager.putChainContext('step1', 'data', {hello: 'world'}, {stackId});
 
@@ -654,7 +656,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(cp1.schemaVersion).to.equal('2.0.0');
             expect(cp1.revision).to.equal(1);
             expect(cp1.status).to.equal('completed');
-            expect(cp1.tenantId).to.equal('tenant-cp');
+            expect(cp1.namespace).to.equal('ns-cp');
             expect(cp1.workflowId).to.equal('wf-test');
 
             // Successive checkpoint increments revision
@@ -672,13 +674,13 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             }).to.throw(CheckpointConflictException);
         });
 
-        it('enforces tenant isolation and throws TenantMismatchException on restore', () => {
-            const stackId = defaultStorageManager.createExecutionStack('tenant-alpha');
+        it('enforces namespace isolation and throws NamespaceMismatchException on restore', () => {
+            const stackId = defaultStorageManager.createExecutionStack('ns-alpha');
             const cp = defaultStorageManager.checkpoint(stackId);
 
             expect(() => {
-                defaultStorageManager.restoreCheckpoint(cp, {expectedTenantId: 'tenant-beta'});
-            }).to.throw(TenantMismatchException);
+                defaultStorageManager.restoreCheckpoint(cp, {expectedNamespace: 'ns-beta'});
+            }).to.throw(NamespaceMismatchException);
         });
 
         it('rejects unsupported checkpoint versions with CheckpointVersionException', () => {
@@ -695,7 +697,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
         });
 
         it('redacts sensitive fields in checkpoint snapshots', () => {
-            const stackId = defaultStorageManager.createExecutionStack('tenant-sec');
+            const stackId = defaultStorageManager.createExecutionStack('ns-sec');
             defaultStorageManager.addChainToStack(stackId, 'authStep');
             defaultStorageManager.putChainContext('authStep', 'credentials', {
                 apiKey: 'super-secret-12345',
@@ -724,7 +726,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             defaultStorageManager.useStorage(mockAdapter);
 
-            const stackId = defaultStorageManager.createExecutionStack('tenant-exp');
+            const stackId = defaultStorageManager.createExecutionStack('ns-exp');
             defaultStorageManager.checkpoint(stackId, {ttlMs: 20});
 
             // Not yet expired
@@ -930,7 +932,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             customSm.useStorage(faultyCacheEventAdapterAsync);
             customSm.setErrorMode("best-effort");
-            customSm.emitCacheEvent({type: "hit", key: "k1", stepId: '', timestamp: 1, tenantId: 'tenant1'});
+            customSm.emitCacheEvent({type: "hit", key: "k1", stepId: '', timestamp: 1, namespace: 'ns1'});
 
             const faultyCacheEventAdapterSync: StorageAdapter = {
                 name: "event-sync-fail",
@@ -939,7 +941,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 }
             };
             customSm.useStorage(faultyCacheEventAdapterSync);
-            customSm.emitCacheEvent({type: "miss", key: "k2", stepId: '', timestamp: 1, tenantId: 'tenant1'});
+            customSm.emitCacheEvent({type: "miss", key: "k2", stepId: '', timestamp: 1, namespace: 'ns1'});
 
             const faultyCleanAdapterAsync: StorageAdapter = {
                 name: "clean-async-fail",

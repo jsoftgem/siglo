@@ -14,7 +14,7 @@ export interface SerializedExecutionStack {
   schemaVersion: '2.0.0';
   stackId: string;
   workflowId?: string;
-  tenantId?: string;
+  namespace?: string;
   type: 'execution' | string;
   status: 'running' | 'completed' | 'failed' | 'cancelled';
   revision: number;
@@ -53,11 +53,11 @@ const cp = defaultStorageManager.checkpoint(stackId, {
 
 ---
 
-## 3. Multi-Tenancy & Tenant Isolation
+## 3. Namespace Isolation
 
-Checkpoints recorded with a `tenantId` are isolated:
-- Restoring a checkpoint with `restoreCheckpoint(cp, { expectedTenantId: 'tenant-A' })` throws `TenantMismatchException` if `cp.tenantId === 'tenant-B'`.
-- Storage adapter operations pass `tenantId` whenever available.
+Checkpoints recorded with a `namespace` are isolated:
+- Restoring a checkpoint with `restoreCheckpoint(cp, { expectedNamespace: 'ns-A' })` throws `NamespaceMismatchException` if `cp.namespace === 'ns-B'`.
+- Storage adapter operations pass `namespace` whenever available.
 
 ---
 

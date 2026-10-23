@@ -2,17 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cache = cache;
 const storage_1 = require("../storage");
-const proxy_1 = require("../context/proxy");
+const context_1 = require("../context");
 const inFlightPromises = new Map();
-function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
+function cache(stackId, stepId, param, cachedLast, action, namespace, options) {
     const adapter = storage_1.defaultStorageManager.getStorageAdapter();
-    const cleanParam = (0, proxy_1.toPOJO)(param);
+    const cleanParam = (0, context_1.toPOJO)(param);
     const paramToHash = Object.assign({}, cleanParam);
     const internalKeys = [
         '$chainId',
         '$stepId',
         '$stackId',
-        '$tenantId',
         '$$$validators',
         '$steps',
         '$history',
@@ -27,12 +26,14 @@ function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
     for (const ik of internalKeys) {
         delete paramToHash[ik];
     }
+    delete paramToHash['$namespace'];
+    delete paramToHash['namespace'];
     const customSerializer = options?.keySerializer || (storage_1.defaultStorageManager.getState().config?.cacheKeySerializer);
     const paramKey = customSerializer
-        ? customSerializer(stepId, paramToHash, tenantId)
+        ? customSerializer(stepId, paramToHash, namespace)
         : JSON.stringify(paramToHash);
-    const effectiveCacheKey = tenantId
-        ? `${tenantId}:${stepId}:${paramKey}`
+    const effectiveCacheKey = namespace
+        ? `${namespace}:${stepId}:${paramKey}`
         : `${stepId}:${paramKey}`;
     const swrWindow = typeof options?.swr === 'number'
         ? options.swr
@@ -47,7 +48,8 @@ function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
                 type: 'hit',
                 key: effectiveCacheKey,
                 stepId,
-                tenantId,
+                stackId,
+                namespace,
                 timestamp: currentTime
             });
             return cachedAction.result;
@@ -57,7 +59,8 @@ function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
                 type: 'hit',
                 key: effectiveCacheKey,
                 stepId,
-                tenantId,
+                stackId,
+                namespace,
                 timestamp: currentTime
             });
             // Background revalidation
@@ -99,7 +102,8 @@ function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
                         type: 'hit',
                         key: effectiveCacheKey,
                         stepId,
-                        tenantId,
+                        stackId,
+                        namespace,
                         timestamp: Date.now()
                     });
                     (0, storage_1.cacheChainAction)(stackId, effectiveCacheKey, paramKey, adapterCached);
@@ -113,7 +117,8 @@ function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
                 type: 'miss',
                 key: effectiveCacheKey,
                 stepId,
-                tenantId,
+                stackId,
+                namespace,
                 timestamp: Date.now()
             });
             const actionResult = await action(param);
@@ -139,7 +144,8 @@ function cache(stackId, stepId, param, cachedLast, action, tenantId, options) {
         type: 'miss',
         key: effectiveCacheKey,
         stepId,
-        tenantId,
+        stackId,
+        namespace,
         timestamp: Date.now()
     });
     // 4. Local Execution

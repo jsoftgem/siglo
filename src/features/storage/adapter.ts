@@ -1,7 +1,7 @@
 import { SerializedExecutionStack } from './state';
 
 export interface ContextChangeEvent {
-    tenantId?: string;
+    namespace?: string;
     stackId: string;
     stepId: string;
     field: string;
@@ -13,7 +13,8 @@ export interface CacheEvent {
     type: 'hit' | 'miss';
     key: string;
     stepId: string;
-    tenantId?: string;
+    stackId?: string;
+    namespace?: string;
     timestamp: number;
 }
 

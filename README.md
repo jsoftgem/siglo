@@ -1,7 +1,7 @@
 # fluid-func
 > A modern, type-safe, and composable workflow orchestrator for TypeScript and JavaScript.
 
-[![NPM Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://www.npmjs.com/package/fluid-func)
+[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/fluid-func)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -26,7 +26,7 @@
 
 - 📜 [Execution Semantics Contract](docs/execution-semantics.md) &mdash; Formal semantics answering all 9 runtime execution contract questions.
 - 🚨 [Error Model & Exception Hierarchy](docs/error-model.md) &mdash; Complete exception hierarchy (`FluidFuncError`), metadata fields, cause preservation, and JSON serialization.
-- 💾 [Storage & Checkpoint Contract](docs/storage-contract.md) &mdash; Checkpoint schema v2.0.0, optimistic concurrency (`expectedRevision`), tenant isolation, and error modes (`strict`, `warn`, `best-effort`).
+- 💾 [Storage & Checkpoint Contract](docs/storage-contract.md) &mdash; Checkpoint schema v2.0.0, optimistic concurrency (`expectedRevision`), namespace isolation, and error modes (`strict`, `warn`, `best-effort`).
 
 ---
 
@@ -35,7 +35,7 @@
 - ⚡ **Composable Flows (`flow`)** &mdash; Compose steps directly into workflows without mandatory global string registries; steps are pure execution units.
 - 🛡️ **TypeScript First & End-to-End Generics** &mdash; Comprehensive type definitions, input/output generic inference, IntelliSense autocompletion, and robust error contracts.
 - ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) with typed `StepTimeoutException` and workflow-level deadlines (`flow.timeout(ms)`, `options.timeout`) with `FlowTimeoutException`.
-- 🏢 **Runtime Multi-Tenancy (`tenantId`)** &mdash; Native tenant data isolation at runtime (`{ tenantId: "tenant_123" }`); tenant-scoped stacks, context metadata, isolated saga checkpoints, and auto-partitioned cache keys (`tenantId:stepId:hash`).
+- 🌐 **Runtime Namespaces & Isolation (`namespace`)** &mdash; Native data isolation at runtime (`{ namespace: "tenant_123" }`); namespace-scoped stacks, context metadata, isolated checkpoints, and auto-partitioned cache keys (`namespace:stepId:hash`).
 - 🔌 **Unified Distributed `StorageAdapter`** &mdash; Enterprise distributed storage interface for real-time telemetry streaming (`onContextChange`), durable saga pause/resume (`saveCheckpoint` / `getCheckpoint`), and distributed caching (`getCachedStep` / `setCachedStep`).
 - 🔀 **Modern Parameter Access & Native Destructuring** &mdash; Access values directly using modern object destructuring (`.modern()`), property getters (`param.prop.val`, `param.props`), type coercion, and clean POJO execution (`{ pojo: true }`).
 - 📜 **Step-Namespaced History (`$steps` / `$history`)** &mdash; Retain intermediate step outputs across flow execution without key collisions; inspect prior outputs by step name (`param.$steps.stepName`), numeric index (`param.$steps[0]`), or chronological timeline (`param.$history[0]`).
@@ -45,7 +45,7 @@
 - 🔁 **Structured Retry Strategies** &mdash; Automatic retries with exponential, linear, or fixed backoff, jitter, and `onRetry` hooks right in `onFail`.
 - 📦 **Declarative Contracts & Standard Schema (`spec` / `schema`)** &mdash; Field requirements, defaults, validators, async transformers, context translators, and native Standard Schema / Zod / Valibot integration.
 - 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal` (`param.$signal?.()`).
-- ⚡ **Deterministic & Tenant-Partitioned Caching** &mdash; Stable-key hashing with circular reference protection, tenant namespaces, and per-step TTL caching.
+- ⚡ **Deterministic & Namespace-Partitioned Caching** &mdash; Stable-key hashing with circular reference protection, namespaces, and per-step TTL caching.
 
 ---
 
@@ -554,7 +554,7 @@ const orderPipeline = flow(validateStep, chargeStep, invoiceStep).timeout(10000)
 try {
     const result = await orderPipeline.run(orderData, {
         timeout: 8000,
-        tenantId: 'tenant_acme'
+        namespace: 'tenant_acme'
     });
 } catch (err) {
     if (err instanceof FlowTimeoutException) {
@@ -617,13 +617,13 @@ console.log(res.value.val); // 60
 
 ---
 
-## Runtime Multi-Tenancy (`tenantId`)
+## Runtime Namespaces & Isolation (`namespace`)
 
 In multi-tenant systems, workflow definitions are **pure, shared application code** executed concurrently across many tenants. Tenants require **runtime data isolation** &mdash; isolated parameters, execution stacks, caches, and checkpoints &mdash; rather than separate code registries.
 
-### 1. Passing `tenantId` at Execution Time
+### 1. Passing `namespace` at Execution Time
 
-Provide `tenantId` in `ExecutionOptions` when running any step or flow:
+Provide `namespace` in `ExecutionOptions` when running any step or flow:
 
 ```typescript
 import { Step, flow } from "fluid-func";
@@ -632,34 +632,34 @@ const orderPipeline = flow(validateStep, calculateTaxStep, chargeStep);
 
 // Concurrent executions for different tenants in the same Node.js process:
 const [resA, resB] = await Promise.all([
-    orderPipeline.run({ amount: 100 }, { tenantId: "tenant_acme" }),
-    orderPipeline.run({ amount: 250 }, { tenantId: "tenant_globex" })
+    orderPipeline.run({ amount: 100 }, { namespace: "tenant_acme" }),
+    orderPipeline.run({ amount: 250 }, { namespace: "tenant_globex" })
 ]);
 ```
 
-### 2. Accessing `$tenantId` Inside Step Actions
+### 2. Accessing `$namespace` Inside Step Actions
 
-Step actions can read the active tenant ID directly via `param.$tenantId()` or property getter `param.$tenantId.val`:
+Step actions can read the active tenant ID directly via `param.$namespace()` or property getter `param.$namespace.val`:
 
 ```typescript
 const applyTenantPolicy = Step.create(async (param) => {
-    const tenant = param.$tenantId?.();
+    const tenant = param.$namespace?.();
     console.log(`Applying custom business rules for ${tenant}...`);
     return { policyApplied: true };
 });
 ```
 
-### 3. Tenant Cache Partitioning
+### 3. Namespace Cache Partitioning
 
-When a step uses `.cache(ttlMs)`, cache keys are automatically partitioned by `tenantId`:
+When a step uses `.cache(ttlMs)`, cache keys are automatically partitioned by `namespace`:
 ```
-cacheKey = `${tenantId}:${stepId}:${inputHash}`
+cacheKey = `${namespace}:${stepId}:${inputHash}`
 ```
-Tenant A and Tenant B executing the exact same step with identical input arguments will **never** collide or leak cached data across tenant boundaries.
+Executions in different namespaces with identical input arguments will **never** collide or leak cached data across namespace boundaries.
 
-### 4. Tenant Checkpoint Scoping
+### 4. Namespace Checkpoint Scoping
 
-When checkpointing stacks (`Step.checkpoint(stackId)` or `saveCheckpoint`), the active `tenantId` is saved with the checkpoint data, ensuring cross-tenant state restoration cannot occur.
+When checkpointing stacks (`Step.checkpoint(stackId)` or `saveCheckpoint`), the active `namespace` is saved with the checkpoint data, ensuring cross-namespace state restoration cannot occur.
 
 ---
 
@@ -676,7 +676,7 @@ When checkpointing stacks (`Step.checkpoint(stackId)` or `saveCheckpoint`), the 
 
 ```typescript
 export interface ContextChangeEvent {
-    tenantId?: string;
+    namespace?: string;
     stackId: string;
     stepId: string;
     field: string;
@@ -711,7 +711,7 @@ class RedisMongoStorageAdapter implements StorageAdapter {
     async onContextChange(e: ContextChangeEvent) {
         // Stream telemetry to Kafka / MongoDB audit collection
         await mongoLogs.insertOne({
-            tenantId: e.tenantId,
+            namespace: e.namespace,
             stackId: e.stackId,
             stepId: e.stepId,
             field: e.field,
@@ -751,7 +751,7 @@ Step.useStorage(new RedisMongoStorageAdapter());
 ```typescript
 // Worker 1: Run steps up to an external webhook or human approval
 const approvalFlow = flow(submitRequestStep, validateDocumentsStep);
-const partialResult = await approvalFlow.run(input, { tenantId: "tenant_01" });
+const partialResult = await approvalFlow.run(input, { namespace: "tenant_01" });
 const stackId = partialResult.$stackId();
 
 // Automatic or manual checkpointing:
@@ -829,7 +829,7 @@ Step.config({
 | `Step.useStorage(adapter)` | Registers a unified distributed `StorageAdapter` provider globally. |
 | `Step.getStorageAdapter()` | Retrieves the active `StorageAdapter` instance if registered. |
 | `Step.getCheckpoint(stackId)` | Asynchronously retrieves a saved checkpoint from the active storage adapter or local memory. |
-| `step.cache(ms)` | Caches step results for specified duration (in milliseconds); auto-partitioned by `tenantId`. |
+| `step.cache(ms)` | Caches step results for specified duration (in milliseconds); auto-partitioned by `namespace`. |
 | `step.reduce(arrayField)` | Turns the step into an iterative array reducer over the specified array field. |
 | `step.run(param?, options?)` | Executes the step with modern async/await resolution and optional `ExecutionOptions`. |
 | `step.execute(param?, options?)` | Executes the step (supports callback or returns Promise). |

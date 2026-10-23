@@ -54,11 +54,11 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         const step2 = Step.create('step2', async () => ({ verified: true }));
 
         const testFlow = flow(step1, step2);
-        await testFlow.run({ initialInput: 'test' }, { tenantId: 'tenant_omega' });
+        await testFlow.run({ initialInput: 'test' }, { namespace: 'ns_omega' });
 
         expect(events.length).to.be.above(0);
-        const tenantEvents = events.filter(e => e.tenantId === 'tenant_omega');
-        expect(tenantEvents.length).to.be.above(0);
+        const namespaceEvents = events.filter(e => e.namespace === 'ns_omega');
+        expect(namespaceEvents.length).to.be.above(0);
 
         const statusEvent = events.find(e => e.field === 'status');
         expect(statusEvent).to.not.be.undefined;
@@ -113,18 +113,18 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         const mgr = new StorageManager();
         mgr.useStorage(checkpointAdapter);
 
-        const stackId = mgr.createExecutionStack('tenant_123');
+        const stackId = mgr.createExecutionStack('ns_123');
         mgr.addChainToStack(stackId, 'step_abc');
-        mgr.putChainContext('step_abc', 'counter', 42, { stackId, tenantId: 'tenant_123' });
+        mgr.putChainContext('step_abc', 'counter', 42, { stackId, namespace: 'ns_123' });
 
         const snap = mgr.checkpoint(stackId);
         expect(snap.stackId).to.equal(stackId);
-        expect(snap.tenantId).to.equal('tenant_123');
+        expect(snap.namespace).to.equal('ns_123');
         expect(savedCheckpoints.has(stackId)).to.be.true;
 
         const retrieved = await mgr.getCheckpoint(stackId);
         expect(retrieved).to.not.be.undefined;
-        expect(retrieved?.tenantId).to.equal('tenant_123');
+        expect(retrieved?.namespace).to.equal('ns_123');
         expect(retrieved?.contexts['step_abc'].counter).to.equal(42);
     });
 
@@ -264,7 +264,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         expect(res.doubled.val).to.equal(50);
         expect(store.size).to.equal(1);
     });
-    it("resolves stackId and tenantId from existing stacks in onContextChange if not provided in meta", () => {
+    it("resolves stackId and namespace from existing stacks in onContextChange if not provided in meta", () => {
         const events: ContextChangeEvent[] = [];
         const adapter: StorageAdapter = {
             name: "ResolveMetaAdapter",
@@ -276,21 +276,21 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         const mgr = new StorageManager();
         mgr.useStorage(adapter);
 
-        const stackId1 = mgr.createStack("stack_search", "tenant_found");
+        const stackId1 = mgr.createStack("stack_search", "namespace_found");
         mgr.addChainToStack(stackId1, "step_discovered");
 
-        // Call putChainContext without meta -> resolves stackId and tenantId by scanning stacks
+        // Call putChainContext without meta -> resolves stackId and namespace by scanning stacks
         mgr.putChainContext("step_discovered", "status", "ready");
         expect(events.length).to.equal(1);
         expect(events[0].stackId).to.equal("stack_search");
-        expect(events[0].tenantId).to.equal("tenant_found");
+        expect(events[0].namespace).to.equal("namespace_found");
 
-        // Call putChainContext with stackId in meta but without tenantId -> resolves tenantId from stack
-        const stackId2 = mgr.createStack("stack_lookup", "tenant_lookup_val");
+        // Call putChainContext with stackId in meta but without namespace -> resolves namespace from stack
+        const stackId2 = mgr.createStack("stack_lookup", "namespace_lookup_val");
         mgr.putChainContext("step_any", "metric", 100, { stackId: stackId2 });
         expect(events.length).to.equal(2);
         expect(events[1].stackId).to.equal(stackId2);
-        expect(events[1].tenantId).to.equal("tenant_lookup_val");
+        expect(events[1].namespace).to.equal("namespace_lookup_val");
 
         // Call putChainContext with string meta
         mgr.putChainContext("step_str", "metric", 200, "string_stack_id");

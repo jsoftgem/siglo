@@ -82,7 +82,7 @@ const executeArrayChain = (
             const cleanStepOutput: Record<string, any> = {};
             if (rawOutput && typeof rawOutput === 'object') {
                 for (const k of Object.keys(rawOutput)) {
-                    if (k !== '$chainId' && k !== '$stackId' && k !== '$tenantId' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+                    if (k !== '$chainId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
                         cleanStepOutput[k] = rawOutput[k];
                     }
                 }

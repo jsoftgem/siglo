@@ -41,7 +41,7 @@ import { generateUUID } from "../../shared";
 import { StorageAdapter, CacheEvent } from "./adapter";
 import {
     CheckpointConflictException,
-    TenantMismatchException,
+    NamespaceMismatchException,
     CheckpointVersionException,
     StorageAdapterException
 } from "../executer";
@@ -151,31 +151,31 @@ export class StorageManager {
         pcc(this.state, stepId, field, value, meta);
 
         if (this.adapter?.onContextChange) {
-            let tenantId: string | undefined;
+            let namespace: string | undefined;
             let stackId: string | undefined;
             if (typeof meta === "string") {
                 stackId = meta;
             } else if (meta) {
                 stackId = meta.stackId;
-                tenantId = meta.tenantId;
+                namespace = meta.namespace;
             }
             if (!stackId) {
                 for (const [sId, stack] of this.state.stacks.entries()) {
                     if (stack.chains && stack.chains.includes(stepId)) {
                         stackId = sId;
-                        tenantId = tenantId || stack.tenantId;
+                        namespace = namespace || stack.namespace;
                         break;
                     }
                 }
-            } else if (!tenantId) {
+            } else if (!namespace) {
                 const stack = this.state.stacks.get(stackId);
-                if (stack?.tenantId) {
-                    tenantId = stack.tenantId;
+                if (stack?.namespace) {
+                    namespace = stack.namespace;
                 }
             }
             try {
                 const res = this.adapter.onContextChange({
-                    tenantId,
+                    namespace,
                     stackId: stackId || "",
                     stepId,
                     field,
@@ -212,12 +212,12 @@ export class StorageManager {
         return gcdbi(this.state, stepId);
     }
 
-    createExecutionStack(tenantId?: string): string {
+    createExecutionStack(namespace?: string): string {
         const stackId = generateUUID();
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
-            tenantId,
+            namespace,
             status: 'running',
             revision: 0
         });
@@ -225,19 +225,19 @@ export class StorageManager {
         return stackId;
     }
 
-    createStack(stackIdOrTenant?: string, tenantId?: string): string {
+    createStack(stackIdOrNamespace?: string, namespace?: string): string {
         let stackId: string;
-        let effectiveTenantId: string | undefined;
-        if (tenantId !== undefined) {
-            stackId = stackIdOrTenant || generateUUID();
-            effectiveTenantId = tenantId;
+        let effectiveNamespace: string | undefined;
+        if (namespace !== undefined) {
+            stackId = stackIdOrNamespace || generateUUID();
+            effectiveNamespace = namespace;
         } else {
-            stackId = stackIdOrTenant || generateUUID();
+            stackId = stackIdOrNamespace || generateUUID();
         }
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
-            tenantId: effectiveTenantId,
+            namespace: effectiveNamespace,
             status: 'running',
             revision: 0
         });
@@ -254,7 +254,7 @@ export class StorageManager {
         if (stack && !stack.chains.includes(stepId)) {
             stack.chains.push(stepId);
         }
-        this.putChainContext(stepId, key, val, { stackId, tenantId: stack?.tenantId });
+        this.putChainContext(stepId, key, val, { stackId, namespace: stack?.namespace });
     }
 
     get(stackId: string, stepId: string): any {
@@ -455,7 +455,7 @@ export class StorageManager {
             schemaVersion: '2.0.0',
             stackId,
             workflowId: options?.workflowId || stack.workflowId,
-            tenantId: stack.tenantId,
+            namespace: stack.namespace,
             type: stack.type,
             status,
             revision: nextRev,
@@ -525,7 +525,7 @@ export class StorageManager {
 
     restoreCheckpoint(
         checkpointData: SerializedExecutionStack,
-        options?: { expectedTenantId?: string; expectedWorkflowId?: string }
+        options?: { expectedNamespace?: string; expectedWorkflowId?: string }
     ): string {
         if (!checkpointData || !checkpointData.stackId) {
             throw new Error("Invalid checkpoint data.");
@@ -535,9 +535,9 @@ export class StorageManager {
             throw new CheckpointVersionException(checkpointData.version);
         }
 
-        const expectedTenant = options?.expectedTenantId || (options as any)?.tenantId;
-        if (expectedTenant && checkpointData.tenantId && checkpointData.tenantId !== expectedTenant) {
-            throw new TenantMismatchException(expectedTenant, checkpointData.tenantId);
+        const expectedNamespace = options?.expectedNamespace || (options as any)?.namespace;
+        if (expectedNamespace && checkpointData.namespace && checkpointData.namespace !== expectedNamespace) {
+            throw new NamespaceMismatchException(expectedNamespace, checkpointData.namespace);
         }
 
         const rev = checkpointData.revision || 1;
@@ -546,7 +546,7 @@ export class StorageManager {
         this.state.stacks.set(checkpointData.stackId, {
             type: checkpointData.type || "execution",
             chains: Array.isArray(checkpointData.chains) ? [...checkpointData.chains] : [],
-            tenantId: checkpointData.tenantId,
+            namespace: checkpointData.namespace,
             workflowId: checkpointData.workflowId,
             status: checkpointData.status || 'running',
             revision: rev,
@@ -560,7 +560,7 @@ export class StorageManager {
                     for (const [field, value] of Object.entries(fields)) {
                         this.putChainContext(stepId, field, value, {
                             stackId: checkpointData.stackId,
-                            tenantId: checkpointData.tenantId
+                            namespace: checkpointData.namespace
                         });
                     }
                 }
@@ -578,7 +578,7 @@ export class StorageManager {
             stacks[sId] = {
                 type: sVal.type,
                 chains: [...sVal.chains],
-                tenantId: sVal.tenantId,
+                namespace: sVal.namespace,
                 status: sVal.status,
                 revision: sVal.revision,
                 workflowId: sVal.workflowId,
@@ -607,7 +607,7 @@ export class StorageManager {
 
     hydrateState(
         serialized: string | SerializedStorageState | SerializedExecutionStack,
-        options?: { expectedTenantId?: string }
+        options?: { expectedNamespace?: string }
     ): string | undefined {
         if (!serialized) {
             throw new Error("Cannot hydrate empty state.");
@@ -630,7 +630,7 @@ export class StorageManager {
                 this.state.stacks.set(sId, {
                     type: sVal.type || "execution",
                     chains: Array.isArray(sVal.chains) ? [...sVal.chains] : [],
-                    tenantId: sVal.tenantId,
+                    namespace: sVal.namespace,
                     status: sVal.status || 'running',
                     revision: rev,
                     workflowId: sVal.workflowId,
@@ -700,8 +700,8 @@ export function getChainDataById(stepId: string): any {
     return defaultStorageManager.getChainDataById(stepId);
 }
 
-export function createExecutionStack(tenantId?: string): string {
-    return defaultStorageManager.createExecutionStack(tenantId);
+export function createExecutionStack(namespace?: string): string {
+    return defaultStorageManager.createExecutionStack(namespace);
 }
 
 export function addChainToStack(stackId: string, stepId: string): void {
@@ -766,7 +766,7 @@ export function getCheckpoint(stackId: string): Promise<SerializedExecutionStack
 
 export function restoreCheckpoint(
     checkpointData: SerializedExecutionStack,
-    options?: { expectedTenantId?: string; expectedWorkflowId?: string }
+    options?: { expectedNamespace?: string; expectedWorkflowId?: string }
 ): string {
     return defaultStorageManager.restoreCheckpoint(checkpointData, options);
 }
@@ -777,7 +777,7 @@ export function serializeState(stackId?: string): string {
 
 export function hydrateState(
     serialized: string | SerializedStorageState | SerializedExecutionStack,
-    options?: { expectedTenantId?: string }
+    options?: { expectedNamespace?: string }
 ): string | undefined {
     return defaultStorageManager.hydrateState(serialized, options);
 }

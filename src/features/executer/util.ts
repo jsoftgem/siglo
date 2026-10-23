@@ -7,12 +7,12 @@ export class Util {
         ContextClass?: any,
         generateUUID?: any,
         stackId?: string,
-        tenantId?: string
+        namespace?: string
     ): any {
         let effContext = Context;
         let effUUID = defaultGenerateUUID;
         let effStackId = stackId;
-        let effTenantId = tenantId;
+        let effNamespace = namespace;
 
         if (typeof ContextClass === 'function' && ContextClass.createContext) {
             effContext = ContextClass;
@@ -25,12 +25,12 @@ export class Util {
                 effStackId = generateUUID;
             }
             if (typeof stackId === 'string') {
-                effTenantId = stackId;
+                effNamespace = stackId;
             }
         }
 
         if (!(param instanceof effContext)) {
-            const newParam = effContext.createContext(effUUID(), effStackId, effTenantId);
+            const newParam = effContext.createContext(effUUID(), effStackId, effNamespace);
             for (const name in param) {
                 if (Object.prototype.hasOwnProperty.call(param, name)) {
                     newParam.set(name, param[name]);
@@ -41,8 +41,8 @@ export class Util {
         if (effStackId && !param.$stackId) {
             param.setStackId(effStackId);
         }
-        if (effTenantId && !param.$tenantId) {
-            param.setTenantId(effTenantId);
+        if (effNamespace && !param.$namespace) {
+            param.setNamespace(effNamespace);
         }
         return param.getData();
     }

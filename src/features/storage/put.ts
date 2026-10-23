@@ -15,7 +15,7 @@ export const putChainContext = (
             if (stack.chains && stack.chains.includes(chainId)) {
                 effectiveMeta = Object.assign({}, effectiveMeta, {
                     stackId: sId,
-                    tenantId: effectiveMeta?.tenantId || stack.tenantId
+                    namespace: effectiveMeta?.namespace || stack.namespace
                 });
                 break;
             }

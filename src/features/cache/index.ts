@@ -5,7 +5,7 @@ export interface CacheOptions {
     ttl?: number;
     staleWhileRevalidate?: number;
     swr?: boolean | number;
-    keySerializer?: (stepId: string, param: any, tenantId?: string) => string;
+    keySerializer?: (stepId: string, param: any, namespace?: string) => string;
     stampedeProtection?: boolean;
 }
 
@@ -17,7 +17,7 @@ export function cache(
     param: any,
     cachedLast: number,
     action: (param: any) => any,
-    tenantId?: string,
+    namespace?: string,
     options?: CacheOptions
 ): any {
     const adapter = defaultStorageManager.getStorageAdapter();
@@ -27,7 +27,7 @@ export function cache(
         '$chainId',
         '$stepId',
         '$stackId',
-        '$tenantId',
+        
         '$$$validators',
         '$steps',
         '$history',
@@ -42,14 +42,16 @@ export function cache(
     for (const ik of internalKeys) {
         delete paramToHash[ik];
     }
+    delete paramToHash['$namespace'];
+    delete paramToHash['namespace'];
 
     const customSerializer = options?.keySerializer || (defaultStorageManager.getState().config?.cacheKeySerializer);
     const paramKey = customSerializer
-        ? customSerializer(stepId, paramToHash, tenantId)
+        ? customSerializer(stepId, paramToHash, namespace)
         : JSON.stringify(paramToHash);
 
-    const effectiveCacheKey = tenantId
-        ? `${tenantId}:${stepId}:${paramKey}`
+    const effectiveCacheKey = namespace
+        ? `${namespace}:${stepId}:${paramKey}`
         : `${stepId}:${paramKey}`;
 
     const swrWindow = typeof options?.swr === 'number'
@@ -67,7 +69,8 @@ export function cache(
                 type: 'hit',
                 key: effectiveCacheKey,
                 stepId,
-                tenantId,
+                stackId,
+                namespace,
                 timestamp: currentTime
             });
             return cachedAction.result;
@@ -76,7 +79,8 @@ export function cache(
                 type: 'hit',
                 key: effectiveCacheKey,
                 stepId,
-                tenantId,
+                stackId,
+                namespace,
                 timestamp: currentTime
             });
             // Background revalidation
@@ -117,8 +121,9 @@ export function cache(
                         type: 'hit',
                         key: effectiveCacheKey,
                         stepId,
-                        tenantId,
-                        timestamp: Date.now()
+                        stackId,
+                namespace,
+                timestamp: Date.now()
                     });
                     cacheChainAction(stackId, effectiveCacheKey, paramKey, adapterCached);
                     return adapterCached;
@@ -131,7 +136,8 @@ export function cache(
                 type: 'miss',
                 key: effectiveCacheKey,
                 stepId,
-                tenantId,
+                stackId,
+                namespace,
                 timestamp: Date.now()
             });
 
@@ -159,8 +165,9 @@ export function cache(
         type: 'miss',
         key: effectiveCacheKey,
         stepId,
-        tenantId,
-        timestamp: Date.now()
+        stackId,
+                namespace,
+                timestamp: Date.now()
     });
 
     // 4. Local Execution

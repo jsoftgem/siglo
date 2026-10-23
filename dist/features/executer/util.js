@@ -7,11 +7,11 @@ exports.Util = void 0;
 const context_1 = __importDefault(require("../context"));
 const Util_1 = require("../../shared/Util");
 class Util {
-    static convertToContextStructure(param, ContextClass, generateUUID, stackId, tenantId) {
+    static convertToContextStructure(param, ContextClass, generateUUID, stackId, namespace) {
         let effContext = context_1.default;
         let effUUID = Util_1.generateUUID;
         let effStackId = stackId;
-        let effTenantId = tenantId;
+        let effNamespace = namespace;
         if (typeof ContextClass === 'function' && ContextClass.createContext) {
             effContext = ContextClass;
             effUUID = typeof generateUUID === 'function' ? generateUUID : Util_1.generateUUID;
@@ -24,11 +24,11 @@ class Util {
                 effStackId = generateUUID;
             }
             if (typeof stackId === 'string') {
-                effTenantId = stackId;
+                effNamespace = stackId;
             }
         }
         if (!(param instanceof effContext)) {
-            const newParam = effContext.createContext(effUUID(), effStackId, effTenantId);
+            const newParam = effContext.createContext(effUUID(), effStackId, effNamespace);
             for (const name in param) {
                 if (Object.prototype.hasOwnProperty.call(param, name)) {
                     newParam.set(name, param[name]);
@@ -39,8 +39,8 @@ class Util {
         if (effStackId && !param.$stackId) {
             param.setStackId(effStackId);
         }
-        if (effTenantId && !param.$tenantId) {
-            param.setTenantId(effTenantId);
+        if (effNamespace && !param.$namespace) {
+            param.setNamespace(effNamespace);
         }
         return param.getData();
     }

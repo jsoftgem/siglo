@@ -31,8 +31,8 @@ export declare class StorageManager {
     putChainContext(stepId: string, field: string, value: any, meta?: PutChainContextMeta | string): void;
     emitCacheEvent(event: CacheEvent): void;
     getChainDataById(stepId: string): any;
-    createExecutionStack(tenantId?: string): string;
-    createStack(stackIdOrTenant?: string, tenantId?: string): string;
+    createExecutionStack(namespace?: string): string;
+    createStack(stackIdOrNamespace?: string, namespace?: string): string;
     getStack(stackId: string): any;
     set(stackId: string, stepId: string, key: string, val: any): void;
     get(stackId: string, stepId: string): any;
@@ -54,12 +54,12 @@ export declare class StorageManager {
     saveCheckpoint(checkpointData: SerializedExecutionStack): Promise<void>;
     getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined>;
     restoreCheckpoint(checkpointData: SerializedExecutionStack, options?: {
-        expectedTenantId?: string;
+        expectedNamespace?: string;
         expectedWorkflowId?: string;
     }): string;
     serializeState(stackId?: string): string;
     hydrateState(serialized: string | SerializedStorageState | SerializedExecutionStack, options?: {
-        expectedTenantId?: string;
+        expectedNamespace?: string;
     }): string | undefined;
 }
 interface StorageHolder {
@@ -75,7 +75,7 @@ export declare function cleanExpiredCheckpoints(): number;
 export declare function getChainContext(stepId: string, field: string): any;
 export declare function putChainContext(stepId: string, field: string, value: any, meta?: PutChainContextMeta | string): void;
 export declare function getChainDataById(stepId: string): any;
-export declare function createExecutionStack(tenantId?: string): string;
+export declare function createExecutionStack(namespace?: string): string;
 export declare function addChainToStack(stackId: string, stepId: string): void;
 export declare function cacheChainAction(stackId: string, stepId: string, param: any, result: any): void;
 export declare function hasCached(stackId: string, stepId: string, param: any): boolean;
@@ -92,11 +92,11 @@ export declare function setPutChainContextPlugin(plugin: (stepId: string, field:
 export declare function checkpoint(stackId: string, options?: CheckpointOptions): SerializedExecutionStack;
 export declare function getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined>;
 export declare function restoreCheckpoint(checkpointData: SerializedExecutionStack, options?: {
-    expectedTenantId?: string;
+    expectedNamespace?: string;
     expectedWorkflowId?: string;
 }): string;
 export declare function serializeState(stackId?: string): string;
 export declare function hydrateState(serialized: string | SerializedStorageState | SerializedExecutionStack, options?: {
-    expectedTenantId?: string;
+    expectedNamespace?: string;
 }): string | undefined;
 //# sourceMappingURL=index.d.ts.map

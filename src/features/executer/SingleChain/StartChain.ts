@@ -106,7 +106,7 @@ export default class StartChain {
                         const contextChainId = typeof initialParam?.$chainId === 'function'
                             ? initialParam.$chainId()
                             : (initialParam?.$chainId || chain.$chainId);
-                        const paramAsContext = new Context(contextChainId, stackId, options?.tenantId);
+                        const paramAsContext = new Context(contextChainId, stackId, options?.namespace);
                         new AddSpecToContext(chain.specs, paramAsContext);
                         new AddInitialParam(initialParam, paramAsContext);
                         paramAsContext.runSpecs().then(() => {
@@ -118,11 +118,11 @@ export default class StartChain {
                                 param.$signal = sigFn;
                                 param.signal = sigFn;
                             }
-                            if (options?.tenantId) {
-                                const tFn = () => options.tenantId;
-                                (tFn as any).val = options.tenantId;
-                                param.$tenantId = tFn;
-                                param.tenantId = tFn;
+                            if (options?.namespace) {
+                                const nsFn = () => options.namespace;
+                                (nsFn as any).val = options.namespace;
+                                param.$namespace = nsFn;
+                                param.namespace = nsFn;
                             }
                             if (initialParam?.$attempt) {
                                 param.$attempt = initialParam.$attempt;
@@ -136,7 +136,7 @@ export default class StartChain {
                             }
                             executeBefore(chain.func, param)
                                 .then(resolvedPluginData => {
-                                    const newContext = new Context('_before_temp', stackId, options?.tenantId);
+                                    const newContext = new Context('_before_temp', stackId, options?.namespace);
                                     new SetResolvedContexts(resolvedPluginData, newContext);
                                     param = Object.assign({}, param, newContext.getData());
                                     if (stepEffectiveSignal) {
@@ -145,11 +145,11 @@ export default class StartChain {
                                         param.$signal = sigFn;
                                         param.signal = sigFn;
                                     }
-                                    if (options?.tenantId) {
-                                        const tFn = () => options.tenantId;
-                                        (tFn as any).val = options.tenantId;
-                                        param.$tenantId = tFn;
-                                        param.tenantId = tFn;
+                                    if (options?.namespace) {
+                                        const nsFn = () => options.namespace;
+                                        (nsFn as any).val = options.namespace;
+                                        param.$namespace = nsFn;
+                                        param.namespace = nsFn;
                                     }
                                     if (initialParam?.$attempt) {
                                         param.$attempt = initialParam.$attempt;
@@ -230,7 +230,7 @@ export default class StartChain {
                                             let rawAction: any;
                                             try {
                                                 rawAction = chain.cachedLast
-                                                    ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.tenantId, chain.cacheOptions)
+                                                    ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.namespace, chain.cacheOptions)
                                                     : chain.action(actionParam);
                                             } catch (actionErr: any) {
                                                 clearStepTimeout();
@@ -243,7 +243,7 @@ export default class StartChain {
                                                 }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
                                                 return;
                                             }
-                                            const context = Context.createContext(chain.$chainId, stackId, options?.tenantId);
+                                            const context = Context.createContext(chain.$chainId, stackId, options?.namespace);
                                             logInfo('SingleChain', {
                                                 chain: chains,
                                                 message: 'Starting action',

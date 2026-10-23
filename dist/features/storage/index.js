@@ -52,7 +52,7 @@ const put_1 = require("./put");
 const constants_1 = require("./constants");
 const state_1 = require("./state");
 const shared_1 = require("../../shared");
-const exceptions_1 = require("../executer/exceptions");
+const executer_1 = require("../executer");
 var get_2 = require("./get");
 Object.defineProperty(exports, "GetChainTypeException", { enumerable: true, get: function () { return get_2.GetChainTypeException; } });
 var put_2 = require("./put");
@@ -112,7 +112,7 @@ class StorageManager {
     }
     handleAdapterError(operation, error) {
         if (this.errorMode === 'strict') {
-            throw new exceptions_1.StorageAdapterException(operation, this.adapter?.name, error);
+            throw new executer_1.StorageAdapterException(operation, this.adapter?.name, error);
         }
         if (this.errorMode === 'warn') {
             const msg = `Storage adapter '${this.adapter?.name || 'unknown'}' warning during '${operation}': ${error?.message || error}`;
@@ -132,33 +132,33 @@ class StorageManager {
     putChainContext(stepId, field, value, meta) {
         (0, put_1.putChainContext)(this.state, stepId, field, value, meta);
         if (this.adapter?.onContextChange) {
-            let tenantId;
+            let namespace;
             let stackId;
             if (typeof meta === "string") {
                 stackId = meta;
             }
             else if (meta) {
                 stackId = meta.stackId;
-                tenantId = meta.tenantId;
+                namespace = meta.namespace;
             }
             if (!stackId) {
                 for (const [sId, stack] of this.state.stacks.entries()) {
                     if (stack.chains && stack.chains.includes(stepId)) {
                         stackId = sId;
-                        tenantId = tenantId || stack.tenantId;
+                        namespace = namespace || stack.namespace;
                         break;
                     }
                 }
             }
-            else if (!tenantId) {
+            else if (!namespace) {
                 const stack = this.state.stacks.get(stackId);
-                if (stack?.tenantId) {
-                    tenantId = stack.tenantId;
+                if (stack?.namespace) {
+                    namespace = stack.namespace;
                 }
             }
             try {
                 const res = this.adapter.onContextChange({
-                    tenantId,
+                    namespace,
                     stackId: stackId || "",
                     stepId,
                     field,
@@ -194,32 +194,32 @@ class StorageManager {
     getChainDataById(stepId) {
         return (0, get_1.getChainDataById)(this.state, stepId);
     }
-    createExecutionStack(tenantId) {
+    createExecutionStack(namespace) {
         const stackId = (0, shared_1.generateUUID)();
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
-            tenantId,
+            namespace,
             status: 'running',
             revision: 0
         });
         this.revisions.set(stackId, 0);
         return stackId;
     }
-    createStack(stackIdOrTenant, tenantId) {
+    createStack(stackIdOrNamespace, namespace) {
         let stackId;
-        let effectiveTenantId;
-        if (tenantId !== undefined) {
-            stackId = stackIdOrTenant || (0, shared_1.generateUUID)();
-            effectiveTenantId = tenantId;
+        let effectiveNamespace;
+        if (namespace !== undefined) {
+            stackId = stackIdOrNamespace || (0, shared_1.generateUUID)();
+            effectiveNamespace = namespace;
         }
         else {
-            stackId = stackIdOrTenant || (0, shared_1.generateUUID)();
+            stackId = stackIdOrNamespace || (0, shared_1.generateUUID)();
         }
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
-            tenantId: effectiveTenantId,
+            namespace: effectiveNamespace,
             status: 'running',
             revision: 0
         });
@@ -234,7 +234,7 @@ class StorageManager {
         if (stack && !stack.chains.includes(stepId)) {
             stack.chains.push(stepId);
         }
-        this.putChainContext(stepId, key, val, { stackId, tenantId: stack?.tenantId });
+        this.putChainContext(stepId, key, val, { stackId, namespace: stack?.namespace });
     }
     get(stackId, stepId) {
         const raw = this.getChainDataById(stepId);
@@ -374,7 +374,7 @@ class StorageManager {
         }
         const currentRev = this.revisions.get(stackId) || 0;
         if (options?.expectedRevision !== undefined && options.expectedRevision !== currentRev) {
-            throw new exceptions_1.CheckpointConflictException(stackId, currentRev, options.expectedRevision);
+            throw new executer_1.CheckpointConflictException(stackId, currentRev, options.expectedRevision);
         }
         const nextRev = currentRev + 1;
         this.revisions.set(stackId, nextRev);
@@ -415,7 +415,7 @@ class StorageManager {
             schemaVersion: '2.0.0',
             stackId,
             workflowId: options?.workflowId || stack.workflowId,
-            tenantId: stack.tenantId,
+            namespace: stack.namespace,
             type: stack.type,
             status,
             revision: nextRev,
@@ -446,7 +446,7 @@ class StorageManager {
         }
         const currentRev = this.revisions.get(checkpointData.stackId) || 0;
         if (checkpointData.revision !== undefined && checkpointData.revision <= currentRev) {
-            this.handleAdapterError('saveCheckpoint', new exceptions_1.CheckpointConflictException(checkpointData.stackId, currentRev, checkpointData.revision));
+            this.handleAdapterError('saveCheckpoint', new executer_1.CheckpointConflictException(checkpointData.stackId, currentRev, checkpointData.revision));
             return;
         }
         this.revisions.set(checkpointData.stackId, checkpointData.revision || currentRev + 1);
@@ -481,18 +481,18 @@ class StorageManager {
             throw new Error("Invalid checkpoint data.");
         }
         if (checkpointData.version !== undefined && typeof checkpointData.version === 'number' && checkpointData.version > 2) {
-            throw new exceptions_1.CheckpointVersionException(checkpointData.version);
+            throw new executer_1.CheckpointVersionException(checkpointData.version);
         }
-        const expectedTenant = options?.expectedTenantId || options?.tenantId;
-        if (expectedTenant && checkpointData.tenantId && checkpointData.tenantId !== expectedTenant) {
-            throw new exceptions_1.TenantMismatchException(expectedTenant, checkpointData.tenantId);
+        const expectedNamespace = options?.expectedNamespace || options?.namespace;
+        if (expectedNamespace && checkpointData.namespace && checkpointData.namespace !== expectedNamespace) {
+            throw new executer_1.NamespaceMismatchException(expectedNamespace, checkpointData.namespace);
         }
         const rev = checkpointData.revision || 1;
         this.revisions.set(checkpointData.stackId, rev);
         this.state.stacks.set(checkpointData.stackId, {
             type: checkpointData.type || "execution",
             chains: Array.isArray(checkpointData.chains) ? [...checkpointData.chains] : [],
-            tenantId: checkpointData.tenantId,
+            namespace: checkpointData.namespace,
             workflowId: checkpointData.workflowId,
             status: checkpointData.status || 'running',
             revision: rev,
@@ -505,7 +505,7 @@ class StorageManager {
                     for (const [field, value] of Object.entries(fields)) {
                         this.putChainContext(stepId, field, value, {
                             stackId: checkpointData.stackId,
-                            tenantId: checkpointData.tenantId
+                            namespace: checkpointData.namespace
                         });
                     }
                 }
@@ -522,7 +522,7 @@ class StorageManager {
             stacks[sId] = {
                 type: sVal.type,
                 chains: [...sVal.chains],
-                tenantId: sVal.tenantId,
+                namespace: sVal.namespace,
                 status: sVal.status,
                 revision: sVal.revision,
                 workflowId: sVal.workflowId,
@@ -570,7 +570,7 @@ class StorageManager {
                 this.state.stacks.set(sId, {
                     type: sVal.type || "execution",
                     chains: Array.isArray(sVal.chains) ? [...sVal.chains] : [],
-                    tenantId: sVal.tenantId,
+                    namespace: sVal.namespace,
                     status: sVal.status || 'running',
                     revision: rev,
                     workflowId: sVal.workflowId,
@@ -625,8 +625,8 @@ function putChainContext(stepId, field, value, meta) {
 function getChainDataById(stepId) {
     return exports.defaultStorageManager.getChainDataById(stepId);
 }
-function createExecutionStack(tenantId) {
-    return exports.defaultStorageManager.createExecutionStack(tenantId);
+function createExecutionStack(namespace) {
+    return exports.defaultStorageManager.createExecutionStack(namespace);
 }
 function addChainToStack(stackId, stepId) {
     exports.defaultStorageManager.addChainToStack(stackId, stepId);

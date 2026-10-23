@@ -25,7 +25,7 @@ import {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
-    TenantMismatchException,
+    NamespaceMismatchException,
     CheckpointVersionException,
     normalizeError,
     // Retry
@@ -96,7 +96,7 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
-    TenantMismatchException,
+    NamespaceMismatchException,
     CheckpointVersionException,
     normalizeError,
     // Retry
@@ -155,7 +155,7 @@ if (typeof module !== 'undefined' && module.exports) {
         ValidationException,
         StorageAdapterException,
         CheckpointConflictException,
-        TenantMismatchException,
+        NamespaceMismatchException,
         CheckpointVersionException,
         normalizeError,
         StorageManager,

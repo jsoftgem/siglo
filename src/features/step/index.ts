@@ -28,7 +28,7 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
-    TenantMismatchException,
+    NamespaceMismatchException,
     CheckpointVersionException,
     normalizeError,
     RetryConfig,
@@ -50,7 +50,7 @@ export interface ExecutionOptions {
     signal?: AbortSignal;
     pojo?: boolean;
     mode?: 'pojo' | 'wrapped';
-    tenantId?: string;
+    namespace?: string;
     timeout?: number;
     timeoutMs?: number;
     workflowId?: string;
@@ -104,7 +104,7 @@ function sanitizeFlowData(data: any): any {
     const pojo = toPOJO(data);
     const clean: Record<string, any> = {};
     for (const k of Object.keys(pojo)) {
-        if (k !== '$chainId' && k !== '$stepId' && k !== '$stackId' && k !== '$tenantId' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+        if (k !== '$chainId' && k !== '$stepId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
             clean[k] = (pojo as any)[k];
         }
     }
@@ -226,7 +226,7 @@ export class Step<TInput = any, TOutput = any> {
         }
         let effParam = param;
         let effOptions = options;
-        if (options === undefined && param && (param.signal || param.tenantId || param.timeout || param.timeoutMs || param.pojo)) {
+        if (options === undefined && param && (param.signal || param.namespace || param.timeout || param.timeoutMs || param.pojo)) {
             effOptions = param;
             effParam = {};
         }
@@ -361,7 +361,7 @@ export class Step<TInput = any, TOutput = any> {
         let effParam = param;
         let effOptions = options;
         /* c8 ignore next 4 */
-        if (options === undefined && param && ((param as any).signal || (param as any).tenantId || (param as any).timeout || (param as any).timeoutMs || (param as any).pojo)) {
+        if (options === undefined && param && ((param as any).signal || (param as any).namespace || (param as any).timeout || (param as any).timeoutMs || (param as any).pojo)) {
             effOptions = param as any;
             effParam = {} as any;
         }

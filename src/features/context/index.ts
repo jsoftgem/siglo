@@ -9,12 +9,12 @@ import { toPOJO, wrapParam } from './proxy';
 export default class Context {
     $chainId: string;
     $stackId?: string;
-    $tenantId?: string;
+    $namespace?: string;
 
-    constructor($chainId: string, $stackId?: string, $tenantId?: string) {
+    constructor($chainId: string, $stackId?: string, $namespace?: string) {
         this.$chainId = $chainId;
         this.$stackId = $stackId;
-        this.$tenantId = $tenantId;
+        this.$namespace = $namespace;
     }
 
     set(name: string, value: any): void {
@@ -22,8 +22,8 @@ export default class Context {
         if (this.$stackId) {
             meta.stackId = this.$stackId;
         }
-        if (this.$tenantId) {
-            meta.tenantId = this.$tenantId;
+        if (this.$namespace) {
+            meta.namespace = this.$namespace;
         }
         setContextValue(putChainContext, this.$chainId, name, value, Object.keys(meta).length ? meta : undefined);
     }
@@ -33,9 +33,9 @@ export default class Context {
         this.set('$stackId', stackId);
     }
 
-    setTenantId(tenantId: string): void {
-        this.$tenantId = tenantId;
-        this.set('$tenantId', tenantId);
+    setNamespace(namespace: string): void {
+        this.$namespace = namespace;
+        this.set('$namespace', namespace);
     }
 
     addSpec(fieldSpec: any): void {
@@ -55,14 +55,14 @@ export default class Context {
         return new Validators(this.$chainId, getChainContext.bind(this), CollectPromiseResult).runSpecs(this);
     }
 
-    static createContext(chainId: string, stackId?: string, tenantId?: string): Context {
-        const context = new Context(chainId, stackId, tenantId);
+    static createContext(chainId: string, stackId?: string, namespace?: string): Context {
+        const context = new Context(chainId, stackId, namespace);
         context.set('$chainId', chainId);
         if (stackId) {
             context.set('$stackId', stackId);
         }
-        if (tenantId) {
-            context.set('$tenantId', tenantId);
+        if (namespace) {
+            context.set('$namespace', namespace);
         }
         return context;
     }

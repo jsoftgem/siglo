@@ -1,7 +1,7 @@
 export type StorageErrorMode = 'strict' | 'warn' | 'best-effort';
 export interface PutChainContextMeta {
     stackId?: string;
-    tenantId?: string;
+    namespace?: string;
     [key: string]: any;
 }
 export interface StoragePlugins {
@@ -11,7 +11,7 @@ export interface StoragePlugins {
 export interface StackRecord {
     type: string;
     chains: string[];
-    tenantId?: string;
+    namespace?: string;
     status?: 'running' | 'completed' | 'failed' | 'cancelled';
     workflowId?: string;
     expiresAt?: number;
@@ -31,7 +31,7 @@ export interface SerializedExecutionStack {
     schemaVersion?: string;
     stackId: string;
     workflowId?: string;
-    tenantId?: string;
+    namespace?: string;
     type: string;
     status?: 'running' | 'completed' | 'failed' | 'cancelled';
     revision: number;

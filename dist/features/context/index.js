@@ -12,19 +12,19 @@ Object.defineProperty(exports, "wrapParam", { enumerable: true, get: function ()
 class Context {
     $chainId;
     $stackId;
-    $tenantId;
-    constructor($chainId, $stackId, $tenantId) {
+    $namespace;
+    constructor($chainId, $stackId, $namespace) {
         this.$chainId = $chainId;
         this.$stackId = $stackId;
-        this.$tenantId = $tenantId;
+        this.$namespace = $namespace;
     }
     set(name, value) {
         const meta = {};
         if (this.$stackId) {
             meta.stackId = this.$stackId;
         }
-        if (this.$tenantId) {
-            meta.tenantId = this.$tenantId;
+        if (this.$namespace) {
+            meta.namespace = this.$namespace;
         }
         (0, set_1.setContextValue)(storage_1.putChainContext, this.$chainId, name, value, Object.keys(meta).length ? meta : undefined);
     }
@@ -32,9 +32,9 @@ class Context {
         this.$stackId = stackId;
         this.set('$stackId', stackId);
     }
-    setTenantId(tenantId) {
-        this.$tenantId = tenantId;
-        this.set('$tenantId', tenantId);
+    setNamespace(namespace) {
+        this.$namespace = namespace;
+        this.set('$namespace', namespace);
     }
     addSpec(fieldSpec) {
         new validators_1.Validators(this.$chainId, storage_1.getChainContext.bind(this))
@@ -49,14 +49,14 @@ class Context {
     runSpecs() {
         return new validators_1.Validators(this.$chainId, storage_1.getChainContext.bind(this), shared_1.CollectPromiseResult).runSpecs(this);
     }
-    static createContext(chainId, stackId, tenantId) {
-        const context = new Context(chainId, stackId, tenantId);
+    static createContext(chainId, stackId, namespace) {
+        const context = new Context(chainId, stackId, namespace);
         context.set('$chainId', chainId);
         if (stackId) {
             context.set('$stackId', stackId);
         }
-        if (tenantId) {
-            context.set('$tenantId', tenantId);
+        if (namespace) {
+            context.set('$namespace', namespace);
         }
         return context;
     }

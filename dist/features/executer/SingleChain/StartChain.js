@@ -11,7 +11,7 @@ const OnAfter_1 = __importDefault(require("./LifeCycle/OnAfter"));
 const OnBefore_1 = __importDefault(require("./LifeCycle/OnBefore"));
 const OnFail_1 = __importDefault(require("./LifeCycle/OnFail"));
 const ResolveChain_1 = __importDefault(require("./Helpers/ResolveChain"));
-const proxy_1 = require("../../context/proxy");
+const context_1 = require("../../context");
 const shared_1 = require("../../../shared");
 const exceptions_1 = require("../exceptions");
 const signals_1 = require("../signals");
@@ -88,7 +88,7 @@ class StartChain {
                         const contextChainId = typeof initialParam?.$chainId === 'function'
                             ? initialParam.$chainId()
                             : (initialParam?.$chainId || chain.$chainId);
-                        const paramAsContext = new Context(contextChainId, stackId, options?.tenantId);
+                        const paramAsContext = new Context(contextChainId, stackId, options?.namespace);
                         new AddSpecToContext_1.default(chain.specs, paramAsContext);
                         new AddInitialParam_1.default(initialParam, paramAsContext);
                         paramAsContext.runSpecs().then(() => {
@@ -100,11 +100,11 @@ class StartChain {
                                 param.$signal = sigFn;
                                 param.signal = sigFn;
                             }
-                            if (options?.tenantId) {
-                                const tFn = () => options.tenantId;
-                                tFn.val = options.tenantId;
-                                param.$tenantId = tFn;
-                                param.tenantId = tFn;
+                            if (options?.namespace) {
+                                const nsFn = () => options.namespace;
+                                nsFn.val = options.namespace;
+                                param.$namespace = nsFn;
+                                param.namespace = nsFn;
                             }
                             if (initialParam?.$attempt) {
                                 param.$attempt = initialParam.$attempt;
@@ -118,7 +118,7 @@ class StartChain {
                             }
                             executeBefore(chain.func, param)
                                 .then(resolvedPluginData => {
-                                const newContext = new Context('_before_temp', stackId, options?.tenantId);
+                                const newContext = new Context('_before_temp', stackId, options?.namespace);
                                 new SetResolvedContexts_1.default(resolvedPluginData, newContext);
                                 param = Object.assign({}, param, newContext.getData());
                                 if (stepEffectiveSignal) {
@@ -127,11 +127,11 @@ class StartChain {
                                     param.$signal = sigFn;
                                     param.signal = sigFn;
                                 }
-                                if (options?.tenantId) {
-                                    const tFn = () => options.tenantId;
-                                    tFn.val = options.tenantId;
-                                    param.$tenantId = tFn;
-                                    param.tenantId = tFn;
+                                if (options?.namespace) {
+                                    const nsFn = () => options.namespace;
+                                    nsFn.val = options.namespace;
+                                    param.$namespace = nsFn;
+                                    param.namespace = nsFn;
                                 }
                                 if (initialParam?.$attempt) {
                                     param.$attempt = initialParam.$attempt;
@@ -173,7 +173,7 @@ class StartChain {
                                     };
                                     if (chain.reducer && param[chain.reducer]) {
                                         const array = param[chain.reducer]();
-                                        new Reducer(array, (0, proxy_1.wrapParam)(param), chain, Context, propertyToContext, undefined, stackId)
+                                        new Reducer(array, (0, context_1.wrapParam)(param), chain, Context, propertyToContext, undefined, stackId)
                                             .reduce((err, result) => {
                                             clearStepTimeout();
                                             if (err) {
@@ -208,12 +208,12 @@ class StartChain {
                                     else {
                                         let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
                                         const isPojo = options?.pojo === true || options?.mode === 'pojo';
-                                        const wrappedParam = isPojo ? (0, proxy_1.toPOJO)(param) : (0, proxy_1.wrapParam)(param);
-                                        const actionParam = (chain.isModern || isPojo) ? (0, proxy_1.toPOJO)(param) : wrappedParam;
+                                        const wrappedParam = isPojo ? (0, context_1.toPOJO)(param) : (0, context_1.wrapParam)(param);
+                                        const actionParam = (chain.isModern || isPojo) ? (0, context_1.toPOJO)(param) : wrappedParam;
                                         let rawAction;
                                         try {
                                             rawAction = chain.cachedLast
-                                                ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.tenantId, chain.cacheOptions)
+                                                ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.namespace, chain.cacheOptions)
                                                 : chain.action(actionParam);
                                         }
                                         catch (actionErr) {
@@ -227,7 +227,7 @@ class StartChain {
                                             }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
                                             return;
                                         }
-                                        const context = Context.createContext(chain.$chainId, stackId, options?.tenantId);
+                                        const context = Context.createContext(chain.$chainId, stackId, options?.namespace);
                                         logInfo('SingleChain', {
                                             chain: chains,
                                             message: 'Starting action',

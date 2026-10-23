@@ -16,7 +16,7 @@ function toPOJO(data) {
         if (key === '$$$validators' || key === '$chainId' || key === '$stackId') {
             continue;
         }
-        if (key === '$signal' || key === 'signal' || key === '$tenantId') {
+        if (key === '$signal' || key === 'signal' || key === '$namespace') {
             result[key] = data[key];
             continue;
         }

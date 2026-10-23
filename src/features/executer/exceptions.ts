@@ -4,7 +4,7 @@ export interface ExecutionErrorMetadata {
     phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry';
     retryable?: boolean;
     stackId?: string;
-    tenantId?: string;
+    namespace?: string;
     workflowId?: string;
     cause?: unknown;
     stateSnapshot?: Record<string, any>;
@@ -17,7 +17,7 @@ export class FluidFuncError extends Error {
     readonly phase?: string;
     readonly retryable: boolean;
     readonly stackId?: string;
-    readonly tenantId?: string;
+    readonly namespace?: string;
     readonly workflowId?: string;
     readonly stateSnapshot?: Record<string, any>;
     override readonly cause?: unknown;
@@ -29,7 +29,7 @@ export class FluidFuncError extends Error {
         this.phase = metadata.phase;
         this.retryable = metadata.retryable !== undefined ? metadata.retryable : true;
         this.stackId = metadata.stackId;
-        this.tenantId = metadata.tenantId;
+        this.namespace = metadata.namespace;
         this.workflowId = metadata.workflowId;
         this.stateSnapshot = metadata.stateSnapshot;
         this.cause = metadata.cause;
@@ -83,7 +83,7 @@ export class FluidFuncError extends Error {
             phase: this.phase,
             retryable: this.retryable,
             stackId: this.stackId,
-            tenantId: this.tenantId,
+            namespace: this.namespace,
             workflowId: this.workflowId,
             isTimeout: this.isTimeout,
             isCancellation: this.isCancellation,
@@ -221,21 +221,21 @@ export class CheckpointConflictException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class TenantMismatchException extends FluidFuncError {
-    readonly expectedTenantId: string;
-    readonly actualTenantId?: string;
+export class NamespaceMismatchException extends FluidFuncError {
+    readonly expectedNamespace: string;
+    readonly actualNamespace?: string;
 
-    constructor(expectedTenantId: string, actualTenantId?: string, metadata: ExecutionErrorMetadata = {}) {
-        super(`Tenant mismatch: checkpoint tenant '${actualTenantId}' does not match expected tenant '${expectedTenantId}'.`, {
+    constructor(expectedNamespace: string, actualNamespace?: string, metadata: ExecutionErrorMetadata = {}) {
+        super(`Namespace mismatch: checkpoint namespace '${actualNamespace}' does not match expected namespace '${expectedNamespace}'.`, {
             ...metadata,
-            tenantId: actualTenantId,
+            namespace: actualNamespace,
             phase: 'checkpoint',
             retryable: false
         });
-        this.name = 'TenantMismatchException';
-        this.expectedTenantId = expectedTenantId;
-        this.actualTenantId = actualTenantId;
-        Object.setPrototypeOf(this, TenantMismatchException.prototype);
+        this.name = 'NamespaceMismatchException';
+        this.expectedNamespace = expectedNamespace;
+        this.actualNamespace = actualNamespace;
+        Object.setPrototypeOf(this, NamespaceMismatchException.prototype);
     }
 /* c8 ignore next */
 }
@@ -259,7 +259,7 @@ export class CheckpointVersionException extends FluidFuncError {
 export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): FluidFuncError {
     if (error instanceof FluidFuncError) {
         if (!error.stackId && metadata.stackId) (error as any).stackId = metadata.stackId;
-        if (!error.tenantId && metadata.tenantId) (error as any).tenantId = metadata.tenantId;
+        if (!error.namespace && metadata.namespace) (error as any).namespace = metadata.namespace;
         if (!error.workflowId && metadata.workflowId) (error as any).workflowId = metadata.workflowId;
         if (!error.stepName && metadata.stepName) (error as any).stepName = metadata.stepName;
         if (!error.phase && metadata.phase) (error as any).phase = metadata.phase;
