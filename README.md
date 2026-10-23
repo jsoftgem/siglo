@@ -887,17 +887,17 @@ PROVENANCE
 
 ---
 
-## Migration Guide: v1.x to v2.0.0
+## Migration Guide: v0.6.1 to v1.0.0
 
-`fluid-func` v2.0.0 unifies its public API around `Step` and `flow` as the primary primitives while maintaining **100% backward compatibility** for all v1.x constructs:
+`fluid-func` v1.0.0 unifies its public API around `Step` and `flow` as the primary primitives while maintaining **100% backward compatibility** for all v1.x constructs:
 
-| v1.x (Deprecated Alias) | v2.0.0 (Primary API) | Status |
+| v0.6.1 (Deprecated Alias) | v1.0.0 (Primary API) | Status |
 |---|---|---|
-| `Chain` | `Step` | Deprecated (supported until v3.0) |
-| `pipe(...)` | `flow(...)` | Deprecated (supported until v3.0) |
-| `Pipeline` | `Flow` | Deprecated (supported until v3.0) |
-| `isPipeline(...)` | `isFlow(...)` | Deprecated (supported until v3.0) |
+| `Chain` | `Step` | Deprecated (supported until v2.0) |
+| `pipe(...)` | `flow(...)` | Deprecated (supported until v2.0) |
+| `Pipeline` | `Flow` | Deprecated (supported until v2.0) |
+| `isPipeline(...)` | `isFlow(...)` | Deprecated (supported until v1.0) |
 
 ### Deprecation Policy
 - Deprecated aliases emit zero runtime overhead and delegate directly to primary implementations.
-- All deprecated aliases will remain fully operational throughout the entire 2.x release cycle and will not be removed until v3.0.0.
+- All deprecated aliases will remain fully operational throughout the entire 1.x release cycle and will not be removed until v2.0.0.
