@@ -82,7 +82,7 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
         Step.useStorage({
             name: 'CheckpointTester',
             async saveCheckpoint(event) {
-                checkpoints.set(event.stackId || event.checkpointId, event);
+                checkpoints.set(event.stackId, event);
             },
             async getCheckpoint(id) {
                 return checkpoints.get(id);
