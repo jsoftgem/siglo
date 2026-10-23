@@ -1,0 +1,17 @@
+{
+  "name": "fluid-func-redis-mongo-sample",
+  "version": "1.0.0",
+  "description": "Sample test project demonstrating fluid-func with Redis and MongoDB storage plugins and 10 event-driven usecases",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:usecases": "tsx --test src/usecases.test.ts",
+    "test:order": "tsx --test src/index.test.ts"
+  },
+  "dependencies": {
+    "fluid-func": "file:..",
+    "ioredis": "^6.0.0",
+    "mongodb": "^7.7.0"
+  }
+}

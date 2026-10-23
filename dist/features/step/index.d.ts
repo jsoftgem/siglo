@@ -1,0 +1,88 @@
+import { checkpoint, restoreCheckpoint, serializeState, hydrateState, useStorage, getCheckpoint } from '../storage';
+import Spec, { SpecData } from '../spec';
+import { toPOJO } from '../context';
+import { RetryConfig } from '../executer';
+export { RetryConfig, StepTimeoutException, FlowTimeoutException } from '../executer';
+export { SerializedExecutionStack, SerializedStorageState, StorageAdapter, ContextChangeEvent } from '../storage';
+export { toPOJO } from '../context/proxy';
+export interface ExecutionOptions {
+    signal?: AbortSignal;
+    pojo?: boolean;
+    mode?: 'pojo' | 'wrapped';
+    tenantId?: string;
+    timeout?: number;
+}
+export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
+export type OnBeforeAction<TInput = any> = (parameter: TInput) => boolean | Promise<boolean>;
+export type OnSkipAction<TInput = any, TFallback = any> = (parameter: TInput) => TFallback | Promise<TFallback>;
+export type OnAfterAction<TOutput = any, TInput = any> = (output: TOutput, parameter: TInput) => any | Promise<any>;
+export type OnFailAction = ((error: any, retry: () => void, reject: () => void) => void) | RetryConfig;
+export interface Flow<TInput = any, TOutput = any> {
+    execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
+    start: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
+    run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
+    steps: Step<any, any>[];
+    readonly isFlow?: boolean;
+    timeout: (ms: number) => Flow<TInput, TOutput>;
+    timeoutMs?: number;
+}
+export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut> | Flow<TIn, TOut>;
+export type FlowArg<TIn = any, TOut = any> = FlowItem<TIn, TOut> | FlowArg<TIn, TOut>[];
+export declare function isFlow(item: any): item is Flow;
+export declare function flattenSteps(steps: any[]): Step<any, any>[];
+export declare function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TInput, TOutput>;
+export declare class Step<TInput = any, TOutput = any> {
+    name: string;
+    action: StepAction<TInput, TOutput>;
+    specs: Spec[];
+    onbefore: OnBeforeAction<TInput>;
+    onskip?: OnSkipAction<TInput>;
+    onafter?: OnAfterAction<TOutput, TInput>;
+    onfail?: OnFailAction;
+    sequence: Step<any, any>[];
+    reducer?: string;
+    isStrict?: boolean;
+    cachedLast?: number;
+    timeoutMs?: number;
+    $chainId?: string;
+    $stepId?: string;
+    func?: string;
+    isModern?: boolean;
+    constructor(nameOrAction?: string | StepAction<TInput, TOutput> | Flow<TInput, TOutput>, action?: StepAction<TInput, TOutput>, sequence?: Step<any, any>[]);
+    static start<TOut = any>(steps: Step | Step[] | Flow | (Step | Flow)[], param?: any, options?: ExecutionOptions): Promise<TOut>;
+    static start(steps?: undefined, param?: any, options?: ExecutionOptions): undefined;
+    static create<TIn = any, TOut = any>(nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>, action?: StepAction<TIn, TOut>): Step<TIn, TOut>;
+    static flow: typeof flow;
+    static isFlow: typeof isFlow;
+    static pipe: typeof flow;
+    static isPipeline: typeof isFlow;
+    static toPOJO: typeof toPOJO;
+    static checkpoint: typeof checkpoint;
+    static restoreCheckpoint: typeof restoreCheckpoint;
+    static serializeState: typeof serializeState;
+    static hydrateState: typeof hydrateState;
+    static useStorage: typeof useStorage;
+    static getCheckpoint: typeof getCheckpoint;
+    timeout(ms: number): Step<TInput, TOutput>;
+    modern(): Step<TInput, TOutput>;
+    reduce(field: string): Step<TInput, TOutput>;
+    schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput>;
+    spec(fieldOrSchema: string | any, json?: SpecData | any): Step<TInput, TOutput>;
+    strict(): Step<TInput, TOutput>;
+    onBefore(onBefore: OnBeforeAction<TInput>): Step<TInput, TOutput>;
+    onSkip(onSkip: OnSkipAction<TInput>): Step<TInput, TOutput>;
+    onAfter(onAfter: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput>;
+    onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput>;
+    onFail(onFail: OnFailAction): Step<TInput, TOutput>;
+    cache(cachedLast?: number): Step<TInput, TOutput>;
+    execute(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
+    run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
+    static config(props: Record<string, any>): void;
+}
+export declare const pipe: typeof flow;
+export type Pipeline<TIn = any, TOut = any> = Flow<TIn, TOut>;
+export type PipeItem<TIn = any, TOut = any> = FlowItem<TIn, TOut>;
+export type PipeArg<TIn = any, TOut = any> = FlowArg<TIn, TOut>;
+export declare const isPipeline: typeof isFlow;
+export default Step;
+//# sourceMappingURL=index.d.ts.map

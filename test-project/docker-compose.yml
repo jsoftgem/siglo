@@ -1,0 +1,29 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: fluid-func-redis
+    command: ["redis-server", "--requirepass", "redispassword"]
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redispassword", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mongodb:
+    image: mongo:7.0
+    container_name: fluid-func-mongodb
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+      MONGO_INITDB_DATABASE: fluid_func_db
+    healthcheck:
+      test: ["CMD", "mongosh", "-u", "admin", "-p", "mongopassword", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

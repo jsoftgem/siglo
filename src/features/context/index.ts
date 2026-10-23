@@ -1,0 +1,72 @@
+import { getChainContext, getChainDataById, putChainContext } from '../storage';
+
+import { CollectPromiseResult } from '../../shared';
+import { GetContext } from './get';
+import { Validators } from './validators';
+import { setContextValue } from './set';
+import { toPOJO, wrapParam } from './proxy';
+
+export default class Context {
+    $chainId: string;
+    $stackId?: string;
+    $tenantId?: string;
+
+    constructor($chainId: string, $stackId?: string, $tenantId?: string) {
+        this.$chainId = $chainId;
+        this.$stackId = $stackId;
+        this.$tenantId = $tenantId;
+    }
+
+    set(name: string, value: any): void {
+        const meta: Record<string, any> = {};
+        if (this.$stackId) {
+            meta.stackId = this.$stackId;
+        }
+        if (this.$tenantId) {
+            meta.tenantId = this.$tenantId;
+        }
+        setContextValue(putChainContext, this.$chainId, name, value, Object.keys(meta).length ? meta : undefined);
+    }
+
+    setStackId(stackId: string): void {
+        this.$stackId = stackId;
+        this.set('$stackId', stackId);
+    }
+
+    setTenantId(tenantId: string): void {
+        this.$tenantId = tenantId;
+        this.set('$tenantId', tenantId);
+    }
+
+    addSpec(fieldSpec: any): void {
+        new Validators(this.$chainId, getChainContext.bind(this))
+            .addSpec(fieldSpec, this.set.bind(this));
+    }
+
+    getData(): Record<string, any> {
+        return new GetContext(this.$chainId, getChainDataById.bind(this)).getContext();
+    }
+
+    validate(): Promise<void> {
+        return new Validators(this.$chainId, getChainContext.bind(this), CollectPromiseResult).runValidations(this);
+    }
+
+    runSpecs(): Promise<void> {
+        return new Validators(this.$chainId, getChainContext.bind(this), CollectPromiseResult).runSpecs(this);
+    }
+
+    static createContext(chainId: string, stackId?: string, tenantId?: string): Context {
+        const context = new Context(chainId, stackId, tenantId);
+        context.set('$chainId', chainId);
+        if (stackId) {
+            context.set('$stackId', stackId);
+        }
+        if (tenantId) {
+            context.set('$tenantId', tenantId);
+        }
+        return context;
+    }
+/* c8 ignore next */
+}
+
+export { Context, toPOJO, wrapParam };
