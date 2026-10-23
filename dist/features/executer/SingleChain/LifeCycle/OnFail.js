@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const exceptions_1 = require("../../exceptions");
 const RETRY_MAP = Symbol.for('fluid-func.retry-map');
 class OnFail {
     constructor(chain, error, resolve, reject, singleChain, initialParam, chains, logInfo, logError, _executeAfter, _Context, options) {
@@ -11,10 +12,29 @@ class OnFail {
             params: initialParam
         });
         const outerSignal = options?.outerSignal || options?.signal;
+        if (outerSignal?.aborted) {
+            reject(outerSignal.reason || new Error('This operation was aborted'));
+            return;
+        }
+        if (error instanceof exceptions_1.FlowTimeoutException || error?.name === 'FlowTimeoutException') {
+            reject(error);
+            return;
+        }
+        if (error?.name === 'CancellationException' || error?.name === 'AbortError') {
+            reject(error);
+            return;
+        }
+        if (error && typeof error === 'object' && error.retryable === false) {
+            reject(error);
+            return;
+        }
         if (chain.onfail) {
             if (typeof chain.onfail === 'function') {
-                chain.onfail(error, () => {
-                    /* c8 ignore next 4 */
+                const retryFn = (fallback) => {
+                    if (fallback !== undefined) {
+                        resolve(fallback);
+                        return;
+                    }
                     /* c8 ignore next 4 */
                     if (outerSignal?.aborted) {
                         reject(outerSignal.reason || new Error('This operation was aborted'));
@@ -27,9 +47,27 @@ class OnFail {
                         .catch((err) => {
                         reject(err);
                     });
-                }, () => {
-                    reject(error);
-                });
+                };
+                const rejectFn = (customError) => {
+                    reject(customError || error);
+                };
+                try {
+                    const callbackRes = chain.onfail(error, retryFn, rejectFn);
+                    if (callbackRes !== undefined) {
+                        if (callbackRes instanceof Promise) {
+                            callbackRes.then((res) => {
+                                if (res !== undefined)
+                                    resolve(res);
+                            }).catch((cbErr) => reject(cbErr));
+                        }
+                        else {
+                            resolve(callbackRes);
+                        }
+                    }
+                }
+                catch (cbErr) {
+                    reject(cbErr);
+                }
             }
             else if (typeof chain.onfail === 'object') {
                 const config = chain.onfail;
@@ -48,10 +86,11 @@ class OnFail {
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
                 retryMap[stepKey] = currentAttempt;
+                if (config.retryIf && !config.retryIf(error, currentAttempt)) {
+                    reject(error);
+                    return;
+                }
                 if (currentAttempt <= maxRetries) {
-                    if (config.onRetry) {
-                        config.onRetry(error, currentAttempt);
-                    }
                     let delayMs = baseDelay;
                     if (typeof backoff === 'function') {
                         delayMs = backoff(currentAttempt);
@@ -65,10 +104,25 @@ class OnFail {
                     if (maxDelay !== undefined && delayMs > maxDelay) {
                         delayMs = maxDelay;
                     }
-                    if (config.jitter) {
-                        delayMs = Math.floor(Math.random() * delayMs);
+                    if (typeof config.jitter === 'function') {
+                        delayMs = config.jitter(delayMs);
+                    }
+                    else if (config.jitter) {
+                        const rand = typeof config.randomFn === 'function' ? config.randomFn() : Math.random();
+                        delayMs = Math.floor(rand * delayMs);
                     }
                     delayMs = Math.max(0, delayMs);
+                    if (config.onRetry) {
+                        config.onRetry(error, currentAttempt, delayMs);
+                    }
+                    if (initialParam && typeof initialParam === 'object') {
+                        const attFn = () => currentAttempt;
+                        attFn.val = currentAttempt;
+                        initialParam.$attempt = attFn;
+                        const delFn = () => delayMs;
+                        delFn.val = delayMs;
+                        initialParam.$retryDelay = delFn;
+                    }
                     let timerId;
                     let abortHandler;
                     if (outerSignal) {

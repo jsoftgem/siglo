@@ -4,7 +4,11 @@ import {
     serializeState,
     hydrateState,
     useStorage,
-    getCheckpoint
+    getCheckpoint,
+    setErrorMode,
+    getErrorMode,
+    cleanExpiredCheckpoints,
+    CheckpointOptions
 } from '../storage';
 import { Executer } from '../executer';
 import Spec, { SpecData } from '../spec';
@@ -12,9 +16,34 @@ import Configurator from '../configurator';
 import { generateUUID } from '../../shared';
 import { toPOJO } from '../context';
 import { RetryConfig } from '../executer';
+import { CacheOptions } from '../cache';
 
-export { RetryConfig, StepTimeoutException, FlowTimeoutException } from '../executer';
-export { SerializedExecutionStack, SerializedStorageState, StorageAdapter, ContextChangeEvent } from '../storage';
+export {
+    FluidFuncError,
+    ExecutionErrorMetadata,
+    StepTimeoutException,
+    FlowTimeoutException,
+    CancellationException,
+    ValidationException,
+    ValidationErrorDetail,
+    StorageAdapterException,
+    CheckpointConflictException,
+    TenantMismatchException,
+    CheckpointVersionException,
+    normalizeError,
+    RetryConfig,
+    RetryPredicate
+} from '../executer';
+export {
+    SerializedExecutionStack,
+    SerializedStorageState,
+    StorageAdapter,
+    ContextChangeEvent,
+    CacheEvent,
+    StorageErrorMode,
+    CheckpointOptions
+} from '../storage';
+export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
 
 export interface ExecutionOptions {
@@ -23,13 +52,16 @@ export interface ExecutionOptions {
     mode?: 'pojo' | 'wrapped';
     tenantId?: string;
     timeout?: number;
+    timeoutMs?: number;
+    workflowId?: string;
+    checkpoint?: boolean;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
 export type OnBeforeAction<TInput = any> = (parameter: TInput) => boolean | Promise<boolean>;
 export type OnSkipAction<TInput = any, TFallback = any> = (parameter: TInput) => TFallback | Promise<TFallback>;
 export type OnAfterAction<TOutput = any, TInput = any> = (output: TOutput, parameter: TInput) => any | Promise<any>;
-export type OnFailAction = ((error: any, retry: () => void, reject: () => void) => void) | RetryConfig;
+export type OnFailAction = ((error: any, retry: (fallback?: any) => void, reject: (err?: any) => void) => any) | RetryConfig;
 
 export interface Flow<TInput = any, TOutput = any> {
     execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
@@ -143,6 +175,7 @@ export class Step<TInput = any, TOutput = any> {
     reducer?: string;
     isStrict?: boolean;
     cachedLast?: number;
+    cacheOptions?: CacheOptions;
     timeoutMs?: number;
     $chainId?: string;
     $stepId?: string;
@@ -223,6 +256,9 @@ export class Step<TInput = any, TOutput = any> {
     static hydrateState = hydrateState;
     static useStorage = useStorage;
     static getCheckpoint = getCheckpoint;
+    static setErrorMode = setErrorMode;
+    static getErrorMode = getErrorMode;
+    static cleanExpiredCheckpoints = cleanExpiredCheckpoints;
 
     timeout(ms: number): Step<TInput, TOutput> {
         this.timeoutMs = ms;
@@ -311,8 +347,13 @@ export class Step<TInput = any, TOutput = any> {
         return this;
     }
 
-    cache(cachedLast?: number): Step<TInput, TOutput> {
-        this.cachedLast = cachedLast || 1500;
+    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput> {
+        if (typeof cachedLastOrOptions === 'object' && cachedLastOrOptions !== null) {
+            this.cacheOptions = cachedLastOrOptions;
+            this.cachedLast = cachedLastOrOptions.ttl || 1500;
+        } else {
+            this.cachedLast = cachedLastOrOptions || 1500;
+        }
         return this;
     }
 
@@ -337,11 +378,20 @@ export class Step<TInput = any, TOutput = any> {
 /* c8 ignore next */
 }
 
-// Aliases
+// Compatibility Aliases
+/** @deprecated Use `Step` instead of `Chain`. */
+export const Chain = Step;
+export type Chain<TIn = any, TOut = any> = Step<TIn, TOut>;
+
+/** @deprecated Use `flow` instead of `pipe`. */
 export const pipe = flow;
+
+/** @deprecated Use `Flow` instead of `Pipeline`. */
 export type Pipeline<TIn = any, TOut = any> = Flow<TIn, TOut>;
 export type PipeItem<TIn = any, TOut = any> = FlowItem<TIn, TOut>;
 export type PipeArg<TIn = any, TOut = any> = FlowArg<TIn, TOut>;
+
+/** @deprecated Use `isFlow` instead of `isPipeline`. */
 export const isPipeline = isFlow;
 
 export default Step;

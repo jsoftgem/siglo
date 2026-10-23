@@ -11,8 +11,21 @@ import { Util } from './util';
 import { cache } from '../cache';
 import { generateUUID } from '../../shared/Util';
 
-export { StepTimeoutException, FlowTimeoutException } from './exceptions';
-export { RetryConfig } from './SingleChain/LifeCycle/OnFail';
+export {
+    FluidFuncError,
+    ExecutionErrorMetadata,
+    StepTimeoutException,
+    FlowTimeoutException,
+    CancellationException,
+    ValidationException,
+    ValidationErrorDetail,
+    StorageAdapterException,
+    CheckpointConflictException,
+    TenantMismatchException,
+    CheckpointVersionException,
+    normalizeError
+} from './exceptions';
+export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';
 
 export class Executer {
     start(param: any, chains: any, options?: any): Promise<any> | undefined {

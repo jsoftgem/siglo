@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isPipeline = exports.pipe = exports.Step = exports.toPOJO = exports.FlowTimeoutException = exports.StepTimeoutException = void 0;
+exports.isPipeline = exports.pipe = exports.Chain = exports.Step = exports.toPOJO = exports.normalizeError = exports.CheckpointVersionException = exports.TenantMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
 exports.isFlow = isFlow;
 exports.flattenSteps = flattenSteps;
 exports.flow = flow;
@@ -14,8 +14,16 @@ const configurator_1 = __importDefault(require("../configurator"));
 const shared_1 = require("../../shared");
 const context_1 = require("../context");
 var executer_2 = require("../executer");
+Object.defineProperty(exports, "FluidFuncError", { enumerable: true, get: function () { return executer_2.FluidFuncError; } });
 Object.defineProperty(exports, "StepTimeoutException", { enumerable: true, get: function () { return executer_2.StepTimeoutException; } });
 Object.defineProperty(exports, "FlowTimeoutException", { enumerable: true, get: function () { return executer_2.FlowTimeoutException; } });
+Object.defineProperty(exports, "CancellationException", { enumerable: true, get: function () { return executer_2.CancellationException; } });
+Object.defineProperty(exports, "ValidationException", { enumerable: true, get: function () { return executer_2.ValidationException; } });
+Object.defineProperty(exports, "StorageAdapterException", { enumerable: true, get: function () { return executer_2.StorageAdapterException; } });
+Object.defineProperty(exports, "CheckpointConflictException", { enumerable: true, get: function () { return executer_2.CheckpointConflictException; } });
+Object.defineProperty(exports, "TenantMismatchException", { enumerable: true, get: function () { return executer_2.TenantMismatchException; } });
+Object.defineProperty(exports, "CheckpointVersionException", { enumerable: true, get: function () { return executer_2.CheckpointVersionException; } });
+Object.defineProperty(exports, "normalizeError", { enumerable: true, get: function () { return executer_2.normalizeError; } });
 var proxy_1 = require("../context/proxy");
 Object.defineProperty(exports, "toPOJO", { enumerable: true, get: function () { return proxy_1.toPOJO; } });
 function isFlow(item) {
@@ -104,6 +112,7 @@ class Step {
     reducer;
     isStrict;
     cachedLast;
+    cacheOptions;
     timeoutMs;
     $chainId;
     $stepId;
@@ -169,6 +178,9 @@ class Step {
     static hydrateState = storage_1.hydrateState;
     static useStorage = storage_1.useStorage;
     static getCheckpoint = storage_1.getCheckpoint;
+    static setErrorMode = storage_1.setErrorMode;
+    static getErrorMode = storage_1.getErrorMode;
+    static cleanExpiredCheckpoints = storage_1.cleanExpiredCheckpoints;
     timeout(ms) {
         this.timeoutMs = ms;
         return this;
@@ -245,8 +257,14 @@ class Step {
         this.onfail = onFail;
         return this;
     }
-    cache(cachedLast) {
-        this.cachedLast = cachedLast || 1500;
+    cache(cachedLastOrOptions) {
+        if (typeof cachedLastOrOptions === 'object' && cachedLastOrOptions !== null) {
+            this.cacheOptions = cachedLastOrOptions;
+            this.cachedLast = cachedLastOrOptions.ttl || 1500;
+        }
+        else {
+            this.cachedLast = cachedLastOrOptions || 1500;
+        }
         return this;
     }
     execute(param, options) {
@@ -267,8 +285,12 @@ class Step {
     }
 }
 exports.Step = Step;
-// Aliases
+// Compatibility Aliases
+/** @deprecated Use `Step` instead of `Chain`. */
+exports.Chain = Step;
+/** @deprecated Use `flow` instead of `pipe`. */
 exports.pipe = flow;
+/** @deprecated Use `isFlow` instead of `isPipeline`. */
 exports.isPipeline = isFlow;
 exports.default = Step;
 //# sourceMappingURL=index.js.map

@@ -1,12 +1,32 @@
 # fluid-func
 > A modern, type-safe, and composable workflow orchestrator for TypeScript and JavaScript.
 
-[![NPM Version](https://img.shields.io/npm/v/fluid-func.svg)](https://www.npmjs.com/package/fluid-func)
+[![NPM Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://www.npmjs.com/package/fluid-func)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)]()
 
 `fluid-func` allows you to break complex business logic into clean, reusable, and resilient steps. It combines functional composition with out-of-the-box parameter contracts, deterministic caching, lifecycle hooks, structured retry strategies, and isolated storage.
+
+---
+
+## Positioning: In-Process Orchestration vs Distributed Engines
+
+| Dimension | `fluid-func` | Distributed Engines (Temporal, Inngest) |
+|---|---|---|
+| **Architecture** | Lightweight, zero-infrastructure in-process library | Heavy multi-cluster / external orchestrator daemon |
+| **Latency** | Microsecond direct async function invocation | Millisecond-to-second RPC / polling overhead |
+| **Footprint** | Zero external dependencies, pure TypeScript | Requires persistent workers, queue servers, and databases |
+| **Primary Focus** | Step-by-step modular pipelines, resilient HTTP/DB actions, request-scoped sagas, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows |
+
+---
+
+## Formal Contracts & Documentation
+
+- 📜 [Execution Semantics Contract](docs/execution-semantics.md) &mdash; Formal semantics answering all 9 runtime execution contract questions.
+- 🚨 [Error Model & Exception Hierarchy](docs/error-model.md) &mdash; Complete exception hierarchy (`FluidFuncError`), metadata fields, cause preservation, and JSON serialization.
+- 💾 [Storage & Checkpoint Contract](docs/storage-contract.md) &mdash; Checkpoint schema v2.0.0, optimistic concurrency (`expectedRevision`), tenant isolation, and error modes (`strict`, `warn`, `best-effort`).
 
 ---
 
@@ -863,3 +883,21 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 **Jerico de Guzman** &mdash; [LinkedIn](https://www.linkedin.com/in/jerico-de-guzman-35126657)
 PROVENANCE
+
+
+---
+
+## Migration Guide: v1.x to v2.0.0
+
+`fluid-func` v2.0.0 unifies its public API around `Step` and `flow` as the primary primitives while maintaining **100% backward compatibility** for all v1.x constructs:
+
+| v1.x (Deprecated Alias) | v2.0.0 (Primary API) | Status |
+|---|---|---|
+| `Chain` | `Step` | Deprecated (supported until v3.0) |
+| `pipe(...)` | `flow(...)` | Deprecated (supported until v3.0) |
+| `Pipeline` | `Flow` | Deprecated (supported until v3.0) |
+| `isPipeline(...)` | `isFlow(...)` | Deprecated (supported until v3.0) |
+
+### Deprecation Policy
+- Deprecated aliases emit zero runtime overhead and delegate directly to primary implementations.
+- All deprecated aliases will remain fully operational throughout the entire 2.x release cycle and will not be removed until v3.0.0.

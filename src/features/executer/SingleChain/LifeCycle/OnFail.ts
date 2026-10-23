@@ -1,10 +1,16 @@
+import { FlowTimeoutException } from '../../exceptions';
+
+export type RetryPredicate = (error: any, attempt: number) => boolean;
+
 export interface RetryConfig {
     maxRetries?: number;
     backoff?: 'fixed' | 'linear' | 'exponential' | ((attempt: number) => number);
     delay?: number;
     maxDelay?: number;
-    jitter?: boolean;
-    onRetry?: (error: any, attempt: number) => void;
+    jitter?: boolean | ((delay: number) => number);
+    randomFn?: () => number;
+    retryIf?: RetryPredicate;
+    onRetry?: (error: any, attempt: number, delayMs?: number) => void;
 }
 
 const RETRY_MAP = Symbol.for('fluid-func.retry-map');
@@ -32,29 +38,66 @@ export default class OnFail {
             params: initialParam
         });
         const outerSignal = options?.outerSignal || options?.signal;
+
+        if (outerSignal?.aborted) {
+            reject(outerSignal.reason || new Error('This operation was aborted'));
+            return;
+        }
+
+        if (error instanceof FlowTimeoutException || error?.name === 'FlowTimeoutException') {
+            reject(error);
+            return;
+        }
+
+        if (error?.name === 'CancellationException' || error?.name === 'AbortError') {
+            reject(error);
+            return;
+        }
+
+        if (error && typeof error === 'object' && error.retryable === false) {
+            reject(error);
+            return;
+        }
+
         if (chain.onfail) {
             if (typeof chain.onfail === 'function') {
-                chain.onfail(
-                    error,
-                    () => {
-                        /* c8 ignore next 4 */
-                        /* c8 ignore next 4 */
-                        if (outerSignal?.aborted) {
-                            reject(outerSignal.reason || new Error('This operation was aborted'));
-                            return;
-                        }
-                        singleChain.start(initialParam, chains, options)
-                            .then((result: any) => {
-                                resolve(result);
-                            })
-                            .catch((err: any) => {
-                                reject(err);
-                            });
-                    },
-                    () => {
-                        reject(error);
+                const retryFn = (fallback?: any) => {
+                    if (fallback !== undefined) {
+                        resolve(fallback);
+                        return;
                     }
-                );
+                    /* c8 ignore next 4 */
+                    if (outerSignal?.aborted) {
+                        reject(outerSignal.reason || new Error('This operation was aborted'));
+                        return;
+                    }
+                    singleChain.start(initialParam, chains, options)
+                        .then((result: any) => {
+                            resolve(result);
+                        })
+                        .catch((err: any) => {
+                            reject(err);
+                        });
+                };
+
+                const rejectFn = (customError?: any) => {
+                    reject(customError || error);
+                };
+
+                try {
+                    const callbackRes = chain.onfail(error, retryFn, rejectFn);
+                    if (callbackRes !== undefined) {
+                        if (callbackRes instanceof Promise) {
+                            callbackRes.then((res: any) => {
+                                if (res !== undefined) resolve(res);
+                            }).catch((cbErr: any) => reject(cbErr));
+                        } else {
+                            resolve(callbackRes);
+                        }
+                    }
+                } catch (cbErr) {
+                    reject(cbErr);
+                }
             } else if (typeof chain.onfail === 'object') {
                 const config: RetryConfig = chain.onfail;
                 const maxRetries = config.maxRetries !== undefined ? config.maxRetries : 3;
@@ -74,10 +117,12 @@ export default class OnFail {
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
                 retryMap[stepKey] = currentAttempt;
 
+                if (config.retryIf && !config.retryIf(error, currentAttempt)) {
+                    reject(error);
+                    return;
+                }
+
                 if (currentAttempt <= maxRetries) {
-                    if (config.onRetry) {
-                        config.onRetry(error, currentAttempt);
-                    }
                     let delayMs = baseDelay;
                     if (typeof backoff === 'function') {
                         delayMs = backoff(currentAttempt);
@@ -89,10 +134,27 @@ export default class OnFail {
                     if (maxDelay !== undefined && delayMs > maxDelay) {
                         delayMs = maxDelay;
                     }
-                    if (config.jitter) {
-                        delayMs = Math.floor(Math.random() * delayMs);
+                    if (typeof config.jitter === 'function') {
+                        delayMs = config.jitter(delayMs);
+                    } else if (config.jitter) {
+                        const rand = typeof config.randomFn === 'function' ? config.randomFn() : Math.random();
+                        delayMs = Math.floor(rand * delayMs);
                     }
                     delayMs = Math.max(0, delayMs);
+
+                    if (config.onRetry) {
+                        config.onRetry(error, currentAttempt, delayMs);
+                    }
+
+                    if (initialParam && typeof initialParam === 'object') {
+                        const attFn = () => currentAttempt;
+                        (attFn as any).val = currentAttempt;
+                        initialParam.$attempt = attFn;
+
+                        const delFn = () => delayMs;
+                        (delFn as any).val = delayMs;
+                        initialParam.$retryDelay = delFn;
+                    }
 
                     let timerId: any;
                     let abortHandler: (() => void) | undefined;

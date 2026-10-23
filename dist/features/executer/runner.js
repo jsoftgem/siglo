@@ -50,7 +50,7 @@ class Runner {
             if (timeoutMs && timeoutMs > 0) {
                 flowController = new AbortController();
                 flowTimer = setTimeout(() => {
-                    const err = new exceptions_1.FlowTimeoutException(`Flow execution timed out after ${timeoutMs}ms (completed ${completedSteps} steps).`, timeoutMs, completedSteps);
+                    const err = new exceptions_1.FlowTimeoutException(stackId, timeoutMs, completedSteps);
                     flowController.abort(err);
                 }, timeoutMs);
             }
@@ -66,8 +66,15 @@ class Runner {
             };
             if (effectiveSignal?.aborted) {
                 clearFlowTimer();
+                this.deleteStack(stackId);
                 const reason = effectiveSignal.reason || new Error('This operation was aborted');
-                return Promise.reject(reason);
+                const normalized = (0, exceptions_1.normalizeError)(reason, {
+                    stackId,
+                    tenantId,
+                    workflowId: rawOptions?.workflowId
+                });
+                normalized.stackId = stackId;
+                return Promise.reject(normalized);
             }
             const effectiveOptions = Object.assign({}, rawOptions, {
                 signal: effectiveSignal,
@@ -102,7 +109,7 @@ class Runner {
                         const adapter = storage_1.defaultStorageManager.getStorageAdapter();
                         if (adapter?.saveCheckpoint || rawOptions?.checkpoint) {
                             try {
-                                storage_1.defaultStorageManager.checkpoint(stackId);
+                                storage_1.defaultStorageManager.checkpoint(stackId, { status: 'completed' });
                                 /* c8 ignore next 3 */
                             }
                             catch {
@@ -127,7 +134,7 @@ class Runner {
                         const adapter = storage_1.defaultStorageManager.getStorageAdapter();
                         if (adapter?.saveCheckpoint || rawOptions?.checkpoint) {
                             try {
-                                storage_1.defaultStorageManager.checkpoint(stackId);
+                                storage_1.defaultStorageManager.checkpoint(stackId, { status: 'failed' });
                             }
                             catch {
                                 // ignore
@@ -135,15 +142,15 @@ class Runner {
                         }
                         /* c8 ignore stop */
                         this.deleteStack(stackId);
-                        const rejectObj = {
+                        const normalized = (0, exceptions_1.normalizeError)(error, {
                             stackId,
-                            error
-                        };
-                        if (error instanceof Error) {
-                            rejectObj.name = error.name;
-                            rejectObj.message = error.message;
-                        }
-                        reject(rejectObj);
+                            tenantId,
+                            workflowId: rawOptions?.workflowId,
+                            stepName: error?.func || error?.stepName,
+                            phase: error?.phase || 'action'
+                        });
+                        normalized.stackId = stackId;
+                        reject(normalized);
                     }
                     catch (err) {
                         reject(err);

@@ -1,3 +1,21 @@
+function redactValue(val: any, redactList: Set<string>): any {
+    if (val === null || typeof val !== "object") {
+        return val;
+    }
+    if (Array.isArray(val)) {
+        return val.map(item => redactValue(item, redactList));
+    }
+    const result: Record<string, any> = {};
+    for (const [k, v] of Object.entries(val)) {
+        if (redactList.has(k)) {
+            result[k] = "[REDACTED]";
+        } else {
+            result[k] = redactValue(v, redactList);
+        }
+    }
+    return result;
+}
+
 import {
     getChainContext as gcc,
     getChainDataById as gcdbi,
@@ -16,15 +34,37 @@ import {
     createInitialState,
     PutChainContextMeta,
     SerializedExecutionStack,
-    SerializedStorageState
+    SerializedStorageState,
+    StorageErrorMode
 } from "./state";
 import { generateUUID } from "../../shared";
-import { StorageAdapter } from "./adapter";
+import { StorageAdapter, CacheEvent } from "./adapter";
+import {
+    CheckpointConflictException,
+    TenantMismatchException,
+    CheckpointVersionException,
+    StorageAdapterException
+} from "../executer/exceptions";
 
 export { GetChainTypeException } from "./get";
 export { PutChainTypeException } from "./put";
-export { StorageState, PutChainContextMeta, SerializedExecutionStack, SerializedStorageState } from "./state";
-export { StorageAdapter, ContextChangeEvent } from "./adapter";
+export {
+    StorageState,
+    PutChainContextMeta,
+    SerializedExecutionStack,
+    SerializedStorageState,
+    StorageErrorMode
+} from "./state";
+export { StorageAdapter, ContextChangeEvent, CacheEvent } from "./adapter";
+
+export interface CheckpointOptions {
+    ttlMs?: number;
+    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    workflowId?: string;
+    redactFields?: string[];
+    metadata?: Record<string, any>;
+    expectedRevision?: number;
+}
 
 export function serializeParam(param: any): string {
     if (param === null || param === undefined) {
@@ -62,13 +102,37 @@ export function serializeParam(param: any): string {
 export class StorageManager {
     private state: StorageState;
     private adapter?: StorageAdapter;
+    private revisions = new Map<string, number>();
+    private errorMode: StorageErrorMode = 'best-effort';
 
-    constructor(initialState?: StorageState) {
+    constructor(initialState?: StorageState, options?: { errorMode?: StorageErrorMode }) {
         this.state = initialState || createInitialState();
+        if (options?.errorMode) {
+            this.errorMode = options.errorMode;
+        }
     }
 
     getState(): StorageState {
         return this.state;
+    }
+
+    setErrorMode(mode: StorageErrorMode): void {
+        this.errorMode = mode;
+    }
+
+    getErrorMode(): StorageErrorMode {
+        return this.errorMode;
+    }
+
+    handleAdapterError(operation: string, error: unknown): void {
+        if (this.errorMode === 'strict') {
+            throw new StorageAdapterException(operation, this.adapter?.name, error);
+        }
+        if (this.errorMode === 'warn') {
+            const msg = `Storage adapter '${this.adapter?.name || 'unknown'}' warning during '${operation}': ${(error as any)?.message || error}`;
+            console.warn(msg);
+        }
+        // best-effort: silently ignore
     }
 
     useStorage(adapter: StorageAdapter): void {
@@ -119,10 +183,27 @@ export class StorageManager {
                     timestamp: Date.now()
                 });
                 if (res && typeof (res as any).catch === "function") {
-                    (res as any).catch(() => {});
+                    (res as any).catch((err: any) => {
+                        this.handleAdapterError('onContextChange', err);
+                    });
                 }
-            } catch {
-                // Ignore adapter errors to preserve execution flow
+            } catch (err) {
+                this.handleAdapterError('onContextChange', err);
+            }
+        }
+    }
+
+    emitCacheEvent(event: CacheEvent): void {
+        if (this.adapter?.onCacheEvent) {
+            try {
+                const res = this.adapter.onCacheEvent(event);
+                if (res && typeof (res as any).catch === "function") {
+                    (res as any).catch((err: any) => {
+                        this.handleAdapterError('onCacheEvent', err);
+                    });
+                }
+            } catch (err) {
+                this.handleAdapterError('onCacheEvent', err);
             }
         }
     }
@@ -136,8 +217,11 @@ export class StorageManager {
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
-            tenantId
+            tenantId,
+            status: 'running',
+            revision: 0
         });
+        this.revisions.set(stackId, 0);
         return stackId;
     }
 
@@ -153,12 +237,15 @@ export class StorageManager {
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
-            tenantId: effectiveTenantId
+            tenantId: effectiveTenantId,
+            status: 'running',
+            revision: 0
         });
+        this.revisions.set(stackId, 0);
         return stackId;
     }
 
-    getStack(stackId: string): { type: string; chains: string[]; tenantId?: string } | undefined {
+    getStack(stackId: string): any {
         return this.state.stacks.get(stackId);
     }
 
@@ -248,6 +335,7 @@ export class StorageManager {
             this.state.stacks.delete(stackId);
         }
         this.state.cache.delete(stackId);
+        this.revisions.delete(stackId);
     }
 
     setChainConfig(config: any): void {
@@ -273,6 +361,8 @@ export class StorageManager {
     clear(): void {
         this.state = createInitialState();
         this.adapter = undefined;
+        this.revisions.clear();
+        this.errorMode = 'best-effort';
     }
 
     snapshot(): Readonly<Record<string, any>> {
@@ -288,11 +378,48 @@ export class StorageManager {
         return Object.freeze(snap);
     }
 
-    checkpoint(stackId: string): SerializedExecutionStack {
+    cleanExpiredCheckpoints(): number {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [stackId, stack] of this.state.stacks.entries()) {
+            if (stack.expiresAt && stack.expiresAt <= now) {
+                this.deleteStack(stackId);
+                cleaned++;
+            }
+        }
+        if (this.adapter?.cleanExpiredCheckpoints) {
+            try {
+                const res = this.adapter.cleanExpiredCheckpoints();
+                if (res && typeof (res as any).catch === 'function') {
+                    (res as any).catch((err: any) => {
+                        this.handleAdapterError('cleanExpiredCheckpoints', err);
+                    });
+                }
+            } catch (err) {
+                this.handleAdapterError('cleanExpiredCheckpoints', err);
+            }
+        }
+        return cleaned;
+    }
+
+    checkpoint(stackId: string, options?: CheckpointOptions): SerializedExecutionStack {
         const stack = this.state.stacks.get(stackId);
         if (!stack) {
-            throw new Error(`Execution stack \x27${stackId}\x27 not found.`);
+            throw new Error(`Execution stack '${stackId}' not found.`);
         }
+
+        const currentRev = this.revisions.get(stackId) || 0;
+        if (options?.expectedRevision !== undefined && options.expectedRevision !== currentRev) {
+            throw new CheckpointConflictException(stackId, currentRev, options.expectedRevision);
+        }
+        const nextRev = currentRev + 1;
+        this.revisions.set(stackId, nextRev);
+
+        const redactList = new Set<string>([
+            ...(options?.redactFields || []),
+            ...(this.state.config?.redactFields || [])
+        ]);
+
         const contexts: Record<string, Record<string, any>> = {};
         if (stack.chains) {
             for (const stepId of stack.chains) {
@@ -300,36 +427,83 @@ export class StorageManager {
                 if (ctx) {
                     const rawCtx: Record<string, any> = {};
                     for (const [key, fnOrVal] of Object.entries(ctx)) {
-                        if (key !== "$$$validators") {
-                            rawCtx[key] = typeof fnOrVal === "function" ? fnOrVal() : fnOrVal;
+                        if (key !== "$$validators") {
+                            if (redactList.has(key)) {
+                                rawCtx[key] = '[REDACTED]';
+                            } else {
+                                const resolved = typeof fnOrVal === "function" ? fnOrVal() : fnOrVal;
+                                rawCtx[key] = redactValue(resolved, redactList);
+                            }
                         }
                     }
                     contexts[stepId] = rawCtx;
                 }
             }
         }
+
+        const status = options?.status || stack.status || 'running';
+        const expiresAt = options?.ttlMs ? Date.now() + options.ttlMs : stack.expiresAt;
+
+        stack.revision = nextRev;
+        stack.status = status;
+        if (expiresAt !== undefined) {
+            stack.expiresAt = expiresAt;
+        }
+
         const snapshot: SerializedExecutionStack = {
+            version: 2,
+            schemaVersion: '2.0.0',
             stackId,
+            workflowId: options?.workflowId || stack.workflowId,
             tenantId: stack.tenantId,
             type: stack.type,
+            status,
+            revision: nextRev,
             chains: [...stack.chains],
             contexts,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            expiresAt,
+            metadata: options?.metadata || stack.metadata
         };
 
         if (this.adapter?.saveCheckpoint) {
             try {
                 const res = this.adapter.saveCheckpoint(snapshot);
                 if (res && typeof (res as any).catch === "function") {
-                    (res as any).catch(() => {});
+                    (res as any).catch((err: any) => {
+                        this.handleAdapterError('saveCheckpoint', err);
+                    });
                 }
-            /* c8 ignore next 3 */
-            } catch {
-                // Ignore adapter errors
+            } catch (err) {
+                this.handleAdapterError('saveCheckpoint', err);
             }
         }
 
         return snapshot;
+    }
+
+    async saveCheckpoint(checkpointData: SerializedExecutionStack): Promise<void> {
+        if (!checkpointData || !checkpointData.stackId) {
+            throw new Error("Invalid checkpoint data.");
+        }
+        const currentRev = this.revisions.get(checkpointData.stackId) || 0;
+        if (checkpointData.revision !== undefined && checkpointData.revision <= currentRev) {
+            this.handleAdapterError(
+                'saveCheckpoint',
+                new CheckpointConflictException(checkpointData.stackId, currentRev, checkpointData.revision)
+            );
+            return;
+        }
+
+        this.revisions.set(checkpointData.stackId, checkpointData.revision || currentRev + 1);
+
+        if (this.adapter?.saveCheckpoint) {
+            try {
+                await this.adapter.saveCheckpoint(checkpointData);
+            } catch (err) {
+                this.handleAdapterError('saveCheckpoint', err);
+            }
+        }
     }
 
     async getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined> {
@@ -339,8 +513,8 @@ export class StorageManager {
                 if (fromAdapter) {
                     return fromAdapter;
                 }
-            } catch {
-                // Fallback to in-memory stack
+            } catch (err) {
+                this.handleAdapterError('getCheckpoint', err);
             }
         }
         if (this.state.stacks.has(stackId)) {
@@ -349,15 +523,37 @@ export class StorageManager {
         return undefined;
     }
 
-    restoreCheckpoint(checkpointData: SerializedExecutionStack): string {
+    restoreCheckpoint(
+        checkpointData: SerializedExecutionStack,
+        options?: { expectedTenantId?: string; expectedWorkflowId?: string }
+    ): string {
         if (!checkpointData || !checkpointData.stackId) {
             throw new Error("Invalid checkpoint data.");
         }
+
+        if (checkpointData.version !== undefined && typeof checkpointData.version === 'number' && checkpointData.version > 2) {
+            throw new CheckpointVersionException(checkpointData.version);
+        }
+
+        const expectedTenant = options?.expectedTenantId || (options as any)?.tenantId;
+        if (expectedTenant && checkpointData.tenantId && checkpointData.tenantId !== expectedTenant) {
+            throw new TenantMismatchException(expectedTenant, checkpointData.tenantId);
+        }
+
+        const rev = checkpointData.revision || 1;
+        this.revisions.set(checkpointData.stackId, rev);
+
         this.state.stacks.set(checkpointData.stackId, {
             type: checkpointData.type || "execution",
             chains: Array.isArray(checkpointData.chains) ? [...checkpointData.chains] : [],
-            tenantId: checkpointData.tenantId
+            tenantId: checkpointData.tenantId,
+            workflowId: checkpointData.workflowId,
+            status: checkpointData.status || 'running',
+            revision: rev,
+            expiresAt: checkpointData.expiresAt,
+            metadata: checkpointData.metadata
         });
+
         if (checkpointData.contexts) {
             for (const [stepId, fields] of Object.entries(checkpointData.contexts)) {
                 if (fields && typeof fields === "object") {
@@ -377,12 +573,16 @@ export class StorageManager {
         if (stackId) {
             return JSON.stringify(this.checkpoint(stackId));
         }
-        const stacks: Record<string, { type: string; chains: string[]; tenantId?: string }> = {};
+        const stacks: Record<string, any> = {};
         for (const [sId, sVal] of this.state.stacks.entries()) {
             stacks[sId] = {
                 type: sVal.type,
                 chains: [...sVal.chains],
-                tenantId: sVal.tenantId
+                tenantId: sVal.tenantId,
+                status: sVal.status,
+                revision: sVal.revision,
+                workflowId: sVal.workflowId,
+                expiresAt: sVal.expiresAt
             };
         }
         const contexts: Record<string, Record<string, any>> = {};
@@ -405,14 +605,17 @@ export class StorageManager {
         return JSON.stringify(stateObj);
     }
 
-    hydrateState(serialized: string | SerializedStorageState | SerializedExecutionStack): string | undefined {
+    hydrateState(
+        serialized: string | SerializedStorageState | SerializedExecutionStack,
+        options?: { expectedTenantId?: string }
+    ): string | undefined {
         if (!serialized) {
             throw new Error("Cannot hydrate empty state.");
         }
         const data = typeof serialized === "string" ? JSON.parse(serialized) : serialized;
         let restoredId: string | undefined;
         if (data.stackId) {
-            return this.restoreCheckpoint(data as SerializedExecutionStack);
+            return this.restoreCheckpoint(data as SerializedExecutionStack, options);
         }
         if (data.config) {
             this.setChainConfig(data.config);
@@ -422,10 +625,16 @@ export class StorageManager {
                 if (!restoredId) {
                     restoredId = sId;
                 }
+                const rev = sVal.revision || 1;
+                this.revisions.set(sId, rev);
                 this.state.stacks.set(sId, {
                     type: sVal.type || "execution",
                     chains: Array.isArray(sVal.chains) ? [...sVal.chains] : [],
-                    tenantId: sVal.tenantId
+                    tenantId: sVal.tenantId,
+                    status: sVal.status || 'running',
+                    revision: rev,
+                    workflowId: sVal.workflowId,
+                    expiresAt: sVal.expiresAt
                 });
             }
         }
@@ -465,6 +674,18 @@ export function useStorage(adapter: StorageAdapter): void {
 
 export function getStorageAdapter(): StorageAdapter | undefined {
     return defaultStorageManager.getStorageAdapter();
+}
+
+export function setErrorMode(mode: StorageErrorMode): void {
+    defaultStorageManager.setErrorMode(mode);
+}
+
+export function getErrorMode(): StorageErrorMode {
+    return defaultStorageManager.getErrorMode();
+}
+
+export function cleanExpiredCheckpoints(): number {
+    return defaultStorageManager.cleanExpiredCheckpoints();
 }
 
 export function getChainContext(stepId: string, field: string): any {
@@ -535,22 +756,28 @@ export function setPutChainContextPlugin(plugin: (stepId: string, field: string,
     defaultStorageManager.setPutChainContextPlugin(plugin);
 }
 
-export function checkpoint(stackId: string): SerializedExecutionStack {
-    return defaultStorageManager.checkpoint(stackId);
+export function checkpoint(stackId: string, options?: CheckpointOptions): SerializedExecutionStack {
+    return defaultStorageManager.checkpoint(stackId, options);
 }
 
 export function getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined> {
     return defaultStorageManager.getCheckpoint(stackId);
 }
 
-export function restoreCheckpoint(checkpointData: SerializedExecutionStack): string {
-    return defaultStorageManager.restoreCheckpoint(checkpointData);
+export function restoreCheckpoint(
+    checkpointData: SerializedExecutionStack,
+    options?: { expectedTenantId?: string; expectedWorkflowId?: string }
+): string {
+    return defaultStorageManager.restoreCheckpoint(checkpointData, options);
 }
 
 export function serializeState(stackId?: string): string {
     return defaultStorageManager.serializeState(stackId);
 }
 
-export function hydrateState(serialized: string | SerializedStorageState | SerializedExecutionStack): string | undefined {
-    return defaultStorageManager.hydrateState(serialized);
+export function hydrateState(
+    serialized: string | SerializedStorageState | SerializedExecutionStack,
+    options?: { expectedTenantId?: string }
+): string | undefined {
+    return defaultStorageManager.hydrateState(serialized, options);
 }

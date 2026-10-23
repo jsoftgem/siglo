@@ -3,8 +3,8 @@ import { Reducer } from './reducer';
 import { Runner } from './runner';
 import StartChain from './SingleChain/StartChain';
 import { Util } from './util';
-export { StepTimeoutException, FlowTimeoutException } from './exceptions';
-export { RetryConfig } from './SingleChain/LifeCycle/OnFail';
+export { FluidFuncError, ExecutionErrorMetadata, StepTimeoutException, FlowTimeoutException, CancellationException, ValidationException, ValidationErrorDetail, StorageAdapterException, CheckpointConflictException, TenantMismatchException, CheckpointVersionException, normalizeError } from './exceptions';
+export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';
 export declare class Executer {
     start(param: any, chains: any, options?: any): Promise<any> | undefined;
 }

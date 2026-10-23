@@ -1,5 +1,5 @@
 import { toPOJO } from '../context/proxy';
-import { FlowTimeoutException } from './exceptions';
+import { FlowTimeoutException, normalizeError } from './exceptions';
 import { combineAbortSignals } from './signals';
 import { defaultStorageManager } from '../storage';
 
@@ -69,7 +69,7 @@ export class Runner {
                 flowController = new AbortController();
                 flowTimer = setTimeout(() => {
                     const err = new FlowTimeoutException(
-                        `Flow execution timed out after ${timeoutMs}ms (completed ${completedSteps} steps).`,
+                        stackId,
                         timeoutMs,
                         completedSteps
                     );
@@ -91,8 +91,15 @@ export class Runner {
 
             if (effectiveSignal?.aborted) {
                 clearFlowTimer();
+                this.deleteStack(stackId);
                 const reason = effectiveSignal.reason || new Error('This operation was aborted');
-                return Promise.reject(reason);
+                const normalized = normalizeError(reason, {
+                    stackId,
+                    tenantId,
+                    workflowId: rawOptions?.workflowId
+                });
+                (normalized as any).stackId = stackId;
+                return Promise.reject(normalized);
             }
 
             const effectiveOptions = Object.assign({}, rawOptions, {
@@ -148,7 +155,7 @@ export class Runner {
                             const adapter = defaultStorageManager.getStorageAdapter();
                             if (adapter?.saveCheckpoint || rawOptions?.checkpoint) {
                                 try {
-                                    defaultStorageManager.checkpoint(stackId);
+                                    defaultStorageManager.checkpoint(stackId, { status: 'completed' });
                                 /* c8 ignore next 3 */
                                 } catch {
                                     // ignore
@@ -171,22 +178,22 @@ export class Runner {
                             const adapter = defaultStorageManager.getStorageAdapter();
                             if (adapter?.saveCheckpoint || rawOptions?.checkpoint) {
                                 try {
-                                    defaultStorageManager.checkpoint(stackId);
+                                    defaultStorageManager.checkpoint(stackId, { status: 'failed' });
                                 } catch {
                                     // ignore
                                 }
                             }
                             /* c8 ignore stop */
                             this.deleteStack(stackId);
-                            const rejectObj: any = {
+                            const normalized = normalizeError(error, {
                                 stackId,
-                                error
-                            };
-                            if (error instanceof Error) {
-                                rejectObj.name = error.name;
-                                rejectObj.message = error.message;
-                            }
-                            reject(rejectObj);
+                                tenantId,
+                                workflowId: rawOptions?.workflowId,
+                                stepName: (error as any)?.func || (error as any)?.stepName,
+                                phase: (error as any)?.phase || 'action'
+                            });
+                            (normalized as any).stackId = stackId;
+                            reject(normalized);
                         } catch (err) {
                             reject(err);
                         }

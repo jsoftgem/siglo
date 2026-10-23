@@ -1,3 +1,5 @@
+export type StorageErrorMode = 'strict' | 'warn' | 'best-effort';
+
 export interface PutChainContextMeta {
     stackId?: string;
     tenantId?: string;
@@ -14,29 +16,47 @@ export interface StoragePlugins {
     ) => void;
 }
 
+export interface StackRecord {
+    type: string;
+    chains: string[];
+    tenantId?: string;
+    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    workflowId?: string;
+    expiresAt?: number;
+    revision?: number;
+    metadata?: Record<string, any>;
+}
+
 export interface StorageState {
     chains: Map<string, any>;
     contexts: Map<string, Record<string, any>>;
-    stacks: Map<string, { type: string; chains: string[]; tenantId?: string }>;
+    stacks: Map<string, StackRecord>;
     cache: Map<string, Map<string, Map<string, any>>>;
     config: Record<string, any>;
     plugins: StoragePlugins;
 }
 
 export interface SerializedExecutionStack {
+    version: number;
+    schemaVersion?: string;
     stackId: string;
+    workflowId?: string;
     tenantId?: string;
     type: string;
+    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    revision: number;
     chains: string[];
     contexts: Record<string, Record<string, any>>;
     timestamp: number;
+    expiresAt?: number;
+    metadata?: Record<string, any>;
 }
 
 export interface SerializedStorageState {
     version: number;
     timestamp: number;
     config: Record<string, any>;
-    stacks: Record<string, { type: string; chains: string[]; tenantId?: string }>;
+    stacks: Record<string, StackRecord>;
     contexts: Record<string, Record<string, any>>;
 }
 

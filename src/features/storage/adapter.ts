@@ -9,6 +9,14 @@ export interface ContextChangeEvent {
     timestamp: number;
 }
 
+export interface CacheEvent {
+    type: 'hit' | 'miss';
+    key: string;
+    stepId: string;
+    tenantId?: string;
+    timestamp: number;
+}
+
 export interface StorageAdapter {
     name: string;
 
@@ -18,8 +26,12 @@ export interface StorageAdapter {
     // 2. Checkpointing & Durability
     saveCheckpoint?(checkpoint: SerializedExecutionStack): Promise<void>;
     getCheckpoint?(stackId: string): Promise<SerializedExecutionStack | undefined>;
+    cleanExpiredCheckpoints?(): Promise<number> | number | void;
 
     // 3. Distributed Caching
     getCachedStep?(key: string): Promise<any | undefined>;
     setCachedStep?(key: string, value: any, ttlMs: number): Promise<void>;
+
+    // 4. Cache & Telemetry Events
+    onCacheEvent?(event: CacheEvent): Promise<void> | void;
 }
