@@ -44,7 +44,7 @@ import {
     TenantMismatchException,
     CheckpointVersionException,
     StorageAdapterException
-} from "../executer/exceptions";
+} from "../executer";
 
 export { GetChainTypeException } from "./get";
 export { PutChainTypeException } from "./put";

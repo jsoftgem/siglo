@@ -20,9 +20,9 @@ Make `fluid-func` predictable, coherent, and safe enough for production adoption
 
 1. Choose `Step` and `flow` as the primary API vocabulary.
 2. Keep `Chain`, `Pipeline`, and `pipe` as documented compatibility aliases only.
-3. Review all exports from `src/index.ts` and remove accidental internal exports.
+3. Review all exports from `../src/index.ts` and remove accidental internal exports.
 4. Add package `exports` mappings for ESM, CommonJS, and TypeScript declarations.
-5. Align `package.json`, `CHANGELOG.md`, README badges, and published version.
+5. Align `../package.json`, `CHANGELOG.md`, README badges, and published version.
 6. Document supported Node.js and TypeScript versions.
 7. Define a deprecation policy with migration examples.
 
@@ -47,7 +47,7 @@ Create a formal execution contract covering:
 - How flow-level and step-level timeouts interact
 - Whether adapter failures fail the workflow or are best effort
 
-Record the contract in `docs/execution-semantics.md` and test every rule.
+Record the contract in `../docs/execution-semantics.md` and test every rule.
 
 ### 3. Error Model
 
@@ -178,9 +178,9 @@ Use fake timers and controllable promises for timing-sensitive tests.
 
 ## Suggested Deliverables
 
-- `docs/execution-semantics.md`
-- `docs/error-model.md`
-- `docs/storage-contract.md`
+- `../docs/execution-semantics.md`
+- `../docs/error-model.md`
+- `../docs/storage-contract.md`
 - Typed error metadata
 - Stable package exports
 - Expanded integration test suite

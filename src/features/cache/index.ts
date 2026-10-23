@@ -1,5 +1,5 @@
 import { cacheChainAction, clearCache, defaultStorageManager, getCachedChainAction, hasCached } from '../storage';
-import { toPOJO } from '../context/proxy';
+import { toPOJO } from '../context';
 
 export interface CacheOptions {
     ttl?: number;

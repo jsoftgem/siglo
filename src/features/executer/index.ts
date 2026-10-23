@@ -9,7 +9,7 @@ import { Runner } from './runner';
 import StartChain from './SingleChain/StartChain';
 import { Util } from './util';
 import { cache } from '../cache';
-import { generateUUID } from '../../shared/Util';
+import { generateUUID } from '../../shared';
 
 export {
     FluidFuncError,

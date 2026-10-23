@@ -6,7 +6,7 @@ import OnAfter from './LifeCycle/OnAfter';
 import OnBefore from './LifeCycle/OnBefore';
 import OnFail from './LifeCycle/OnFail';
 import ResolveChain from './Helpers/ResolveChain';
-import { wrapParam, toPOJO } from '../../context/proxy';
+import { wrapParam, toPOJO } from '../../context';
 import { generateUUID } from '../../../shared';
 import { StepTimeoutException } from '../exceptions';
 import { combineAbortSignals } from '../signals';

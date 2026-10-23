@@ -1,4 +1,4 @@
-import { toPOJO } from '../context/proxy';
+import { toPOJO } from '../context';
 import { FlowTimeoutException, normalizeError } from './exceptions';
 import { combineAbortSignals } from './signals';
 import { defaultStorageManager } from '../storage';
