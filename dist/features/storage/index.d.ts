@@ -6,7 +6,7 @@ export { StorageState, PutChainContextMeta, SerializedExecutionStack, Serialized
 export { StorageAdapter, ContextChangeEvent, CacheEvent } from "./adapter";
 export interface CheckpointOptions {
     ttlMs?: number;
-    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'waiting';
     workflowId?: string;
     redactFields?: string[];
     metadata?: Record<string, any>;

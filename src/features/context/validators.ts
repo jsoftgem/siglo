@@ -1,4 +1,4 @@
-const VALIDATORS = '$$$validators';
+import { VALIDATORS } from '../../shared';
 
 export class Validators {
     private readonly chainId: string;

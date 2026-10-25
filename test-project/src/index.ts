@@ -14,10 +14,19 @@ import {
     createOmnichannelNotificationPipeline,
     createSecOpsRemediationPipeline
 } from './workflow/usecases';
+import {
+    createTravelBookingSagaPipeline,
+    createBoundedBatchIngestionPipeline,
+    createMultiCloudReplicationPipeline,
+    createLoanUnderwritingPipeline,
+    createIdempotentSettlementPipeline,
+    createDurableExpenseApprovalWorkflow,
+    createGovernedDeploymentPipeline
+} from './workflow/phase2';
 
 async function main() {
     console.log('========================================================================');
-    console.log('   fluid-func: Top 10 Event-Driven Use Cases & Storage Plugins Demo');
+    console.log('   fluid-func: Top 17 Event-Driven & Workflow Power Use Cases Demo');
     console.log('========================================================================\n');
 
     // 1. Initialize Database Connectors & Register Storage Hooks
@@ -180,12 +189,111 @@ async function main() {
     });
     console.log(`  ✔ SecOps Remediation -> Status: ${secopsRes.secopsPipelineStatus()}, Ticket: ${secopsRes.incidentTicket()}, Node Quarantined: ${secopsRes.quarantinedNode()}`);
 
+    // ========================================================================
+    //   Phase 2: Core Workflow Power Use Cases
+    // ========================================================================
+
+    // --- 11. Multi-Service Travel Booking Saga with LIFO Compensations ---
+    console.log('\n[Demo] 11. Multi-Service Travel Booking Saga with LIFO Compensations...');
+    const travelAudit = { actions: [], compensations: [] };
+    const travelSaga = createTravelBookingSagaPipeline(travelAudit);
+    const travelRes = await travelSaga.run({
+        bookingId: 'BK-DEMO-2026',
+        passengerName: 'Grace Hopper',
+        flightNumber: 'UA-101',
+        hotelName: 'Ritz-Carlton',
+        shouldFailPayment: false
+    });
+    console.log(`  ✔ Travel Saga -> Status: ${travelRes.sagaStatus()}, Vouchers: ${travelRes.vouchersIssued()}, Total: $${travelRes.totalAmount()}`);
+
+    // --- 12. High-Throughput Batch Processing with Bounded Worker Pool ---
+    console.log('\n[Demo] 12. Document Batch Processing with Bounded Worker Pool (concurrency: 3)...');
+    const batchTracker = { current: 0, peak: 0, processedIds: [] };
+    const batchPipeline = createBoundedBatchIngestionPipeline(batchTracker);
+    const batchRes = await batchPipeline.run({
+        batchId: 'BATCH-AI-900',
+        department: 'Engineering',
+        documents: [
+            { docId: 'DOC-1', title: 'Architecture RFC', category: 'RFC', content: 'Modern orchestrators...' },
+            { docId: 'DOC-2', title: 'Security Standard', category: 'Sec', content: 'Zero trust auth...' },
+            { docId: 'DOC-3', title: 'Database Scalability', category: 'DB', content: 'Distributed sharding...' },
+            { docId: 'DOC-4', title: 'Observability Guide', category: 'SRE', content: 'OpenTelemetry traces...' }
+        ]
+    });
+    console.log(`  ✔ Batch Mapping -> Status: ${batchRes.pipelineStatus()}, Total Indexed: ${batchRes.totalIndexed()}, Peak Concurrency: ${batchTracker.peak}`);
+
+    // --- 13. Latency-Optimized Multi-Cloud Storage Race & Parallel Replication ---
+    console.log('\n[Demo] 13. Latency-Optimized Multi-Cloud Storage Race & Parallel Replication...');
+    const multiCloudPipeline = createMultiCloudReplicationPipeline();
+    const cloudRes = await multiCloudPipeline.run({
+        assetId: 'MEDIA-DEMO-99',
+        fileName: 'keynote.mp4',
+        byteSize: 52428800,
+        mimeType: 'video/mp4'
+    });
+    console.log(`  ✔ Multi-Cloud Race & Sync -> Status: ${cloudRes.pipelineStatus()}, Edge: ${cloudRes.selectedEdge()}, Replicas: AWS, GCP, Azure`);
+
+    // --- 14. Dynamic Loan Underwriting Engine with Multi-Path Routing ---
+    console.log('\n[Demo] 14. Dynamic Loan Underwriting Engine with Multi-Path Routing...');
+    const loanPipeline = createLoanUnderwritingPipeline();
+    const loanRes = await loanPipeline.run({
+        applicationId: 'LOAN-APP-88',
+        applicantName: 'Evelyn Boyd Granville',
+        creditScore: 790,
+        annualIncome: 140000,
+        requestedAmount: 30000,
+        hasPartnerPromo: true
+    });
+    console.log(`  ✔ Loan Underwriting -> Tier: ${loanRes.riskTier()}, Decision: ${loanRes.decision()}, Interest Rate: ${loanRes.interestRate()}%`);
+
+    // --- 15. Scoped Financial Settlement & Idempotent Claim Locking ---
+    console.log('\n[Demo] 15. Scoped Financial Settlement & Idempotent Claim Locking...');
+    const { pipeline: settlementPipeline, stats: settlementStats } = createIdempotentSettlementPipeline();
+    const settlementInput = {
+        transactionId: 'TXN-BANK-CLAIM-7721',
+        sourceAccount: 'ACC-CHECKING-1',
+        targetAccount: 'ACC-SAVINGS-2',
+        amount: 15000,
+        currency: 'USD'
+    };
+    const s1 = await settlementPipeline.run(settlementInput);
+    const s2 = await settlementPipeline.run(settlementInput); // Duplicate delivery
+    console.log(`  ✔ Idempotent Settlement -> Status: ${s1.pipelineStatus()}, Journal: ${s1.journalRef()}, Executions: ${settlementStats.settlementExecutionCount} (Deduplicated!)`);
+
+    // --- 16. Durable Long-Running Human-in-the-Loop Expense Approval ---
+    console.log('\n[Demo] 16. Durable Long-Running Human-in-the-Loop Expense Approval & Resumption...');
+    const expenseWorkflow = createDurableExpenseApprovalWorkflow();
+    const reportId = 'EXP-CORP-DEMO-1';
+    const suspendRes = await expenseWorkflow.run({
+        reportId,
+        employeeEmail: 'ada@lovelace.org',
+        expenseCategory: 'CONFERENCE',
+        amount: 3500
+    }, { durable: true });
+    console.log(`  ✔ Expense Suspension -> Status: ${suspendRes.status}, Event: ${suspendRes.eventName}, CorrelationKey: ${suspendRes.correlationKey}`);
+    const resumeRes = await expenseWorkflow.resume(reportId, {
+        approvedBy: 'cfo@lovelace.org',
+        approvedAmount: 3500
+    });
+    console.log(`  ✔ Expense Resumption -> Status: ${resumeRes.pipelineStatus()}, Approved By: ${resumeRes.approvedBy()}, Disbursed: $${resumeRes.disbursedAmount()}`);
+
+    // --- 17. CI/CD Pipeline Governance with Workflow Graph AST Inspection ---
+    console.log('\n[Demo] 17. CI/CD Pipeline Governance with Workflow Graph AST Inspection...');
+    const { workflow: govWorkflow, auditWorkflowGovernance } = createGovernedDeploymentPipeline();
+    const govAudit = auditWorkflowGovernance();
+    const govRes = await govWorkflow.run({
+        releaseId: 'REL-2.0.0-PROD',
+        commitSha: 'c0ffee123456',
+        environment: 'production'
+    });
+    console.log(`  ✔ Governance Audit -> Compliant: ${govAudit.isCompliant}, Total AST Nodes: ${govAudit.metrics.totalNodes}, Deployed Cluster: ${govRes.activeCluster()}`);
+
     // --- Verification of Redis & MongoDB State ---
     console.log("\n------------------------------------------------------------------------");
     console.log("[Verification] Checking Storage Adapter State:");
     const mongoLogs = await mongo.collection("fluid_execution_logs").find();
     console.log(`  • MongoDB Execution Logs: ${mongoLogs.length} step context entries logged with stackId & tenant tracing`);
-    console.log("\n[Demo] All 10 use cases executed and streamed to storage adapter successfully!");
+    console.log("\n[Demo] All 17 use cases executed and streamed to storage adapter successfully!");
     console.log('========================================================================\n');
 }
 

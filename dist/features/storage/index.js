@@ -200,7 +200,7 @@ class StorageManager {
             type: "execution",
             chains: [],
             namespace,
-            status: 'running',
+            status: shared_1.Status.RUNNING,
             revision: 0
         });
         this.revisions.set(stackId, 0);
@@ -220,7 +220,7 @@ class StorageManager {
             type: "execution",
             chains: [],
             namespace: effectiveNamespace,
-            status: 'running',
+            status: shared_1.Status.RUNNING,
             revision: 0
         });
         this.revisions.set(stackId, 0);
@@ -389,7 +389,7 @@ class StorageManager {
                 if (ctx) {
                     const rawCtx = {};
                     for (const [key, fnOrVal] of Object.entries(ctx)) {
-                        if (key !== "$$validators") {
+                        if (key !== shared_1.VALIDATORS) {
                             if (redactList.has(key)) {
                                 rawCtx[key] = '[REDACTED]';
                             }
@@ -403,7 +403,7 @@ class StorageManager {
                 }
             }
         }
-        const status = options?.status || stack.status || 'running';
+        const status = options?.status || stack.status || shared_1.Status.RUNNING;
         const expiresAt = options?.ttlMs ? Date.now() + options.ttlMs : stack.expiresAt;
         stack.revision = nextRev;
         stack.status = status;
@@ -494,7 +494,7 @@ class StorageManager {
             chains: Array.isArray(checkpointData.chains) ? [...checkpointData.chains] : [],
             namespace: checkpointData.namespace,
             workflowId: checkpointData.workflowId,
-            status: checkpointData.status || 'running',
+            status: checkpointData.status || shared_1.Status.RUNNING,
             revision: rev,
             expiresAt: checkpointData.expiresAt,
             metadata: checkpointData.metadata
@@ -533,7 +533,7 @@ class StorageManager {
         for (const [cId, ctx] of this.state.contexts.entries()) {
             const rawCtx = {};
             for (const [key, fnOrVal] of Object.entries(ctx)) {
-                if (key !== "$$$validators") {
+                if (key !== shared_1.VALIDATORS) {
                     rawCtx[key] = typeof fnOrVal === "function" ? fnOrVal() : fnOrVal;
                 }
             }
@@ -571,7 +571,7 @@ class StorageManager {
                     type: sVal.type || "execution",
                     chains: Array.isArray(sVal.chains) ? [...sVal.chains] : [],
                     namespace: sVal.namespace,
-                    status: sVal.status || 'running',
+                    status: sVal.status || shared_1.Status.RUNNING,
                     revision: rev,
                     workflowId: sVal.workflowId,
                     expiresAt: sVal.expiresAt

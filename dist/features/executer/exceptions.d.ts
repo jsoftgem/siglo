@@ -1,3 +1,4 @@
+import { Status } from '../../shared';
 export interface ExecutionErrorMetadata {
     stepName?: string;
     phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry';
@@ -67,6 +68,66 @@ export declare class NamespaceMismatchException extends FluidFuncError {
 export declare class CheckpointVersionException extends FluidFuncError {
     readonly version: any;
     constructor(version: any, metadata?: ExecutionErrorMetadata);
+}
+export interface CollisionDetail {
+    field: string;
+    values: any[];
+    branchNames: string[];
+}
+export declare class FieldCollisionException extends FluidFuncError {
+    readonly collisions: CollisionDetail[];
+    constructor(collisions: CollisionDetail[], metadata?: ExecutionErrorMetadata);
+}
+export declare class IdempotencyConflictException extends FluidFuncError {
+    readonly idempotencyKey: string;
+    constructor(idempotencyKey: string, metadata?: ExecutionErrorMetadata);
+}
+export interface CompensationErrorDetail {
+    stepName: string;
+    error: unknown;
+}
+export declare class CompensationException extends FluidFuncError {
+    readonly originalError: unknown;
+    readonly compensationErrors: CompensationErrorDetail[];
+    readonly completedCompensations: string[];
+    constructor(message: string, details: {
+        originalError: unknown;
+        compensationErrors: CompensationErrorDetail[];
+        completedCompensations: string[];
+    }, metadata?: ExecutionErrorMetadata);
+}
+export declare class WorkflowSuspendedException extends FluidFuncError {
+    readonly correlationKey?: string;
+    readonly eventName?: string;
+    readonly continuationNodeId?: string;
+    readonly expiresAt?: number;
+    readonly status: typeof Status.WAITING;
+    constructor(message: string, details?: {
+        correlationKey?: string;
+        eventName?: string;
+        continuationNodeId?: string;
+        expiresAt?: number;
+    }, metadata?: ExecutionErrorMetadata);
+}
+export declare class DuplicateEventException extends FluidFuncError {
+    readonly correlationKey: string;
+    readonly eventName?: string;
+    constructor(correlationKey: string, eventName?: string, metadata?: ExecutionErrorMetadata);
+}
+export declare class ExpiredWaitException extends FluidFuncError {
+    readonly correlationKey: string;
+    readonly eventName?: string;
+    readonly expiredAt: number;
+    constructor(correlationKey: string, expiredAt: number, eventName?: string, metadata?: ExecutionErrorMetadata);
+}
+export declare class WorkflowVersionMismatchException extends FluidFuncError {
+    readonly expectedVersion: any;
+    readonly actualVersion: any;
+    constructor(expectedVersion: any, actualVersion: any, metadata?: ExecutionErrorMetadata);
+}
+export declare class GraphValidationException extends FluidFuncError {
+    readonly errors: string[];
+    constructor(errors: string[], metadata?: ExecutionErrorMetadata);
 }
 export declare function normalizeError(error: any, metadata?: ExecutionErrorMetadata): FluidFuncError;
 //# sourceMappingURL=exceptions.d.ts.map

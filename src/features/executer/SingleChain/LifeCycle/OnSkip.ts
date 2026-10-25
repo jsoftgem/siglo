@@ -1,4 +1,5 @@
-import { wrapParam } from '../../../context/proxy';
+import { wrapParam } from '../../../context';
+import { isFunction } from '../../../../shared';
 
 export default class OnSkip {
     constructor(
@@ -11,7 +12,7 @@ export default class OnSkip {
         stackId?: string
     ) {
         const context = Context.createContext(chain.$chainId, stackId);
-        if (typeof chain.onskip === 'function') {
+        if (isFunction(chain.onskip)) {
             try {
                 const wrappedParam = (param && (param as any).raw !== undefined) ? param : wrapParam(param);
                 const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;

@@ -30,11 +30,11 @@ class Context {
     }
     setStackId(stackId) {
         this.$stackId = stackId;
-        this.set('$stackId', stackId);
+        this.set(shared_1.STACK_ID, stackId);
     }
     setNamespace(namespace) {
         this.$namespace = namespace;
-        this.set('$namespace', namespace);
+        this.set(shared_1.NAMESPACE, namespace);
     }
     addSpec(fieldSpec) {
         new validators_1.Validators(this.$chainId, storage_1.getChainContext.bind(this))
@@ -51,12 +51,12 @@ class Context {
     }
     static createContext(chainId, stackId, namespace) {
         const context = new Context(chainId, stackId, namespace);
-        context.set('$chainId', chainId);
+        context.set(shared_1.CHAIN_ID, chainId);
         if (stackId) {
-            context.set('$stackId', stackId);
+            context.set(shared_1.STACK_ID, stackId);
         }
         if (namespace) {
-            context.set('$namespace', namespace);
+            context.set(shared_1.NAMESPACE, namespace);
         }
         return context;
     }

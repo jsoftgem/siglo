@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const exceptions_1 = require("../../exceptions");
+const shared_1 = require("../../../../shared");
 const RETRY_MAP = Symbol.for('fluid-func.retry-map');
 class OnFail {
     constructor(chain, error, resolve, reject, singleChain, initialParam, chains, logInfo, logError, _executeAfter, _Context, options) {
@@ -80,8 +81,8 @@ class OnFail {
                         initialParam[RETRY_MAP] = {};
                     }
                 }
-                const stepKey = (chains && typeof chains === 'object' && chains.$chainId)
-                    ? chains.$chainId
+                const stepKey = (chains && typeof chains === 'object' && chains[shared_1.CHAIN_ID])
+                    ? chains[shared_1.CHAIN_ID]
                     : (chain.func || chain.name || (typeof chains === 'string' ? chains : 'chain'));
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
@@ -118,10 +119,10 @@ class OnFail {
                     if (initialParam && typeof initialParam === 'object') {
                         const attFn = () => currentAttempt;
                         attFn.val = currentAttempt;
-                        initialParam.$attempt = attFn;
+                        initialParam[shared_1.ATTEMPT] = attFn;
                         const delFn = () => delayMs;
                         delFn.val = delayMs;
-                        initialParam.$retryDelay = delFn;
+                        initialParam[shared_1.RETRY_DELAY] = delFn;
                     }
                     let timerId;
                     let abortHandler;

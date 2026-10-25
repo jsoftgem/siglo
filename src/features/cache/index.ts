@@ -1,3 +1,19 @@
+import {
+    CHAIN_ID,
+    STEP_ID,
+    STACK_ID,
+    VALIDATORS,
+    STEPS,
+    HISTORY,
+    SIGNAL,
+    SIGNAL_KEY,
+    ATTEMPT,
+    RETRY_DELAY,
+    WORKFLOW_ID,
+    NAMESPACE,
+    NAMESPACE_KEY,
+    STACK_ID_KEY
+} from '../../shared';
 import { cacheChainAction, clearCache, defaultStorageManager, getCachedChainAction, hasCached } from '../storage';
 import { toPOJO } from '../context';
 
@@ -24,26 +40,26 @@ export function cache(
     const cleanParam = toPOJO(param);
     const paramToHash = Object.assign({}, cleanParam);
     const internalKeys = [
-        '$chainId',
-        '$stepId',
-        '$stackId',
-        
-        '$$$validators',
-        '$steps',
-        '$history',
-        '$signal',
-        'signal',
+        CHAIN_ID,
+        STEP_ID,
+        STACK_ID,
+        VALIDATORS,
+        STEPS,
+        HISTORY,
+        SIGNAL,
+        SIGNAL_KEY,
         'props',
         'raw',
-        '$attempt',
-        '$retryDelay',
-        '$workflowId'
+        ATTEMPT,
+        RETRY_DELAY,
+        WORKFLOW_ID
     ];
     for (const ik of internalKeys) {
         delete paramToHash[ik];
     }
-    delete paramToHash['$namespace'];
-    delete paramToHash['namespace'];
+    delete paramToHash[NAMESPACE];
+    delete paramToHash[NAMESPACE_KEY];
+    delete paramToHash[STACK_ID_KEY];
 
     const customSerializer = options?.keySerializer || (defaultStorageManager.getState().config?.cacheKeySerializer);
     const paramKey = customSerializer

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cache = cache;
+const shared_1 = require("../../shared");
 const storage_1 = require("../storage");
 const context_1 = require("../context");
 const inFlightPromises = new Map();
@@ -9,25 +10,26 @@ function cache(stackId, stepId, param, cachedLast, action, namespace, options) {
     const cleanParam = (0, context_1.toPOJO)(param);
     const paramToHash = Object.assign({}, cleanParam);
     const internalKeys = [
-        '$chainId',
-        '$stepId',
-        '$stackId',
-        '$$$validators',
-        '$steps',
-        '$history',
-        '$signal',
-        'signal',
+        shared_1.CHAIN_ID,
+        shared_1.STEP_ID,
+        shared_1.STACK_ID,
+        shared_1.VALIDATORS,
+        shared_1.STEPS,
+        shared_1.HISTORY,
+        shared_1.SIGNAL,
+        shared_1.SIGNAL_KEY,
         'props',
         'raw',
-        '$attempt',
-        '$retryDelay',
-        '$workflowId'
+        shared_1.ATTEMPT,
+        shared_1.RETRY_DELAY,
+        shared_1.WORKFLOW_ID
     ];
     for (const ik of internalKeys) {
         delete paramToHash[ik];
     }
-    delete paramToHash['$namespace'];
-    delete paramToHash['namespace'];
+    delete paramToHash[shared_1.NAMESPACE];
+    delete paramToHash[shared_1.NAMESPACE_KEY];
+    delete paramToHash[shared_1.STACK_ID_KEY];
     const customSerializer = options?.keySerializer || (storage_1.defaultStorageManager.getState().config?.cacheKeySerializer);
     const paramKey = customSerializer
         ? customSerializer(stepId, paramToHash, namespace)

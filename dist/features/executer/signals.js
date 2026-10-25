@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.combineAbortSignals = combineAbortSignals;
 function combineAbortSignals(signals) {
-    const active = signals.filter((s) => !!s);
+    const active = signals.filter((s) => !!s && typeof s.addEventListener === 'function');
     if (active.length === 0) {
         return { signal: undefined, cleanup: () => { } };
     }

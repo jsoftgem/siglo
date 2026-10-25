@@ -23,6 +23,16 @@ export {
     CheckpointConflictException,
     NamespaceMismatchException,
     CheckpointVersionException,
+    FieldCollisionException,
+    CollisionDetail,
+    IdempotencyConflictException,
+    CompensationException,
+    CompensationErrorDetail,
+    WorkflowSuspendedException,
+    DuplicateEventException,
+    ExpiredWaitException,
+    WorkflowVersionMismatchException,
+    GraphValidationException,
     normalizeError
 } from './exceptions';
 export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';

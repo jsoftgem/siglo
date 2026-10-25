@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.toPOJO = toPOJO;
 exports.wrapParam = wrapParam;
+const shared_1 = require("../../shared");
 const WRAPPED = Symbol.for('fluid-func.wrapped');
 function toPOJO(data) {
     if (!data || typeof data !== 'object') {
@@ -13,10 +14,10 @@ function toPOJO(data) {
     const result = {};
     const keys = Object.keys(data);
     for (const key of keys) {
-        if (key === '$$$validators' || key === '$chainId' || key === '$stackId') {
+        if (key === shared_1.VALIDATORS || key === shared_1.CHAIN_ID || key === shared_1.STACK_ID) {
             continue;
         }
-        if (key === '$signal' || key === 'signal' || key === '$namespace') {
+        if (key === shared_1.SIGNAL || key === shared_1.SIGNAL_KEY || key === shared_1.NAMESPACE) {
             result[key] = data[key];
             continue;
         }

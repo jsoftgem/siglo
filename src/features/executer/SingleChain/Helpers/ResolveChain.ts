@@ -1,3 +1,4 @@
+import { STEPS, HISTORY, STACK_ID, isReservedKey } from '../../../../shared';
 import SetResolvedContexts from './SetResolvedContexts';
 import { wrapParam, toPOJO } from '../../../context/proxy';
 
@@ -23,11 +24,11 @@ export default class ResolveChain {
                 resolve(ctx);
                 return;
             }
-            if (!ctx.$steps) {
+            if (!ctx[STEPS]) {
                 const rawOutput = toPOJO(ctx);
                 const cleanOutput: Record<string, any> = {};
                 for (const k of Object.keys(rawOutput)) {
-                    if (k !== '$chainId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+                    if (!isReservedKey(k)) {
                         cleanOutput[k] = rawOutput[k];
                     }
                 }
@@ -40,8 +41,8 @@ export default class ResolveChain {
                 };
                 const stepsAccessor: any = (subField?: string) => subField !== undefined ? singleSteps[subField] : singleSteps;
                 Object.assign(stepsAccessor, singleSteps);
-                ctx.$steps = stepsAccessor;
-                ctx.$history = stepsAccessor;
+                ctx[STEPS] = stepsAccessor;
+                ctx[HISTORY] = stepsAccessor;
             }
             resolve(isPojo ? toPOJO(ctx) : wrapParam(ctx));
         };
@@ -49,7 +50,7 @@ export default class ResolveChain {
         if (executeAfter) {
             executeAfter(chain, context).then((resolvedPluginData: any) => {
                 if (resolvedPluginData) {
-                    const stackId = typeof context?.$stackId === 'function' ? context.$stackId() : undefined;
+                    const stackId = typeof context?.[STACK_ID] === 'function' ? context[STACK_ID]() : undefined;
                     const newContext = new Context('_after_temp', stackId);
                     new SetResolvedContexts(resolvedPluginData, newContext);
                     context = Object.assign(context, newContext.getData());

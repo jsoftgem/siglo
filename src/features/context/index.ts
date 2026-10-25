@@ -1,6 +1,6 @@
 import { getChainContext, getChainDataById, putChainContext } from '../storage';
 
-import { CollectPromiseResult } from '../../shared';
+import { CollectPromiseResult, CHAIN_ID, STACK_ID, NAMESPACE } from '../../shared';
 import { GetContext } from './get';
 import { Validators } from './validators';
 import { setContextValue } from './set';
@@ -30,12 +30,12 @@ export default class Context {
 
     setStackId(stackId: string): void {
         this.$stackId = stackId;
-        this.set('$stackId', stackId);
+        this.set(STACK_ID, stackId);
     }
 
     setNamespace(namespace: string): void {
         this.$namespace = namespace;
-        this.set('$namespace', namespace);
+        this.set(NAMESPACE, namespace);
     }
 
     addSpec(fieldSpec: any): void {
@@ -57,12 +57,12 @@ export default class Context {
 
     static createContext(chainId: string, stackId?: string, namespace?: string): Context {
         const context = new Context(chainId, stackId, namespace);
-        context.set('$chainId', chainId);
+        context.set(CHAIN_ID, chainId);
         if (stackId) {
-            context.set('$stackId', stackId);
+            context.set(STACK_ID, stackId);
         }
         if (namespace) {
-            context.set('$namespace', namespace);
+            context.set(NAMESPACE, namespace);
         }
         return context;
     }

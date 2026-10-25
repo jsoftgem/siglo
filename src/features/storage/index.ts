@@ -37,7 +37,7 @@ import {
     SerializedStorageState,
     StorageErrorMode
 } from "./state";
-import { generateUUID } from "../../shared";
+import { generateUUID, Status, VALIDATORS } from "../../shared";
 import { StorageAdapter, CacheEvent } from "./adapter";
 import {
     CheckpointConflictException,
@@ -59,7 +59,7 @@ export { StorageAdapter, ContextChangeEvent, CacheEvent } from "./adapter";
 
 export interface CheckpointOptions {
     ttlMs?: number;
-    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'waiting';
     workflowId?: string;
     redactFields?: string[];
     metadata?: Record<string, any>;
@@ -218,7 +218,7 @@ export class StorageManager {
             type: "execution",
             chains: [],
             namespace,
-            status: 'running',
+            status: Status.RUNNING,
             revision: 0
         });
         this.revisions.set(stackId, 0);
@@ -238,7 +238,7 @@ export class StorageManager {
             type: "execution",
             chains: [],
             namespace: effectiveNamespace,
-            status: 'running',
+            status: Status.RUNNING,
             revision: 0
         });
         this.revisions.set(stackId, 0);
@@ -427,7 +427,7 @@ export class StorageManager {
                 if (ctx) {
                     const rawCtx: Record<string, any> = {};
                     for (const [key, fnOrVal] of Object.entries(ctx)) {
-                        if (key !== "$$validators") {
+                        if (key !== VALIDATORS) {
                             if (redactList.has(key)) {
                                 rawCtx[key] = '[REDACTED]';
                             } else {
@@ -441,7 +441,7 @@ export class StorageManager {
             }
         }
 
-        const status = options?.status || stack.status || 'running';
+        const status = options?.status || stack.status || Status.RUNNING;
         const expiresAt = options?.ttlMs ? Date.now() + options.ttlMs : stack.expiresAt;
 
         stack.revision = nextRev;
@@ -548,7 +548,7 @@ export class StorageManager {
             chains: Array.isArray(checkpointData.chains) ? [...checkpointData.chains] : [],
             namespace: checkpointData.namespace,
             workflowId: checkpointData.workflowId,
-            status: checkpointData.status || 'running',
+            status: checkpointData.status || Status.RUNNING,
             revision: rev,
             expiresAt: checkpointData.expiresAt,
             metadata: checkpointData.metadata
@@ -589,7 +589,7 @@ export class StorageManager {
         for (const [cId, ctx] of this.state.contexts.entries()) {
             const rawCtx: Record<string, any> = {};
             for (const [key, fnOrVal] of Object.entries(ctx)) {
-                if (key !== "$$$validators") {
+                if (key !== VALIDATORS) {
                     rawCtx[key] = typeof fnOrVal === "function" ? fnOrVal() : fnOrVal;
                 }
             }
@@ -631,7 +631,7 @@ export class StorageManager {
                     type: sVal.type || "execution",
                     chains: Array.isArray(sVal.chains) ? [...sVal.chains] : [],
                     namespace: sVal.namespace,
-                    status: sVal.status || 'running',
+                    status: sVal.status || Status.RUNNING,
                     revision: rev,
                     workflowId: sVal.workflowId,
                     expiresAt: sVal.expiresAt

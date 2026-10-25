@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const shared_1 = require("../../../../shared");
 const SetResolvedContexts_1 = __importDefault(require("./SetResolvedContexts"));
 const proxy_1 = require("../../../context/proxy");
 class ResolveChain {
@@ -18,11 +19,11 @@ class ResolveChain {
                 resolve(ctx);
                 return;
             }
-            if (!ctx.$steps) {
+            if (!ctx[shared_1.STEPS]) {
                 const rawOutput = (0, proxy_1.toPOJO)(ctx);
                 const cleanOutput = {};
                 for (const k of Object.keys(rawOutput)) {
-                    if (k !== '$chainId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+                    if (!(0, shared_1.isReservedKey)(k)) {
                         cleanOutput[k] = rawOutput[k];
                     }
                 }
@@ -35,15 +36,15 @@ class ResolveChain {
                 };
                 const stepsAccessor = (subField) => subField !== undefined ? singleSteps[subField] : singleSteps;
                 Object.assign(stepsAccessor, singleSteps);
-                ctx.$steps = stepsAccessor;
-                ctx.$history = stepsAccessor;
+                ctx[shared_1.STEPS] = stepsAccessor;
+                ctx[shared_1.HISTORY] = stepsAccessor;
             }
             resolve(isPojo ? (0, proxy_1.toPOJO)(ctx) : (0, proxy_1.wrapParam)(ctx));
         };
         if (executeAfter) {
             executeAfter(chain, context).then((resolvedPluginData) => {
                 if (resolvedPluginData) {
-                    const stackId = typeof context?.$stackId === 'function' ? context.$stackId() : undefined;
+                    const stackId = typeof context?.[shared_1.STACK_ID] === 'function' ? context[shared_1.STACK_ID]() : undefined;
                     const newContext = new Context('_after_temp', stackId);
                     new SetResolvedContexts_1.default(resolvedPluginData, newContext);
                     context = Object.assign(context, newContext.getData());

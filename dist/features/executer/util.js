@@ -5,16 +5,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Util = void 0;
 const context_1 = __importDefault(require("../context"));
-const Util_1 = require("../../shared/Util");
+const shared_1 = require("../../shared");
 class Util {
     static convertToContextStructure(param, ContextClass, generateUUID, stackId, namespace) {
         let effContext = context_1.default;
-        let effUUID = Util_1.generateUUID;
+        let effUUID = shared_1.generateUUID;
         let effStackId = stackId;
         let effNamespace = namespace;
         if (typeof ContextClass === 'function' && ContextClass.createContext) {
             effContext = ContextClass;
-            effUUID = typeof generateUUID === 'function' ? generateUUID : Util_1.generateUUID;
+            effUUID = typeof generateUUID === 'function' ? generateUUID : shared_1.generateUUID;
         }
         else {
             if (typeof ContextClass === 'string') {
@@ -36,10 +36,10 @@ class Util {
             }
             return newParam.getData();
         }
-        if (effStackId && !param.$stackId) {
+        if (effStackId && !param[shared_1.STACK_ID]) {
             param.setStackId(effStackId);
         }
-        if (effNamespace && !param.$namespace) {
+        if (effNamespace && !param[shared_1.NAMESPACE]) {
             param.setNamespace(effNamespace);
         }
         return param.getData();

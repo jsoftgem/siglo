@@ -1,4 +1,5 @@
-import { toPOJO, wrapParam } from '../../../context/proxy';
+import { toPOJO, wrapParam } from '../../../context';
+import { isFunction } from '../../../../shared';
 
 export default class OnAfter {
     constructor(
@@ -10,7 +11,7 @@ export default class OnAfter {
         next: () => void,
         reject: (reason?: any) => void
     ) {
-        if (typeof chain.onafter === 'function') {
+        if (isFunction(chain.onafter)) {
             try {
                 const wrappedParam = (param && (param as any).raw !== undefined) ? param : wrapParam(param);
                 const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;

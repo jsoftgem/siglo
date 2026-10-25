@@ -86,11 +86,11 @@ export class CollectPromiseResult<T = any> {
             if (promise) {
                 promise
                     .then(data => {
-                        results.push({ success: true, data });
+                        results.push({success: true, data});
                         new CollectPromiseResult(this.promises).collect(callback, results);
                     })
                     .catch(error => {
-                        results.push({ failed: true, error });
+                        results.push({failed: true, error});
                         new CollectPromiseResult(this.promises).collect(callback, results);
                     });
             }
@@ -103,5 +103,6 @@ export class CollectPromiseResult<T = any> {
             });
         }
     }
-/* c8 ignore next */
+
+    /* c8 ignore next */
 }

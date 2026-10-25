@@ -1,4 +1,5 @@
 import { FlowTimeoutException } from '../../exceptions';
+import { CHAIN_ID, ATTEMPT, RETRY_DELAY } from '../../../../shared';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
 
@@ -110,8 +111,8 @@ export default class OnFail {
                         initialParam[RETRY_MAP] = {};
                     }
                 }
-                const stepKey = (chains && typeof chains === 'object' && chains.$chainId)
-                    ? chains.$chainId
+                const stepKey = (chains && typeof chains === 'object' && chains[CHAIN_ID])
+                    ? chains[CHAIN_ID]
                     : (chain.func || chain.name || (typeof chains === 'string' ? chains : 'chain'));
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
@@ -149,11 +150,11 @@ export default class OnFail {
                     if (initialParam && typeof initialParam === 'object') {
                         const attFn = () => currentAttempt;
                         (attFn as any).val = currentAttempt;
-                        initialParam.$attempt = attFn;
+                        initialParam[ATTEMPT] = attFn;
 
                         const delFn = () => delayMs;
                         (delFn as any).val = delayMs;
-                        initialParam.$retryDelay = delFn;
+                        initialParam[RETRY_DELAY] = delFn;
                     }
 
                     let timerId: any;

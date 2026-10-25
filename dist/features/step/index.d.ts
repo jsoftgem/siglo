@@ -3,10 +3,20 @@ import Spec, { SpecData } from '../spec';
 import { toPOJO } from '../context';
 import { RetryConfig } from '../executer';
 import { CacheOptions } from '../cache';
-export { FluidFuncError, ExecutionErrorMetadata, StepTimeoutException, FlowTimeoutException, CancellationException, ValidationException, ValidationErrorDetail, StorageAdapterException, CheckpointConflictException, NamespaceMismatchException, CheckpointVersionException, normalizeError, RetryConfig, RetryPredicate } from '../executer';
+import { WorkflowNode, WorkflowNodeType, StepNode, SequenceNode, ParallelNode, BranchNode, WaitNode, MapNode, GraphValidationResult, GraphInspectionResult, GraphInspectionEdge, toGraph, validateGraph, assertValidGraph, inspectGraph } from '../graph';
+import { IdempotencyStore, IdempotencyClaimStatus, IdempotencyRecord, IdempotencyOptions, InMemoryIdempotencyStore, defaultIdempotencyStore, buildIdempotencyKey } from '../idempotency';
+import { CompensationHandler, CompensationOptions, CompensationRecord, CompensationRunResult, CompensationManager, defaultCompensationManager } from '../compensation';
+import { parallel, all, allSettled, race, when, branch, map, ParallelOptions, ParallelMergeStrategy, ParallelMode, BranchExecutionSummary, BranchPredicate, BranchSelector, MapOptions, MapItemAccessor } from '../combinators';
+import { WaitForEventOptions, WaitingWorkflowRecord, StateMigrationFn, ResumeOptions, parseDuration, waitForEvent, wait, DurableManager, defaultDurableManager, validateWorkflowVersion, resumeWorkflow } from '../durable';
+export { FluidFuncError, ExecutionErrorMetadata, StepTimeoutException, FlowTimeoutException, CancellationException, ValidationException, ValidationErrorDetail, StorageAdapterException, CheckpointConflictException, NamespaceMismatchException, CheckpointVersionException, FieldCollisionException, CollisionDetail, IdempotencyConflictException, CompensationException, CompensationErrorDetail, WorkflowSuspendedException, DuplicateEventException, ExpiredWaitException, WorkflowVersionMismatchException, GraphValidationException, normalizeError, RetryConfig, RetryPredicate } from '../executer';
 export { SerializedExecutionStack, SerializedStorageState, StorageAdapter, ContextChangeEvent, CacheEvent, StorageErrorMode, CheckpointOptions } from '../storage';
 export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
+export { WorkflowNode, WorkflowNodeType, StepNode, SequenceNode, ParallelNode, BranchNode, WaitNode, MapNode, GraphValidationResult, GraphInspectionResult, GraphInspectionEdge, toGraph, validateGraph, assertValidGraph, inspectGraph };
+export { IdempotencyStore, IdempotencyClaimStatus, IdempotencyRecord, IdempotencyOptions, InMemoryIdempotencyStore, defaultIdempotencyStore, buildIdempotencyKey };
+export { CompensationHandler, CompensationOptions, CompensationRecord, CompensationRunResult, CompensationManager, defaultCompensationManager };
+export { parallel, all, allSettled, race, when, branch, map, ParallelOptions, ParallelMergeStrategy, ParallelMode, BranchExecutionSummary, BranchPredicate, BranchSelector, MapOptions, MapItemAccessor };
+export { WaitForEventOptions, WaitingWorkflowRecord, StateMigrationFn, ResumeOptions, parseDuration, waitForEvent, wait, DurableManager, defaultDurableManager, validateWorkflowVersion, resumeWorkflow };
 export interface ExecutionOptions {
     signal?: AbortSignal;
     pojo?: boolean;
@@ -16,6 +26,13 @@ export interface ExecutionOptions {
     timeoutMs?: number;
     workflowId?: string;
     checkpoint?: boolean;
+    durable?: boolean;
+    workflowVersion?: string | number;
+    idempotencyKey?: string | ((ctx: any) => string);
+    idempotencyStore?: IdempotencyStore;
+    idempotencyTtlMs?: number;
+    migrations?: any;
+    stackId?: string;
 }
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
 export type OnBeforeAction<TInput = any> = (parameter: TInput) => boolean | Promise<boolean>;
@@ -30,6 +47,12 @@ export interface Flow<TInput = any, TOutput = any> {
     readonly isFlow?: boolean;
     timeout: (ms: number) => Flow<TInput, TOutput>;
     timeoutMs?: number;
+    workflowVersion?: string | number;
+    version: (v: string | number) => Flow<TInput, TOutput>;
+    toGraph: () => WorkflowNode;
+    inspect: () => GraphInspectionResult;
+    resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
+    compensate: (stackId: string, options?: any) => Promise<any>;
 }
 export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut> | Flow<TIn, TOut>;
 export type FlowArg<TIn = any, TOut = any> = FlowItem<TIn, TOut> | FlowArg<TIn, TOut>[];
@@ -54,10 +77,18 @@ export declare class Step<TInput = any, TOutput = any> {
     $stepId?: string;
     func?: string;
     isModern?: boolean;
+    compensationHandler?: any;
+    compensationOptions?: CompensationOptions;
+    idempotencyKey?: string | ((ctx: any) => string);
+    idempotencyOptions?: {
+        ttlMs?: number;
+        store?: IdempotencyStore;
+    };
+    workflowNode?: WorkflowNode;
     constructor(nameOrAction?: string | StepAction<TInput, TOutput> | Flow<TInput, TOutput>, action?: StepAction<TInput, TOutput>, sequence?: Step<any, any>[]);
     static start<TOut = any>(steps: Step | Step[] | Flow | (Step | Flow)[], param?: any, options?: ExecutionOptions): Promise<TOut>;
     static start(steps?: undefined, param?: any, options?: ExecutionOptions): undefined;
-    static create<TIn = any, TOut = any>(nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>, action?: StepAction<TIn, TOut>): Step<TIn, TOut>;
+    static create<TIn = any, TOut = any>(nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>, action?: StepAction<TIn, TOut>, sequence?: Step<any, any>[]): Step<TIn, TOut>;
     static flow: typeof flow;
     static isFlow: typeof isFlow;
     static pipe: typeof flow;
@@ -72,6 +103,20 @@ export declare class Step<TInput = any, TOutput = any> {
     static setErrorMode: typeof setErrorMode;
     static getErrorMode: typeof getErrorMode;
     static cleanExpiredCheckpoints: typeof cleanExpiredCheckpoints;
+    static parallel: typeof parallel;
+    static all: typeof all;
+    static allSettled: typeof allSettled;
+    static race: typeof race;
+    static when: typeof when;
+    static branch: typeof branch;
+    static map: typeof map;
+    static waitForEvent: typeof waitForEvent;
+    static wait: typeof wait;
+    static resumeWorkflow: typeof resumeWorkflow;
+    static toGraph: typeof toGraph;
+    static inspectGraph: typeof inspectGraph;
+    static validateGraph: typeof validateGraph;
+    static assertValidGraph: typeof assertValidGraph;
     timeout(ms: number): Step<TInput, TOutput>;
     modern(): Step<TInput, TOutput>;
     reduce(field: string): Step<TInput, TOutput>;
@@ -84,6 +129,13 @@ export declare class Step<TInput = any, TOutput = any> {
     onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput>;
     onFail(onFail: OnFailAction): Step<TInput, TOutput>;
     cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput>;
+    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput>;
+    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: {
+        ttlMs?: number;
+        store?: IdempotencyStore;
+    }): Step<TInput, TOutput>;
+    toGraph(): WorkflowNode;
+    inspect(): GraphInspectionResult;
     execute(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
     run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
     static config(props: Record<string, any>): void;
@@ -100,4 +152,5 @@ export type PipeArg<TIn = any, TOut = any> = FlowArg<TIn, TOut>;
 /** @deprecated Use `isFlow` instead of `isPipeline`. */
 export declare const isPipeline: typeof isFlow;
 export default Step;
+export { Status, ExecutionPhase, tagErrorPhase, isReservedKey, isFunction, isObject } from '../../shared';
 //# sourceMappingURL=index.d.ts.map

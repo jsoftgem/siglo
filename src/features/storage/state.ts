@@ -20,7 +20,7 @@ export interface StackRecord {
     type: string;
     chains: string[];
     namespace?: string;
-    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'waiting';
     workflowId?: string;
     expiresAt?: number;
     revision?: number;
@@ -43,7 +43,7 @@ export interface SerializedExecutionStack {
     workflowId?: string;
     namespace?: string;
     type: string;
-    status?: 'running' | 'completed' | 'failed' | 'cancelled';
+    status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'waiting';
     revision: number;
     chains: string[];
     contexts: Record<string, Record<string, any>>;

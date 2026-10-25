@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Validators = void 0;
-const VALIDATORS = '$$$validators';
+const shared_1 = require("../../shared");
 class Validators {
     chainId;
     getChainContext;
@@ -12,12 +12,12 @@ class Validators {
         this.CollectPromiseResult = CollectPromiseResult;
     }
     addSpec(fieldSpec, setChainContextValue) {
-        const oldValidators = this.getChainContext(this.chainId, VALIDATORS);
+        const oldValidators = this.getChainContext(this.chainId, shared_1.VALIDATORS);
         const validators = Object.assign([], [...(oldValidators ? oldValidators() : []), fieldSpec]);
-        setChainContextValue(VALIDATORS, validators);
+        setChainContextValue(shared_1.VALIDATORS, validators);
     }
     runValidations(context) {
-        const rawValidators = this.getChainContext(this.chainId, VALIDATORS);
+        const rawValidators = this.getChainContext(this.chainId, shared_1.VALIDATORS);
         const _validators = rawValidators ? rawValidators() : [];
         const validators = _validators.map((validator) => {
             if (validator.actions && validator.actions.includes('schema')) {
@@ -37,7 +37,7 @@ class Validators {
         });
     }
     runSpecs(context) {
-        const rawValidators = this.getChainContext(this.chainId, VALIDATORS);
+        const rawValidators = this.getChainContext(this.chainId, shared_1.VALIDATORS);
         const _validators = rawValidators ? rawValidators() : [];
         const validators = _validators.map((validator) => {
             const promises = validator.actions.map((action) => {

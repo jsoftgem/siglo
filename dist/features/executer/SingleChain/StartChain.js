@@ -15,6 +15,8 @@ const context_1 = require("../../context");
 const shared_1 = require("../../../shared");
 const exceptions_1 = require("../exceptions");
 const signals_1 = require("../signals");
+const compensation_1 = require("../../compensation");
+const idempotency_1 = require("../../idempotency");
 class StartChain {
     start;
     constructor(getChain, Context, propertyToContext, Reducer, addChainToStack, stackId, cache, logInfo, logError, executeAfter, executeBefore) {
@@ -97,24 +99,27 @@ class StartChain {
                             if (stepEffectiveSignal) {
                                 const sigFn = () => stepEffectiveSignal;
                                 sigFn.val = stepEffectiveSignal;
-                                param.$signal = sigFn;
-                                param.signal = sigFn;
+                                param[shared_1.SIGNAL] = sigFn;
+                                param[shared_1.SIGNAL_KEY] = sigFn;
                             }
                             if (options?.namespace) {
                                 const nsFn = () => options.namespace;
                                 nsFn.val = options.namespace;
-                                param.$namespace = nsFn;
-                                param.namespace = nsFn;
+                                param[shared_1.NAMESPACE] = nsFn;
+                                param[shared_1.NAMESPACE_KEY] = nsFn;
                             }
-                            if (initialParam?.$attempt) {
-                                param.$attempt = initialParam.$attempt;
+                            if (initialParam?.[shared_1.ATTEMPT]) {
+                                param[shared_1.ATTEMPT] = initialParam[shared_1.ATTEMPT];
                             }
-                            if (initialParam?.$retryDelay) {
-                                param.$retryDelay = initialParam.$retryDelay;
+                            if (initialParam?.[shared_1.RETRY_DELAY]) {
+                                param[shared_1.RETRY_DELAY] = initialParam[shared_1.RETRY_DELAY];
                             }
-                            if (initialParam?.$steps) {
-                                param.$steps = initialParam.$steps;
-                                param.$history = initialParam.$history || initialParam.$steps;
+                            if (initialParam?.[shared_1.STEPS]) {
+                                param[shared_1.STEPS] = initialParam[shared_1.STEPS];
+                                param[shared_1.HISTORY] = initialParam[shared_1.HISTORY] || initialParam[shared_1.STEPS];
+                            }
+                            if (initialParam?.[shared_1.IS_DURABLE]) {
+                                param[shared_1.IS_DURABLE] = initialParam[shared_1.IS_DURABLE];
                             }
                             executeBefore(chain.func, param)
                                 .then(resolvedPluginData => {
@@ -124,48 +129,90 @@ class StartChain {
                                 if (stepEffectiveSignal) {
                                     const sigFn = () => stepEffectiveSignal;
                                     sigFn.val = stepEffectiveSignal;
-                                    param.$signal = sigFn;
-                                    param.signal = sigFn;
+                                    param[shared_1.SIGNAL] = sigFn;
+                                    param[shared_1.SIGNAL_KEY] = sigFn;
                                 }
                                 if (options?.namespace) {
                                     const nsFn = () => options.namespace;
                                     nsFn.val = options.namespace;
-                                    param.$namespace = nsFn;
-                                    param.namespace = nsFn;
+                                    param[shared_1.NAMESPACE] = nsFn;
+                                    param[shared_1.NAMESPACE_KEY] = nsFn;
                                 }
-                                if (initialParam?.$attempt) {
-                                    param.$attempt = initialParam.$attempt;
+                                if (initialParam?.[shared_1.ATTEMPT]) {
+                                    param[shared_1.ATTEMPT] = initialParam[shared_1.ATTEMPT];
                                 }
-                                if (initialParam?.$retryDelay) {
-                                    param.$retryDelay = initialParam.$retryDelay;
+                                if (initialParam?.[shared_1.RETRY_DELAY]) {
+                                    param[shared_1.RETRY_DELAY] = initialParam[shared_1.RETRY_DELAY];
                                 }
-                                if (initialParam?.$steps) {
-                                    param.$steps = initialParam.$steps;
-                                    param.$history = initialParam.$history || initialParam.$steps;
+                                if (initialParam?.[shared_1.STEPS]) {
+                                    param[shared_1.STEPS] = initialParam[shared_1.STEPS];
+                                    param[shared_1.HISTORY] = initialParam[shared_1.HISTORY] || initialParam[shared_1.STEPS];
+                                }
+                                if (initialParam?.[shared_1.IS_DURABLE]) {
+                                    param[shared_1.IS_DURABLE] = initialParam[shared_1.IS_DURABLE];
                                 }
                                 new OnBefore_1.default(chain, param, (val) => {
                                     clearStepTimeout();
                                     safeResolve(val);
                                 }, (err) => {
                                     clearStepTimeout();
-                                    if (err && typeof err === 'object') {
-                                        err.phase = 'before';
-                                        err.stepName = chainName;
-                                    }
+                                    (0, shared_1.tagErrorPhase)(err, shared_1.ExecutionPhase.BEFORE, chainName);
                                     new OnFail_1.default(chain, err, context => {
                                         new ResolveChain_1.default(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                     }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
-                                }, Context, () => {
+                                }, Context, async () => {
+                                    let stepIdempKey;
+                                    const stepIdempStore = chain.idempotencyOptions?.store || idempotency_1.defaultIdempotencyStore;
+                                    if (chain.idempotencyKey) {
+                                        try {
+                                            const rawKey = (0, shared_1.isFunction)(chain.idempotencyKey)
+                                                ? chain.idempotencyKey((0, context_1.toPOJO)(param))
+                                                : chain.idempotencyKey;
+                                            stepIdempKey = (0, idempotency_1.buildIdempotencyKey)(rawKey, {
+                                                namespace: options?.namespace
+                                            });
+                                            const claim = await stepIdempStore.claim(stepIdempKey, chain.idempotencyOptions?.ttlMs);
+                                            if (claim === shared_1.Status.COMPLETED) {
+                                                const cachedRes = await stepIdempStore.get(stepIdempKey);
+                                                clearStepTimeout();
+                                                new ResolveChain_1.default(safeResolve, cachedRes, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                return;
+                                            }
+                                            if (claim === shared_1.Status.IN_PROGRESS) {
+                                                clearStepTimeout();
+                                                safeReject(new exceptions_1.IdempotencyConflictException(stepIdempKey, { stackId, stepName: chainName, namespace: options?.namespace }));
+                                                return;
+                                            }
+                                        }
+                                        catch (idempErr) {
+                                            clearStepTimeout();
+                                            safeReject(idempErr);
+                                            return;
+                                        }
+                                    }
                                     const executeOnAfterAndResolve = (output, ctx) => {
+                                        if (stepIdempKey) {
+                                            stepIdempStore.complete(stepIdempKey, output).catch(() => { });
+                                        }
+                                        if (chain.compensationHandler) {
+                                            compensation_1.defaultCompensationManager.registerCompensation(stackId, {
+                                                stepId: chain.$stepId || chain.$chainId,
+                                                stepName: chainName,
+                                                output,
+                                                input: (0, context_1.toPOJO)(param),
+                                                handler: chain.compensationHandler,
+                                                options: chain.compensationOptions
+                                            });
+                                        }
                                         new OnAfter_1.default(chain, output, param, ctx, propertyToContext, () => {
                                             clearStepTimeout();
                                             new ResolveChain_1.default(safeResolve, ctx.getData(), chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                         }, (afterErr) => {
-                                            clearStepTimeout();
-                                            if (afterErr && typeof afterErr === 'object') {
-                                                afterErr.phase = 'after';
-                                                afterErr.stepName = chainName;
+                                            if (stepIdempKey) {
+                                                stepIdempStore.fail(stepIdempKey, afterErr).catch(() => { });
                                             }
+                                            clearStepTimeout();
+                                            (0, shared_1.tagErrorPhase)(afterErr, shared_1.ExecutionPhase.AFTER, chainName);
                                             new OnFail_1.default(chain, afterErr, (resolvedCtx) => {
                                                 new ResolveChain_1.default(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
                                             }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
@@ -177,10 +224,10 @@ class StartChain {
                                             .reduce((err, result) => {
                                             clearStepTimeout();
                                             if (err) {
-                                                if (err && typeof err === 'object') {
-                                                    err.phase = 'action';
-                                                    err.stepName = chainName;
+                                                if (stepIdempKey) {
+                                                    stepIdempStore.fail(stepIdempKey, err).catch(() => { });
                                                 }
+                                                (0, shared_1.tagErrorPhase)(err, shared_1.ExecutionPhase.ACTION, chainName);
                                                 new OnFail_1.default(chain, err, (context) => {
                                                     new ResolveChain_1.default(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                 }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
@@ -194,10 +241,7 @@ class StartChain {
                                                 }, () => {
                                                     new ResolveChain_1.default(safeResolve, result, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                 }, (afterErr) => {
-                                                    if (afterErr && typeof afterErr === 'object') {
-                                                        afterErr.phase = 'after';
-                                                        afterErr.stepName = chainName;
-                                                    }
+                                                    (0, shared_1.tagErrorPhase)(afterErr, shared_1.ExecutionPhase.AFTER, chainName);
                                                     new OnFail_1.default(chain, afterErr, (context) => {
                                                         new ResolveChain_1.default(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                     }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
@@ -209,7 +253,18 @@ class StartChain {
                                         let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
                                         const isPojo = options?.pojo === true || options?.mode === 'pojo';
                                         const wrappedParam = isPojo ? (0, context_1.toPOJO)(param) : (0, context_1.wrapParam)(param);
-                                        const actionParam = (chain.isModern || isPojo) ? (0, context_1.toPOJO)(param) : wrappedParam;
+                                        let actionParam = (chain.isModern || isPojo) ? (0, context_1.toPOJO)(param) : wrappedParam;
+                                        if (chain.isModern || isPojo) {
+                                            actionParam = Object.assign({}, actionParam);
+                                        }
+                                        if (stackId) {
+                                            actionParam[shared_1.STACK_ID] = () => stackId;
+                                            actionParam[shared_1.STACK_ID_KEY] = stackId;
+                                        }
+                                        if (options?.namespace) {
+                                            actionParam[shared_1.NAMESPACE] = () => options.namespace;
+                                            actionParam[shared_1.NAMESPACE_KEY] = options.namespace;
+                                        }
                                         let rawAction;
                                         try {
                                             rawAction = chain.cachedLast
@@ -217,11 +272,11 @@ class StartChain {
                                                 : chain.action(actionParam);
                                         }
                                         catch (actionErr) {
-                                            clearStepTimeout();
-                                            if (actionErr && typeof actionErr === "object") {
-                                                actionErr.phase = "action";
-                                                actionErr.stepName = chainName;
+                                            if (stepIdempKey) {
+                                                stepIdempStore.fail(stepIdempKey, actionErr).catch(() => { });
                                             }
+                                            clearStepTimeout();
+                                            (0, shared_1.tagErrorPhase)(actionErr, shared_1.ExecutionPhase.ACTION, chainName);
                                             new OnFail_1.default(chain, actionErr, (resolvedCtx) => {
                                                 new ResolveChain_1.default(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
                                             }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
@@ -260,11 +315,11 @@ class StartChain {
                                                     propertyToContext(context, props);
                                                     executeOnAfterAndResolve(props, context);
                                                 }).catch(err => {
-                                                    clearStepTimeout();
-                                                    if (err && typeof err === 'object') {
-                                                        err.phase = 'action';
-                                                        err.stepName = chainName;
+                                                    if (stepIdempKey) {
+                                                        stepIdempStore.fail(stepIdempKey, err).catch(() => { });
                                                     }
+                                                    clearStepTimeout();
+                                                    (0, shared_1.tagErrorPhase)(err, shared_1.ExecutionPhase.ACTION, chainName);
                                                     new OnFail_1.default(chain, err, (resolvedCtx) => {
                                                         new ResolveChain_1.default(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
                                                     }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
@@ -284,27 +339,18 @@ class StartChain {
                                 }, propertyToContext, stackId);
                             }).catch((err) => {
                                 clearStepTimeout();
-                                if (err && typeof err === 'object') {
-                                    err.phase = 'before';
-                                    err.stepName = chainName;
-                                }
+                                (0, shared_1.tagErrorPhase)(err, shared_1.ExecutionPhase.BEFORE, chainName);
                                 new OnFail_1.default(chain, err, safeResolve.bind(this), safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
                             });
                         }).catch((err) => {
                             clearStepTimeout();
-                            if (err && typeof err === 'object') {
-                                err.phase = 'validation';
-                                err.stepName = chainName;
-                            }
+                            (0, shared_1.tagErrorPhase)(err, shared_1.ExecutionPhase.VALIDATION, chainName);
                             new OnFail_1.default(chain, err, safeResolve.bind(this), safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
                         });
                     }
                     catch (err) {
                         clearStepTimeout();
-                        if (err && typeof err === 'object') {
-                            err.phase = 'action';
-                            err.stepName = chainName;
-                        }
+                        (0, shared_1.tagErrorPhase)(err, shared_1.ExecutionPhase.ACTION, chainName);
                         new OnFail_1.default(chain, err, safeResolve.bind(this), safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
                     }
                 });

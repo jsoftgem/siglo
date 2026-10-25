@@ -1,13 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const proxy_1 = require("../../../context/proxy");
+const context_1 = require("../../../context");
+const shared_1 = require("../../../../shared");
 class OnAfter {
     constructor(chain, output, param, context, propertyToContext, next, reject) {
-        if (typeof chain.onafter === 'function') {
+        if ((0, shared_1.isFunction)(chain.onafter)) {
             try {
-                const wrappedParam = (param && param.raw !== undefined) ? param : (0, proxy_1.wrapParam)(param);
+                const wrappedParam = (param && param.raw !== undefined) ? param : (0, context_1.wrapParam)(param);
                 const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;
-                const actionOutput = chain.isModern ? (0, proxy_1.toPOJO)(output) : output;
+                const actionOutput = chain.isModern ? (0, context_1.toPOJO)(output) : output;
                 const result = chain.onafter(actionOutput, actionParam);
                 if (result instanceof Promise) {
                     result.then((enrichProps) => {

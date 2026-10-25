@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const proxy_1 = require("../../../context/proxy");
+const context_1 = require("../../../context");
+const shared_1 = require("../../../../shared");
 class OnSkip {
     constructor(chain, param, resolve, reject, Context, propertyToContext, stackId) {
         const context = Context.createContext(chain.$chainId, stackId);
-        if (typeof chain.onskip === 'function') {
+        if ((0, shared_1.isFunction)(chain.onskip)) {
             try {
-                const wrappedParam = (param && param.raw !== undefined) ? param : (0, proxy_1.wrapParam)(param);
+                const wrappedParam = (param && param.raw !== undefined) ? param : (0, context_1.wrapParam)(param);
                 const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;
                 const result = chain.onskip(actionParam);
                 if (result instanceof Promise) {
@@ -14,7 +15,7 @@ class OnSkip {
                         if (fallbackProps !== undefined && propertyToContext) {
                             propertyToContext(context, fallbackProps);
                         }
-                        resolve((0, proxy_1.wrapParam)(context.getData()));
+                        resolve((0, context_1.wrapParam)(context.getData()));
                     }).catch((err) => {
                         reject(err);
                     });
@@ -23,7 +24,7 @@ class OnSkip {
                     if (result !== undefined && propertyToContext) {
                         propertyToContext(context, result);
                     }
-                    resolve((0, proxy_1.wrapParam)(context.getData()));
+                    resolve((0, context_1.wrapParam)(context.getData()));
                 }
             }
             catch (err) {

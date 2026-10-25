@@ -1,5 +1,6 @@
 import OnSkip from './OnSkip';
-import { wrapParam } from '../../../context/proxy';
+import { wrapParam } from '../../../context';
+import { isFunction } from '../../../../shared';
 
 export default class OnBefore {
     constructor(
@@ -15,7 +16,7 @@ export default class OnBefore {
         let propertyToContext: ((context: any, chainReturn: any) => void) | undefined;
         let actualStackId = stackId;
 
-        if (typeof propertyToContextOrStackId === 'function') {
+        if (isFunction(propertyToContextOrStackId)) {
             propertyToContext = propertyToContextOrStackId;
         } else if (typeof propertyToContextOrStackId === 'string') {
             actualStackId = propertyToContextOrStackId;

@@ -1,7 +1,20 @@
+import {
+    Status,
+    isReservedKey,
+    isFunction,
+    SIGNAL,
+    SIGNAL_KEY,
+    NAMESPACE,
+    NAMESPACE_KEY,
+    IS_DURABLE,
+    VALUE
+} from '../../shared';
 import { toPOJO } from '../context';
-import { FlowTimeoutException, normalizeError } from './exceptions';
+import { FlowTimeoutException, normalizeError, IdempotencyConflictException } from './exceptions';
 import { combineAbortSignals } from './signals';
 import { defaultStorageManager } from '../storage';
+import { defaultCompensationManager } from '../compensation';
+import { defaultIdempotencyStore, buildIdempotencyKey } from '../idempotency';
 
 export class Runner {
     private getChain: any;
@@ -57,8 +70,11 @@ export class Runner {
     start(param: any, chains: any, rawOptions?: any): Promise<any> | undefined {
         if (chains) {
             const namespace = rawOptions?.namespace;
-            const stackId = this.createExecutionStack(namespace);
-            this.logInfo('Runner', `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`);
+            const isSubStack = Boolean(rawOptions?.stackId);
+            const stackId = rawOptions?.stackId || this.createExecutionStack(namespace);
+            if (!isSubStack) {
+                this.logInfo('Runner', `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`);
+            }
 
             const timeoutMs: number | undefined = rawOptions?.timeout ?? rawOptions?.timeoutMs;
             let flowController: AbortController | undefined;
@@ -91,7 +107,9 @@ export class Runner {
 
             if (effectiveSignal?.aborted) {
                 clearFlowTimer();
-                this.deleteStack(stackId);
+                if (!isSubStack) {
+                    this.deleteStack(stackId);
+                }
                 const reason = effectiveSignal.reason || new Error('This operation was aborted');
                 const normalized = normalizeError(reason, {
                     stackId,
@@ -106,6 +124,10 @@ export class Runner {
                 signal: effectiveSignal,
                 flowSignal: flowController?.signal,
                 namespace,
+                stackId,
+                workflowId: rawOptions?.workflowId,
+                workflowVersion: rawOptions?.workflowVersion,
+                durable: rawOptions?.durable,
                 onStepComplete: () => {
                     completedSteps++;
                 }
@@ -116,12 +138,33 @@ export class Runner {
             if (effectiveSignal) {
                 const sigFn = () => effectiveSignal;
                 (sigFn as any).val = effectiveSignal;
-                newParam.$signal = sigFn;
-                newParam.signal = sigFn;
+                newParam[SIGNAL] = sigFn;
+                newParam[SIGNAL_KEY] = sigFn;
             }
             if (namespace) {
-                newParam.$namespace = () => namespace;
-                newParam.namespace = () => namespace;
+                const nsFn = () => namespace;
+                (nsFn as any).val = namespace;
+                newParam[NAMESPACE] = nsFn;
+                newParam[NAMESPACE_KEY] = nsFn;
+            }
+            if (rawOptions?.durable) {
+                const durFn = () => true;
+                (durFn as any).val = true;
+                newParam[IS_DURABLE] = durFn;
+                newParam.isDurable = durFn;
+            }
+
+            const idempotencyStore = rawOptions?.idempotencyStore || defaultIdempotencyStore;
+            let idempotencyKeyScoped: string | undefined;
+
+            if (rawOptions?.idempotencyKey) {
+                const rawKey = typeof rawOptions.idempotencyKey === 'function'
+                    ? rawOptions.idempotencyKey(toPOJO(param))
+                    : rawOptions.idempotencyKey;
+                idempotencyKeyScoped = buildIdempotencyKey(rawKey, {
+                    namespace: namespace,
+                    workflowVersion: rawOptions?.workflowVersion
+                });
             }
 
             const singleChain = new this.SingleChain(
@@ -137,68 +180,128 @@ export class Runner {
                 this.executeAfter,
                 this.executeBefore
             );
-            const executionPromise = (chains instanceof Array)
-                ? new this.ArrayChain(
-                    this.getChain,
-                    this.generateUUID,
-                    this.Context,
-                    singleChain
-                ).start(newParam, chains, effectiveOptions)
-                : singleChain.start(newParam, chains, effectiveOptions);
 
-            return executionPromise
-                .then((result: any) => {
-                    clearFlowTimer();
-                    return new Promise((resolve, reject) => {
-                        try {
-                            this.logInfo('Runner', `Completed stack#${stackId}`);
-                            const adapter = defaultStorageManager.getStorageAdapter();
-                            if (adapter?.saveCheckpoint || rawOptions?.checkpoint) {
-                                try {
-                                    defaultStorageManager.checkpoint(stackId, { status: 'completed' });
-                                /* c8 ignore next 3 */
-                                } catch {
-                                    // ignore
-                                }
-                            }
+            const runFlowExecution = async () => {
+                if (idempotencyKeyScoped) {
+                    const claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+                    if (claim === Status.COMPLETED) {
+                        clearFlowTimer();
+                        if (!isSubStack) {
                             this.deleteStack(stackId);
-                            const isPojo = effectiveOptions?.pojo === true || effectiveOptions?.mode === 'pojo';
-                            resolve(isPojo ? toPOJO(result) : result);
-                        } catch (err) {
-                            reject(err);
                         }
-                    });
-                })
-                .catch((error: any) => {
+                        const isPojo = effectiveOptions?.pojo === true || effectiveOptions?.mode === 'pojo';
+                        const stored = await idempotencyStore.get(idempotencyKeyScoped);
+                        return isPojo ? toPOJO(stored) : stored;
+                    }
+                    if (claim === Status.IN_PROGRESS) {
+                        clearFlowTimer();
+                        if (!isSubStack) {
+                            this.deleteStack(stackId);
+                        }
+                        throw new IdempotencyConflictException(idempotencyKeyScoped, {
+                            stackId,
+                            namespace
+                        });
+                    }
+                }
+
+                const executionPromise = (chains instanceof Array)
+                    ? new this.ArrayChain(
+                        this.getChain,
+                        this.generateUUID,
+                        this.Context,
+                        singleChain
+                    ).start(newParam, chains, effectiveOptions)
+                    : singleChain.start(newParam, chains, effectiveOptions);
+
+                try {
+                    const result = await executionPromise;
+                    clearFlowTimer();
+
+                    if (result && result.status === Status.WAITING) {
+                        this.logInfo('Runner', `Suspended stack#${stackId} (waiting for event)`);
+                        return result;
+                    }
+
+                    this.logInfo('Runner', `Completed stack#${stackId}`);
+                    const adapter = defaultStorageManager.getStorageAdapter();
+                    if (!isSubStack && (adapter?.saveCheckpoint || rawOptions?.checkpoint)) {
+                        try {
+                            defaultStorageManager.checkpoint(stackId, { status: Status.COMPLETED });
+                        /* c8 ignore next 3 */
+                        } catch {
+                            // ignore
+                        }
+                    }
+                    if (!isSubStack) {
+                        this.deleteStack(stackId);
+                    }
+                    const isPojo = effectiveOptions?.pojo === true || effectiveOptions?.mode === 'pojo';
+                    const finalResult = isPojo ? toPOJO(result) : result;
+
+                    if (idempotencyKeyScoped) {
+                        try {
+                            await idempotencyStore.complete(idempotencyKeyScoped, finalResult);
+                        /* c8 ignore next 3 */
+                        } catch {
+                            // ignore
+                        }
+                    }
+
+                    return finalResult;
+                } catch (error: any) {
                     clearFlowTimer();
                     this.logError('Runner', error);
-                    return new Promise((_resolve, reject) => {
+
+                    if (idempotencyKeyScoped) {
                         try {
-                            /* c8 ignore start */
-                            const adapter = defaultStorageManager.getStorageAdapter();
-                            if (adapter?.saveCheckpoint || rawOptions?.checkpoint) {
-                                try {
-                                    defaultStorageManager.checkpoint(stackId, { status: 'failed' });
-                                } catch {
-                                    // ignore
-                                }
-                            }
-                            /* c8 ignore stop */
-                            this.deleteStack(stackId);
-                            const normalized = normalizeError(error, {
-                                stackId,
-                                namespace,
-                                workflowId: rawOptions?.workflowId,
-                                stepName: (error as any)?.func || (error as any)?.stepName,
-                                phase: (error as any)?.phase || 'action'
-                            });
-                            (normalized as any).stackId = stackId;
-                            reject(normalized);
-                        } catch (err) {
-                            reject(err);
+                            await idempotencyStore.fail(idempotencyKeyScoped, error);
+                        /* c8 ignore next 3 */
+                        } catch {
+                            // ignore
                         }
+                    }
+
+                    let effectiveError = error;
+                    if (!isSubStack) {
+                        const compensations = defaultCompensationManager.getCompensations(stackId);
+                        if (compensations.length > 0) {
+                            try {
+                                await defaultCompensationManager.runCompensations(stackId, error, rawOptions);
+                            } catch (compErr: any) {
+                                effectiveError = compErr;
+                            } finally {
+                                defaultCompensationManager.clearCompensations(stackId);
+                            }
+                        }
+                    }
+
+                    /* c8 ignore start */
+                    const adapter = defaultStorageManager.getStorageAdapter();
+                    if (!isSubStack && (adapter?.saveCheckpoint || rawOptions?.checkpoint)) {
+                        try {
+                            defaultStorageManager.checkpoint(stackId, { status: Status.FAILED });
+                        } catch {
+                            // ignore
+                        }
+                    }
+                    /* c8 ignore stop */
+                    if (!isSubStack) {
+                        this.deleteStack(stackId);
+                    }
+                    const normalized = normalizeError(effectiveError, {
+                        stackId,
+                        namespace,
+                        workflowId: rawOptions?.workflowId,
+                        stepName: (effectiveError as any)?.func || (effectiveError as any)?.stepName,
+                        phase: (effectiveError as any)?.phase || 'action'
                     });
-                });
+                    (normalized as any).stackId = stackId;
+                    throw normalized;
+                }
+            };
+
+            return runFlowExecution();
         }
         return undefined;
     }
@@ -210,11 +313,14 @@ export const propertyToContext = (context: any, chainReturn: any): void => {
         if (chainReturn instanceof Object) {
             for (const name in chainReturn) {
                 if (Object.prototype.hasOwnProperty.call(chainReturn, name)) {
+                    if (isReservedKey(name) || isFunction(chainReturn[name])) {
+                        continue;
+                    }
                     context.set(name, chainReturn[name]);
                 }
             }
         } else {
-            context.set('value', chainReturn);
+            context.set(VALUE, chainReturn);
         }
     }
 };

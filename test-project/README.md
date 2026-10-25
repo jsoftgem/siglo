@@ -1,12 +1,19 @@
 # fluid-func Redis & MongoDB Storage & Event-Driven Use Cases Sample
 
-This is a working test project demonstrating how to connect **Redis** and **MongoDB** as external storage providers for [`fluid-func`](https://github.com/rickzx98/fluid-func) using the unified [`StorageAdapter`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/adapter.ts) interface (`Step.useStorage(...)`), along with complete runnable implementations and automated tests for the **Top 10 Event-Driven Distributed Use Cases** (as documented in [`usecases.md`](../usecases.md)).
+This is a working test project demonstrating how to connect **Redis** and **MongoDB** as external storage providers for [`fluid-func`](https://github.com/rickzx98/fluid-func) using the unified [`StorageAdapter`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/adapter.ts) interface (`Step.useStorage(...)`), along with complete runnable implementations and automated tests for the **Top 10 Event-Driven Distributed Use Cases** (Phase 1) and **7 Advanced Workflow Power & Graph Use Cases** (Phase 2).
 
 - [`StorageAdapter`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/adapter.ts)
 - [`Step.useStorage(...)`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/index.ts)
 - [`onContextChange`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/adapter.ts) (real-time telemetry and context streaming)
 - [`saveCheckpoint` / `getCheckpoint`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/adapter.ts) (durable saga pause/resume)
 - [`getCachedStep` / `setCachedStep`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/storage/adapter.ts) (distributed memoized step execution)
+- [`compensate`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/core/step.ts) / [`CompensationException`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/core/exceptions/compensation.ts) (distributed sagas and LIFO compensation rollback)
+- [`map`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/map.ts) (bounded concurrency worker mapping)
+- [`race`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/race.ts) / [`parallel`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/parallel.ts) / [`allSettled`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/allSettled.ts) (speculative competitive racing and concurrent branches)
+- [`branch`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/branch.ts) / [`when`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/when.ts) (deterministic conditional routing slips)
+- [`idempotent`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/core/step.ts) (scoped idempotency claim locking)
+- [`waitForEvent`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/combinators/waitForEvent.ts) / `workflow.resume` / `flow.version` (durable human-in-the-loop suspension checkpoints and schema migrations)
+- [`toGraph`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/workflow-graph/index.ts) / [`validateGraph`](file:///Users/jericodeguzman/IdeaProjects/fluid-func/src/features/workflow-graph/index.ts) (workflow AST graph governance and cycle validation)
 
 ---
 
@@ -26,7 +33,7 @@ This is a working test project demonstrating how to connect **Redis** and **Mong
        │           Redis           │               │          MongoDB          │
        │     (Distributed Cache)   │               │    (Persistent Storage)   │
        ├───────────────────────────┤               ├───────────────────────────┤
-       │ • fluid:chain:{name}      │               │ • Collection: checkpoints │
+       │ • fluid:cache:{key}      │               │ • Collection: checkpoints │
        │ • fluid:context:{chainId} │               │ • Collection: logs        │
        │   (High-speed step state) │               │   (Audit trail & history) │
        │ • fluid:stack:{stackId}   │               │   with unbroken stackId   │
@@ -34,11 +41,13 @@ This is a working test project demonstrating how to connect **Redis** and **Mong
 ```
 
 1. **Redis**: Acts as a fast distributed cache for step results (`fluid:cache:{key}`), stack-partitioned contexts (`fluid:stack:{stackId}`), and checkpoints (`fluid:checkpoint:{stackId}`).
-2. **MongoDB**: Serves as the durable document store for permanent execution audit logs (`fluid_execution_logs`) with `stackId` and `tenantId` tracing, and saga checkpoints (`fluid_checkpoints`).
+2. **MongoDB**: Serves as the durable document store for permanent execution audit logs (`fluid_execution_logs`) with `stackId` and `namespace` tracing, and saga checkpoints (`fluid_checkpoints`).
 
 ---
 
-## The Top 10 Event-Driven Use Cases Implemented
+## The 17 Event-Driven & Workflow Power Use Cases Implemented
+
+### Phase 1: Event-Driven Distributed Architectures
 
 | # | Use Case | Implementation File | Key Features Demonstrated |
 | :-: | :--- | :--- | :--- |
@@ -52,6 +61,18 @@ This is a working test project demonstrating how to connect **Redis** and **Mong
 | **8** | **Healthcare FHIR Clinical Events** | [`usecase-8-healthcare-fhir.ts`](src/workflow/usecases/usecase-8-healthcare-fhir.ts) | Standard FHIR spec validation, HIPAA PII de-identification (pseudonymous hashes), W3C OpenTelemetry `traceparent` propagation, STAT emergency alerting |
 | **9** | **Omnichannel Notification Engine** | [`usecase-9-omnichannel-notifications.ts`](src/workflow/usecases/usecase-9-omnichannel-notifications.ts) | Dynamic routing slip, personalized template rendering, HTTP 429 gateway retry backoff, channel failover (PUSH -> SMS/EMAIL) |
 | **10** | **SecOps & Auto-Remediation** | [`usecase-10-secops-remediation.ts`](src/workflow/usecases/usecase-10-secops-remediation.ts) | Safe lifecycle execution via `onBefore` maintenance lock verification, root cause correlation, automated node cordoning, Slack post-mortem dispatch |
+
+### Phase 2: Core Workflow Power, Concurrency & Graph Governance
+
+| # | Use Case | Implementation File | Key Features Demonstrated |
+| :-: | :--- | :--- | :--- |
+| **11** | **Distributed Travel Booking Saga** | [`usecase-11-distributed-saga-compensation.ts`](src/workflow/phase2/usecase-11-distributed-saga-compensation.ts) | Forward distributed reservations across Flight, Hotel, and Car services with automatic LIFO rollback (`step.compensate(...)`, `CompensationException`) |
+| **12** | **Bounded Concurrency Batch Ingestion** | [`usecase-12-bounded-batch-mapping.ts`](src/workflow/phase2/usecase-12-bounded-batch-mapping.ts) | Controlled parallel document vectorization with fixed worker pool (`map(accessor, worker, { concurrency: 3 })`), dynamic rate limiting, and failure containment |
+| **13** | **Multi-Cloud Latency Race & Parallel Sync** | [`usecase-13-parallel-cloud-race.ts`](src/workflow/phase2/usecase-13-parallel-cloud-race.ts) | Competitive latency racing across cloud regions (`race(...)`), deep payload state merging (`parallel(..., { mergeStrategy: 'deep' })`), and non-blocking background telemetry (`allSettled(...)`) |
+| **14** | **Fintech Loan Underwriting Routing** | [`usecase-14-dynamic-underwriting-branching.ts`](src/workflow/phase2/usecase-14-dynamic-underwriting-branching.ts) | Multi-tier risk tier evaluation via switch routing (`branch(selector, branches, defaultBranch)`) and condition-based promo rate adjustments (`when(predicate, thenStep, elseStep)`) |
+| **15** | **Idempotent Bank Payment Settlement** | [`usecase-15-idempotent-payment-claims.ts`](src/workflow/phase2/usecase-15-idempotent-payment-claims.ts) | Scoped idempotency claim locking (`step.idempotent(...)`, `InMemoryIdempotencyStore`, `buildIdempotencyKey`) preventing concurrent double charges or duplicate execution |
+| **16** | **Durable Expense Approval & Versioning** | [`usecase-16-durable-human-approval.ts`](src/workflow/phase2/usecase-16-durable-human-approval.ts) | Durable human-in-the-loop wait checkpoints (`waitForEvent('expense.decision', { correlationKey })`), external event resumption (`workflow.resume`), and workflow schema version migration (`flow.version('v2.0.0')`) |
+| **17** | **CI/CD Pipeline AST Graph Governance** | [`usecase-17-workflow-graph-governance.ts`](src/workflow/phase2/usecase-17-workflow-graph-governance.ts) | Pipeline static compilation (`toGraph(pipeline)`), cycle detection & structural assertions (`validateGraph`, `assertValidGraph`), and compliance introspection (`inspectGraph`) |
 
 ---
 
@@ -71,38 +92,53 @@ test-project/
     │   └── redis-mongo-storage.ts  # Storage hook implementation for fluid-func
     ├── workflow/
     │   ├── order-pipeline.ts       # Original base e-commerce order pipeline
-    │   └── usecases/               # Top 10 Event-Driven Use Cases implementation
-    │       ├── index.ts            # Barrel export for all 10 use case pipelines
-    │       ├── usecase-1-ecommerce-saga.ts
-    │       ├── usecase-2-ai-rag-pipeline.ts
-    │       ├── usecase-3-financial-fraud-detection.ts
-    │       ├── usecase-4-media-transcoding.ts
-    │       ├── usecase-5-iot-telemetry-anomaly.ts
-    │       ├── usecase-6-cdc-lakehouse-etl.ts
-    │       ├── usecase-7-kyc-onboarding.ts
-    │       ├── usecase-8-healthcare-fhir.ts
-    │       ├── usecase-9-omnichannel-notifications.ts
-    │       └── usecase-10-secops-remediation.ts
-    ├── index.ts                    # Executable demo script running all 10 use cases
+    │   ├── usecases/               # Top 10 Event-Driven Use Cases (Phase 1)
+    │   │   ├── index.ts            # Barrel export for all 10 use case pipelines
+    │   │   ├── usecase-1-ecommerce-saga.ts
+    │   │   ├── usecase-2-ai-rag-pipeline.ts
+    │   │   ├── usecase-3-financial-fraud-detection.ts
+    │   │   ├── usecase-4-media-transcoding.ts
+    │   │   ├── usecase-5-iot-telemetry-anomaly.ts
+    │   │   ├── usecase-6-cdc-lakehouse-etl.ts
+    │   │   ├── usecase-7-kyc-onboarding.ts
+    │   │   ├── usecase-8-healthcare-fhir.ts
+    │   │   ├── usecase-9-omnichannel-notifications.ts
+    │   │   └── usecase-10-secops-remediation.ts
+    │   └── phase2/                 # 7 Advanced Workflow Power Use Cases (Phase 2)
+    │       ├── index.ts            # Barrel export for all 7 Phase 2 use cases
+    │       ├── usecase-11-distributed-saga-compensation.ts
+    │       ├── usecase-12-bounded-batch-mapping.ts
+    │       ├── usecase-13-parallel-cloud-race.ts
+    │       ├── usecase-14-dynamic-underwriting-branching.ts
+    │       ├── usecase-15-idempotent-payment-claims.ts
+    │       ├── usecase-16-durable-human-approval.ts
+    │       └── usecase-17-workflow-graph-governance.ts
+    ├── index.ts                    # Executable demo script running all 17 use cases
     ├── index.test.ts               # Storage plugin & base order pipeline test suite
-    └── usecases.test.ts            # Full integration test suite for all 10 use cases
+    ├── usecases.test.ts            # Integration test suite for Phase 1 use cases (10 tests)
+    └── phase2-usecases.test.ts     # Integration test suite for Phase 2 use cases (17 tests)
 ```
 
----
-
+---\n
 ## Running the Demo & Test Suites
 
 ### Zero-Daemon Mode (In-Memory Fallback - Zero Setup Required)
 
 ```bash
-# Run the demo showcasing all 10 use cases and storage integration
+# Run the demo showcasing all 17 use cases and storage integration
 npm start
 
-# Run the complete automated test suite (all 12 integration tests)
+# Run the complete automated test suite (all 29 tests across 3 suites)
 npm test
 
-# Run use cases test suite specifically
+# Run Phase 1 event-driven use cases specifically
 npm run test:usecases
+
+# Run Phase 2 workflow power use cases specifically
+npm run test:phase2
+
+# Run base storage adapter tests
+npm run test:order
 ```
 
 ### Live Docker Services Mode (Optional)

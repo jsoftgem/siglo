@@ -1,7 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ArrayChain = void 0;
+const shared_1 = require("../../shared");
 const proxy_1 = require("../context/proxy");
+const exceptions_1 = require("./exceptions");
+const storage_1 = require("../storage");
+const durable_1 = require("../durable");
 class ArrayChain {
     getChain;
     generateUUID;
@@ -48,15 +52,22 @@ const executeArrayChain = (param, getChain, generateUUID, Context, array, done, 
             : (chain?.name || chain?.func || `$step_${stepIndex}`);
         const rawOutput = (0, proxy_1.toPOJO)(result);
         const cleanStepOutput = {};
-        if (rawOutput && typeof rawOutput === 'object') {
+        if ((0, shared_1.isObject)(rawOutput)) {
             for (const k of Object.keys(rawOutput)) {
-                if (k !== '$chainId' && k !== '$stackId' && k !== '$namespace' && k !== '$$$validators' && k !== '$steps' && k !== '$history') {
+                if (!(0, shared_1.isReservedKey)(k)) {
                     cleanStepOutput[k] = rawOutput[k];
                 }
             }
+            if (result?.[shared_1.SKIPPED] === true) {
+                cleanStepOutput.skipped = true;
+                if (result[shared_1.SKIPPED_BRANCHES])
+                    cleanStepOutput[shared_1.SKIPPED_BRANCHES] = result[shared_1.SKIPPED_BRANCHES];
+                if (result[shared_1.BRANCH_SELECTED])
+                    cleanStepOutput[shared_1.BRANCH_SELECTED] = result[shared_1.BRANCH_SELECTED];
+            }
         }
         else if (rawOutput !== undefined) {
-            cleanStepOutput.value = rawOutput;
+            cleanStepOutput[shared_1.VALUE] = rawOutput;
         }
         const updatedSteps = Object.assign({}, steps, {
             [stepName]: cleanStepOutput,
@@ -71,17 +82,17 @@ const executeArrayChain = (param, getChain, generateUUID, Context, array, done, 
         };
         Object.assign(stepsAccessor, updatedSteps);
         const nextParam = Object.assign({}, newAccumulated, {
-            $steps: stepsAccessor,
-            $history: stepsAccessor
+            [shared_1.STEPS]: stepsAccessor,
+            [shared_1.HISTORY]: stepsAccessor
         });
         if (array.length) {
             executeArrayChain(nextParam, getChain, generateUUID, Context, array, done, newAccumulated, singleChain, options, updatedSteps, stepIndex + 1);
         }
         else {
-            const outputObj = (typeof result === 'object' && result !== null)
+            const outputObj = (0, shared_1.isObject)(result)
                 ? Object.assign({}, newAccumulated, result, {
-                    $steps: stepsAccessor,
-                    $history: stepsAccessor
+                    [shared_1.STEPS]: stepsAccessor,
+                    [shared_1.HISTORY]: stepsAccessor
                 })
                 : result;
             const isPojo = options?.pojo === true || options?.mode === 'pojo';
@@ -90,6 +101,38 @@ const executeArrayChain = (param, getChain, generateUUID, Context, array, done, 
         }
     })
         .catch((err) => {
+        if ((err instanceof exceptions_1.WorkflowSuspendedException || err?.name === 'WorkflowSuspendedException') && options?.durable) {
+            try {
+                storage_1.defaultStorageManager.checkpoint(options.stackId, {
+                    status: shared_1.Status.WAITING,
+                    workflowId: options.workflowId
+                });
+                durable_1.defaultDurableManager.registerWait({
+                    stackId: options.stackId,
+                    workflowId: options.workflowId,
+                    correlationKey: err.correlationKey || `wait:${options.stackId}`,
+                    eventName: err.eventName || 'wait',
+                    status: shared_1.Status.WAITING,
+                    continuationStepIndex: stepIndex + 1,
+                    stepId: chain?.$stepId || chain?.$chainId || `$step_${stepIndex}`,
+                    expiresAt: err.expiresAt,
+                    createdAt: Date.now(),
+                    version: options.workflowVersion
+                });
+                /* c8 ignore next 3 */
+            }
+            catch {
+                // ignore
+            }
+            return done(undefined, {
+                status: shared_1.Status.WAITING,
+                stackId: options.stackId,
+                correlationKey: err.correlationKey,
+                eventName: err.eventName,
+                expiresAt: err.expiresAt,
+                continuationStepIndex: stepIndex + 1
+            });
+        }
         done(err);
     });
 };

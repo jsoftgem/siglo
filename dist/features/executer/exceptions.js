@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
+exports.GraphValidationException = exports.WorkflowVersionMismatchException = exports.ExpiredWaitException = exports.DuplicateEventException = exports.WorkflowSuspendedException = exports.CompensationException = exports.IdempotencyConflictException = exports.FieldCollisionException = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
 exports.normalizeError = normalizeError;
+const shared_1 = require("../../shared");
 /* c8 ignore stop */
 class FluidFuncError extends Error {
     stepName;
@@ -217,6 +218,140 @@ class CheckpointVersionException extends FluidFuncError {
     }
 }
 exports.CheckpointVersionException = CheckpointVersionException;
+class FieldCollisionException extends FluidFuncError {
+    collisions;
+    constructor(collisions, metadata = {}) {
+        const details = collisions.map(c => `Field '${c.field}' written by branches [${c.branchNames.join(', ')}] with differing values`).join('; ');
+        super(`Field collision detected during merge: ${details}`, {
+            ...metadata,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'FieldCollisionException';
+        this.collisions = collisions;
+        Object.setPrototypeOf(this, FieldCollisionException.prototype);
+    }
+}
+exports.FieldCollisionException = FieldCollisionException;
+class IdempotencyConflictException extends FluidFuncError {
+    idempotencyKey;
+    constructor(idempotencyKey, metadata = {}) {
+        super(`Execution rejected: Idempotency key '${idempotencyKey}' is already in-progress.`, {
+            ...metadata,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'IdempotencyConflictException';
+        this.idempotencyKey = idempotencyKey;
+        Object.setPrototypeOf(this, IdempotencyConflictException.prototype);
+    }
+}
+exports.IdempotencyConflictException = IdempotencyConflictException;
+class CompensationException extends FluidFuncError {
+    originalError;
+    compensationErrors;
+    completedCompensations;
+    constructor(message, details, metadata = {}) {
+        super(message, {
+            ...metadata,
+            cause: details.originalError,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'CompensationException';
+        this.originalError = details.originalError;
+        this.compensationErrors = details.compensationErrors;
+        this.completedCompensations = details.completedCompensations;
+        Object.setPrototypeOf(this, CompensationException.prototype);
+    }
+}
+exports.CompensationException = CompensationException;
+class WorkflowSuspendedException extends FluidFuncError {
+    correlationKey;
+    eventName;
+    continuationNodeId;
+    expiresAt;
+    status;
+    constructor(message, details = {}, metadata = {}) {
+        super(message, {
+            ...metadata,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'WorkflowSuspendedException';
+        this.correlationKey = details.correlationKey;
+        this.eventName = details.eventName;
+        this.continuationNodeId = details.continuationNodeId;
+        this.expiresAt = details.expiresAt;
+        this.status = shared_1.Status.WAITING;
+        Object.setPrototypeOf(this, WorkflowSuspendedException.prototype);
+    }
+}
+exports.WorkflowSuspendedException = WorkflowSuspendedException;
+class DuplicateEventException extends FluidFuncError {
+    correlationKey;
+    eventName;
+    constructor(correlationKey, eventName, metadata = {}) {
+        super(`Duplicate or invalid event: workflow with correlationKey '${correlationKey}'${eventName ? ` for event '${eventName}'` : ''} is not waiting or has already been resumed.`, {
+            ...metadata,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'DuplicateEventException';
+        this.correlationKey = correlationKey;
+        this.eventName = eventName;
+        Object.setPrototypeOf(this, DuplicateEventException.prototype);
+    }
+}
+exports.DuplicateEventException = DuplicateEventException;
+class ExpiredWaitException extends FluidFuncError {
+    correlationKey;
+    eventName;
+    expiredAt;
+    constructor(correlationKey, expiredAt, eventName, metadata = {}) {
+        super(`Wait expired: event wait for correlationKey '${correlationKey}'${eventName ? ` (event: ${eventName})` : ''} expired at ${new Date(expiredAt).toISOString()}.`, {
+            ...metadata,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'ExpiredWaitException';
+        this.correlationKey = correlationKey;
+        this.eventName = eventName;
+        this.expiredAt = expiredAt;
+        Object.setPrototypeOf(this, ExpiredWaitException.prototype);
+    }
+}
+exports.ExpiredWaitException = ExpiredWaitException;
+class WorkflowVersionMismatchException extends FluidFuncError {
+    expectedVersion;
+    actualVersion;
+    constructor(expectedVersion, actualVersion, metadata = {}) {
+        super(`Workflow version mismatch: expected version '${expectedVersion}', but checkpoint was created with version '${actualVersion}' and no migration was provided.`, {
+            ...metadata,
+            phase: 'checkpoint',
+            retryable: false
+        });
+        this.name = 'WorkflowVersionMismatchException';
+        this.expectedVersion = expectedVersion;
+        this.actualVersion = actualVersion;
+        Object.setPrototypeOf(this, WorkflowVersionMismatchException.prototype);
+    }
+}
+exports.WorkflowVersionMismatchException = WorkflowVersionMismatchException;
+class GraphValidationException extends FluidFuncError {
+    errors;
+    constructor(errors, metadata = {}) {
+        super(`Workflow graph validation failed: ${errors.join('; ')}`, {
+            ...metadata,
+            phase: 'validation',
+            retryable: false
+        });
+        this.name = 'GraphValidationException';
+        this.errors = errors;
+        Object.setPrototypeOf(this, GraphValidationException.prototype);
+    }
+}
+exports.GraphValidationException = GraphValidationException;
 function normalizeError(error, metadata = {}) {
     if (error instanceof FluidFuncError) {
         if (!error.stackId && metadata.stackId)

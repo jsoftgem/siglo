@@ -1,5 +1,5 @@
 import Context from '../context';
-import { generateUUID as defaultGenerateUUID } from '../../shared/Util';
+import { generateUUID as defaultGenerateUUID, STACK_ID, NAMESPACE } from '../../shared';
 
 export class Util {
     static convertToContextStructure(
@@ -38,10 +38,10 @@ export class Util {
             }
             return newParam.getData();
         }
-        if (effStackId && !param.$stackId) {
+        if (effStackId && !(param as any)[STACK_ID]) {
             param.setStackId(effStackId);
         }
-        if (effNamespace && !param.$namespace) {
+        if (effNamespace && !(param as any)[NAMESPACE]) {
             param.setNamespace(effNamespace);
         }
         return param.getData();

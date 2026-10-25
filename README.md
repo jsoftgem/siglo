@@ -1,13 +1,13 @@
 # fluid-func
 > A modern, type-safe, and composable workflow orchestrator for TypeScript and JavaScript.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/fluid-func)
+[![NPM Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://www.npmjs.com/package/fluid-func)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)]()
 
-`fluid-func` allows you to break complex business logic into clean, reusable, and resilient steps. It combines functional composition with out-of-the-box parameter contracts, deterministic caching, lifecycle hooks, structured retry strategies, and isolated storage.
+`fluid-func` allows you to break complex business logic into clean, reusable, and resilient steps. It combines functional composition with parameter contracts, deterministic caching, lifecycle hooks, structured retry strategies, isolated storage, parallel combinators, sagas with LIFO compensations, scoped idempotency, and durable event-driven waits.
 
 ---
 
@@ -18,7 +18,7 @@
 | **Architecture** | Lightweight, zero-infrastructure in-process library | Heavy multi-cluster / external orchestrator daemon |
 | **Latency** | Microsecond direct async function invocation | Millisecond-to-second RPC / polling overhead |
 | **Footprint** | Zero external dependencies, pure TypeScript | Requires persistent workers, queue servers, and databases |
-| **Primary Focus** | Step-by-step modular pipelines, resilient HTTP/DB actions, request-scoped sagas, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows |
+| **Primary Focus** | Modular workflows, parallel fan-out/fan-in, bounded worker mapping, request-scoped sagas, idempotency, durable event waits, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows |
 
 ---
 
@@ -27,25 +27,37 @@
 - 📜 [Execution Semantics Contract](docs/execution-semantics.md) &mdash; Formal semantics answering all 9 runtime execution contract questions.
 - 🚨 [Error Model & Exception Hierarchy](docs/error-model.md) &mdash; Complete exception hierarchy (`FluidFuncError`), metadata fields, cause preservation, and JSON serialization.
 - 💾 [Storage & Checkpoint Contract](docs/storage-contract.md) &mdash; Checkpoint schema v2.0.0, optimistic concurrency (`expectedRevision`), namespace isolation, and error modes (`strict`, `warn`, `best-effort`).
+- 🗺️ [Workflow Graph Model](docs/workflow-graph.md) &mdash; AST representations (`toGraph`), acyclic validation, structural inspection (`inspectGraph`), and telemetry.
+- ⚡ [Concurrency & Parallelism](docs/concurrency-and-parallelism.md) &mdash; Parallel combinators (`parallel`, `all`, `allSettled`, `race`), branch context isolation, merge strategies, and field collisions.
+- 🔑 [Idempotency & Deduplication](docs/idempotency.md) &mdash; Scoped idempotency keys (`buildIdempotencyKey`), claim locking, stores (`InMemoryIdempotencyStore`), and deduplication.
+- 🔄 [Compensation & Sagas](docs/compensation-and-sagas.md) &mdash; LIFO rollback sagas (`step.compensate`), retry policies, manual triggers, and failure aggregation.
+- ⏳ [Durable Waits & Resumption](docs/durable-waits.md) &mdash; Event waiting (`waitForEvent`), duration parsing (`wait`), durable suspension checkpoints, and resumption (`resumeWorkflow`).
+- 🏷️ [Workflow Versioning & Migrations](docs/workflow-versioning.md) &mdash; Version tracking, mismatch detection, and registered state migrations.
 
 ---
 
 ## Key Features
 
-- ⚡ **Composable Flows (`flow`)** &mdash; Compose steps directly into workflows without mandatory global string registries; steps are pure execution units.
+- ⚡ **Composable Flows (`flow`)** &mdash; Compose steps directly into workflows without global registries; steps are pure execution units.
+- 🗺️ **Workflow Graph Model & Inspection** &mdash; Compile flows into pure, JSON-serializable AST nodes (`WorkflowNode`), validate connectivity and cycle freedom (`validateGraph`), and calculate topology metrics (`inspectGraph`).
+- 🔀 **Parallel Execution Combinators** &mdash; Run branches concurrently with `parallel`, `all`, `allSettled`, and `race`, equipped with branch context isolation, configurable merge strategies (`'shallow'`, `'deep'`, `'error'`), and fail-fast cancellation.
+- 🌿 **Conditional Branching & Routing** &mdash; Dynamic decision routing via `when(predicate, thenStep).otherwise(elseStep)` and multi-branch selectors via `branch({...})`, with skipped step telemetry.
+- 🔄 **Dynamic Mapping & Bounded Concurrency** &mdash; Process arrays and `AsyncIterable` collections with `map(items, step, { concurrency })`, order preservation, and configurable error policies (`stopOnError`).
+- 🔑 **Scoped Idempotency & Deduplication** &mdash; Protect workflows and individual steps (`step.idempotent()`) with deterministic hash keys (`buildIdempotencyKey`), claim locking, and TTL stores (`InMemoryIdempotencyStore`).
+- ⏪ **Sagas & LIFO Compensations** &mdash; Attach rollback handlers (`step.compensate(handler)`) that run automatically in reverse execution order upon workflow failure with structured retries.
+- ⏳ **Durable Waits & Event Resumption** &mdash; Pause execution with `waitForEvent(eventName)` or `wait('30m')`, persist suspended checkpoints, and safely resume workflows (`resumeWorkflow`) with event deduplication.
+- 🏷️ **Workflow Versioning & State Migrations** &mdash; Declare workflow versions (`flow.version('v2')`), detect version mismatches upon resumption, and run registered state transformation functions.
 - 🛡️ **TypeScript First & End-to-End Generics** &mdash; Comprehensive type definitions, input/output generic inference, IntelliSense autocompletion, and robust error contracts.
 - ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) with typed `StepTimeoutException` and workflow-level deadlines (`flow.timeout(ms)`, `options.timeout`) with `FlowTimeoutException`.
-- 🌐 **Runtime Namespaces & Isolation (`namespace`)** &mdash; Native data isolation at runtime (`{ namespace: "tenant_123" }`); namespace-scoped stacks, context metadata, isolated checkpoints, and auto-partitioned cache keys (`namespace:stepId:hash`).
-- 🔌 **Unified Distributed `StorageAdapter`** &mdash; Enterprise distributed storage interface for real-time telemetry streaming (`onContextChange`), durable saga pause/resume (`saveCheckpoint` / `getCheckpoint`), and distributed caching (`getCachedStep` / `setCachedStep`).
-- 🔀 **Modern Parameter Access & Native Destructuring** &mdash; Access values directly using modern object destructuring (`.modern()`), property getters (`param.prop.val`, `param.props`), type coercion, and clean POJO execution (`{ pojo: true }`).
-- 📜 **Step-Namespaced History (`$steps` / `$history`)** &mdash; Retain intermediate step outputs across flow execution without key collisions; inspect prior outputs by step name (`param.$steps.stepName`), numeric index (`param.$steps[0]`), or chronological timeline (`param.$history[0]`).
-- 🔒 **Pure Functional Immutability** &mdash; Zero in-place mutations of caller-supplied input parameters (`defaultParam`), preventing cross-flow state pollution.
-- 🚀 **Lightweight / POJO Execution Mode** &mdash; Run steps and flows with `{ pojo: true }` or `{ mode: 'pojo' }` to bypass proxies and closures, returning clean, deep-frozen plain JavaScript objects directly.
-- 💾 **State Serialization & Checkpointing (Durable Workflows)** &mdash; Snapshot, serialize (`serializeState`), persist to disk or database, and restore (`hydrateState`, `restoreCheckpoint`) execution stacks across process restarts.
+- 🌐 **Runtime Namespaces & Isolation (`namespace`)** &mdash; Native multi-tenant isolation (`{ namespace: "tenant_123" }`); isolated stacks, context metadata, checkpoints, and cache keys.
+- 🔌 **Unified Distributed `StorageAdapter`** &mdash; Interface for real-time telemetry streaming (`onContextChange`), durable checkpoints (`saveCheckpoint` / `getCheckpoint`), and distributed caching.
+- 🔀 **Modern Parameter Access & Native Destructuring** &mdash; Access values using native destructuring (`.modern()`), property getters (`param.prop.val`), type coercion, and clean POJO execution (`{ pojo: true }`).
+- 📜 **Step-Namespaced History (`$steps` / `$history`)** &mdash; Retain intermediate step outputs across flow execution without collisions; inspect outputs by name, index, or timeline.
+- 🔒 **Pure Functional Immutability** &mdash; Zero in-place mutations of caller-supplied input parameters, preventing state contamination.
 - 🔁 **Structured Retry Strategies** &mdash; Automatic retries with exponential, linear, or fixed backoff, jitter, and `onRetry` hooks right in `onFail`.
-- 📦 **Declarative Contracts & Standard Schema (`spec` / `schema`)** &mdash; Field requirements, defaults, validators, async transformers, context translators, and native Standard Schema / Zod / Valibot integration.
-- 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal` (`param.$signal?.()`).
-- ⚡ **Deterministic & Namespace-Partitioned Caching** &mdash; Stable-key hashing with circular reference protection, namespaces, and per-step TTL caching.
+- 📦 **Declarative Contracts & Standard Schema (`spec` / `schema`)** &mdash; Field requirements, defaults, validators, async transformers, translators, and native Standard Schema / Zod / Valibot integration.
+- 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.
+- ⚡ **Deterministic Caching** &mdash; Stable-key hashing with circular reference protection, namespaces, and per-step TTL caching.
 
 ---
 
@@ -58,16 +70,49 @@ npm install fluid-func
 ### Import
 
 ```typescript
-// TypeScript & ES Modules (Option B: Step & flow)
-import { Step, flow, Flow, isFlow, StorageManager, toPOJO, checkpoint, restoreCheckpoint, serializeState, hydrateState } from 'fluid-func';
-// Or default import:
-import FluidFunc from 'fluid-func';
+// Core imports
+import {
+    Step,
+    flow,
+    parallel,
+    all,
+    allSettled,
+    race,
+    when,
+    branch,
+    map,
+    waitForEvent,
+    wait,
+    resumeWorkflow,
+    toGraph,
+    inspectGraph,
+    validateGraph
+} from 'fluid-func';
 
-// Backward-compatible aliases (Chain = Step, pipe = flow, Pipeline = Flow, isPipeline = isFlow)
-import { Chain, pipe, isPipeline } from 'fluid-func';
+// Storage, Checkpointing & Serialization
+import {
+    StorageManager,
+    toPOJO,
+    checkpoint,
+    restoreCheckpoint,
+    serializeState,
+    hydrateState
+} from 'fluid-func';
 
-// CommonJS
-const { Step, flow, StorageManager, toPOJO, checkpoint, restoreCheckpoint, serializeState, hydrateState } = require('fluid-func');
+// Exceptions
+import {
+    StepTimeoutException,
+    FlowTimeoutException,
+    CancellationException,
+    ValidationException,
+    FieldCollisionException,
+    IdempotencyConflictException,
+    CompensationException,
+    WorkflowSuspendedException,
+    DuplicateEventException,
+    ExpiredWaitException,
+    WorkflowVersionMismatchException
+} from 'fluid-func';
 ```
 
 ---
@@ -107,245 +152,291 @@ console.log(result.props);
 
 ---
 
-## End-to-End TypeScript Generics
+## Concurrency & Parallel Execution (`parallel`, `all`, `allSettled`, `race`)
 
-`fluid-func` provides full type safety across step definitions and flows. Type parameters flow from input to output:
+`fluid-func` provides built-in combinators for concurrent execution, isolating branch state and preventing race conditions.
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow, parallel, allSettled, race } from 'fluid-func';
 
-interface OrderInput {
-    orderId: string;
-    amount: number;
+const checkInventory = Step.create('inventory', async () => ({ inStock: true }));
+const checkFraud = Step.create('fraud', async () => ({ fraudScore: 0.02 }));
+const fetchExchangeRates = Step.create('rates', async () => ({ usdToEur: 0.92 }));
+
+// 1. Parallel execution (fails fast and aborts siblings on error)
+const orderPreparation = flow(
+    parallel(checkInventory, checkFraud, fetchExchangeRates)
+);
+
+const res = await orderPreparation.run({ orderId: 'ord_123' });
+console.log(res.inventory.inStock); // true
+console.log(res.fraudScore);        // 0.02
+
+// 2. Custom Merge Strategy & Collision Detection
+const parallelWithMerge = parallel(
+    branchA,
+    branchB,
+    {
+        mergeStrategy: 'error' // Throws FieldCollisionException if branches write the same key
+        // Options: 'shallow' (default) | 'deep' | 'error'
+    }
+);
+
+// 3. allSettled: Collect all results and errors without failing fast
+const auditFlow = flow(
+    allSettled(serviceA, serviceB, serviceC)
+);
+
+// 4. race: First branch to settle wins; losing branches are aborted
+const fastestResult = flow(
+    race(primaryApiStep, secondaryFallbackStep)
+);
+```
+
+---
+
+## Conditional Execution & Dynamic Branching (`when`, `branch`)
+
+Route execution conditionally based on context without writing custom workflow wrappers.
+
+### `when` (If-Then-Else)
+
+```typescript
+import { Step, flow, when } from 'fluid-func';
+
+const applyVIPDiscount = Step.create(async (p) => ({ discount: 0.20 }));
+const applyStandardDiscount = Step.create(async (p) => ({ discount: 0.05 }));
+
+const discountFlow = flow(
+    when((ctx) => ctx.isVIP?.val === true, applyVIPDiscount)
+        .otherwise(applyStandardDiscount)
+);
+
+const result = await discountFlow.run({ isVIP: true });
+console.log(result.discount.val); // 0.20
+```
+
+### `branch` (Multi-Path Routing)
+
+```typescript
+import { Step, flow, branch } from 'fluid-func';
+
+const routingFlow = flow(
+    branch({
+        selector: (ctx) => ctx.tier.val, // 'gold' | 'silver' | 'bronze'
+        branches: {
+            gold: goldPipeline,
+            silver: silverPipeline,
+            bronze: bronzePipeline
+        },
+        defaultBranch: standardPipeline
+    })
+);
+```
+
+---
+
+## Dynamic Mapping & Bounded Concurrency (`map`)
+
+Process collections or `AsyncIterable` streams through a step or subflow with bounded worker pools:
+
+```typescript
+import { Step, flow, map } from 'fluid-func';
+
+const processItem = Step.create(async (item) => {
+    return { processedId: item.id, status: 'ok' };
+});
+
+const batchFlow = flow(
+    map('items', processItem, {
+        concurrency: 5,     // Maximum 5 workers in flight simultaneously
+        stopOnError: true,  // Abort remaining workers immediately if any item throws
+        targetField: 'processedItems' // Field name to store the mapped output array
+    })
+);
+
+const output = await batchFlow.run({
+    items: [{ id: 1 }, { id: 2 }, { id: 3 }]
+});
+
+console.log(output.processedItems.val);
+// [{ processedId: 1, status: 'ok' }, ...]
+```
+
+---
+
+## Scoped Idempotency & Deduplication
+
+Prevent duplicate side effects across retries, re-deliveries, and concurrent requests.
+
+```typescript
+import { Step, flow, InMemoryIdempotencyStore } from 'fluid-func';
+
+const customStore = new InMemoryIdempotencyStore();
+
+// Attach idempotency rules to critical steps
+const chargeCustomer = Step.create('charge', async (param) => {
+    return await stripe.charges.create({ amount: param.amount.val });
+}).idempotent((ctx) => `charge:${ctx.orderId.val}`, {
+    ttlMs: 60000,
+    store: customStore
+});
+
+// Or declare idempotency workflow-wide via ExecutionOptions:
+const result = await orderFlow.run(orderInput, {
+    idempotencyKey: 'order_12345',
+    idempotencyTtlMs: 300000
+});
+```
+
+---
+
+## Sagas & LIFO Compensations (`step.compensate`)
+
+Implement the Saga pattern with automatic backward rollback when any step fails:
+
+```typescript
+import { Step, flow, CompensationException } from 'fluid-func';
+
+const reserveSeat = Step.create('reserveSeat', async (p) => {
+    const reservation = await bookingApi.reserve(p.seatId.val);
+    return { reservationId: reservation.id };
+}).compensate(async (ctx) => {
+    // Undo action: runs only if subsequent steps fail
+    await bookingApi.cancelReservation(ctx.reservationId.val);
+});
+
+const chargeCard = Step.create('chargeCard', async (p) => {
+    throw new Error('Payment declined');
+});
+
+const bookingFlow = flow(reserveSeat, chargeCard);
+
+try {
+    await bookingFlow.run({ seatId: '12A' });
+} catch (err) {
+    if (err instanceof CompensationException) {
+        console.error('Workflow failed and compensations were executed:', err.compensationErrors);
+    }
+}
+```
+
+---
+
+## Durable Waits & External Event Resumption
+
+Pause workflows for human approvals, webhooks, or delays, and persist execution state durably:
+
+```typescript
+import { Step, flow, waitForEvent, wait, WorkflowSuspendedException } from 'fluid-func';
+
+const orderWorkflow = flow(
+    createOrderStep,
+    // 1. Suspend workflow until external event arrives or timeout expires
+    waitForEvent('payment.received', {
+        correlationKey: (ctx) => ctx.orderId.val,
+        timeout: '24h' // Supported: '30s', '15m', '2h', '7d', or milliseconds
+    }),
+    fulfillOrderStep
+);
+
+// Worker A: Run until suspension
+try {
+    await orderWorkflow.run({ orderId: 'ord_999' }, { durable: true });
+} catch (err) {
+    if (err instanceof WorkflowSuspendedException) {
+        console.log(`Workflow suspended waiting for: ${err.eventName} (Key: ${err.correlationKey})`);
+        // Checkpoint is automatically written to active StorageAdapter
+    }
 }
 
-interface PaymentOutput {
-    transactionId: string;
-    status: 'paid' | 'declined';
+// Worker B: Resume when webhook arrives hours later
+const finalResult = await orderWorkflow.resume('ord_999', { paymentId: 'pay_777' });
+console.log(finalResult.props);
+```
+
+You can also use static duration waits:
+```typescript
+const delayFlow = flow(
+    stepA,
+    wait('10m'), // Wait 10 minutes
+    stepB
+);
+```
+
+---
+
+## Workflow Graph Model & Structural Inspection
+
+`fluid-func` workflows compile into pure AST representations (`WorkflowNode`) that can be validated, visualized, and statically analyzed before execution:
+
+```typescript
+import { flow, Step, toGraph, validateGraph, inspectGraph } from 'fluid-func';
+
+const myWorkflow = flow(
+    stepA,
+    Step.parallel(stepB, stepC),
+    stepD
+);
+
+// 1. Compile to pure AST graph
+const graph = myWorkflow.toGraph(); // or toGraph(myWorkflow)
+console.log(graph.type); // 'sequence'
+
+// 2. Validate structural integrity & detect cycles
+const validation = validateGraph(graph);
+if (!validation.isValid) {
+    console.error('Graph has cycles or disconnected nodes:', validation.errors);
 }
 
-// 1. Type a single Step: Step<TInput, TOutput>
-const processPayment = Step.create<OrderInput, PaymentOutput>(async (param) => {
-    const { orderId, amount } = param.props;
-    return {
-        transactionId: `tx_${orderId}`,
-        status: amount > 0 ? 'paid' : 'declined'
-    };
-});
-
-// Result is strictly typed as Promise<PaymentOutput>
-const payment = await processPayment.run({ orderId: 'ord_101', amount: 250 });
-console.log(payment.status); // 'paid'
-
-// 2. Type an entire flow: flow<TInput, TOutput>(...)
-const checkout = flow<OrderInput, PaymentOutput>(
-    validateStep,
-    processPayment
-);
-
-const receipt = await checkout.run({ orderId: 'ord_102', amount: 99 });
+// 3. Inspect topology & metrics
+const report = myWorkflow.inspect();
+console.log(`Total nodes: ${report.nodeCount}, Max depth: ${report.maxDepth}`);
 ```
 
 ---
 
-## Composition: Workflows & Step Orchestration
+## Workflow Versioning & State Migrations
 
-`fluid-func` gives you multiple intuitive ways to compose workflow steps:
-
-### 1. Functional Flows (`flow`)
-
-Recommended for modern functional composition. Avoids global namespace collisions and supports nested arrays and flows:
+Safely evolve long-running workflow schemas while handling in-flight suspended state:
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { flow, Step } from 'fluid-func';
 
-const validate = Step.create(async (p) => ({ valid: true }));
-const charge = Step.create(async (p) => ({ charged: true }));
-const notify = Step.create(async (p) => ({ notified: true }));
+const checkoutV2 = flow(stepA, stepB)
+    .version('v2.0.0');
 
-// Flow steps sequentially
-const checkoutFlow = flow(validate, charge, notify);
-
-// Flows can also nest arrays of steps
-const fullWorkflow = flow(validate, [charge, notify]);
-await fullWorkflow.run({ customerId: 'cust_1' });
-
-// Flows can also nest other flows directly as arguments
-const authFlow = flow(validateToken, checkPermissions);
-const billingFlow = flow(calculateTaxes, chargeCard);
-const masterFlow = flow(authFlow, billingFlow, notify);
-await masterFlow.run({ customerId: 'cust_1' });
-```
-
-### 2. Direct Step Orchestration (`Step.start`)
-
-Execute direct step instances individually or in arrays without global string registries:
-
-```typescript
-const fetchData = Step.create('fetchData', async () => ({ data: [1, 2, 3] }));
-const processData = Step.create('processData', async (param) => ({ count: param.data.val.length }));
-
-const result = await Step.start([fetchData, processData], { initial: true });
-```
-
----
-
-## Modern Parameter Access
-
-`fluid-func` provides clean, idiomatic parameter access through native object destructuring, direct property getters, and type coercion.
-
-### 1. Native Object Destructuring (`.modern()`)
-
-Step actions configured with `.modern()` receive clean, unwrapped plain JavaScript objects directly, making parameter extraction effortless:
-
-```typescript
-const addStep = Step.create(async ({ a, b }) => {
-    return { sum: a + b };
-}).modern();
-
-const res = await addStep.run({ a: 15, b: 25 });
-console.log(res.sum.val); // 40
-```
-
-### 2. Property Value Getters (`.val` / `.value`)
-
-Access field values cleanly via property getters without invoking functions:
-
-```typescript
-const processUser = Step.create((param) => {
-    // Value getter (.val or .value)
-    const id = param.userId.val;
-    const sameId = param.userId.value;
-
-    // Direct object traversal
-    const name = param.user.name;
-
-    // Type coercion (Symbol.toPrimitive)
-    const amount = +param.amount;       // number
-    const label = `${param.greeting}`; // string
-
-    // Unwrapped objects (.props or .raw)
-    const { userId, amount: rawAmount } = param.props;
-
-    return { processed: true };
+// Resume with state migration for workflows suspended on v1:
+const res = await checkoutV2.resume('correlation_key', eventPayload, {
+    migrations: {
+        'v1.0.0': (oldState) => {
+            return {
+                ...oldState,
+                upgradedField: true
+            };
+        }
+    }
 });
 ```
 
-### 3. Pure POJO Mode (`{ pojo: true }`)
-
-For maximum performance and clean JSON objects without Proxies or getters, run flows in POJO mode:
-
-```typescript
-const result = await myFlow.run({ userId: 'u_123' }, { pojo: true });
-console.log(result.userId); // 'u_123' (plain object)
-```
-
 ---
 
-## Execution State & Step History (`$steps` & `$history`)
+## Execution Resilience & Deadlines (Two-Tier Timeouts)
 
-In complex multi-step flows, different steps might return fields with the same name (e.g. `status` or `data`). `fluid-func` preserves intermediate step outputs by recording step-namespaced history accessible on the execution context:
+`fluid-func` establishes a **two-tier timeout architecture**:
 
-```typescript
-const step1 = Step.create('step1', async () => ({ status: 'step1_done', code: 100 }));
-const step2 = Step.create('step2', async (param) => {
-    // 1. Access previous step by name
-    const step1Status = param.$steps.step1.status.val; // or param.$steps.step1.status.value
-
-    // 2. Access previous step by numeric index
-    const firstStepCode = param.$steps[0].code.val;
-
-    // 3. Inspect full chronological execution timeline
-    const history = param.$history;
-    // history => [{ step: 'step1', index: 0, output: { status: 'step1_done', code: 100 } }]
-
-    return { status: 'step2_done' };
-});
-
-const result = await flow(step1, step2).run();
-console.log(result.status.val);               // 'step2_done' (latest)
-console.log(result.$steps.step1.status.val);   // 'step1_done' (preserved!)
-```
-
----
-
-## Pure Functional Immutability
-
-`fluid-func` treats caller inputs as strictly immutable:
-
-```typescript
-const initialInput = { userId: '123', count: 1 };
-Object.freeze(initialInput); // Enforce runtime immutability
-
-const myFlow = flow(
-    Step.create(async (p) => ({ count: p.count.val + 1 })),
-    Step.create(async (p) => ({ count: p.count.val * 10 }))
-);
-
-const res = await myFlow.run(initialInput);
-
-// initialInput is untouched!
-console.log(initialInput.count); // 1
-console.log(res.count.val);      // 20
-```
-
----
-
-## Lightweight / POJO Execution Mode
-
-For microservices, high-throughput loops, or JSON serialization without Proxies or getter closures, execute steps with `{ pojo: true }` or `{ mode: 'pojo' }`:
-
-```typescript
-const result = await myFlow.run(
-    { query: 'test' },
-    { pojo: true } // or { mode: 'pojo' }
-);
-
-// Returns a clean, deep-frozen Plain Old JavaScript Object
-console.log(result);
-// { query: 'test', result: 'ok', $steps: { ... }, $history: [ ... ] }
-
-// You can also convert any existing context output to a POJO at any time:
-import { toPOJO } from 'fluid-func';
-const pojo = toPOJO(result);
-```
-
----
-
-## State Checkpointing & Durable Execution
-
-`fluid-func` includes built-in snapshotting and serialization of execution stacks. This enables pausing flows, logging full execution checkpoints to disk or databases (MongoDB/Redis), and resuming or debugging workflows:
-
-```typescript
-import { Step, StorageManager } from 'fluid-func';
-
-// 1. Snapshot or serialize a running or completed stack
-const storage = new StorageManager();
-const snapshot = storage.checkpoint(stackId);
-const jsonString = storage.serializeState(stackId);
-
-// 2. Hydrate or restore state into another process or storage instance
-const restoredStorage = new StorageManager();
-restoredStorage.hydrateState(jsonString);
-
-// Working getter closures and context fields are fully reconstructed!
-const restoredGetter = restoredStorage.getChainContext(stepId, 'field');
-console.log(restoredGetter());
-```
-
-Static helper methods are also directly accessible via `Step`:
-```typescript
-Step.checkpoint(stackId);
-Step.restoreCheckpoint(checkpointData);
-Step.serializeState(stackId);
-Step.hydrateState(serializedState);
-```
+| Dimension | **Step-Level Timeout (`step.timeout(ms)`)** | **Flow-Level Timeout (`flow.timeout(ms)` / `options.timeout`)** |
+| :--- | :--- | :--- |
+| **Primary Purpose** | **Per-operation SLA** (e.g. HTTP request, LLM generation, DB query) | **End-to-end workflow budget** (e.g. API gateway deadline, queue SLA) |
+| **Scope** | Confined to a single step's execution lifecycle | Cumulative across all steps, retries, and delays combined |
+| **Failure Handling** | Triggers step's **`onFail`** (retries, backoff, or fallback) | Immediately aborts whole workflow; terminates stack and rejects |
+| **Exception Type** | `StepTimeoutException` (`stepName`, `timeoutMs`, `elapsedMs`) | `FlowTimeoutException` (`stackId`, `timeoutMs`, `completedSteps`) |
 
 ---
 
 ## Structured Retry Strategies (`onFail`)
 
-Handle transient failures reliably with configurable retry policies (exponential backoff, linear backoff, jitter, and callbacks) out of the box:
+Handle transient failures reliably with configurable retry policies:
 
 ```typescript
 const resilientStep = Step.create(async () => {
@@ -360,22 +451,6 @@ const resilientStep = Step.create(async () => {
         console.warn(`Retry attempt #${attempt} due to: ${err.message}`);
     }
 });
-
-await resilientStep.run();
-```
-
-### Manual Callback Handling
-
-You can also use custom retry/reject logic using a callback:
-
-```typescript
-step.onFail((error, retry, reject) => {
-    if (error.code === 'NETWORK_TIMEOUT') {
-        retry(); // Retry step execution
-    } else {
-        reject(); // Terminate flow with error
-    }
-});
 ```
 
 ---
@@ -385,493 +460,143 @@ step.onFail((error, retry, reject) => {
 Enforce contracts on input parameters per step using declarative rules:
 
 ```typescript
-const registerUser = Step.create(async (param) => {
-    return { registered: true };
-})
-    // Require field with custom message
-    .spec('email', {
-        require: true,
-        requireMessage: 'A valid email address is required.'
-    })
-    // Validate value asynchronously
-    .spec('email', {
-        validate: async (val) => {
-            if (!val.includes('@')) throw new Error('Invalid email format');
-        }
-    })
-    // Provide default fallback value
-    .spec('role', {
-        default: 'member'
-    })
-    // Transform input asynchronously
-    .spec('username', {
-        transform: async (val) => val.trim().toLowerCase()
-    })
-    // Translate a single field into multiple context fields
-    .spec('fullName', {
-        translate: async (val, context) => {
-            const [first, ...rest] = val.split(' ');
-            context.set('firstName', first);
-            context.set('lastName', rest.join(' '));
-        }
-    });
-```
-
-### Standard Schema & Zod Support (`.schema()` & `.spec()`)
-
-`fluid-func` has first-class support for the [Standard Schema](https://github.com/standard-schema/standard-schema) specification (`~standard`), as well as [Zod](https://zod.dev), [Valibot](https://valibot.dev), and schema parsers exposing `safeParse()` or `parse()`:
-
-```typescript
 import { z } from 'zod';
 import { Step } from 'fluid-func';
 
-// 1. Root context schema validation via .schema()
-const createUser = Step.create('createUser')
+const registerUser = Step.create(async (param) => ({ registered: true }))
+    .spec('email', {
+        require: true,
+        requireMessage: 'A valid email address is required.',
+        validate: async (val) => { if (!val.includes('@')) throw new Error('Invalid email'); }
+    })
+    .spec('role', { default: 'member' })
+    .spec('username', { transform: async (val) => val.trim().toLowerCase() })
+    // Standard Schema / Zod validation
     .schema(z.object({
-        email: z.string().email(),
-        age: z.number().min(18)
+        email: z.string().email()
     }));
-
-// 2. Field-level schema validation via .spec()
-const validateOrder = Step.create('validateOrder')
-    .spec('amount', z.number().positive())
-    .spec('items', z.array(z.string()).min(1));
 ```
-
-### Strict Parameter Isolation (`.strict()`)
-
-Use `.strict()` to isolate the step and strip unspec'd parameters:
-
-```typescript
-const secureStep = Step.create((param) => {
-    // param.sensitiveToken will be undefined
-    return { sanitized: param.cleanField.val };
-})
-    .strict()
-    .spec('cleanField', { require: true });
-```
-
-### Validation Error Handling
-
-When validation fails, `fluid-func` rejects with a `SpecFailedException` containing the offending field name and validation error:
-
-```typescript
-try {
-    await registerUser.run({ email: 'invalid-email' });
-} catch (err) {
-    // err is an array of errors or SpecFailedException: [{ field: 'email', error: ... }]
-    console.error('Validation failed:', err);
-}
-```
-
----
-
-## Graceful Cancellation (`AbortSignal`)
-
-Cancel long-running steps, flows, in-flight async operations, and retry timers cleanly using standard `AbortController`:
-
-```typescript
-const controller = new AbortController();
-
-// Cancel execution if it exceeds 3 seconds
-setTimeout(() => controller.abort(new Error('Timeout exceeded')), 3000);
-
-try {
-    const res = await myFlow.run(
-        { orderId: 'ord_123' },
-        { signal: controller.signal }
-    );
-} catch (err) {
-    console.error('Flow aborted:', err.message);
-}
-```
-
-### Inside Step Actions
-
-Step actions can read the active `AbortSignal` directly from parameters and forward it to downstream async operations (e.g., `fetch` or database queries):
-
-```typescript
-Step.create(async (param) => {
-    // Retrieve AbortSignal via param.$signal.val or param.signal.val
-    const signal = param.$signal.val || param.signal.val;
-    const response = await fetch('https://api.example.com/data', { signal });
-    return { data: await response.json() };
-});
-```
-
-When an `AbortSignal` is aborted during a retry backoff delay, the sleep timer aborts immediately without hanging.
-
----
-
-## Execution Resilience & Deadlines (Two-Tier Timeouts)
-
-Production workflow orchestrators require strict failure boundaries. Long-running or hanging asynchronous operations (e.g. stalled database queries, unresponsive 3rd-party APIs, LLM stream deadlocks) must not hold system resources and execution stacks indefinitely.
-
-`fluid-func` establishes a **two-tier timeout architecture**:
-
-| Dimension | **Step-Level Timeout (`step.timeout(ms)`)** | **Flow-Level Timeout (`flow.timeout(ms)` / `options.timeout`)** |
-| :--- | :--- | :--- |
-| **Primary Purpose** | **Per-operation SLA** (e.g. HTTP request, LLM generation, DB query) | **End-to-end workflow budget** (e.g. API gateway deadline, queue SLA) |
-| **Scope** | Confined to a single step's execution lifecycle | Cumulative across all steps, retries, and delays combined |
-| **Failure Handling** | Triggers step's **`onFail`** (retries, backoff, or fallback) | Immediately aborts whole workflow; terminates stack and rejects |
-| **Exception Type** | `StepTimeoutException` (`stepName`, `timeoutMs`, `elapsedMs`) | `FlowTimeoutException` (`stackId`, `timeoutMs`, `completedSteps`) |
-
-### 1. Step-Level SLA (`step.timeout(ms)`) with Retries
-
-When a step defines `.timeout(ms)`, it races the action against a timer. If it times out, a `StepTimeoutException` is thrown, which seamlessly feeds into `.onFail()` for retries:
-
-```typescript
-import { Step, StepTimeoutException } from 'fluid-func';
-
-const callPaymentGateway = Step.create('processPayment', async (param) => {
-    return await httpClient.post('/charge', param.props, {
-        signal: param.$signal?.()
-    });
-})
-    .timeout(3000) // Rejects with StepTimeoutException if action takes > 3s
-    .onFail({
-        maxRetries: 2,
-        delay: 500,
-        onRetry: (err, attempt) => {
-            if (err instanceof StepTimeoutException) {
-                console.warn(`Payment timed out after ${err.timeoutMs}ms; retrying attempt #${attempt}...`);
-            }
-        }
-    });
-```
-
-### 2. Flow-Level SLA (`flow.timeout(ms)` or `options.timeout`)
-
-Set an end-to-end deadline on a flow, or pass it dynamically per execution:
-
-```typescript
-import { Step, flow, FlowTimeoutException } from 'fluid-func';
-
-// Static flow deadline
-const orderPipeline = flow(validateStep, chargeStep, invoiceStep).timeout(10000); // 10s budget
-
-// Or dynamic runtime deadline
-try {
-    const result = await orderPipeline.run(orderData, {
-        timeout: 8000,
-        namespace: 'tenant_acme'
-    });
-} catch (err) {
-    if (err instanceof FlowTimeoutException) {
-        console.error(`Workflow timed out after ${err.timeoutMs}ms; completed steps: ${err.completedSteps.join(' -> ')}`);
-    }
-}
-```
-
-### 3. Cooperative Cancellation via `param.$signal()`
-
-All timeouts and external signals are merged using `AbortSignal`. Step actions can pass this signal to native APIs (`fetch`, database drivers, Axios):
-
-```typescript
-const fetchDocs = Step.create(async (param) => {
-    const res = await fetch('https://api.example.com/docs', {
-        signal: param.$signal?.() // Automatically aborted if step SLA or flow deadline expires
-    });
-    return await res.json();
-});
-```
-
----
-
-## Lifecycle Hooks & Optimization
-
-### Pre-execution Guard (`onBefore`)
-
-Intercept execution before a step starts. Returning `false` gracefully skips the step:
-
-```typescript
-step.onBefore(async (param) => {
-    const hasPermission = await checkUserPermission(param.userId.val);
-    return hasPermission; // false skips this step
-});
-```
-
-### Deterministic Caching (`.cache()`)
-
-Cache results based on step inputs. `fluid-func` sorts keys and handles circular references safely:
-
-```typescript
-// Cache result for 5,000 milliseconds (default is 1,500ms)
-const cachedQuery = Step.create(async (param) => {
-    return await queryHeavyDatabase(param.filter.val);
-}).cache(5000);
-```
-
-### Reducer Steps (`.reduce()`)
-
-Process array inputs iteratively through an accumulator:
-
-```typescript
-const sumStep = Step.create((param, current = 0) => {
-    return current + param.num.val;
-}).reduce('numbers');
-
-const res = await sumStep.run({ numbers: [10, 20, 30] });
-console.log(res.value.val); // 60
-```
-
----
-
-## Runtime Namespaces & Isolation (`namespace`)
-
-In multi-tenant systems, workflow definitions are **pure, shared application code** executed concurrently across many tenants. Tenants require **runtime data isolation** &mdash; isolated parameters, execution stacks, caches, and checkpoints &mdash; rather than separate code registries.
-
-### 1. Passing `namespace` at Execution Time
-
-Provide `namespace` in `ExecutionOptions` when running any step or flow:
-
-```typescript
-import { Step, flow } from "fluid-func";
-
-const orderPipeline = flow(validateStep, calculateTaxStep, chargeStep);
-
-// Concurrent executions for different tenants in the same Node.js process:
-const [resA, resB] = await Promise.all([
-    orderPipeline.run({ amount: 100 }, { namespace: "tenant_acme" }),
-    orderPipeline.run({ amount: 250 }, { namespace: "tenant_globex" })
-]);
-```
-
-### 2. Accessing `$namespace` Inside Step Actions
-
-Step actions can read the active tenant ID directly via `param.$namespace()` or property getter `param.$namespace.val`:
-
-```typescript
-const applyTenantPolicy = Step.create(async (param) => {
-    const tenant = param.$namespace?.();
-    console.log(`Applying custom business rules for ${tenant}...`);
-    return { policyApplied: true };
-});
-```
-
-### 3. Namespace Cache Partitioning
-
-When a step uses `.cache(ttlMs)`, cache keys are automatically partitioned by `namespace`:
-```
-cacheKey = `${namespace}:${stepId}:${inputHash}`
-```
-Executions in different namespaces with identical input arguments will **never** collide or leak cached data across namespace boundaries.
-
-### 4. Namespace Checkpoint Scoping
-
-When checkpointing stacks (`Step.checkpoint(stackId)` or `saveCheckpoint`), the active `namespace` is saved with the checkpoint data, ensuring cross-namespace state restoration cannot occur.
 
 ---
 
 ## Pluggable Distributed Storage (`StorageAdapter`)
 
-`fluid-func` provides a unified, enterprise-grade `StorageAdapter` interface to connect external infrastructure (Redis, MongoDB, Kafka, Postgres).
-
-> **Architectural Note:** Step code closures belong in versioned application bundles, **not** in Redis or MongoDB. Distributed storage manages **State, Telemetry, and Durability only**:
-> 1. **Telemetry & Tracing**: Real-time context change events (`onContextChange`).
-> 2. **Durable Checkpoints**: Saga pause/resume across worker nodes (`saveCheckpoint` / `getCheckpoint`).
-> 3. **Distributed Step Caching**: Memoized step results across cluster instances (`getCachedStep` / `setCachedStep`).
-
-### The `StorageAdapter` Interface
+Connect external persistence (Redis, MongoDB, Kafka, Postgres) for durability, real-time telemetry, and caching:
 
 ```typescript
-export interface ContextChangeEvent {
-    namespace?: string;
-    stackId: string;
-    stepId: string;
-    field: string;
-    value: any;
-    timestamp: number;
-}
+import { Step, StorageAdapter, ContextChangeEvent, SerializedExecutionStack } from 'fluid-func';
 
-export interface StorageAdapter {
-    name: string;
-
-    // 1. Context & Event Streaming (Telemetry, Audit Logs, Tracing)
-    onContextChange?(entry: ContextChangeEvent): Promise<void> | void;
-
-    // 2. Checkpointing & Durability (Sagas, Pause/Resume, Approval workflows)
-    saveCheckpoint?(checkpoint: SerializedExecutionStack): Promise<void>;
-    getCheckpoint?(stackId: string): Promise<SerializedExecutionStack | undefined>;
-
-    // 3. Distributed Caching (Cluster-wide step memoization)
-    getCachedStep?(key: string): Promise<any | undefined>;
-    setCachedStep?(key: string, value: any, ttlMs: number): Promise<void>;
-}
-```
-
-### Registering an Adapter via `Step.useStorage`
-
-```typescript
-import { Step, StorageAdapter, ContextChangeEvent, SerializedExecutionStack } from "fluid-func";
-
-class RedisMongoStorageAdapter implements StorageAdapter {
-    name = "RedisMongoStorageAdapter";
+class CustomStorageAdapter implements StorageAdapter {
+    name = 'CustomStorageAdapter';
 
     async onContextChange(e: ContextChangeEvent) {
-        // Stream telemetry to Kafka / MongoDB audit collection
-        await mongoLogs.insertOne({
-            namespace: e.namespace,
-            stackId: e.stackId,
-            stepId: e.stepId,
-            field: e.field,
-            value: e.value,
-            timestamp: e.timestamp
-        });
+        // Stream telemetry to Kafka or MongoDB
     }
 
     async saveCheckpoint(checkpoint: SerializedExecutionStack) {
-        // Save durable saga state to MongoDB / Redis
-        await mongoCheckpoints.updateOne({ stackId: checkpoint.stackId }, { $set: checkpoint }, { upsert: true });
-        await redis.set(`checkpoint:${checkpoint.stackId}`, JSON.stringify(checkpoint));
+        // Save durable workflow state to Redis or Postgres
     }
 
     async getCheckpoint(stackId: string) {
-        const cached = await redis.get(`checkpoint:${stackId}`);
-        if (cached) return JSON.parse(cached);
-        return await mongoCheckpoints.findOne({ stackId });
-    }
-
-    async getCachedStep(key: string) {
-        const val = await redis.get(`cache:${key}`);
-        return val ? JSON.parse(val) : undefined;
-    }
-
-    async setCachedStep(key: string, value: any, ttlMs: number) {
-        await redis.set(`cache:${key}`, JSON.stringify(value), "PX", ttlMs);
+        // Restore checkpoint data
     }
 }
 
-// Register globally in a single call
-Step.useStorage(new RedisMongoStorageAdapter());
-```
-
-### Saga Checkpointing & Worker Handoff Example
-
-```typescript
-// Worker 1: Run steps up to an external webhook or human approval
-const approvalFlow = flow(submitRequestStep, validateDocumentsStep);
-const partialResult = await approvalFlow.run(input, { namespace: "tenant_01" });
-const stackId = partialResult.$stackId();
-
-// Automatic or manual checkpointing:
-const checkpoint = await Step.checkpoint(stackId);
-// Checkpoint is automatically written to your StorageAdapter!
-
-// Worker 2 (Hours later, upon webhook arrival):
-const restoredStack = await Step.getCheckpoint(stackId);
-const resumeStorage = new StorageManager();
-resumeStorage.restoreCheckpoint(restoredStack);
-
-// Seamlessly resume downstream flow execution from saved state
-```
-
-> 📁 A complete, runnable test project demonstrating Redis + MongoDB storage integration with the unified `StorageAdapter` is available in [`test-project/`](test-project/README.md).
-> Run it directly with:
-> ```bash
-> cd test-project && npm test
-> ```
-
-> 💡 **Notice on Legacy Code Registry APIs:** Legacy string-based code registry APIs (`putChain`, `getChain`, `setPutChainPlugin`, `setGetChainPlugin`, `Step.exists`, `isExists`) are deprecated and will be removed in v3.0. Use direct step composition with `flow()` and the unified `StorageAdapter` interface.
-
----
-
-## Global Monitoring & Plugins
-
-Configure global plugins and log monitors across workflow lifecycles:
-
-```typescript
-Step.config({
-    logMonitor: (entry) => {
-        console.log(`[${entry.source}]`, entry.message);
-    },
-    plugins: [
-        {
-            name: 'auditLogger',
-            action: async (context) => {
-                return { auditedAt: Date.now() };
-            },
-            before: ['checkoutStep'],
-            after: ['confirmationStep']
-        }
-    ]
-});
+// Register globally
+Step.useStorage(new CustomStorageAdapter());
 ```
 
 ---
 
 ## API Reference
 
-### Flow & Step Functions (Option B)
+### Orchestration & Combinators
 
-| Method / Function | Description |
+| Function / Helper | Description |
 | :--- | :--- |
-| `flow<TIn, TOut>(...steps)` | Primary orchestrator creating a composable `Flow` instance supporting `.run()`, `.execute()`, `.start()`, and `.steps`. *(Alias: `pipe`)* |
-| `Step.create<TIn, TOut>(action)` | Instantiates a new `Step` execution unit with optional input/output types. *(Alias: `Chain.create`)* |
-| `Step.start<TOut>(steps, param, options?)` | Static runner executing a step, flow, or array of steps with optional `ExecutionOptions`. |
-| `Step.flow(...steps)` | Static flow orchestrator on `Step`. |
-| `isFlow(item)` | Type-guard predicate verifying if an object conforms to the `Flow` interface. *(Alias: `isPipeline`)* |
-| `Step.toPOJO<T>(data)` | Recursively converts Proxy / context object to frozen plain JavaScript object. |
-| `Step.checkpoint(stackId)` | Creates a snapshot checkpoint of the specified execution stack. |
-| `Step.restoreCheckpoint(checkpoint)` | Restores stack execution state from a checkpoint. |
-| `Step.serializeState(stackId?)` | Serializes execution stacks and state to a JSON string. |
-| `Step.hydrateState(serializedState)` | Restores stacks and state from a JSON string or checkpoint. |
-| `step.modern()` | Sets modern execution mode passing unwrapped objects directly to action. |
-| `step.schema(schema)` | Validates root context against Standard Schema, Zod, Valibot, or custom validators. |
-| `step.spec(field, options \| schema)` | Attaches parameter validation, default, transform, translate, or schema rules to a field. |
-| `step.strict()` | Restricts step parameters only to fields declared via `.spec()`. |
-| `step.onBefore(hook)` | Guard hook; return `false` or a rejecting Promise to skip step. |
-| `step.onSkip(hook)` | Skip hook; executed when `onBefore` returns false to provide fallback values. |
-| `step.onAfter(hook)` | Post-execution hook enriching the output context with additional properties. |
-| `step.onFail(strategy \| callback)` | Configures structured `RetryConfig` or manual error callback. |
-| `step.timeout(ms)` | Sets a per-step execution SLA deadline (in milliseconds); throws `StepTimeoutException` and triggers `onFail` retries. |
-| `flow.timeout(ms)` | Sets a cumulative end-to-end workflow SLA deadline (in milliseconds); throws `FlowTimeoutException`. |
-| `Step.useStorage(adapter)` | Registers a unified distributed `StorageAdapter` provider globally. |
-| `Step.getStorageAdapter()` | Retrieves the active `StorageAdapter` instance if registered. |
-| `Step.getCheckpoint(stackId)` | Asynchronously retrieves a saved checkpoint from the active storage adapter or local memory. |
-| `step.cache(ms)` | Caches step results for specified duration (in milliseconds); auto-partitioned by `namespace`. |
-| `step.reduce(arrayField)` | Turns the step into an iterative array reducer over the specified array field. |
-| `step.run(param?, options?)` | Executes the step with modern async/await resolution and optional `ExecutionOptions`. |
-| `step.execute(param?, options?)` | Executes the step (supports callback or returns Promise). |
+| `flow<TIn, TOut>(...steps)` | Primary workflow orchestrator creating a composable `Flow` instance. |
+| `parallel(...steps, options?)` | Runs branches concurrently, failing fast on error and isolating branch contexts. |
+| `all(steps, options?)` | Alias for `parallel`. Runs an array or list of branches concurrently. |
+| `allSettled(steps, options?)` | Runs branches concurrently and collects all outcomes (values and errors) without failing fast. |
+| `race(...steps, options?)` | Settles as soon as the first branch completes; cancels losing branches. |
+| `when(predicate, thenStep)` | Conditional execution combinator supporting `.otherwise(elseStep)`. |
+| `branch({ selector, branches, defaultBranch? })` | Multi-path dynamic branch router based on selector result. |
+| `map(items, step, options?)` | Maps an array or `AsyncIterable` collection through a step with bounded concurrency. |
+| `waitForEvent(eventName, options)` | Suspends workflow until the specified external event arrives or timeout occurs. |
+| `wait(duration)` | Pauses workflow execution for a duration string (`'10m'`, `'1h'`) or milliseconds. |
+| `resumeWorkflow(flow, key, payload?, options?)` | Restores and resumes a suspended workflow from storage. |
+| `toGraph(item)` | Compiles any step, flow, or combinator into a JSON-serializable `WorkflowNode` AST. |
+| `validateGraph(node)` | Validates graph structure, checking for cycles and disconnected nodes. |
+| `assertValidGraph(node)` | Asserts graph validity; throws `GraphValidationException` if invalid. |
+| `inspectGraph(item)` | Analyzes workflow AST and returns topographical metrics (node count, depth, edges). |
+| `buildIdempotencyKey(scope, params, options?)` | Generates a deterministic hash key for workflow or step idempotency. |
+
+### Step Methods
+
+| Method | Description |
+| :--- | :--- |
+| `Step.create<TIn, TOut>(action)` | Instantiates a new `Step` execution unit. |
+| `step.compensate(handler, options?)` | Registers a compensation rollback handler to run if downstream steps fail. |
+| `step.idempotent(keyOrFn?, options?)` | Attaches idempotency deduplication and claim locking to the step. |
+| `step.modern()` | Passes unwrapped plain objects directly to step action. |
+| `step.schema(schema)` | Validates root context against Standard Schema, Zod, or Valibot. |
+| `step.spec(field, options)` | Declares parameter validation, default values, transforms, and translations. |
+| `step.strict()` | Isolates step parameters strictly to fields declared via `.spec()`. |
+| `step.onBefore(hook)` | Pre-execution guard hook; returning `false` skips the step. |
+| `step.onSkip(hook)` | Fallback hook executed when `onBefore` skips the step. |
+| `step.onAfter(hook)` | Post-execution hook enriching the output context. |
+| `step.onFail(strategy \| callback)` | Configures retry policies (`RetryConfig`) or manual error handler. |
+| `step.timeout(ms)` | Sets per-step SLA deadline (throws `StepTimeoutException`). |
+| `step.cache(ms)` | Caches step results with namespace-aware partition keys. |
+| `step.reduce(arrayField)` | Turns step into an accumulator reducer over an array field. |
+| `step.toGraph()` | Generates AST representation of the step. |
+| `step.inspect()` | Returns structural metrics of the step graph. |
+| `step.run(param?, options?)` | Executes step returning a Promise. |
+
+### Flow Methods
+
+| Method | Description |
+| :--- | :--- |
+| `flow.run(param?, options?)` | Executes the flow with optional `ExecutionOptions`. |
+| `flow.timeout(ms)` | Sets workflow-wide end-to-end deadline (throws `FlowTimeoutException`). |
+| `flow.version(v)` | Declares the semantic version of the workflow. |
+| `flow.toGraph()` | Compiles the flow into an inspectable `WorkflowNode` AST. |
+| `flow.inspect()` | Inspects workflow AST and returns topographical statistics. |
+| `flow.resume(key, payload?, options?)` | Resumes a suspended durable flow instance from storage. |
+| `flow.compensate(stackId, options?)` | Manually triggers saga compensations for a completed or failed flow stack. |
 
 ### ExecutionOptions Interface
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `signal` | `AbortSignal` | Optional cancellation signal to abort in-flight execution and retry backoff delays. |
-| `pojo` | `boolean` | When `true`, resolves the final flow output as a clean, frozen Plain Old JavaScript Object. |
-| `mode` | `'pojo' \| 'wrapped'` | Explicitly selects `'pojo'` (plain object) or `'wrapped'` (Proxy getters) output format. |
+| `signal` | `AbortSignal` | Cancellation signal to abort execution and retry delays. |
+| `pojo` | `boolean` | When `true`, resolves output as a plain, frozen JavaScript object. |
+| `mode` | `'pojo' \| 'wrapped'` | Explicitly selects `'pojo'` or `'wrapped'` context output. |
+| `namespace` | `string` | Tenant/domain identifier for multi-tenant isolation. |
+| `timeout` | `number` | Workflow-level deadline in milliseconds. |
+| `durable` | `boolean` | Enables durable execution mode for suspensions and resumes. |
+| `workflowVersion` | `string \| number` | Semantic version of the running workflow. |
+| `idempotencyKey` | `string \| Function` | Key for workflow-level deduplication. |
+| `idempotencyStore` | `IdempotencyStore` | Store instance for idempotency claims (defaults to memory). |
+| `idempotencyTtlMs` | `number` | Time-to-live for idempotency records. |
+| `migrations` | `Record<string, Function>` | Version migration functions for state transformation upon resume. |
 
-### RetryConfig Interface
+### Exceptions Hierarchy (`FluidFuncError`)
 
-| Property | Type | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `maxRetries` | `number` | Maximum retry attempts before rejecting | `3` |
-| `backoff` | `'fixed' \| 'linear' \| 'exponential' \| ((attempt) => number)` | Delay backoff strategy | `'fixed'` |
-| `delay` | `number` | Base delay in milliseconds | `100` |
-| `maxDelay` | `number` | Maximum upper cap for backoff delay | `10000` |
-| `jitter` | `boolean` | Adds randomized jitter to delay interval | `false` |
-| `onRetry` | `(error, attempt) => void` | Callback invoked before each retry attempt | `undefined` |
+All exceptions inherit from `FluidFuncError` and include ISO timestamps, execution metadata, and error causes:
 
-### StorageManager & State Serialization APIs
-
-| Class / Function | Description |
-| :--- | :--- |
-| `new StorageManager()` | Creates an isolated storage container with private `Map` instances for steps, contexts, plugins, configs, and stacks. |
-| `storage.checkpoint(stackId)` | Captures a snapshot of the stack's execution state, contexts, and results. |
-| `storage.restoreCheckpoint(checkpoint)` | Reconstructs the stack and its getter closures in storage from a checkpoint. |
-| `storage.serializeState(stackId?)` | Serializes stack(s) or entire storage state into a JSON string. |
-| `storage.hydrateState(serializedState)` | Reconstitutes execution stacks from serialized state or checkpoint object. |
-| `toPOJO<T>(data)` | Standalone utility to convert wrapped Proxy contexts into plain frozen objects. |
-| `storage.useStorage(adapter)` | Registers an enterprise `StorageAdapter` with this storage manager instance. |
-| `storage.getStorageAdapter()` | Retrieves the registered `StorageAdapter` or `undefined`. |
-| `storage.getCheckpoint(stackId)` | Queries adapter or memory for a saved checkpoint. |
-| `setPutChainPlugin(plugin)` | *(Deprecated)* Legacy external storage plugin for persisting step code. Use `StorageAdapter`. |
-| `setGetChainPlugin(plugin)` | *(Deprecated)* Legacy external storage plugin for retrieving step code. Use `StorageAdapter`. |
-| `setPutChainContextPlugin(plugin)` | *(Deprecated)* Legacy storage plugin for context fields. Use `StorageAdapter.onContextChange`. |
-| `setGetChainContextPlugin(plugin)` | *(Deprecated)* Legacy storage plugin for retrieving context fields. |
-| `clearStorage()` | Clears internal storage caches and stacks. |
-| `getStorage()` | Returns an immutable snapshot of internal storage state. |
+- `StepTimeoutException` &mdash; Thrown when a step exceeds `step.timeout(ms)`.
+- `FlowTimeoutException` &mdash; Thrown when a workflow exceeds `flow.timeout(ms)`.
+- `CancellationException` &mdash; Thrown when an `AbortSignal` cancels execution.
+- `ValidationException` &mdash; Thrown when `.spec()` or `.schema()` validation fails.
+- `FieldCollisionException` &mdash; Thrown when parallel branches write conflicting context keys under `mergeStrategy: 'error'`.
+- `IdempotencyConflictException` &mdash; Thrown when an in-progress duplicate request is detected.
+- `CompensationException` &mdash; Thrown when one or more compensation saga handlers fail during rollback.
+- `WorkflowSuspendedException` &mdash; Thrown to pause execution at durable wait points (`waitForEvent`, `wait`).
+- `DuplicateEventException` &mdash; Thrown when attempting to resume with an already consumed event.
+- `ExpiredWaitException` &mdash; Thrown when resuming an event wait after its deadline has expired.
+- `WorkflowVersionMismatchException` &mdash; Thrown when resuming a workflow with an incompatible version and no migration.
+- `GraphValidationException` &mdash; Thrown when a workflow graph fails acyclic or structural validation.
 
 ---
 
@@ -882,22 +607,3 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 ### Author
 
 **Jerico de Guzman** &mdash; [LinkedIn](https://www.linkedin.com/in/jerico-de-guzman-35126657)
-PROVENANCE
-
-
----
-
-## Migration Guide: v0.6.1 to v1.0.0
-
-`fluid-func` v1.0.0 unifies its public API around `Step` and `flow` as the primary primitives while maintaining **100% backward compatibility** for all v1.x constructs:
-
-| v0.6.1 (Deprecated Alias) | v1.0.0 (Primary API) | Status |
-|---|---|---|
-| `Chain` | `Step` | Deprecated (supported until v2.0) |
-| `pipe(...)` | `flow(...)` | Deprecated (supported until v2.0) |
-| `Pipeline` | `Flow` | Deprecated (supported until v2.0) |
-| `isPipeline(...)` | `isFlow(...)` | Deprecated (supported until v1.0) |
-
-### Deprecation Policy
-- Deprecated aliases emit zero runtime overhead and delegate directly to primary implementations.
-- All deprecated aliases will remain fully operational throughout the entire 1.x release cycle and will not be removed until v2.0.0.
