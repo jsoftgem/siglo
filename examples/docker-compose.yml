@@ -1,0 +1,104 @@
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Redis 7: Distributed Caching, Checkpoints, Idempotency & Distributed Locks
+  #    Used by @fluid-func/redis (RedisStorageAdapter, RedisIdempotencyStore, RedisLock)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: fluid-func-redis
+    command: ["redis-server", "--requirepass", "redispassword"]
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redispassword", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 2. PostgreSQL 16: Durable Checkpointing, Audit Events & Scoped Idempotency
+  #    Used by @fluid-func/postgres (PostgresStorageAdapter, PostgresIdempotencyStore)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: fluid-func-postgres
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: fluid_func_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fluid_func_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 3. MongoDB 7.0: Document Storage for Execution Logs & Analytical Projections
+  #    Used by examples/src/database/mongodb.ts
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:7.0
+    container_name: fluid-func-mongodb
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+      MONGO_INITDB_DATABASE: fluid_func_db
+    healthcheck:
+      test: ["CMD", "mongosh", "-u", "admin", "-p", "mongopassword", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 4. Redpanda (Kafka-Compatible Streaming): Real-Time Event Enrichment
+  #    Used by @fluid-func/kafka (createKafkaHandler)
+  #    Single-node dev mode, zero-Zookeeper dependency, native Kafka wire protocol on 9092
+  # ---------------------------------------------------------------------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
+    container_name: fluid-func-kafka
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --memory
+      - "512M"
+      - --reserve-memory
+      - "0M"
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://localhost:9092
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 5. Jaeger All-in-One: Distributed Tracing & W3C Trace Visualization
+  #    Used by @fluid-func/opentelemetry (instrumentWorkflow, trace context)
+  #    Web UI: http://localhost:16686
+  #    OTLP gRPC: localhost:4317, OTLP HTTP: localhost:4318
+  # ---------------------------------------------------------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: fluid-func-jaeger
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true

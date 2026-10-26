@@ -3,7 +3,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    files: ['src/**/*.ts'],
+    files: ['packages/*/src/**/*.ts', 'examples/src/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -21,13 +21,13 @@ export default [
     },
   },
   {
-    files: ['src/**/*.test.ts'],
+    files: ['packages/*/src/**/*.test.ts', 'examples/src/**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-unused-expressions': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '**/*.js'],
+    ignores: ['dist/**', '**/dist/**', 'node_modules/**', 'coverage/**', '**/*.js'],
   },
 ];

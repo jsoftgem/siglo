@@ -1,0 +1,84 @@
+import { expect } from 'chai';
+import { Step, flow } from 'fluid-func';
+import { fluidExpressMiddleware, getErrorStatusCode } from './index';
+
+describe('@fluid-func/express Adapter Suite', () => {
+    it('executes workflow using express request and sends json response', async () => {
+        const stepA = Step.create(async ({ a, b }: { a: number; b: number }) => ({
+            sum: a + b,
+        }));
+        const calcFlow = flow(stepA);
+
+        const middleware = fluidExpressMiddleware(calcFlow);
+
+        const mockReq = {
+            body: { a: 15, b: 25 },
+            headers: { 'x-namespace': 'ns-express', 'x-correlation-id': 'corr-express-123' },
+        };
+        const headersSet: Record<string, string> = {};
+        let sentBody: any;
+        const mockRes = {
+            setHeader(name: string, val: string) {
+                headersSet[name] = val;
+            },
+            json(b: any) {
+                sentBody = b;
+                return b;
+            },
+        };
+
+        await middleware(mockReq, mockRes, () => {});
+
+        expect(sentBody.sum).to.equal(40);
+        expect(headersSet['X-Workflow-Stack-Id']).to.be.a('string');
+        expect(headersSet['X-Correlation-Id']).to.equal('corr-express-123');
+    });
+
+    it('routes workflow errors to next(err) if no custom onError provided and no res.status/json', async () => {
+        const failStep = Step.create(async (): Promise<any> => {
+            throw new Error('Database down');
+        });
+        const brokenFlow = flow(failStep);
+
+        const middleware = fluidExpressMiddleware(brokenFlow);
+
+        let errorReceived: any;
+        await middleware({}, {}, (err: any) => {
+            errorReceived = err;
+        });
+
+        expect(errorReceived).to.exist;
+        expect(errorReceived.message).to.equal('Database down');
+    });
+
+    it('handles errors and maps to status code if res.status and res.json are present', async () => {
+        const timeoutErr = new Error('Request deadline exceeded');
+        timeoutErr.name = 'StepTimeoutException';
+
+        expect(getErrorStatusCode(timeoutErr)).to.equal(504);
+        expect(getErrorStatusCode({ name: 'CancellationException' })).to.equal(499);
+
+        const failStep = Step.create(async (): Promise<any> => {
+            throw timeoutErr;
+        });
+        const middleware = fluidExpressMiddleware(flow(failStep));
+
+        let sentStatus = 0;
+        let sentJson: any;
+        const mockRes = {
+            status(s: number) {
+                sentStatus = s;
+                return this;
+            },
+            json(j: any) {
+                sentJson = j;
+                return j;
+            },
+        };
+
+        await middleware({}, mockRes, () => {});
+
+        expect(sentStatus).to.equal(504);
+        expect(sentJson.error).to.equal('Request deadline exceeded');
+    });
+});

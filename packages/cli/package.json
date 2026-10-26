@@ -1,0 +1,29 @@
+{
+  "name": "@fluid-func/cli",
+  "version": "2.0.0",
+  "description": "Developer CLI and workflow visualizer/inspector for fluid-func workflows",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "fluid-func": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && mocha -r tsx 'src/**/*.test.ts'"
+  },
+  "dependencies": {
+    "fluid-func": "*"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "chai": "^3.5.0",
+    "mocha": "^5.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.0"
+  }
+}

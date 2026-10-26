@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-10-26
+
+### Phase 3: Ecosystem, Observability, and Adoption
+
+This release establishes the monorepo architecture and provides first-class integrations, distributed tracing, persistent storage adapters, HTTP/Queue middleware, and developer inspection tooling while preserving zero dependencies in the core runtime.
+
+### Added
+
+- **OpenTelemetry Distributed Tracing (`@fluid-func/opentelemetry`)**:
+  - Root workflow execution spans and individual child spans per step, retry attempt, and wait suspension.
+  - Standardized OpenTelemetry attributes (`fluid.workflow.name`, `fluid.step.name`, `fluid.step.attempt`, `fluid.stack.id`, `fluid.tenant.id`).
+  - W3C trace context extraction and injection helpers (`injectTraceContext`, `extractTraceContext`, `getTraceHeaders`).
+  - Automatic sensitive data redaction with configurable field allowlists.
+- **HTTP Framework Adapters (`@fluid-func/hono`, `@fluid-func/fastify`, `@fluid-func/express`)**:
+  - Idiomatic route handlers and middleware for Hono, Fastify, and Express.
+  - Automatic correlation ID propagation via `X-Correlation-Id` and `X-Workflow-Stack-Id` response headers.
+  - Deterministic typed error status mapping (`Timeout` -> 504, `Validation` -> 400, `IdempotencyConflict` -> 409, `Cancellation` -> 499, default -> 500).
+  - Cooperative request abort signal propagation.
+- **Queue and Message Broker Adapters (`@fluid-func/bullmq`, `@fluid-func/kafka`, `@fluid-func/sqs`)**:
+  - BullMQ job processor with deduplication via distributed `IdempotencyStore`.
+  - Kafka consumer handler with topic, partition, offset correlation, and W3C trace context extraction.
+  - AWS SQS batch handler with partial batch failure reporting (`batchItemFailures`).
+- **Distributed Storage & Coordination Adapters (`@fluid-func/redis`, `@fluid-func/postgres`)**:
+  - `@fluid-func/redis`: Distributed checkpointing, step output caching, real-time context streaming, and `RedisLock` for distributed single-flight coordination.
+  - `@fluid-func/postgres`: ACID transactional checkpoint persistence, audit event log tables, and automated retention cleanup (`cleanupOldCheckpoints`, `cleanupOldEvents`).
+- **Developer Tools & Local Inspector CLI (`@fluid-func/cli`)**:
+  - `fluid-func init`: Scaffolds modern TypeScript starter workflow projects.
+  - `fluid-func visualize`: Renders workflow AST as Mermaid flowcharts or ASCII text trees.
+  - `fluid-func validate`: Performs static acyclic reachability validation.
+  - `fluid-func inspect`: Generates workflow metrics, node types, and redaction reports.
+  - `fluid-func checkpoint`: Inspects serialized checkpoint state files.
+  - Offline fixture replay utility (`replayFixture`) with output diff validation.
+- **Continuous Integration & Automation**:
+  - Multi-version Node.js matrix CI pipeline across Node 18, 20, and 22 (`.github/workflows/ci.yml`).
+
+---
+
 ## [2.0.0] - 2026-10-20
 
 ### Major Architecture Modernization: Separation of Code and State
@@ -40,8 +77,7 @@ This release eliminates the legacy string-based code registry model, decouples s
   - Named steps can now be accessed either by name (`param.$steps.stepName`) or index (`param.$steps[i]`).
 - **State Serialization & Durable Workflows**:
   - Added `Step.checkpoint(stackId)`, `Step.restoreCheckpoint(checkpoint)`.
-  - Added `Step.serializeState(stackId?)`, `Step.hydrateState(serializedState)`.
-- **POJO Execution Mode**:
+  - Added `Step.serializeState(stackId?)`, `Step.hydrateState(serializedState)`.\n- **POJO Execution Mode**:
   - Added `{ pojo: true }` and `{ mode: 'pojo' }` execution options, resolving frozen plain objects directly.
   - Added standalone `toPOJO<T>(data)` conversion utility.
 
@@ -55,8 +91,7 @@ This release eliminates the legacy string-based code registry model, decouples s
   - Distributed databases (Redis, MongoDB) now strictly store execution state, telemetry, checkpoints, and cached outputs. Executable TypeScript closures remain in application code bundles.
 - **Refactored Execution Runner**:
   - Internal runner (`runner.ts` and `StartChain.ts`) executes steps directly via object references instead of querying `state.chains`.
-  - Automatically invokes `adapter.saveCheckpoint` upon workflow completion before deleting in-memory stacks.
-
+  - Automatically invokes `adapter.saveCheckpoint` upon workflow completion before deleting in-memory stacks.\n
 ### Deprecated
 
 - **Legacy String Code Registry APIs**:

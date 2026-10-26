@@ -1,0 +1,29 @@
+{
+  "name": "fluid-func-examples",
+  "version": "1.0.0",
+  "description": "Production-grade examples and use cases demonstrating fluid-func with ecosystem adapters and workflow power features",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:usecases": "tsx --test src/usecases.test.ts",
+    "test:phase2": "tsx --test src/phase2-usecases.test.ts",
+    "test:phase3": "tsx --test src/phase3-usecases.test.ts",
+    "test:order": "tsx --test src/index.test.ts"
+  },
+  "dependencies": {
+    "@fluid-func/bullmq": "*",
+    "@fluid-func/cli": "*",
+    "@fluid-func/express": "*",
+    "@fluid-func/fastify": "*",
+    "@fluid-func/hono": "*",
+    "@fluid-func/kafka": "*",
+    "@fluid-func/opentelemetry": "*",
+    "@fluid-func/postgres": "*",
+    "@fluid-func/redis": "*",
+    "@fluid-func/sqs": "*",
+    "fluid-func": "*",
+    "ioredis": "^6.0.0",
+    "mongodb": "^7.7.0"
+  }
+}

@@ -33,6 +33,7 @@
 - 🔄 [Compensation & Sagas](docs/compensation-and-sagas.md) &mdash; LIFO rollback sagas (`step.compensate`), retry policies, manual triggers, and failure aggregation.
 - ⏳ [Durable Waits & Resumption](docs/durable-waits.md) &mdash; Event waiting (`waitForEvent`), duration parsing (`wait`), durable suspension checkpoints, and resumption (`resumeWorkflow`).
 - 🏷️ [Workflow Versioning & Migrations](docs/workflow-versioning.md) &mdash; Version tracking, mismatch detection, and registered state migrations.
+- 🔌 [Ecosystem Adapters & Integrations](docs/ecosystem-adapters.md) &mdash; Modular production adapters for OpenTelemetry, Redis, PostgreSQL, BullMQ, Kafka, SQS, Hono, Fastify, Express, and CLI developer tooling.
 
 ---
 
@@ -48,8 +49,7 @@
 - ⏳ **Durable Waits & Event Resumption** &mdash; Pause execution with `waitForEvent(eventName)` or `wait('30m')`, persist suspended checkpoints, and safely resume workflows (`resumeWorkflow`) with event deduplication.
 - 🏷️ **Workflow Versioning & State Migrations** &mdash; Declare workflow versions (`flow.version('v2')`), detect version mismatches upon resumption, and run registered state transformation functions.
 - 🛡️ **TypeScript First & End-to-End Generics** &mdash; Comprehensive type definitions, input/output generic inference, IntelliSense autocompletion, and robust error contracts.
-- ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) with typed `StepTimeoutException` and workflow-level deadlines (`flow.timeout(ms)`, `options.timeout`) with `FlowTimeoutException`.
-- 🌐 **Runtime Namespaces & Isolation (`namespace`)** &mdash; Native multi-tenant isolation (`{ namespace: "tenant_123" }`); isolated stacks, context metadata, checkpoints, and cache keys.
+- ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) with typed `StepTimeoutException` and workflow-level deadlines (`flow.timeout(ms)`, `options.timeout`) with `FlowTimeoutException`.\n- 🌐 **Runtime Namespaces & Isolation (`namespace`)** &mdash; Native multi-tenant isolation (`{ namespace: "tenant_123" }`); isolated stacks, context metadata, checkpoints, and cache keys.
 - 🔌 **Unified Distributed `StorageAdapter`** &mdash; Interface for real-time telemetry streaming (`onContextChange`), durable checkpoints (`saveCheckpoint` / `getCheckpoint`), and distributed caching.
 - 🔀 **Modern Parameter Access & Native Destructuring** &mdash; Access values using native destructuring (`.modern()`), property getters (`param.prop.val`), type coercion, and clean POJO execution (`{ pojo: true }`).
 - 📜 **Step-Namespaced History (`$steps` / `$history`)** &mdash; Retain intermediate step outputs across flow execution without collisions; inspect outputs by name, index, or timeline.
@@ -248,8 +248,7 @@ const processItem = Step.create(async (item) => {
 });
 
 const batchFlow = flow(
-    map('items', processItem, {
-        concurrency: 5,     // Maximum 5 workers in flight simultaneously
+    map('items', processItem, {\n        concurrency: 5,     // Maximum 5 workers in flight simultaneously
         stopOnError: true,  // Abort remaining workers immediately if any item throws
         targetField: 'processedItems' // Field name to store the mapped output array
     })
@@ -472,8 +471,7 @@ const registerUser = Step.create(async (param) => ({ registered: true }))
     .spec('role', { default: 'member' })
     .spec('username', { transform: async (val) => val.trim().toLowerCase() })
     // Standard Schema / Zod validation
-    .schema(z.object({
-        email: z.string().email()
+    .schema(z.object({\n        email: z.string().email()
     }));
 ```
 

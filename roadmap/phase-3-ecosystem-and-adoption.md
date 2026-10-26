@@ -54,7 +54,7 @@ Create `@fluid-func/opentelemetry`.
 - `fluid.step.name`
 - `fluid.step.id`
 - `fluid.step.attempt`
-- `fluid.tenant.id` only when explicitly permitted
+- `fluid.namespace` only when explicitly permitted
 - `fluid.cache.hit`
 - `fluid.timeout`
 
