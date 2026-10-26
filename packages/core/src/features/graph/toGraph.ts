@@ -73,7 +73,10 @@ export function toGraph(item: any): WorkflowNode {
                 reducer: item.reducer,
                 isStrict: item.isStrict,
                 cachedLast: item.cachedLast,
-                timeoutMs: item.timeoutMs
+                timeoutMs: item.timeoutMs,
+                cacheOptions: item.cacheOptions,
+                hasCompensation: Boolean(item.compensationHandler),
+                retryConfig: item.onfail && typeof item.onfail === 'object' ? item.onfail : undefined
             }
         };
         return node;

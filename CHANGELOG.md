@@ -7,118 +7,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.1.0] - 2026-10-26
+## [1.0.0] - 2026-10-27
 
-### Phase 3: Ecosystem, Observability, and Adoption
+### General Availability Release
 
-This release establishes the monorepo architecture and provides first-class integrations, distributed tracing, persistent storage adapters, HTTP/Queue middleware, and developer inspection tooling while preserving zero dependencies in the core runtime.
+This is the initial production release of **`fluid-func`** (v1.0.0), marking the transition from pre-v1 (`0.6.1`) to a fully stabilized, enterprise-grade workflow orchestration ecosystem.
 
-### Added
-
-- **OpenTelemetry Distributed Tracing (`@fluid-func/opentelemetry`)**:
-  - Root workflow execution spans and individual child spans per step, retry attempt, and wait suspension.
-  - Standardized OpenTelemetry attributes (`fluid.workflow.name`, `fluid.step.name`, `fluid.step.attempt`, `fluid.stack.id`, `fluid.tenant.id`).
-  - W3C trace context extraction and injection helpers (`injectTraceContext`, `extractTraceContext`, `getTraceHeaders`).
-  - Automatic sensitive data redaction with configurable field allowlists.
-- **HTTP Framework Adapters (`@fluid-func/hono`, `@fluid-func/fastify`, `@fluid-func/express`)**:
-  - Idiomatic route handlers and middleware for Hono, Fastify, and Express.
-  - Automatic correlation ID propagation via `X-Correlation-Id` and `X-Workflow-Stack-Id` response headers.
-  - Deterministic typed error status mapping (`Timeout` -> 504, `Validation` -> 400, `IdempotencyConflict` -> 409, `Cancellation` -> 499, default -> 500).
-  - Cooperative request abort signal propagation.
-- **Queue and Message Broker Adapters (`@fluid-func/bullmq`, `@fluid-func/kafka`, `@fluid-func/sqs`)**:
-  - BullMQ job processor with deduplication via distributed `IdempotencyStore`.
-  - Kafka consumer handler with topic, partition, offset correlation, and W3C trace context extraction.
-  - AWS SQS batch handler with partial batch failure reporting (`batchItemFailures`).
-- **Distributed Storage & Coordination Adapters (`@fluid-func/redis`, `@fluid-func/postgres`)**:
-  - `@fluid-func/redis`: Distributed checkpointing, step output caching, real-time context streaming, and `RedisLock` for distributed single-flight coordination.
-  - `@fluid-func/postgres`: ACID transactional checkpoint persistence, audit event log tables, and automated retention cleanup (`cleanupOldCheckpoints`, `cleanupOldEvents`).
-- **Developer Tools & Local Inspector CLI (`@fluid-func/cli`)**:
-  - `fluid-func init`: Scaffolds modern TypeScript starter workflow projects.
-  - `fluid-func visualize`: Renders workflow AST as Mermaid flowcharts or ASCII text trees.
-  - `fluid-func validate`: Performs static acyclic reachability validation.
-  - `fluid-func inspect`: Generates workflow metrics, node types, and redaction reports.
-  - `fluid-func checkpoint`: Inspects serialized checkpoint state files.
-  - Offline fixture replay utility (`replayFixture`) with output diff validation.
-- **Continuous Integration & Automation**:
-  - Multi-version Node.js matrix CI pipeline across Node 18, 20, and 22 (`.github/workflows/ci.yml`).
+`fluid-func` is a lightweight, zero-dependency in-process workflow orchestrator for TypeScript and Node.js. It combines functional composition with end-to-end accumulated context inference, deterministic test tooling, distributed ecosystem adapters, durable event-driven execution, and architecture visualization.
 
 ---
 
-## [2.0.0] - 2026-10-20
+### Core Workflow Engine (`fluid-func`)
 
-### Major Architecture Modernization: Separation of Code and State
+#### Pipeline Composition & Execution
+- **Functional Composition (`flow` / `Step`)**: Construct linear and branched workflows without global registries. Steps are pure, reusable execution units.
+- **Modern POJO Mode (`.modern()` / `{ pojo: true }`)**: Direct object destructuring and frozen plain outputs without accessor closures.
+- **End-to-End TypeScript Context Inference**: Automatic compile-time context aggregation across sequential steps, including typed step history (`$steps[stepName]`).
+- **5-Phase Step Lifecycle**: Deterministic lifecycle execution:
+  1. `onBefore`: Conditional execution guards; returning `false` skips the step.
+  2. Action Execution: Core business logic execution.
+  3. `onAfter`: Post-execution enrichment and context modification.
+  4. `onSkip`: Fallback handling when `onBefore` skips execution.
+  5. `onFail`: Structured retries with exponential backoff, jitter, and error recovery.
 
-This release eliminates the legacy string-based code registry model, decouples step definitions from storage, introduces native runtime multi-tenancy, provides resilient two-tier execution timeouts, and introduces a unified distributed `StorageAdapter` interface.
+#### Concurrency & Routing Combinators
+- **Parallel Fan-Out (`parallel`, `all`)**: Concurrently execute branches with branch context isolation, configurable merge strategies (`shallow`, `deep`, `error`, custom), and fail-fast cancellation.
+- **Result Aggregation (`allSettled`)**: Concurrently run branches and collect all results and errors without failing fast.
+- **Speculative Racing (`race`)**: First branch to settle resolves; losing branches are aborted cooperatively.
+- **Dynamic Branching (`when`, `branch`)**: Conditional if-then-else branching and multi-path key/predicate routing.
+- **Bounded Concurrency Mapping (`map`)**: Process arrays or async iterables through worker pools with configurable concurrency limits and error collection.
 
-### Added
+#### Resilience & Error Handling
+- **Sagas & LIFO Compensations (`step.compensate`)**: Automatic reverse-order compensation execution when downstream steps fail.
+- **Scoped Idempotency (`step.idempotent`)**: Deterministic hash-based idempotency keys, claim locking, and TTL management.
+- **Two-Tier Timeouts**:
+  - `step.timeout(ms)`: Per-step SLA enforcement.
+  - `flow.timeout(ms)`: Cumulative workflow deadline enforcement.
+- **Structured Retries**: Exponential, linear, or fixed backoff with jitter and retry callbacks.
+- **Standardized Error Hierarchy**: Rooted at `FluidFuncError`, with typed exceptions for timeouts, cancellation, validation, saga compensation, and idempotency conflicts.
+- **Cooperative Cancellation**: Automatic `AbortSignal` propagation to HTTP clients, database queries, and async timers.
 
-- **Resilient Execution Deadlines (Two-Tier Timeouts)**:
-  - Added `step.timeout(ms)` to enforce per-step execution SLAs. Times out long-running operations and feeds into `.onFail()` retry loops with backoff.
-  - Added `flow.timeout(ms)` to enforce cumulative, end-to-end workflow deadlines across all steps and retries.
-  - Added `timeout?: number` to `ExecutionOptions` for dynamic runtime deadline enforcement per execution.
-  - Added `StepTimeoutException` typed error class containing `stepName`, `timeoutMs`, and `elapsedMs`.
-  - Added `FlowTimeoutException` typed error class containing `stackId`, `timeoutMs`, and `completedSteps`.
-  - Added cooperative cancellation propagation: `param.$signal?.()` and `param.signal?.()` provide the combined `AbortSignal` directly to step actions for native cancellation of `fetch`, HTTP clients, and database queries.
-- **Native Runtime Multi-Tenancy (`tenantId`)**:
-  - Added `tenantId?: string` to `ExecutionOptions`. Workflows are shared immutable code; tenant data is isolated dynamically at runtime.
-  - Context metadata automatically captures and correlates `tenantId` alongside `stackId`.
-  - Added `param.$tenantId()` and `param.$tenantId.val` context accessor inside step actions.
-  - Step caching (`.cache(ms)`) automatically partitions cache keys by `tenantId` (`${tenantId}:${stepId}:${inputHash}`) to prevent cross-tenant data leakage.
-  - State serialization and saga checkpoints are scoped to `tenantId` to prevent cross-tenant restoration.
-- **Unified Distributed `StorageAdapter` Interface**:
-  - Introduced `StorageAdapter` and `ContextChangeEvent` interfaces in `src/features/storage/adapter.ts`.
-  - Added `Step.useStorage(adapter)` and `storage.useStorage(adapter)` to configure distributed infrastructure in a single call.
-  - Added `Step.getStorageAdapter()` and `storage.getStorageAdapter()`.
-  - Support for real-time telemetry streaming (`onContextChange`).
-  - Support for durable saga checkpointing (`saveCheckpoint`, `getCheckpoint`, `Step.getCheckpoint(stackId)`).
-  - Support for distributed step caching (`getCachedStep`, `setCachedStep`).
-- **100% Anonymous Step Support**:
-  - Added numeric index access to step outputs: `param.$steps[i]` and `param.$history[i]`.
-  - Named steps can now be accessed either by name (`param.$steps.stepName`) or index (`param.$steps[i]`).
-- **State Serialization & Durable Workflows**:
-  - Added `Step.checkpoint(stackId)`, `Step.restoreCheckpoint(checkpoint)`.
-  - Added `Step.serializeState(stackId?)`, `Step.hydrateState(serializedState)`.\n- **POJO Execution Mode**:
-  - Added `{ pojo: true }` and `{ mode: 'pojo' }` execution options, resolving frozen plain objects directly.
-  - Added standalone `toPOJO<T>(data)` conversion utility.
+#### Durable Execution & Storage
+- **Durable Waits (`waitForEvent`, `wait`)**: Suspend workflows until external events arrive or durations elapse without holding active memory threads.
+- **Checkpoint Persistence**: Serialized stack snapshots with optimistic concurrency control (OCC) and revision tracking.
+- **Workflow Versioning & Migrations**: Declare workflow versions (`flow.version('1.0.0')`) and register migration transform functions for schema evolution.
+- **Distributed Storage Contract (`StorageAdapter`)**: Unified interface for checkpointing, step output caching, real-time context streaming, and namespace isolation.
 
-### Changed
+#### Graph Compilation & Visual Export
+- **Workflow AST (`toGraph`, `inspectGraph`, `validateGraph`)**: Declarative AST representation with cycle detection and reachability validation.
+- **Architecture Export**:
+  - `workflow.toMermaid()`: Mermaid flowchart diagrams with policy badges (timeouts, retries, sagas, cache, wait).
+  - `workflow.toDot()`: Graphviz DOT format diagrams.
+  - `workflow.toJSON()`: Clean, JSON-serializable AST structures.
 
-- **Decoupled Step Instantiation from Storage**:
-  - `Step.create(action)` and `Step.create(name, action)` no longer write to `defaultStorageManager.chains`.
-  - Step instances are pure, reusable execution units with zero global side effects.
-  - Step names are now treated as optional debug labels for logging and `$steps` namespacing rather than mandatory registration keys.
-- **Removed Code-in-Storage Loophole**:
-  - Distributed databases (Redis, MongoDB) now strictly store execution state, telemetry, checkpoints, and cached outputs. Executable TypeScript closures remain in application code bundles.
-- **Refactored Execution Runner**:
-  - Internal runner (`runner.ts` and `StartChain.ts`) executes steps directly via object references instead of querying `state.chains`.
-  - Automatically invokes `adapter.saveCheckpoint` upon workflow completion before deleting in-memory stacks.\n
-### Deprecated
-
-- **Legacy String Code Registry APIs**:
-  - `putChain(name, chain)` &mdash; Use direct step references and `flow(...)`.
-  - `getChain(name)` &mdash; Code lookup by string is deprecated; use direct imports.
-  - `Step.exists(name)` and `isExists(name)` &mdash; Deprecated since steps are direct instances.
-  - `setPutChainPlugin(plugin)` and `setGetChainPlugin(plugin)` &mdash; Deprecated. Step code belongs in repositories; use `StorageAdapter` for state.
-  - `setPutChainContextPlugin(plugin)` and `setGetChainContextPlugin(plugin)` &mdash; Deprecated in favor of `StorageAdapter.onContextChange`.
-
-### Fixed
-
-- Fixed global memory leak where repeated step definitions accumulated in `defaultStorageManager.chains`.
-- Fixed naming collision where two steps with the same name threw `ChainWithTheSameNameException` across concurrent flows.
-- Fixed cache key serialization where function getters were stripped by `JSON.stringify`, leading to cache key collisions.
-- Fixed non-configurable/non-writable property proxy invariant errors in V8.
+#### Backwards Compatibility
+- **100% Backwards Compatibility with 0.x**: Preserved aliases for `Chain`, `pipe`, `Pipeline`, and `Func`, legacy getter closure accessors, and mixed execution of legacy and modern steps.
 
 ---
 
-## [1.0.0] - 2026-10-16
+### Ecosystem Packages
 
-### Initial Release
+#### Developer Tools & CLI (`@fluid-func/cli`)
+- Terminal executable (`fluid-func`) and programmatic API:
+  - `fluid-func init [dir]`: Scaffolds a complete TypeScript starter workflow project with test suite.
+  - `fluid-func generate workflow <name>`: Scaffolds strongly-typed workflows with companion tests.
+  - `fluid-func generate step <name>`: Scaffolds strongly-typed steps with unit tests.
+  - `fluid-func export <file>`: Exports workflow diagrams to Mermaid, Graphviz DOT, or JSON with `--direction` and `--out`.
+  - `fluid-func visualize <file>`: Renders interactive Mermaid or text diagrams in terminal.
+  - `fluid-func validate <file>`: Statically validates workflow ASTs for cyclic dependencies.
+  - `fluid-func inspect <file>`: Inspects AST topology and complexity metrics with field redaction.
+  - `fluid-func checkpoint <file>`: Inspects serialized checkpoint state JSON files.
+  - `fluid-func replay <fixture>`: Replays recorded test fixtures and reports output discrepancies.
 
-- Core composable step pipelines (`Step`, `flow`, `Chain`, `pipe`).
-- Parameter contracts via `.spec()`.
-- Standard Schema & Zod support (`.schema()`).
-- Lifecycle hooks: `.onBefore()`, `.onAfter()`, `.onSkip()`, `.onFail()`.
-- Deterministic caching (`.cache()`).
-- Array reduction steps (`.reduce()`).
-- In-memory `StorageManager` isolation.
-- Cooperative cancellation via `AbortSignal`.
+#### Deterministic Testing Harness (`@fluid-func/testing`)
+- **Virtual Clock (`FakeClock`)**: Deterministically advance time and timers without real-time delays.
+- **`WorkflowHarness`**: Complete testing harness with step spies, mock implementations, trace history, and event injection.
+- **Assertions**: Specialized assertions (`assertStepExecuted`, `assertStepRetried`, `assertStepFailed`).
+- **`InMemoryStorageFake`**: In-memory storage adapter for zero-infrastructure checkpoint and cache testing.
+- **Execution Replay (`replayExecution`)**: Replay execution records against workflow definitions with golden parity assertions.
+
+#### Observability & Distributed Tracing (`@fluid-func/opentelemetry`)
+- Automatic root workflow span and child step spans with retry attempt counters.
+- Standardized semantic attributes (`fluid.workflow.name`, `fluid.step.name`, `fluid.step.attempt`, `fluid.stack.id`, `fluid.namespace`).
+- W3C Trace Context propagation helpers (`injectTraceContext`, `extractTraceContext`, `getTraceHeaders`).
+- Telemetry storage adapter streaming sanitized context attributes with configurable redaction.
+
+#### Distributed Storage Adapters
+- **PostgreSQL (`@fluid-func/postgres`)**:
+  - ACID transactional checkpoint persistence (`ensureTables`, `saveCheckpoint`, `getCheckpoint`).
+  - Audit event logging and automated retention cleanup policies.
+  - Transactional idempotency store with claim locking.
+- **Redis (`@fluid-func/redis`)**:
+  - High-performance checkpointing and distributed step output caching.
+  - Redis-backed idempotency store with automatic TTL expiration.
+  - Distributed lock (`RedisLock`) for single-flight coordination.
+
+#### Event Brokers & Queue Adapters
+- **Kafka (`@fluid-func/kafka`)**: Consumer batch processor with header correlation and W3C trace context extraction.
+- **BullMQ (`@fluid-func/bullmq`)**: Job processor with job progress tracking and idempotency deduplication.
+- **AWS SQS (`@fluid-func/sqs`)**: Batch message consumer with partial batch item failure reporting (`batchItemFailures`).
+
+#### HTTP Middleware & Route Handlers
+- **Express (`@fluid-func/express`)**: Middleware and route handlers with status code mapping and error propagation.
+- **Fastify (`@fluid-func/fastify`)**: Native Fastify route handler integration with header correlation.
+- **Hono (`@fluid-func/hono`)**: Route handler supporting edge runtimes and Web Standards `Request`/`Response`.
+
+---
+
+### Documentation & Reference Guides
+
+- **12 Dedicated Topic Guides** (`docs/01-` to `docs/12-`):
+  1. Getting Started
+  2. Core Concepts
+  3. Sequential Workflows
+  4. Branching and Parallelism
+  5. Retries, Timeouts, and Cancellation
+  6. Durable Workflows
+  7. Storage and Adapters
+  8. Observability
+  9. Testing and Replay
+  10. TypeScript Reference
+  11. Migration and Compatibility
+  12. Production Operations
+- **Ecosystem Adapter Documentation**: Complete guides in [`docs/adapters/`](docs/adapters/).
+- **Formal Runtime Contracts**:
+  - [Execution Semantics Contract](docs/execution-semantics.md)
+  - [Error Model & Hierarchy](docs/error-model.md)
+  - [Storage & Checkpoint Contract](docs/storage-contract.md)
+  - [Idempotency & Deduplication](docs/idempotency.md)
+  - [Compensation & Sagas](docs/compensation-and-sagas.md)
+  - [Durable Waits Contract](docs/durable-waits.md)

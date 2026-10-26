@@ -1,6 +1,6 @@
 # Idempotency and Deduplication
 
-Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `fluid-func` v2.0.0 provides first-class idempotency guarantees at both the workflow level and individual step level.
+Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `fluid-func` v1.0.0 provides first-class idempotency guarantees at both the workflow level and individual step level.
 
 ---
 

@@ -14,7 +14,7 @@ function toPOJO(data) {
     const result = {};
     const keys = Object.keys(data);
     for (const key of keys) {
-        if (key === shared_1.VALIDATORS || key === shared_1.CHAIN_ID || key === shared_1.STACK_ID) {
+        if (key === shared_1.VALIDATORS || key === shared_1.CHAIN_ID || key === shared_1.STACK_ID || key === shared_1.SERVICES || key === shared_1.DEPENDENCIES || key === shared_1.DEPS) {
             continue;
         }
         if (key === shared_1.SIGNAL || key === shared_1.SIGNAL_KEY || key === shared_1.NAMESPACE) {

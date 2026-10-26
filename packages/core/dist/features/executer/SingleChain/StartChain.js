@@ -96,6 +96,15 @@ class StartChain {
                         paramAsContext.runSpecs().then(() => {
                             const initialData = paramAsContext.getData();
                             let param = new ConvertParamFromSpec_1.default(Object.assign({}, initialParam, initialData), chain).getParam();
+                            const mergedServices = {
+                                ...(options?.services || options?.dependencies || {}),
+                                ...(chain.dependencies || {})
+                            };
+                            const svcFn = () => mergedServices;
+                            svcFn.val = mergedServices;
+                            param[shared_1.SERVICES] = svcFn;
+                            param[shared_1.DEPENDENCIES] = svcFn;
+                            param[shared_1.DEPS] = svcFn;
                             if (stepEffectiveSignal) {
                                 const sigFn = () => stepEffectiveSignal;
                                 sigFn.val = stepEffectiveSignal;
@@ -126,6 +135,9 @@ class StartChain {
                                 const newContext = new Context('_before_temp', stackId, options?.namespace);
                                 new SetResolvedContexts_1.default(resolvedPluginData, newContext);
                                 param = Object.assign({}, param, newContext.getData());
+                                param[shared_1.SERVICES] = svcFn;
+                                param[shared_1.DEPENDENCIES] = svcFn;
+                                param[shared_1.DEPS] = svcFn;
                                 if (stepEffectiveSignal) {
                                     const sigFn = () => stepEffectiveSignal;
                                     sigFn.val = stepEffectiveSignal;
@@ -257,6 +269,9 @@ class StartChain {
                                         if (chain.isModern || isPojo) {
                                             actionParam = Object.assign({}, actionParam);
                                         }
+                                        actionParam[shared_1.SERVICES] = mergedServices;
+                                        actionParam[shared_1.DEPENDENCIES] = mergedServices;
+                                        actionParam[shared_1.DEPS] = mergedServices;
                                         if (stackId) {
                                             actionParam[shared_1.STACK_ID] = () => stackId;
                                             actionParam[shared_1.STACK_ID_KEY] = stackId;

@@ -1,6 +1,6 @@
 # Workflow Graph Model
 
-`fluid-func` v2.0.0 introduces an internal, declarative Workflow Graph Model. The graph model cleanly separates workflow structure from runtime execution state, providing inspection, static validation, and tooling capabilities without breaking the sequential `flow(...)` API.
+`fluid-func` v1.0.0 introduces an internal, declarative Workflow Graph Model. The graph model cleanly separates workflow structure from runtime execution state, providing inspection, static validation, and tooling capabilities without breaking the sequential `flow(...)` API.
 
 ---
 

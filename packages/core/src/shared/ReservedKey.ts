@@ -6,6 +6,9 @@ export const ReservedKey = {
     CHAIN_ID: '$chainId',
     STACK_ID: '$stackId',
     NAMESPACE: '$namespace',
+    SERVICES: '$services',
+    DEPENDENCIES: '$dependencies',
+    DEPS: '$deps',
     VALIDATORS: '$$$validators',
 
     // Raw parameter property names (without $)
@@ -36,6 +39,9 @@ export const SIGNAL = ReservedKey.SIGNAL;
 export const CHAIN_ID = ReservedKey.CHAIN_ID;
 export const STACK_ID = ReservedKey.STACK_ID;
 export const NAMESPACE = ReservedKey.NAMESPACE;
+export const SERVICES = ReservedKey.SERVICES;
+export const DEPENDENCIES = ReservedKey.DEPENDENCIES;
+export const DEPS = ReservedKey.DEPS;
 export const VALIDATORS = ReservedKey.VALIDATORS;
 
 export const STACK_ID_KEY = ReservedKey.STACK_ID_KEY;
@@ -62,6 +68,9 @@ const CORE_RESERVED_KEYS = new Set<string>([
     ReservedKey.CHAIN_ID,
     ReservedKey.STACK_ID,
     ReservedKey.NAMESPACE,
+    ReservedKey.SERVICES,
+    ReservedKey.DEPENDENCIES,
+    ReservedKey.DEPS,
     ReservedKey.VALIDATORS,
     ReservedKey.STACK_ID_KEY,
     ReservedKey.SIGNAL_KEY,

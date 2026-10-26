@@ -49,7 +49,7 @@ npm install fluid-func @fluid-func/fastify fastify
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v2.0.0+)
+- `fluid-func`: `*` (v1.0.0+)
 - `fastify`: `^4.0.0 || ^5.0.0`
 
 ---

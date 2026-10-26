@@ -3,8 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExecutionPhase = exports.Status = exports.isPipeline = exports.pipe = exports.Chain = exports.Step = exports.resumeWorkflow = exports.validateWorkflowVersion = exports.defaultDurableManager = exports.DurableManager = exports.wait = exports.waitForEvent = exports.parseDuration = exports.ParallelMode = exports.ParallelMergeStrategy = exports.map = exports.branch = exports.when = exports.race = exports.allSettled = exports.all = exports.parallel = exports.defaultCompensationManager = exports.CompensationManager = exports.buildIdempotencyKey = exports.defaultIdempotencyStore = exports.InMemoryIdempotencyStore = exports.inspectGraph = exports.assertValidGraph = exports.validateGraph = exports.toGraph = exports.toPOJO = exports.normalizeError = exports.GraphValidationException = exports.WorkflowVersionMismatchException = exports.ExpiredWaitException = exports.DuplicateEventException = exports.WorkflowSuspendedException = exports.CompensationException = exports.IdempotencyConflictException = exports.FieldCollisionException = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
-exports.isObject = exports.isFunction = exports.isReservedKey = exports.tagErrorPhase = void 0;
+exports.Chain = exports.Func = exports.Step = exports.resumeWorkflow = exports.validateWorkflowVersion = exports.defaultDurableManager = exports.DurableManager = exports.wait = exports.waitForEvent = exports.parseDuration = exports.ParallelMode = exports.ParallelMergeStrategy = exports.map = exports.branch = exports.when = exports.race = exports.allSettled = exports.all = exports.parallel = exports.defaultCompensationManager = exports.CompensationManager = exports.buildIdempotencyKey = exports.defaultIdempotencyStore = exports.InMemoryIdempotencyStore = exports.toDot = exports.toJSON = exports.toMermaid = exports.inspectGraph = exports.assertValidGraph = exports.validateGraph = exports.toGraph = exports.toPOJO = exports.normalizeError = exports.GraphValidationException = exports.WorkflowVersionMismatchException = exports.ExpiredWaitException = exports.DuplicateEventException = exports.WorkflowSuspendedException = exports.CompensationException = exports.IdempotencyConflictException = exports.FieldCollisionException = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = void 0;
+exports.isObject = exports.isFunction = exports.isReservedKey = exports.tagErrorPhase = exports.ExecutionPhase = exports.Status = exports.isPipeline = exports.pipe = void 0;
 exports.isFlow = isFlow;
 exports.flattenSteps = flattenSteps;
 exports.flow = flow;
@@ -20,6 +20,9 @@ Object.defineProperty(exports, "toGraph", { enumerable: true, get: function () {
 Object.defineProperty(exports, "validateGraph", { enumerable: true, get: function () { return graph_1.validateGraph; } });
 Object.defineProperty(exports, "assertValidGraph", { enumerable: true, get: function () { return graph_1.assertValidGraph; } });
 Object.defineProperty(exports, "inspectGraph", { enumerable: true, get: function () { return graph_1.inspectGraph; } });
+Object.defineProperty(exports, "toMermaid", { enumerable: true, get: function () { return graph_1.toMermaid; } });
+Object.defineProperty(exports, "toJSON", { enumerable: true, get: function () { return graph_1.toJSON; } });
+Object.defineProperty(exports, "toDot", { enumerable: true, get: function () { return graph_1.toDot; } });
 const idempotency_1 = require("../idempotency");
 Object.defineProperty(exports, "InMemoryIdempotencyStore", { enumerable: true, get: function () { return idempotency_1.InMemoryIdempotencyStore; } });
 Object.defineProperty(exports, "defaultIdempotencyStore", { enumerable: true, get: function () { return idempotency_1.defaultIdempotencyStore; } });
@@ -151,6 +154,15 @@ function flow(...steps) {
         inspect() {
             return (0, graph_1.inspectGraph)(flowObj);
         },
+        toMermaid(options) {
+            return (0, graph_1.toMermaid)(flowObj, options);
+        },
+        toJSON() {
+            return (0, graph_1.toJSON)(flowObj);
+        },
+        toDot(options) {
+            return (0, graph_1.toDot)(flowObj, options);
+        },
         resume(correlationKeyOrStackId, eventPayload, options) {
             return (0, durable_1.resumeWorkflow)(flowObj, correlationKeyOrStackId, eventPayload, options);
         },
@@ -184,6 +196,8 @@ class Step {
     idempotencyKey;
     idempotencyOptions;
     workflowNode;
+    // Phase 4
+    dependencies;
     constructor(nameOrAction, action = (_parameter) => undefined, sequence = []) {
         if (isFlow(nameOrAction)) {
             const flowInstance = nameOrAction;
@@ -200,7 +214,7 @@ class Step {
             this.name = '';
         }
         else {
-            this.name = nameOrAction || '';
+            this.name = (nameOrAction || '');
             this.action = action;
         }
         this.func = this.name;
@@ -262,6 +276,10 @@ class Step {
     static inspectGraph = graph_1.inspectGraph;
     static validateGraph = graph_1.validateGraph;
     static assertValidGraph = graph_1.assertValidGraph;
+    // Phase 4 static helpers
+    static toMermaid = graph_1.toMermaid;
+    static toJSON = graph_1.toJSON;
+    static toDot = graph_1.toDot;
     timeout(ms) {
         this.timeoutMs = ms;
         return this;
@@ -273,6 +291,17 @@ class Step {
     reduce(field) {
         this.reducer = field;
         return this;
+    }
+    withDependencies(dependencies) {
+        this.dependencies = Object.assign({}, this.dependencies, dependencies);
+        return this;
+    }
+    requireDependency(key) {
+        const val = this.dependencies?.[key];
+        if (val === undefined) {
+            throw new Error(`Missing required dependency '${key}' for step '${this.name || 'anonymous'}'`);
+        }
+        return val;
     }
     schema(schemaObj) {
         const spec = new spec_1.default('$root$');
@@ -384,6 +413,7 @@ class Step {
 exports.Step = Step;
 // Compatibility Aliases
 /** @deprecated Use `Step` instead of `Chain`. */
+exports.Func = Step;
 exports.Chain = Step;
 /** @deprecated Use `flow` instead of `pipe`. */
 exports.pipe = flow;

@@ -50,7 +50,7 @@ npm install --save-dev @types/pg
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v2.0.0+)
+- `fluid-func`: `*` (v1.0.0+)
 - `pg`: `^8.0.0`
 
 ---

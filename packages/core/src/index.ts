@@ -9,6 +9,7 @@ import {
     ExecutionOptions,
     toPOJO,
     // Compatibility aliases
+    Func,
     Chain,
     pipe,
     Pipeline,
@@ -51,7 +52,7 @@ import {
     SerializedStorageState,
     StorageErrorMode,
     CheckpointOptions,
-    // Phase 2 Graph
+    // Phase 2 & 4 Graph
     WorkflowNode,
     WorkflowNodeType,
     StepNode,
@@ -67,6 +68,11 @@ import {
     validateGraph,
     assertValidGraph,
     inspectGraph,
+    toMermaid,
+    toJSON,
+    toDot,
+    MermaidExportOptions,
+    DotExportOptions,
     // Phase 2 Combinators
     parallel,
     all,
@@ -141,8 +147,6 @@ import {
     clearStorage
 } from './features/storage';
 
-const Func = Step;
-
 export default Step;
 export {
     Step,
@@ -210,7 +214,7 @@ export {
     SerializedStorageState,
     StorageErrorMode,
     CheckpointOptions,
-    // Phase 2 Graph
+    // Phase 2 & 4 Graph
     WorkflowNode,
     WorkflowNodeType,
     StepNode,
@@ -226,6 +230,11 @@ export {
     validateGraph,
     assertValidGraph,
     inspectGraph,
+    toMermaid,
+    toJSON,
+    toDot,
+    MermaidExportOptions,
+    DotExportOptions,
     // Phase 2 Combinators
     parallel,
     all,
@@ -285,7 +294,7 @@ export {
 };
 
 // Compatibility for both CJS require('fluid-func') and ESM import FluidFunc from 'fluid-func'
-/* c8 ignore next 60 */
+/* c8 ignore next 80 */
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Object.assign(Step, {
         default: Step,
@@ -350,6 +359,9 @@ if (typeof module !== 'undefined' && module.exports) {
         validateGraph,
         assertValidGraph,
         inspectGraph,
+        toMermaid,
+        toJSON,
+        toDot,
         // Idempotency
         InMemoryIdempotencyStore,
         defaultIdempotencyStore,
@@ -367,7 +379,7 @@ if (typeof module !== 'undefined' && module.exports) {
         tagErrorPhase,
         ParallelMergeStrategy,
         ParallelMode,
-            isReservedKey,
+        isReservedKey,
         isFunction,
         isObject
     });

@@ -33,7 +33,12 @@ import {
     toGraph,
     validateGraph,
     assertValidGraph,
-    inspectGraph
+    inspectGraph,
+    toMermaid,
+    toJSON,
+    toDot,
+    MermaidExportOptions,
+    DotExportOptions
 } from '../graph';
 
 import {
@@ -127,7 +132,7 @@ export {
 export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
 
-// Phase 2 Re-exports
+// Phase 2 & 4 Graph Re-exports
 export {
     WorkflowNode,
     WorkflowNodeType,
@@ -143,7 +148,12 @@ export {
     toGraph,
     validateGraph,
     assertValidGraph,
-    inspectGraph
+    inspectGraph,
+    toMermaid,
+    toJSON,
+    toDot,
+    MermaidExportOptions,
+    DotExportOptions
 };
 
 export {
@@ -214,6 +224,9 @@ export interface ExecutionOptions {
     idempotencyTtlMs?: number;
     migrations?: any;
     stackId?: string;
+    // Phase 4 Dependency Injection
+    services?: Record<string, any>;
+    dependencies?: Record<string, any>;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
@@ -226,7 +239,7 @@ export interface Flow<TInput = any, TOutput = any> {
     execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     start: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
-    steps: Step<any, any>[];
+    steps: Step<any, any, any>[];
     readonly isFlow?: boolean;
     timeout: (ms: number) => Flow<TInput, TOutput>;
     timeoutMs?: number;
@@ -234,12 +247,15 @@ export interface Flow<TInput = any, TOutput = any> {
     version: (v: string | number) => Flow<TInput, TOutput>;
     toGraph: () => WorkflowNode;
     inspect: () => GraphInspectionResult;
+    toMermaid: (options?: MermaidExportOptions) => string;
+    toJSON: () => string;
+    toDot: (options?: DotExportOptions) => string;
     resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
     compensate: (stackId: string, options?: any) => Promise<any>;
 }
 
 export type FlowItem<TIn = any, TOut = any> =
-    | Step<TIn, TOut>
+    | Step<TIn, TOut, any>
     | Flow<TIn, TOut>;
 
 export type FlowArg<TIn = any, TOut = any> =
@@ -276,14 +292,14 @@ function sanitizeFlowData(data: any): any {
     return clean;
 }
 
-function createFlowStep(flowInstance: Flow<any, any>): Step<any, any> {
+function createFlowStep(flowInstance: Flow<any, any>): Step<any, any, any> {
     return new Step(flowInstance);
 }
 
 export function flattenSteps(
     steps: any[]
-): Step<any, any>[] {
-    const result: Step<any, any>[] = [];
+): Step<any, any, any>[] {
+    const result: Step<any, any, any>[] = [];
     for (const item of steps) {
         if (Array.isArray(item)) {
             result.push(...flattenSteps(item));
@@ -299,6 +315,52 @@ export function flattenSteps(
     }
     return result;
 }
+
+// Phase 4 Accumulated Context Inference Type Helpers
+export type MergeStepContext<TAcc, TOut> = [TOut] extends [void | undefined]
+    ? TAcc
+    : [TOut] extends [object]
+        ? Omit<TAcc, keyof TOut> & TOut
+        : TAcc;
+
+export type FlowContextResult<TContext, THistory = Record<string, any>> = TContext & {
+    $steps: THistory;
+};
+
+// Flow overloads with Accumulated Context Inference & Typed Step History
+export function flow<TIn, T1Out, N1 extends string>(
+    s1: Step<any, T1Out, N1>
+): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
+
+export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
+    s1: Step<any, T1Out, N1>,
+    s2: Step<any, T2Out, N2>
+): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>>;
+
+export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string>(
+    s1: Step<any, T1Out, N1>,
+    s2: Step<any, T2Out, N2>,
+    s3: Step<any, T3Out, N3>
+): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out>>>;
+
+export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string, T4Out, N4 extends string>(
+    s1: Step<any, T1Out, N1>,
+    s2: Step<any, T2Out, N2>,
+    s3: Step<any, T3Out, N3>,
+    s4: Step<any, T4Out, N4>
+): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out>>>;
+
+export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string, T4Out, N4 extends string, T5Out, N5 extends string>(
+    s1: Step<any, T1Out, N1>,
+    s2: Step<any, T2Out, N2>,
+    s3: Step<any, T3Out, N3>,
+    s4: Step<any, T4Out, N4>,
+    s5: Step<any, T5Out, N5>
+): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>, T5Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out> & Record<N5, T5Out>>>;
+
+export function flow<TInput = any, TOutput = any>(
+    ...steps: FlowArg[]
+): Flow<TInput, TOutput>;
 
 export function flow<TInput = any, TOutput = any>(
     ...steps: FlowArg[]
@@ -340,6 +402,15 @@ export function flow<TInput = any, TOutput = any>(
         inspect() {
             return inspectGraph(flowObj);
         },
+        toMermaid(options?: MermaidExportOptions) {
+            return toMermaid(flowObj, options);
+        },
+        toJSON() {
+            return toJSON(flowObj);
+        },
+        toDot(options?: DotExportOptions) {
+            return toDot(flowObj, options);
+        },
         resume(correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) {
             return resumeWorkflow(flowObj, correlationKeyOrStackId, eventPayload, options);
         },
@@ -350,15 +421,15 @@ export function flow<TInput = any, TOutput = any>(
     return flowObj;
 }
 
-export class Step<TInput = any, TOutput = any> {
-    name: string;
+export class Step<TInput = any, TOutput = any, TName extends string = string> {
+    name: TName;
     action: StepAction<TInput, TOutput>;
     specs: Spec[];
     onbefore: OnBeforeAction<TInput>;
     onskip?: OnSkipAction<TInput>;
     onafter?: OnAfterAction<TOutput, TInput>;
     onfail?: OnFailAction;
-    sequence: Step<any, any>[];
+    sequence: Step<any, any, any>[];
     reducer?: string;
     isStrict?: boolean;
     cachedLast?: number;
@@ -374,11 +445,13 @@ export class Step<TInput = any, TOutput = any> {
     idempotencyKey?: string | ((ctx: any) => string);
     idempotencyOptions?: { ttlMs?: number; store?: IdempotencyStore };
     workflowNode?: WorkflowNode;
+    // Phase 4
+    dependencies?: Record<string, any>;
 
     constructor(
-        nameOrAction?: string | StepAction<TInput, TOutput> | Flow<TInput, TOutput>,
+        nameOrAction?: TName | StepAction<TInput, TOutput> | Flow<TInput, TOutput>,
         action: StepAction<TInput, TOutput> = (_parameter: any) => undefined as any,
-        sequence: Step<any, any>[] = []
+        sequence: Step<any, any, any>[] = []
     ) {
         if (isFlow(nameOrAction)) {
             const flowInstance = nameOrAction;
@@ -388,15 +461,15 @@ export class Step<TInput = any, TOutput = any> {
                 const raw = await execFn(cleanParam, { pojo: true });
                 return sanitizeFlowData(raw);
             };
-            this.name = '';
+            this.name = '' as TName;
         } else if (isFunction(nameOrAction)) {
             this.action = nameOrAction;
-            this.name = '';
+            this.name = '' as TName;
         } else {
-            this.name = (nameOrAction as string) || '';
+            this.name = ((nameOrAction as TName) || ('' as TName));
             this.action = action;
         }
-        this.func = this.name;
+        this.func = (this.name as string);
         this.$chainId = generateUUID();
         this.$stepId = this.$chainId;
         this.specs = [];
@@ -431,12 +504,19 @@ export class Step<TInput = any, TOutput = any> {
         return new Executer().start(effParam, normalizedSteps, effOptions);
     }
 
+    static create<TName extends string, TIn = any, TOut = any>(
+        name: TName,
+        action: StepAction<TIn, TOut>
+    ): Step<TIn, TOut, TName>;
+    static create<TIn = any, TOut = any>(
+        action: StepAction<TIn, TOut>
+    ): Step<TIn, TOut, string>;
     static create<TIn = any, TOut = any>(
         nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>,
         action?: StepAction<TIn, TOut>,
-        sequence?: Step<any, any>[]
-    ): Step<TIn, TOut> {
-        return new Step<TIn, TOut>(nameOrAction as any, action, sequence);
+        sequence?: Step<any, any, any>[]
+    ): Step<TIn, TOut, any> {
+        return new Step<TIn, TOut, any>(nameOrAction as any, action, sequence);
     }
 
     static flow = flow;
@@ -470,29 +550,47 @@ export class Step<TInput = any, TOutput = any> {
     static validateGraph = validateGraph;
     static assertValidGraph = assertValidGraph;
 
-    timeout(ms: number): Step<TInput, TOutput> {
+    // Phase 4 static helpers
+    static toMermaid = toMermaid;
+    static toJSON = toJSON;
+    static toDot = toDot;
+
+    timeout(ms: number): Step<TInput, TOutput, TName> {
         this.timeoutMs = ms;
         return this;
     }
 
-    modern(): Step<TInput, TOutput> {
+    modern(): Step<TInput, TOutput, TName> {
         this.isModern = true;
         return this;
     }
 
-    reduce(field: string): Step<TInput, TOutput> {
+    reduce(field: string): Step<TInput, TOutput, TName> {
         this.reducer = field;
         return this;
     }
 
-    schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput> {
+    withDependencies(dependencies: Record<string, any>): this {
+        this.dependencies = Object.assign({}, this.dependencies, dependencies);
+        return this;
+    }
+
+    requireDependency<T = any>(key: string): T {
+        const val = this.dependencies?.[key];
+        if (val === undefined) {
+            throw new Error(`Missing required dependency '${key}' for step '${(this.name as string) || 'anonymous'}'`);
+        }
+        return val as T;
+    }
+
+    schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput, TName> {
         const spec = new Spec('$root$');
         spec.schema(schemaObj);
         this.specs.push(spec);
         return this;
     }
 
-    spec(fieldOrSchema: string | any, json: SpecData | any = {}): Step<TInput, TOutput> {
+    spec(fieldOrSchema: string | any, json: SpecData | any = {}): Step<TInput, TOutput, TName> {
         const isFieldString = typeof fieldOrSchema === 'string';
         const field = isFieldString ? fieldOrSchema : '$root$';
         const spec = new Spec(field);
@@ -527,37 +625,37 @@ export class Step<TInput = any, TOutput = any> {
         return this;
     }
 
-    strict(): Step<TInput, TOutput> {
+    strict(): Step<TInput, TOutput, TName> {
         this.isStrict = true;
         return this;
     }
 
-    onBefore(onBefore: OnBeforeAction<TInput>): Step<TInput, TOutput> {
+    onBefore(onBefore: OnBeforeAction<TInput>): Step<TInput, TOutput, TName> {
         this.onbefore = onBefore;
         return this;
     }
 
-    onSkip(onSkip: OnSkipAction<TInput>): Step<TInput, TOutput> {
+    onSkip(onSkip: OnSkipAction<TInput>): Step<TInput, TOutput, TName> {
         this.onskip = onSkip;
         return this;
     }
 
-    onAfter(onAfter: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput> {
+    onAfter(onAfter: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput, TName> {
         this.onafter = onAfter;
         return this;
     }
 
-    onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput> {
+    onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput, TName> {
         this.action = action;
         return this;
     }
 
-    onFail(onFail: OnFailAction): Step<TInput, TOutput> {
+    onFail(onFail: OnFailAction): Step<TInput, TOutput, TName> {
         this.onfail = onFail;
         return this;
     }
 
-    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput> {
+    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, TName> {
         if (isObject(cachedLastOrOptions)) {
             this.cacheOptions = cachedLastOrOptions;
             this.cachedLast = cachedLastOrOptions.ttl || 1500;
@@ -567,13 +665,13 @@ export class Step<TInput = any, TOutput = any> {
         return this;
     }
 
-    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput> {
+    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput, TName> {
         this.compensationHandler = handler;
         this.compensationOptions = options;
         return this;
     }
 
-    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: { ttlMs?: number; store?: IdempotencyStore }): Step<TInput, TOutput> {
+    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: { ttlMs?: number; store?: IdempotencyStore }): Step<TInput, TOutput, TName> {
         this.idempotencyKey = keyOrFn || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
         this.idempotencyOptions = options;
         return this;
@@ -610,8 +708,10 @@ export class Step<TInput = any, TOutput = any> {
 
 // Compatibility Aliases
 /** @deprecated Use `Step` instead of `Chain`. */
+export const Func = Step;
+export type Func<TIn = any, TOut = any> = Step<TIn, TOut, any>;
 export const Chain = Step;
-export type Chain<TIn = any, TOut = any> = Step<TIn, TOut>;
+export type Chain<TIn = any, TOut = any> = Step<TIn, TOut, any>;
 
 /** @deprecated Use `flow` instead of `pipe`. */
 export const pipe = flow;

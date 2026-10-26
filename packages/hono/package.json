@@ -1,6 +1,6 @@
 {
   "name": "@fluid-func/hono",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Hono middleware adapter for executing fluid-func workflows across Cloudflare Workers, Deno, Bun, and Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

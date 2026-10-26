@@ -54,7 +54,7 @@ npm install --save-dev @types/express
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v2.0.0+)
+- `fluid-func`: `*` (v1.0.0+)
 - `express`: `^4.18.0 || ^5.0.0`
 
 ---

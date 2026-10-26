@@ -53,7 +53,7 @@ npm install fluid-func @fluid-func/hono hono
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v2.0.0+)
+- `fluid-func`: `*` (v1.0.0+)
 - `hono`: `^3.0.0 || ^4.0.0`
 
 ---

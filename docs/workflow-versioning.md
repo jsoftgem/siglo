@@ -2,7 +2,7 @@
 
 Long-running workflows that pause for days or weeks often outlive the software release that initiated them. If the workflow code changes while executions are suspended, resuming workflows must be done deterministically and safely.
 
-`fluid-func` v2.0.0 provides native workflow version tagging, compatibility enforcement, and state migration functions.
+`fluid-func` v1.0.0 provides native workflow version tagging, compatibility enforcement, and state migration functions.
 
 ---
 

@@ -10,7 +10,10 @@ import {
     toTextGraph,
     initProject,
     replayFixture,
-    inspectCheckpoint
+    inspectCheckpoint,
+    generateWorkflow,
+    generateStep,
+    exportWorkflow
 } from './index';
 
 describe('@fluid-func/cli Developer Tools Suite', () => {
@@ -123,5 +126,45 @@ describe('@fluid-func/cli Developer Tools Suite', () => {
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
+    });
+    it("scaffolds typed workflow files via generateWorkflow", () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fluid-cli-wf-test-"));
+        try {
+            const res = generateWorkflow("order-processing", tempDir);
+            expect(fs.existsSync(res.filePath)).to.be.true;
+            expect(fs.existsSync(res.testPath)).to.be.true;
+            const wfContent = fs.readFileSync(res.filePath, "utf-8");
+            expect(wfContent).to.include("OrderProcessingInput");
+            expect(wfContent).to.include("orderProcessingWorkflow");
+        } finally {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("scaffolds typed step files via generateStep", () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fluid-cli-step-test-"));
+        try {
+            const res = generateStep("authorize-payment", tempDir);
+            expect(fs.existsSync(res.filePath)).to.be.true;
+            expect(fs.existsSync(res.testPath)).to.be.true;
+            const stepContent = fs.readFileSync(res.filePath, "utf-8");
+            expect(stepContent).to.include("AuthorizePaymentInput");
+            expect(stepContent).to.include("authorizePaymentStep");
+        } finally {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+    it("exports workflow diagrams via exportWorkflow", () => {
+        const wf = flow(Step.create("s1", async () => ({})));
+        const mermaid = exportWorkflow(wf, { format: "mermaid", direction: "LR" });
+        expect(mermaid).to.include("flowchart LR");
+        expect(mermaid).to.include("s1");
+
+        const dot = exportWorkflow(wf, { format: "dot" });
+        expect(dot).to.include("digraph");
+        expect(dot).to.include("s1");
+
+        const json = exportWorkflow(wf, { format: "json" });
+        expect(JSON.parse(json)).to.have.property("name", "s1");
     });
 });

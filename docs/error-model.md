@@ -1,6 +1,6 @@
 # Error Model & Exception Hierarchy
 
-Fluid-Func v2.0.0 introduces a structured, predictable error hierarchy rooted at `FluidFuncError`.
+Fluid-Func v1.0.0 introduces a structured, predictable error hierarchy rooted at `FluidFuncError`.
 
 ---
 

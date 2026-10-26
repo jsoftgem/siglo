@@ -1,6 +1,6 @@
 # Concurrency and Parallelism
 
-`fluid-func` v2.0.0 introduces built-in combinators for concurrent execution, conditional branching, and collection mapping with bounded concurrency.
+`fluid-func` v1.0.0 introduces built-in combinators for concurrent execution, conditional branching, and collection mapping with bounded concurrency.
 
 ---
 

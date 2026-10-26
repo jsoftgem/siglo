@@ -1,6 +1,6 @@
 {
   "name": "fluid-func-monorepo",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Monorepo for fluid-func workflow runtime and ecosystem integration packages",
   "workspaces": [

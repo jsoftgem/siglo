@@ -65,7 +65,7 @@ npm install --save-dev @types/aws-lambda
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v2.0.0+)
+- `fluid-func`: `*` (v1.0.0+)
 - `@aws-sdk/client-sqs`: `^3.0.0` (optional if running in AWS Lambda runtime)
 
 ---

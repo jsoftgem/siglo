@@ -1,6 +1,6 @@
 # Execution Semantics Contract
 
-This document provides a formal, binding contract for the runtime execution semantics of `fluid-func` v2.0.0.
+This document provides a formal, binding contract for the runtime execution semantics of `fluid-func` v1.0.0.
 
 ---
 

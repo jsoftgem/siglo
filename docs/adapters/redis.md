@@ -40,7 +40,7 @@ npm install fluid-func @fluid-func/redis ioredis
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v2.0.0+)
+- `fluid-func`: `*` (v1.0.0+)
 - `ioredis`: `^5.0.0 || ^6.0.0`
 
 ---

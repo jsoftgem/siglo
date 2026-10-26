@@ -1,6 +1,6 @@
 # Storage & Checkpoint Contract
 
-This document outlines the persistence model, checkpoint schema, optimistic concurrency guarantees, and adapter error modes in `fluid-func` v2.0.0.
+This document outlines the persistence model, checkpoint schema, optimistic concurrency guarantees, and adapter error modes in `fluid-func` v1.0.0.
 
 ---
 

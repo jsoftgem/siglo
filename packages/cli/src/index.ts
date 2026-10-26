@@ -209,7 +209,7 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
                 start: 'tsx src/workflow.ts',
             },
             dependencies: {
-                'fluid-func': '^2.0.0',
+                'fluid-func': '^1.0.0',
             },
             devDependencies: {
                 tsx: '^4.0.0',
@@ -221,45 +221,94 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
     }
 
     if (!fs.existsSync(workflowPath)) {
-        const code = `import { Step, flow } from 'fluid-func';
-
-export interface OrderInput {
-    orderId: string;
-    amount: number;
-}
-
-export function createOrderWorkflow() {
-    const validateOrder = Step.create('validateOrder', async ({ orderId, amount }: any) => {
-        if (!orderId) throw new Error('Missing orderId');
-        return { validated: true, orderId, amount };
-    }).modern();
-
-    const processPayment = Step.create('processPayment', async ({ amount }: any) => {
-        return { paymentStatus: 'CHARGED', amountCharged: amount };
-    }).modern();
-
-    return flow(validateOrder, processPayment);
-}
-`;
+        const code = `import { Step, flow } from 'fluid-func';\n\nexport interface OrderInput {\n    orderId: string;\n    amount: number;\n}\n\nexport function createOrderWorkflow() {\n    const validateOrder = Step.create('validateOrder', async ({ orderId, amount }: any) => {\n        if (!orderId) throw new Error('Missing orderId');\n        return { validated: true, orderId, amount };\n    }).modern();\n\n    const processPayment = Step.create('processPayment', async ({ amount }: any) => {\n        return { paymentStatus: 'CHARGED', amountCharged: amount };\n    }).modern();\n\n    return flow(validateOrder, processPayment);\n}\n`;
         fs.writeFileSync(workflowPath, code);
         filesCreated.push(workflowPath);
     }
 
     if (!fs.existsSync(testPath)) {
-        const testCode = `import test from 'node:test';
-import assert from 'node:assert/strict';
-import { createOrderWorkflow } from './workflow';
-
-test('Order workflow executes successfully', async () => {
-    const workflow = createOrderWorkflow();
-    const result = await workflow.run({ orderId: 'ORD-1', amount: 100 });
-    assert.equal(result.validated(), true);
-    assert.equal(result.paymentStatus(), 'CHARGED');
-});
-`;
+        const testCode = `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { createOrderWorkflow } from './workflow';\n\ntest('Order workflow executes successfully', async () => {\n    const workflow = createOrderWorkflow();\n    const result = await workflow.run({ orderId: 'ORD-1', amount: 100 });\n    assert.equal(result.validated(), true);\n    assert.equal(result.paymentStatus(), 'CHARGED');\n});\n`;
         fs.writeFileSync(testPath, testCode);
         filesCreated.push(testPath);
     }
 
     return { filesCreated };
+}
+
+/**
+ * Scaffolds a new typed workflow file and test.
+ */
+export function generateWorkflow(name: string, targetDir: string = process.cwd()): { filePath: string; testPath: string } {
+    const srcDir = path.join(targetDir, "src", "workflows");
+    fs.mkdirSync(srcDir, { recursive: true });
+
+    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const pascalName = kebabName.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("");
+    const camelName = pascalName.charAt(0).toLowerCase() + pascalName.slice(1);
+
+    const filePath = path.join(srcDir, `${kebabName}.workflow.ts`);
+    const testPath = path.join(srcDir, `${kebabName}.workflow.test.ts`);
+
+    const workflowContent = `import { Step, flow } from "fluid-func";\n\nexport interface ${pascalName}Input {\n    id: string;\n}\n\nexport interface ${pascalName}Output {\n    id: string;\n    status: string;\n}\n\nexport const step1 = Step.create("validate", async (param: ${pascalName}Input) => {\n    if (!param.id) throw new Error("Missing required field: id");\n    return { validated: true };\n}).modern();\n\nexport const step2 = Step.create("process", async (param: ${pascalName}Input & { validated: boolean }) => {\n    return { status: "COMPLETED" };\n}).modern();\n\nexport const ${camelName}Workflow = flow(step1, step2);\nexport default ${camelName}Workflow;\n`;
+
+    const testContent = `import { expect } from "chai";\nimport { createWorkflowHarness } from "@fluid-func/testing";\nimport { ${camelName}Workflow } from "./${kebabName}.workflow";\n\ndescribe("${pascalName}Workflow", () => {\n    it("executes successfully", async () => {\n        const harness = createWorkflowHarness(${camelName}Workflow);\n        const result = await harness.run({ id: "test-123" });\n        expect(result.status).to.equal("COMPLETED");\n        harness.assertStepExecuted("validate");\n        harness.assertStepExecuted("process");\n    });\n});\n`;
+
+    fs.writeFileSync(filePath, workflowContent, "utf-8");
+    fs.writeFileSync(testPath, testContent, "utf-8");
+
+    return { filePath, testPath };
+}
+
+/**
+ * Scaffolds a new typed step file and test.
+ */
+export function generateStep(name: string, targetDir: string = process.cwd()): { filePath: string; testPath: string } {
+    const srcDir = path.join(targetDir, "src", "steps");
+    fs.mkdirSync(srcDir, { recursive: true });
+
+    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const pascalName = kebabName.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("");
+    const camelName = pascalName.charAt(0).toLowerCase() + pascalName.slice(1);
+
+    const filePath = path.join(srcDir, `${kebabName}.step.ts`);
+    const testPath = path.join(srcDir, `${kebabName}.step.test.ts`);
+
+    const stepContent = `import { Step } from "fluid-func";\n\nexport interface ${pascalName}Input {\n    [key: string]: any;\n}\n\nexport interface ${pascalName}Output {\n    success: boolean;\n}\n\nexport const ${camelName}Step = Step.create("${kebabName}", async (param: ${pascalName}Input): Promise<${pascalName}Output> => {\n    return { success: true };\n}).modern();\n\nexport default ${camelName}Step;\n`;
+
+    const testContent = `import { expect } from "chai";\nimport { ${camelName}Step } from "./${kebabName}.step";\n\ndescribe("${pascalName}Step", () => {\n    it("executes successfully", async () => {\n        const result = await ${camelName}Step.execute({});\n        expect(result.success).to.be.true;\n    });\n});\n`;
+
+    fs.writeFileSync(filePath, stepContent, "utf-8");
+    fs.writeFileSync(testPath, testContent, "utf-8");
+
+    return { filePath, testPath };
+}
+
+export interface ExportWorkflowOptions {
+    format?: "mermaid" | "dot" | "json";
+    direction?: "TD" | "LR" | "TB";
+    includeBadges?: boolean;
+}
+
+/**
+ * Exports a workflow graph to Mermaid, Graphviz DOT, or JSON format.
+ */
+export function exportWorkflow(
+    workflow: any,
+    options: ExportWorkflowOptions = {}
+): string {
+    const format = options.format || "mermaid";
+    if (format === "json") {
+        return typeof workflow.toJSON === "function"
+            ? workflow.toJSON()
+            : JSON.stringify(workflow, null, 2);
+    }
+    if (format === "dot") {
+        return typeof workflow.toDot === "function"
+            ? workflow.toDot({ direction: options.direction as any })
+            : "";
+    }
+    // Default: mermaid
+    return typeof workflow.toMermaid === "function"
+        ? workflow.toMermaid({ direction: options.direction, includeBadges: options.includeBadges })
+        : toMermaid(inspectGraph(workflow));
 }

@@ -1,6 +1,6 @@
 # Compensation and Sagas
 
-Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `fluid-func` v2.0.0 provides first-class support for forward execution with automatic backward compensation.
+Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `fluid-func` v1.0.0 provides first-class support for forward execution with automatic backward compensation.
 
 ---
 

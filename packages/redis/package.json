@@ -1,6 +1,6 @@
 {
   "name": "@fluid-func/redis",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Production Redis distributed cache, durable checkpoint, and idempotency adapter for fluid-func workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

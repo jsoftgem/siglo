@@ -13,7 +13,7 @@ import { SemanticAttributes } from './attributes';
 import { FluidTelemetryOptions } from './types';
 
 const DEFAULT_TRACER_NAME = '@fluid-func/opentelemetry';
-const DEFAULT_TRACER_VERSION = '2.0.0';
+const DEFAULT_TRACER_VERSION = '1.0.0';
 
 /**
  * Returns an OpenTelemetry tracer based on configuration.

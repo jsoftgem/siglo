@@ -23,7 +23,10 @@ import {
     HISTORY,
     IS_DURABLE,
     STACK_ID,
-    STACK_ID_KEY
+    STACK_ID_KEY,
+    SERVICES,
+    DEPENDENCIES,
+    DEPS
 } from '../../../shared';
 import { StepTimeoutException, IdempotencyConflictException } from '../exceptions';
 import { combineAbortSignals } from '../signals';
@@ -131,6 +134,16 @@ export default class StartChain {
                         paramAsContext.runSpecs().then(() => {
                             const initialData = paramAsContext.getData();
                             let param = new ConvertParamFromSpec(Object.assign({}, initialParam, initialData), chain).getParam();
+                            const mergedServices = {
+                                ...(options?.services || options?.dependencies || {}),
+                                ...(chain.dependencies || {})
+                            };
+                            const svcFn = () => mergedServices;
+                            (svcFn as any).val = mergedServices;
+                            param[SERVICES] = svcFn;
+                            param[DEPENDENCIES] = svcFn;
+                            param[DEPS] = svcFn;
+
                             if (stepEffectiveSignal) {
                                 const sigFn = () => stepEffectiveSignal;
                                 (sigFn as any).val = stepEffectiveSignal;
@@ -161,6 +174,9 @@ export default class StartChain {
                                     const newContext = new Context('_before_temp', stackId, options?.namespace);
                                     new SetResolvedContexts(resolvedPluginData, newContext);
                                     param = Object.assign({}, param, newContext.getData());
+                                    param[SERVICES] = svcFn;
+                                    param[DEPENDENCIES] = svcFn;
+                                    param[DEPS] = svcFn;
                                     if (stepEffectiveSignal) {
                                         const sigFn = () => stepEffectiveSignal;
                                         (sigFn as any).val = stepEffectiveSignal;
@@ -292,6 +308,9 @@ export default class StartChain {
                                             if (chain.isModern || isPojo) {
                                                 actionParam = Object.assign({}, actionParam);
                                             }
+                                            (actionParam as any)[SERVICES] = mergedServices;
+                                            (actionParam as any)[DEPENDENCIES] = mergedServices;
+                                            (actionParam as any)[DEPS] = mergedServices;
                                             if (stackId) {
                                                 (actionParam as any)[STACK_ID] = () => stackId;
                                                 (actionParam as any)[STACK_ID_KEY] = stackId;

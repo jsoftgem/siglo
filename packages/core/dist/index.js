@@ -1,16 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.map = exports.branch = exports.when = exports.race = exports.allSettled = exports.all = exports.parallel = exports.inspectGraph = exports.assertValidGraph = exports.validateGraph = exports.toGraph = exports.getErrorMode = exports.setErrorMode = exports.cleanExpiredCheckpoints = exports.hydrateState = exports.serializeState = exports.restoreCheckpoint = exports.getCheckpoint = exports.checkpoint = exports.getStorageAdapter = exports.useStorage = exports.storage = exports.defaultStorageManager = exports.StorageManager = exports.normalizeError = exports.GraphValidationException = exports.WorkflowVersionMismatchException = exports.ExpiredWaitException = exports.DuplicateEventException = exports.WorkflowSuspendedException = exports.CompensationException = exports.IdempotencyConflictException = exports.FieldCollisionException = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = exports.isPipeline = exports.pipe = exports.Chain = exports.Func = exports.toPOJO = exports.isFlow = exports.flow = exports.Step = void 0;
-exports.isObject = exports.isFunction = exports.isReservedKey = exports.tagErrorPhase = exports.ExecutionPhase = exports.Status = exports.clearStorage = exports.getStorage = exports.setPutChainContextPlugin = exports.setGetChainContextPlugin = exports.putChainContext = exports.getChainContext = exports.resumeWorkflow = exports.validateWorkflowVersion = exports.defaultDurableManager = exports.DurableManager = exports.wait = exports.waitForEvent = exports.parseDuration = exports.defaultCompensationManager = exports.CompensationManager = exports.buildIdempotencyKey = exports.defaultIdempotencyStore = exports.InMemoryIdempotencyStore = exports.ParallelMode = exports.ParallelMergeStrategy = void 0;
+exports.race = exports.allSettled = exports.all = exports.parallel = exports.toDot = exports.toJSON = exports.toMermaid = exports.inspectGraph = exports.assertValidGraph = exports.validateGraph = exports.toGraph = exports.getErrorMode = exports.setErrorMode = exports.cleanExpiredCheckpoints = exports.hydrateState = exports.serializeState = exports.restoreCheckpoint = exports.getCheckpoint = exports.checkpoint = exports.getStorageAdapter = exports.useStorage = exports.storage = exports.defaultStorageManager = exports.StorageManager = exports.normalizeError = exports.GraphValidationException = exports.WorkflowVersionMismatchException = exports.ExpiredWaitException = exports.DuplicateEventException = exports.WorkflowSuspendedException = exports.CompensationException = exports.IdempotencyConflictException = exports.FieldCollisionException = exports.CheckpointVersionException = exports.NamespaceMismatchException = exports.CheckpointConflictException = exports.StorageAdapterException = exports.ValidationException = exports.CancellationException = exports.FlowTimeoutException = exports.StepTimeoutException = exports.FluidFuncError = exports.isPipeline = exports.pipe = exports.Chain = exports.Func = exports.toPOJO = exports.isFlow = exports.flow = exports.Step = void 0;
+exports.isObject = exports.isFunction = exports.isReservedKey = exports.tagErrorPhase = exports.ExecutionPhase = exports.Status = exports.clearStorage = exports.getStorage = exports.setPutChainContextPlugin = exports.setGetChainContextPlugin = exports.putChainContext = exports.getChainContext = exports.resumeWorkflow = exports.validateWorkflowVersion = exports.defaultDurableManager = exports.DurableManager = exports.wait = exports.waitForEvent = exports.parseDuration = exports.defaultCompensationManager = exports.CompensationManager = exports.buildIdempotencyKey = exports.defaultIdempotencyStore = exports.InMemoryIdempotencyStore = exports.ParallelMode = exports.ParallelMergeStrategy = exports.map = exports.branch = exports.when = void 0;
 /* c8 ignore start */
 const step_1 = require("./features/step");
 Object.defineProperty(exports, "Step", { enumerable: true, get: function () { return step_1.Step; } });
 Object.defineProperty(exports, "flow", { enumerable: true, get: function () { return step_1.flow; } });
 Object.defineProperty(exports, "isFlow", { enumerable: true, get: function () { return step_1.isFlow; } });
 Object.defineProperty(exports, "toPOJO", { enumerable: true, get: function () { return step_1.toPOJO; } });
-Object.defineProperty(exports, "Chain", { enumerable: true, get: function () { return 
+Object.defineProperty(exports, "Func", { enumerable: true, get: function () { return 
     // Compatibility aliases
-    step_1.Chain; } });
+    step_1.Func; } });
+Object.defineProperty(exports, "Chain", { enumerable: true, get: function () { return step_1.Chain; } });
 Object.defineProperty(exports, "pipe", { enumerable: true, get: function () { return step_1.pipe; } });
 Object.defineProperty(exports, "isPipeline", { enumerable: true, get: function () { return step_1.isPipeline; } });
 Object.defineProperty(exports, "FluidFuncError", { enumerable: true, get: function () { return 
@@ -37,6 +38,9 @@ Object.defineProperty(exports, "toGraph", { enumerable: true, get: function () {
 Object.defineProperty(exports, "validateGraph", { enumerable: true, get: function () { return step_1.validateGraph; } });
 Object.defineProperty(exports, "assertValidGraph", { enumerable: true, get: function () { return step_1.assertValidGraph; } });
 Object.defineProperty(exports, "inspectGraph", { enumerable: true, get: function () { return step_1.inspectGraph; } });
+Object.defineProperty(exports, "toMermaid", { enumerable: true, get: function () { return step_1.toMermaid; } });
+Object.defineProperty(exports, "toJSON", { enumerable: true, get: function () { return step_1.toJSON; } });
+Object.defineProperty(exports, "toDot", { enumerable: true, get: function () { return step_1.toDot; } });
 Object.defineProperty(exports, "parallel", { enumerable: true, get: function () { return 
     // Phase 2 Combinators
     step_1.parallel; } });
@@ -88,11 +92,9 @@ Object.defineProperty(exports, "setGetChainContextPlugin", { enumerable: true, g
 Object.defineProperty(exports, "setPutChainContextPlugin", { enumerable: true, get: function () { return storage_1.setPutChainContextPlugin; } });
 Object.defineProperty(exports, "getStorage", { enumerable: true, get: function () { return storage_1.getStorage; } });
 Object.defineProperty(exports, "clearStorage", { enumerable: true, get: function () { return storage_1.clearStorage; } });
-const Func = step_1.Step;
-exports.Func = Func;
 exports.default = step_1.Step;
 // Compatibility for both CJS require('fluid-func') and ESM import FluidFunc from 'fluid-func'
-/* c8 ignore next 60 */
+/* c8 ignore next 80 */
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Object.assign(step_1.Step, {
         default: step_1.Step,
@@ -157,6 +159,9 @@ if (typeof module !== 'undefined' && module.exports) {
         validateGraph: step_1.validateGraph,
         assertValidGraph: step_1.assertValidGraph,
         inspectGraph: step_1.inspectGraph,
+        toMermaid: step_1.toMermaid,
+        toJSON: step_1.toJSON,
+        toDot: step_1.toDot,
         // Idempotency
         InMemoryIdempotencyStore: step_1.InMemoryIdempotencyStore,
         defaultIdempotencyStore: step_1.defaultIdempotencyStore,

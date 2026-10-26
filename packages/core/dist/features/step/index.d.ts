@@ -3,7 +3,7 @@ import Spec, { SpecData } from '../spec';
 import { toPOJO } from '../context';
 import { RetryConfig } from '../executer';
 import { CacheOptions } from '../cache';
-import { WorkflowNode, WorkflowNodeType, StepNode, SequenceNode, ParallelNode, BranchNode, WaitNode, MapNode, GraphValidationResult, GraphInspectionResult, GraphInspectionEdge, toGraph, validateGraph, assertValidGraph, inspectGraph } from '../graph';
+import { WorkflowNode, WorkflowNodeType, StepNode, SequenceNode, ParallelNode, BranchNode, WaitNode, MapNode, GraphValidationResult, GraphInspectionResult, GraphInspectionEdge, toGraph, validateGraph, assertValidGraph, inspectGraph, toMermaid, toJSON, toDot, MermaidExportOptions, DotExportOptions } from '../graph';
 import { IdempotencyStore, IdempotencyClaimStatus, IdempotencyRecord, IdempotencyOptions, InMemoryIdempotencyStore, defaultIdempotencyStore, buildIdempotencyKey } from '../idempotency';
 import { CompensationHandler, CompensationOptions, CompensationRecord, CompensationRunResult, CompensationManager, defaultCompensationManager } from '../compensation';
 import { parallel, all, allSettled, race, when, branch, map, ParallelOptions, ParallelMergeStrategy, ParallelMode, BranchExecutionSummary, BranchPredicate, BranchSelector, MapOptions, MapItemAccessor } from '../combinators';
@@ -12,7 +12,7 @@ export { FluidFuncError, ExecutionErrorMetadata, StepTimeoutException, FlowTimeo
 export { SerializedExecutionStack, SerializedStorageState, StorageAdapter, ContextChangeEvent, CacheEvent, StorageErrorMode, CheckpointOptions } from '../storage';
 export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
-export { WorkflowNode, WorkflowNodeType, StepNode, SequenceNode, ParallelNode, BranchNode, WaitNode, MapNode, GraphValidationResult, GraphInspectionResult, GraphInspectionEdge, toGraph, validateGraph, assertValidGraph, inspectGraph };
+export { WorkflowNode, WorkflowNodeType, StepNode, SequenceNode, ParallelNode, BranchNode, WaitNode, MapNode, GraphValidationResult, GraphInspectionResult, GraphInspectionEdge, toGraph, validateGraph, assertValidGraph, inspectGraph, toMermaid, toJSON, toDot, MermaidExportOptions, DotExportOptions };
 export { IdempotencyStore, IdempotencyClaimStatus, IdempotencyRecord, IdempotencyOptions, InMemoryIdempotencyStore, defaultIdempotencyStore, buildIdempotencyKey };
 export { CompensationHandler, CompensationOptions, CompensationRecord, CompensationRunResult, CompensationManager, defaultCompensationManager };
 export { parallel, all, allSettled, race, when, branch, map, ParallelOptions, ParallelMergeStrategy, ParallelMode, BranchExecutionSummary, BranchPredicate, BranchSelector, MapOptions, MapItemAccessor };
@@ -33,6 +33,8 @@ export interface ExecutionOptions {
     idempotencyTtlMs?: number;
     migrations?: any;
     stackId?: string;
+    services?: Record<string, any>;
+    dependencies?: Record<string, any>;
 }
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
 export type OnBeforeAction<TInput = any> = (parameter: TInput) => boolean | Promise<boolean>;
@@ -43,7 +45,7 @@ export interface Flow<TInput = any, TOutput = any> {
     execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     start: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
-    steps: Step<any, any>[];
+    steps: Step<any, any, any>[];
     readonly isFlow?: boolean;
     timeout: (ms: number) => Flow<TInput, TOutput>;
     timeoutMs?: number;
@@ -51,23 +53,35 @@ export interface Flow<TInput = any, TOutput = any> {
     version: (v: string | number) => Flow<TInput, TOutput>;
     toGraph: () => WorkflowNode;
     inspect: () => GraphInspectionResult;
+    toMermaid: (options?: MermaidExportOptions) => string;
+    toJSON: () => string;
+    toDot: (options?: DotExportOptions) => string;
     resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
     compensate: (stackId: string, options?: any) => Promise<any>;
 }
-export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut> | Flow<TIn, TOut>;
+export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut, any> | Flow<TIn, TOut>;
 export type FlowArg<TIn = any, TOut = any> = FlowItem<TIn, TOut> | FlowArg<TIn, TOut>[];
 export declare function isFlow(item: any): item is Flow;
-export declare function flattenSteps(steps: any[]): Step<any, any>[];
+export declare function flattenSteps(steps: any[]): Step<any, any, any>[];
+export type MergeStepContext<TAcc, TOut> = [TOut] extends [void | undefined] ? TAcc : [TOut] extends [object] ? Omit<TAcc, keyof TOut> & TOut : TAcc;
+export type FlowContextResult<TContext, THistory = Record<string, any>> = TContext & {
+    $steps: THistory;
+};
+export declare function flow<TIn, T1Out, N1 extends string>(s1: Step<any, T1Out, N1>): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
+export declare function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(s1: Step<any, T1Out, N1>, s2: Step<any, T2Out, N2>): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>>;
+export declare function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string>(s1: Step<any, T1Out, N1>, s2: Step<any, T2Out, N2>, s3: Step<any, T3Out, N3>): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out>>>;
+export declare function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string, T4Out, N4 extends string>(s1: Step<any, T1Out, N1>, s2: Step<any, T2Out, N2>, s3: Step<any, T3Out, N3>, s4: Step<any, T4Out, N4>): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out>>>;
+export declare function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string, T4Out, N4 extends string, T5Out, N5 extends string>(s1: Step<any, T1Out, N1>, s2: Step<any, T2Out, N2>, s3: Step<any, T3Out, N3>, s4: Step<any, T4Out, N4>, s5: Step<any, T5Out, N5>): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>, T5Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out> & Record<N5, T5Out>>>;
 export declare function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TInput, TOutput>;
-export declare class Step<TInput = any, TOutput = any> {
-    name: string;
+export declare class Step<TInput = any, TOutput = any, TName extends string = string> {
+    name: TName;
     action: StepAction<TInput, TOutput>;
     specs: Spec[];
     onbefore: OnBeforeAction<TInput>;
     onskip?: OnSkipAction<TInput>;
     onafter?: OnAfterAction<TOutput, TInput>;
     onfail?: OnFailAction;
-    sequence: Step<any, any>[];
+    sequence: Step<any, any, any>[];
     reducer?: string;
     isStrict?: boolean;
     cachedLast?: number;
@@ -85,10 +99,12 @@ export declare class Step<TInput = any, TOutput = any> {
         store?: IdempotencyStore;
     };
     workflowNode?: WorkflowNode;
-    constructor(nameOrAction?: string | StepAction<TInput, TOutput> | Flow<TInput, TOutput>, action?: StepAction<TInput, TOutput>, sequence?: Step<any, any>[]);
+    dependencies?: Record<string, any>;
+    constructor(nameOrAction?: TName | StepAction<TInput, TOutput> | Flow<TInput, TOutput>, action?: StepAction<TInput, TOutput>, sequence?: Step<any, any, any>[]);
     static start<TOut = any>(steps: Step | Step[] | Flow | (Step | Flow)[], param?: any, options?: ExecutionOptions): Promise<TOut>;
     static start(steps?: undefined, param?: any, options?: ExecutionOptions): undefined;
-    static create<TIn = any, TOut = any>(nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>, action?: StepAction<TIn, TOut>, sequence?: Step<any, any>[]): Step<TIn, TOut>;
+    static create<TName extends string, TIn = any, TOut = any>(name: TName, action: StepAction<TIn, TOut>): Step<TIn, TOut, TName>;
+    static create<TIn = any, TOut = any>(action: StepAction<TIn, TOut>): Step<TIn, TOut, string>;
     static flow: typeof flow;
     static isFlow: typeof isFlow;
     static pipe: typeof flow;
@@ -117,23 +133,28 @@ export declare class Step<TInput = any, TOutput = any> {
     static inspectGraph: typeof inspectGraph;
     static validateGraph: typeof validateGraph;
     static assertValidGraph: typeof assertValidGraph;
-    timeout(ms: number): Step<TInput, TOutput>;
-    modern(): Step<TInput, TOutput>;
-    reduce(field: string): Step<TInput, TOutput>;
-    schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput>;
-    spec(fieldOrSchema: string | any, json?: SpecData | any): Step<TInput, TOutput>;
-    strict(): Step<TInput, TOutput>;
-    onBefore(onBefore: OnBeforeAction<TInput>): Step<TInput, TOutput>;
-    onSkip(onSkip: OnSkipAction<TInput>): Step<TInput, TOutput>;
-    onAfter(onAfter: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput>;
-    onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput>;
-    onFail(onFail: OnFailAction): Step<TInput, TOutput>;
-    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput>;
-    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput>;
+    static toMermaid: typeof toMermaid;
+    static toJSON: typeof toJSON;
+    static toDot: typeof toDot;
+    timeout(ms: number): Step<TInput, TOutput, TName>;
+    modern(): Step<TInput, TOutput, TName>;
+    reduce(field: string): Step<TInput, TOutput, TName>;
+    withDependencies(dependencies: Record<string, any>): this;
+    requireDependency<T = any>(key: string): T;
+    schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput, TName>;
+    spec(fieldOrSchema: string | any, json?: SpecData | any): Step<TInput, TOutput, TName>;
+    strict(): Step<TInput, TOutput, TName>;
+    onBefore(onBefore: OnBeforeAction<TInput>): Step<TInput, TOutput, TName>;
+    onSkip(onSkip: OnSkipAction<TInput>): Step<TInput, TOutput, TName>;
+    onAfter(onAfter: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput, TName>;
+    onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput, TName>;
+    onFail(onFail: OnFailAction): Step<TInput, TOutput, TName>;
+    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, TName>;
+    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput, TName>;
     idempotent(keyOrFn?: string | ((ctx: any) => string), options?: {
         ttlMs?: number;
         store?: IdempotencyStore;
-    }): Step<TInput, TOutput>;
+    }): Step<TInput, TOutput, TName>;
     toGraph(): WorkflowNode;
     inspect(): GraphInspectionResult;
     execute(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
@@ -141,8 +162,10 @@ export declare class Step<TInput = any, TOutput = any> {
     static config(props: Record<string, any>): void;
 }
 /** @deprecated Use `Step` instead of `Chain`. */
+export declare const Func: typeof Step;
+export type Func<TIn = any, TOut = any> = Step<TIn, TOut, any>;
 export declare const Chain: typeof Step;
-export type Chain<TIn = any, TOut = any> = Step<TIn, TOut>;
+export type Chain<TIn = any, TOut = any> = Step<TIn, TOut, any>;
 /** @deprecated Use `flow` instead of `pipe`. */
 export declare const pipe: typeof flow;
 /** @deprecated Use `Flow` instead of `Pipeline`. */

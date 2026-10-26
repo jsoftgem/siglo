@@ -7,28 +7,38 @@ import {
     visualizeWorkflow,
     validateWorkflow,
     inspectWorkflow,
-    inspectCheckpoint
+    inspectCheckpoint,
+    generateWorkflow,
+    generateStep,
+    replayFixture,
+    exportWorkflow
 } from './index';
 
 function printHelp(): void {
     console.log(`
-fluid-func CLI v2.0.0
+fluid-func CLI v1.0.0
 
 USAGE:
-    fluid-func <command> [options]
+    fluid-func <command> [arguments] [options]
 
 COMMANDS:
     init [dir]                     Scaffold a starter fluid-func project
+    generate workflow <name>       Scaffold a new typed workflow with test
+    generate step <name>           Scaffold a new typed step with test
     visualize <workflow-file>      Render workflow graph as Mermaid or text diagram
+    export <workflow-file>         Export workflow graph as mermaid, json, or dot
     validate <workflow-file>       Statically validate workflow definitions for cycles
     inspect <workflow-file>        Display workflow AST metrics and step summary
     checkpoint <file>              Inspect a serialized checkpoint state JSON
+    replay <fixture> [workflow]    Replay execution against a recorded test fixture
 
 OPTIONS:
-    --format=mermaid|text          Visualization output format (default: mermaid)
+    --format=mermaid|text|dot|json Output format (default: mermaid)
+    --direction=TD|LR|TB           Diagram flow direction (default: TD)
+    --out=<file>                   Write output directly to file instead of stdout
     --redact=field1,field2         Comma-separated list of fields/nodes to redact
-    --help                         Show this help documentation
-    --version                      Print version
+    --help, -h                     Show this help documentation
+    --version, -v                  Print version
 `);
 }
 
@@ -51,6 +61,22 @@ async function loadWorkflowFromFile(filePath: string): Promise<any> {
     return flowCandidate;
 }
 
+function getOption(args: string[], prefix: string): string | undefined {
+    const arg = args.find(a => a.startsWith(prefix));
+    return arg ? arg.slice(prefix.length) : undefined;
+}
+
+function writeOutput(content: string, outPath?: string): void {
+    if (outPath) {
+        const resolved = path.resolve(process.cwd(), outPath);
+        fs.mkdirSync(path.dirname(resolved), { recursive: true });
+        fs.writeFileSync(resolved, content, 'utf-8');
+        console.log(`✔ Output written to ${resolved}`);
+    } else {
+        console.log(content);
+    }
+}
+
 async function main(): Promise<void> {
     const args = process.argv.slice(2);
     if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
@@ -59,12 +85,13 @@ async function main(): Promise<void> {
     }
 
     if (args.includes('--version') || args.includes('-v')) {
-        console.log('2.0.0');
+        console.log('1.0.0');
         return;
     }
 
     const command = args[0];
     const target = args[1];
+    const outArg = getOption(args, '--out=');
 
     try {
         switch (command) {
@@ -78,21 +105,52 @@ async function main(): Promise<void> {
                 break;
             }
 
+            case 'generate': {
+                const subType = target;
+                const name = args[2];
+                if (!subType || !name) {
+                    console.error('Error: specify generator type and name (e.g. fluid-func generate workflow order)');
+                    process.exit(1);
+                }
+                if (subType === 'workflow') {
+                    const res = generateWorkflow(name);
+                    console.log(`✔ Generated workflow in ${res.filePath}`);
+                    console.log(`✔ Generated workflow test in ${res.testPath}`);
+                } else if (subType === 'step') {
+                    const res = generateStep(name);
+                    console.log(`✔ Generated step in ${res.filePath}`);
+                    console.log(`✔ Generated step test in ${res.testPath}`);
+                } else {
+                    console.error(`Unknown generator type: '${subType}'. Use 'workflow' or 'step'.`);
+                    process.exit(1);
+                }
+                break;
+            }
+
             case 'visualize': {
                 if (!target) {
                     console.error('Error: specify workflow file path (e.g. fluid-func visualize src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
-                const formatArg = args.find(a => a.startsWith('--format='));
-                const format = formatArg ? formatArg.split('=')[1] : 'mermaid';
+                const format = getOption(args, '--format=') || 'mermaid';
                 const vis = visualizeWorkflow(wf);
 
-                if (format === 'text') {
-                    console.log(vis.text);
-                } else {
-                    console.log(vis.mermaid);
+                const content = format === 'text' ? vis.text : vis.mermaid;
+                writeOutput(content, outArg);
+                break;
+            }
+
+            case 'export': {
+                if (!target) {
+                    console.error('Error: specify workflow file path (e.g. fluid-func export src/workflow.ts)');
+                    process.exit(1);
                 }
+                const wf = await loadWorkflowFromFile(target);
+                const format = (getOption(args, '--format=') || 'mermaid') as 'mermaid' | 'dot' | 'json';
+                const direction = (getOption(args, '--direction=') || 'TD') as 'TD' | 'LR' | 'TB';
+                const exported = exportWorkflow(wf, { format, direction });
+                writeOutput(exported, outArg);
                 break;
             }
 
@@ -121,10 +179,10 @@ async function main(): Promise<void> {
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
-                const redactArg = args.find(a => a.startsWith('--redact='));
-                const redactList = redactArg ? redactArg.split('=')[1].split(',') : [];
+                const redactStr = getOption(args, '--redact=');
+                const redactList = redactStr ? redactStr.split(',') : [];
                 const report = inspectWorkflow(wf, { redact: redactList });
-                console.log(JSON.stringify(report, null, 2));
+                writeOutput(JSON.stringify(report, null, 2), outArg);
                 break;
             }
 
@@ -135,10 +193,28 @@ async function main(): Promise<void> {
                 }
                 const cpPath = path.resolve(process.cwd(), target);
                 const content = fs.readFileSync(cpPath, 'utf-8');
-                const redactArg = args.find(a => a.startsWith('--redact='));
-                const redactList = redactArg ? redactArg.split('=')[1].split(',') : [];
+                const redactStr = getOption(args, '--redact=');
+                const redactList = redactStr ? redactStr.split(',') : [];
                 const inspected = inspectCheckpoint(content, { redact: redactList });
-                console.log(JSON.stringify(inspected, null, 2));
+                writeOutput(JSON.stringify(inspected, null, 2), outArg);
+                break;
+            }
+
+            case 'replay': {
+                if (!target) {
+                    console.error('Error: specify fixture file (e.g. fluid-func replay fixture.json [workflow.ts])');
+                    process.exit(1);
+                }
+                const wfPath = args[2] || 'src/workflow.ts';
+                const wf = await loadWorkflowFromFile(wfPath);
+                const fixturePath = path.resolve(process.cwd(), target);
+                const result = await replayFixture(wf, fixturePath);
+                if (result.success) {
+                    console.log(`✔ Replay passed in ${result.durationMs}ms`);
+                } else {
+                    console.error('✖ Replay failed with discrepancies:', JSON.stringify(result.diff, null, 2));
+                    process.exit(1);
+                }
                 break;
             }
 

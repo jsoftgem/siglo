@@ -1,4 +1,4 @@
-import { CHAIN_ID, STACK_ID, VALIDATORS, SIGNAL, SIGNAL_KEY, NAMESPACE } from '../../shared';
+import { CHAIN_ID, STACK_ID, VALIDATORS, SIGNAL, SIGNAL_KEY, NAMESPACE, SERVICES, DEPENDENCIES, DEPS } from '../../shared';
 const WRAPPED = Symbol.for('fluid-func.wrapped');
 
 export function toPOJO<T = Record<string, any>>(data: any): T {
@@ -11,7 +11,7 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
     const result: Record<string, any> = {};
     const keys = Object.keys(data);
     for (const key of keys) {
-        if (key === VALIDATORS || key === CHAIN_ID || key === STACK_ID) {
+        if (key === VALIDATORS || key === CHAIN_ID || key === STACK_ID || key === SERVICES || key === DEPENDENCIES || key === DEPS) {
             continue;
         }
         if (key === SIGNAL || key === SIGNAL_KEY || key === NAMESPACE) {

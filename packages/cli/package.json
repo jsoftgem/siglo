@@ -1,6 +1,6 @@
 {
   "name": "@fluid-func/cli",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Developer CLI and workflow visualizer/inspector for fluid-func workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

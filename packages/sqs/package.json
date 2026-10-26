@@ -1,6 +1,6 @@
 {
   "name": "@fluid-func/sqs",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "AWS SQS message batch processor and event consumer adapter for fluid-func workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
