@@ -17,7 +17,8 @@
     "test:examples": "npm run test --workspace=fluid-func-examples",
     "test:all": "npm test && npm run test:packages && npm run test:examples",
     "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
-    "explore": "tsx test/exploratory/runner.ts"
+    "explore": "tsx test/exploratory/runner.ts",
+    "publish:core": "npm publish --workspace=fluid-func --registry https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
