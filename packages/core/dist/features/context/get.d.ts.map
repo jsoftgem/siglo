@@ -1,1 +1,0 @@
-{"version":3,"file":"get.d.ts","sourceRoot":"","sources":["../../../src/features/context/get.ts"],"names":[],"mappings":"AAAA,qBAAa,UAAU;IACnB,OAAO,CAAC,QAAQ,CAAC,OAAO,CAAsB;gBAElC,OAAO,EAAE,MAAM,EAAE,gBAAgB,EAAE,CAAC,OAAO,EAAE,MAAM,KAAK,GAAG;IAKvE,UAAU,IAAI,MAAM,CAAC,MAAM,EAAE,GAAG,CAAC;CAIpC"}

@@ -8,14 +8,31 @@
     "fluid-func": "./dist/bin.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "test": "npm run build && mocha -r tsx 'src/**/*.test.ts'"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rickzx98/fluid-func.git",
+    "directory": "packages/cli"
+  },
+  "author": "Jerico de Guzman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rickzx98/fluid-func/issues"
+  },
+  "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "*"
+    "fluid-func": "^1.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

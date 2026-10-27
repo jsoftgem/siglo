@@ -1,6 +1,3 @@
-src/features/**/*.test.ts
-src/shared/**/*.test.ts
 --require tsx
 --reporter spec
---recursive
 --timeout 5000

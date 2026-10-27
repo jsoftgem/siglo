@@ -5,8 +5,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "compile": "npm run build",
@@ -20,20 +25,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rickzx98/fluid-func.git"
+    "url": "git+https://github.com/rickzx98/fluid-func.git",
+    "directory": "packages/core"
   },
   "keywords": [
     "fluid-func",
-    "chain",
-    "chaining",
+    "workflow",
+    "orchestrator",
+    "pipeline",
+    "saga",
+    "typescript",
     "asynchronous",
-    "organize",
     "functional",
-    "jerico",
-    "great",
-    "design",
-    "and",
-    "systems"
+    "chain"
   ],
   "author": "Jerico de Guzman",
   "license": "MIT",

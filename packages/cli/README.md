@@ -1,0 +1,481 @@
+# @fluid-func/cli Developer Tools & CLI Guide
+
+`@fluid-func/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `fluid-func` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
+
+---
+
+## 1. Overview
+
+`@fluid-func/cli` operates both as an executable terminal tool (`fluid-func`) and as a programmatic TypeScript library:
+
+```
+                               @fluid-func/cli
+                 ┌────────────────────┴────────────────────┐
+                 │                                         │
+                 ▼                                         ▼
+         Terminal Command Line                   Programmatic Node.js API
+    ┌─────────────────────────────┐           ┌─────────────────────────────┐
+    │ fluid-func init             │           │ initProject()               │
+    │ fluid-func generate workflow│           │ generateWorkflow()          │
+    │ fluid-func generate step    │           │ generateStep()              │
+    │ fluid-func visualize        │           │ visualizeWorkflow()         │
+    │ fluid-func export           │           │ exportWorkflow()            │
+    │ fluid-func validate         │           │ validateWorkflow()          │
+    │ fluid-func inspect          │           │ inspectWorkflow()           │
+    │ fluid-func checkpoint       │           │ inspectCheckpoint()         │
+    │ fluid-func replay           │           │ replayFixture()             │
+    └─────────────────────────────┘           └─────────────────────────────┘
+```
+
+---
+
+## 2. Installation
+
+Install `@fluid-func/cli` locally in your project or globally:
+
+```bash
+# Local development dependency (recommended)
+npm install --save-dev @fluid-func/cli @fluid-func/testing fluid-func tsx
+
+# Or run directly via npx
+npx fluid-func --help
+```
+
+---
+
+## 3. Command Line Interface (CLI)
+
+The CLI executable is `fluid-func`.
+
+### General Usage
+
+```bash
+fluid-func <command> [arguments] [options]
+```
+
+### Global Options:
+- `--format=mermaid|text|dot|json`: Diagram representation or export format (default: `mermaid`).
+- `--direction=TD|LR|TB`: Graph layout direction for Mermaid or DOT diagrams (default: `TD`).
+- `--out=<file>`: Write output directly to a file instead of `stdout`.
+- `--redact=key1,key2`: Comma-delimited list of sensitive context keys or node names to mask with `[REDACTED]`.
+- `--help`, `-h`: Show CLI usage guide.
+- `--version`, `-v`: Display CLI version.
+
+---
+
+### Command 1: `fluid-func init [dir]`
+
+Scaffolds a clean starter project preconfigured with `fluid-func`, `tsx`, modern TypeScript config, and a runnable workflow test.
+
+```bash
+fluid-func init ./services/order-orchestrator
+```
+
+#### Generated Files:
+1. `package.json`: Contains scripts (`npm test`, `npm start`) and required dependencies.
+2. `src/workflow.ts`: Example order processing pipeline with validation and payment steps.
+3. `src/workflow.test.ts`: Automated test executing the workflow with assertions.
+
+---
+
+### Command 2: `fluid-func generate workflow <name>`
+
+Scaffolds a brand new typed workflow file and companion unit test powered by `@fluid-func/testing`.
+
+```bash
+fluid-func generate workflow order-processing
+```
+
+#### Generated Files:
+1. `src/workflows/order-processing.workflow.ts`: Strongly-typed input/output interfaces, steps, and default workflow export.
+2. `src/workflows/order-processing.workflow.test.ts`: Test harness setup verifying end-to-end execution and step invocations.
+
+---
+
+### Command 3: `fluid-func generate step <name>`
+
+Scaffolds an isolated, strongly-typed `Step` module and companion unit test.
+
+```bash
+fluid-func generate step send-notification
+```
+
+#### Generated Files:
+1. `src/steps/send-notification.step.ts`: Typed step module with input/output interfaces.
+2. `src/steps/send-notification.step.test.ts`: Direct step execution test.
+
+---
+
+### Command 4: `fluid-func visualize <workflow-file> [options]`
+
+Renders the workflow graph AST as either a Mermaid flowchart or an indented ASCII text hierarchy.
+
+#### Mermaid Diagram (Default):
+```bash
+fluid-func visualize src/workflows/checkout.ts
+```
+*Output:*
+```mermaid
+flowchart TD
+    validateOrder["validateOrder (step)"]
+    chargePayment["chargePayment (step)"]
+    reserveInventory["reserveInventory (step)"]
+    validateOrder --> chargePayment
+    chargePayment --> reserveInventory
+```
+
+#### Text Diagram (`--format=text`):
+```bash
+fluid-func visualize src/workflows/checkout.ts --format=text
+```
+*Output:*
+```text
+Workflow Graph (total nodes: 3, edges: 2):
+├── [step] validateOrder (validateOrder)
+├── [step] chargePayment (chargePayment)
+└── [step] reserveInventory (reserveInventory)
+```
+
+---
+
+### Command 5: `fluid-func export <workflow-file> [options]`
+
+Exports the workflow topology graph directly to standard formats for architectural documentation, diagrams, or web visualization:
+- `--format=mermaid`: Mermaid flowchart with policy badges (retries, timeouts, fallback).
+- `--format=dot`: Graphviz DOT format compatible with Graphviz tools and PlantUML.
+- `--format=json`: Comprehensive AST node/edge graph JSON.
+- `--direction=TD|LR|TB`: Graph layout orientation (top-down, left-to-right).
+- `--out=<file>`: Save result directly to a specified destination file.
+
+```bash
+# Export Mermaid diagram to file with Left-to-Right layout
+fluid-func export src/workflows/order.workflow.ts --format=mermaid --direction=LR --out=docs/order-flow.mmd
+
+# Export Graphviz DOT format
+fluid-func export src/workflows/order.workflow.ts --format=dot --out=diagrams/order.dot
+
+# Export raw JSON AST
+fluid-func export src/workflows/order.workflow.ts --format=json --out=dist/order-ast.json
+```
+
+---
+
+### Command 6: `fluid-func validate <workflow-file>`
+
+Performs static analysis on the workflow graph AST without executing any step business logic:
+- Detects cyclic dependencies.
+- Identifies unreachable nodes or disconnected subgraphs.
+- Verifies combinator structures (`parallel`, `branch`, `map`).
+
+```bash
+fluid-func validate src/workflows/loan-pipeline.ts
+```
+
+*Success Output:*
+```text
+✔ Workflow graph is valid (acyclic, reachable)
+```
+
+*Failure Output (Exit Code 1):*
+```text
+✖ Workflow validation failed:
+  - Cycle detected between nodes 'processPayment' and 'retryPayment'
+```
+
+---
+
+### Command 7: `fluid-func inspect <workflow-file> [options]`
+
+Returns a detailed JSON telemetry summary of the workflow topology, node classifications, edge connections, and total complexity metrics.
+
+```bash
+fluid-func inspect src/workflows/settlement.ts --redact=taxId,secretKey
+```
+
+*Output:*
+```json
+{
+  "totalNodes": 4,
+  "edges": [
+    { "from": "step1", "to": "step2" },
+    { "from": "step2", "to": "step3" }
+  ],
+  "nodes": [
+    { "id": "step1", "name": "validateInput", "type": "step" },
+    { "id": "step2", "name": "[REDACTED]", "type": "step" },
+    { "id": "step3", "name": "persistAudit", "type": "step" }
+  ],
+  "redactedFields": ["taxId", "secretKey"]
+}
+```
+
+---
+
+### Command 8: `fluid-func checkpoint <file> [options]`
+
+Parses and validates a serialized checkpoint state JSON file (e.g., dumped from Redis or PostgreSQL during debugging), summarizing step chains and execution context while masking sensitive credentials.
+
+```bash
+fluid-func checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
+```
+
+*Output:*
+```json
+{
+  "stackId": "stack-8123-bba8",
+  "namespace": "tenant-enterprise",
+  "type": "flow",
+  "stepCount": 3,
+  "chains": ["validate", "charge", "notify"],
+  "contexts": {
+    "charge": {
+      "apiKey": "[REDACTED]",
+      "status": "APPROVED",
+      "amount": 250
+    }
+  }
+}
+```
+
+---
+
+### Command 9: `fluid-func replay <fixture> [workflow-file]`
+
+Replays an end-to-end workflow execution using recorded inputs and validates that output values match golden expectations.
+
+```bash
+# Replay against default src/workflow.ts
+fluid-func replay fixtures/order-regression.json
+
+# Replay against explicit workflow module
+fluid-func replay fixtures/order-regression.json src/workflows/order.workflow.ts
+```
+
+*Success Output:*
+```text
+✔ Replay passed in 14ms
+```
+
+*Regression Output (Exit Code 1):*
+```text
+✖ Replay failed with discrepancies: {
+  "total": {
+    "expected": 100,
+    "actual": 120
+  }
+}
+```
+
+---
+
+## 4. Programmatic API Reference
+
+Import programmatic utilities directly in your tests, scripts, and build pipelines:
+
+```typescript
+import {
+    initProject,
+    generateWorkflow,
+    generateStep,
+    visualizeWorkflow,
+    validateWorkflow,
+    inspectWorkflow,
+    inspectCheckpoint,
+    replayFixture,
+    exportWorkflow,
+    toMermaid,
+    toTextGraph,
+    ReplayFixture,
+    ReplayResult,
+    WorkflowVisualizationResult,
+    ExportWorkflowOptions
+} from '@fluid-func/cli';
+```
+
+---
+
+### `generateWorkflow(name, targetDir?)`
+
+Generates typed workflow and test templates:
+
+```typescript
+const { filePath, testPath } = generateWorkflow('payment-settlement');
+console.log(`Generated: ${filePath} and ${testPath}`);
+```
+
+---
+
+### `generateStep(name, targetDir?)`
+
+Generates typed step and test templates:
+
+```typescript
+const { filePath, testPath } = generateStep('audit-logger');
+console.log(`Generated: ${filePath} and ${testPath}`);
+```
+
+---
+
+### `exportWorkflow(workflow, options?)`
+
+Exports a workflow to Mermaid, Graphviz DOT, or JSON format:
+
+```typescript
+// Mermaid format with top-to-bottom layout
+const mermaidDiagram = exportWorkflow(myWorkflow, {
+    format: 'mermaid',
+    direction: 'TD',
+    includeBadges: true
+});
+
+// Graphviz DOT format with left-to-right layout
+const dotGraph = exportWorkflow(myWorkflow, {
+    format: 'dot',
+    direction: 'LR'
+});
+
+// JSON AST format
+const jsonAST = exportWorkflow(myWorkflow, {
+    format: 'json'
+});
+```
+
+---
+
+### `visualizeWorkflow(workflow)`
+
+Generates both Mermaid and ASCII text representations of a workflow:
+
+```typescript
+const result: WorkflowVisualizationResult = visualizeWorkflow(orderWorkflow);
+
+console.log(result.mermaid);   // Mermaid flowchart TD string
+console.log(result.text);      // ASCII text tree
+console.log(result.nodeCount); // Total nodes in AST
+console.log(result.hasCycles); // Boolean cycle indicator
+```
+
+---
+
+### `validateWorkflow(workflow)`
+
+Runs cycle detection and connectivity validation on the compiled graph:
+
+```typescript
+const validation = validateWorkflow(myWorkflow);
+
+if (!validation.valid) {
+    console.error('Validation errors:', validation.errors);
+}
+```
+
+---
+
+### `inspectWorkflow(workflow, options?)`
+
+Analyzes graph structure and optionally redacts sensitive node names:
+
+```typescript
+const inspection = inspectWorkflow(myWorkflow, {
+    redact: ['confidentialStep', 'authStep']
+});
+```
+
+---
+
+### `inspectCheckpoint(checkpoint, options?)`
+
+Inspects a checkpoint object or JSON string, redacting specified context fields across all steps:
+
+```typescript
+const summary = inspectCheckpoint(checkpointJsonString, {
+    redact: ['accessToken', 'cardToken']
+});
+```
+
+---
+
+### `replayFixture(workflow, fixture)`
+
+Replays an end-to-end workflow against a recorded golden test fixture. Ideal for CI regression testing, schema evolution validation, and deterministic output verification.
+
+#### TypeScript Interface:
+
+```typescript
+export interface ReplayFixture {
+    name?: string;
+    version?: string;
+    initialParam: Record<string, any>;
+    expectedOutputs?: Record<string, any>;
+    checkpoints?: any[];
+}
+
+export interface ReplayResult {
+    success: boolean;
+    durationMs: number;
+    finalContext: Record<string, any>;
+    diff?: Record<string, { expected: any; actual: any }>;
+}
+```
+
+---
+
+## 5. Golden Fixture Testing in CI
+
+Use `replayFixture` in your test suite to ensure that workflow refactoring preserves identical behavior and contract outputs:
+
+### Step 1: Define Fixture File (`test/fixtures/pricing-fixture.json`)
+
+```json
+{
+  "name": "StandardTierPricing",
+  "version": "2.0.0",
+  "initialParam": {
+    "seats": 10,
+    "tier": "pro",
+    "annualDiscount": true
+  },
+  "expectedOutputs": {
+    "subtotal": 1200,
+    "discount": 240,
+    "total": 960,
+    "approved": true
+  }
+}
+```
+
+### Step 2: Implement Test Runner (`test/pricing.test.ts`)
+
+```typescript
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as path from 'path';
+import { replayFixture } from '@fluid-func/cli';
+import { pricingFlow } from '../src/workflows/pricingFlow';
+
+test('Pricing Flow matches golden fixture expectations', async () => {
+    const fixturePath = path.resolve(__dirname, 'fixtures/pricing-fixture.json');
+    const result = await replayFixture(pricingFlow, fixturePath);
+
+    assert.equal(
+        result.success,
+        true,
+        `Workflow regression detected: ${JSON.stringify(result.diff, null, 2)}`
+    );
+
+    assert.ok(result.durationMs < 500, `Execution took ${result.durationMs}ms, exceeded 500ms budget`);
+});
+```
+
+---
+
+## 6. Workflow File Loading Mechanics
+
+When `fluid-func` loads a workflow file specified on the command line (e.g. `fluid-func visualize src/workflow.ts` or `fluid-func export src/workflow.ts`):
+1. The file is dynamically imported using Node.js ES modules.
+2. The loader checks exports in the following order:
+   - `export default flowInstance`
+   - `export const workflow = flowInstance`
+   - `export const pipeline = flowInstance`
+   - Any named export satisfying `isFlow` or containing a `run()` function.
+   - If the candidate is a zero-argument factory function (e.g., `export default () => flow(...)`), it is invoked automatically to construct the graph.

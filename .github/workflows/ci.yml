@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
 
 jobs:
   build-and-test:
@@ -43,3 +43,6 @@ jobs:
 
       - name: Run Production examples test suites
         run: npm run test:examples
+
+      - name: Run Automated Exploratory & Chaos test suite
+        run: npm run test:exploratory

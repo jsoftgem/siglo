@@ -4,17 +4,20 @@
   "private": true,
   "description": "Monorepo for fluid-func workflow runtime and ecosystem integration packages",
   "workspaces": [
+    "packages/core",
     "packages/*",
     "examples"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=fluid-func && npm run build --workspaces --if-present",
     "compile": "npm run build",
-    "lint": "eslint packages/*/src examples/src",
+    "lint": "eslint packages/*/src examples/src test",
     "test": "npm run build --workspace=fluid-func && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
     "test:packages": "mocha 'packages/*/src/**/*.test.ts'",
     "test:examples": "npm run test --workspace=fluid-func-examples",
-    "test:all": "npm test && npm run test:packages && npm run test:examples"
+    "test:all": "npm test && npm run test:packages && npm run test:examples",
+    "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
+    "explore": "tsx test/exploratory/runner.ts"
   },
   "repository": {
     "type": "git",
