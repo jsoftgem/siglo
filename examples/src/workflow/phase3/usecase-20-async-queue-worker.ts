@@ -1,6 +1,6 @@
-import { Step, flow } from 'fluid-func';
-import { createBullMQProcessor } from '@fluid-func/bullmq';
-import { createSqsBatchHandler } from '@fluid-func/sqs';
+import { Step, flow } from 'rivulet';
+import { createBullMQProcessor } from '@rivulet/bullmq';
+import { createSqsBatchHandler } from '@rivulet/sqs';
 
 export interface ImageResizeJobInput {
     jobId: string;
@@ -13,7 +13,7 @@ export interface ImageResizeJobInput {
 
 /**
  * Use Case 20: Resilient Asynchronous Queue Worker & Dead-Letter Handling
- * Adapters demonstrated: @fluid-func/bullmq & @fluid-func/sqs
+ * Adapters demonstrated: @rivulet/bullmq & @rivulet/sqs
  * Features demonstrated:
  * - BullMQ queue processor with automatic progress reporting and job completion
  * - SQS batch consumer with Partial Batch Failure handling (batchItemFailures)

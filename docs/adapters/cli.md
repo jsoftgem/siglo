@@ -1,29 +1,29 @@
-# @fluid-func/cli Developer Tools & CLI Guide
+# @rivulet/cli Developer Tools & CLI Guide
 
-`@fluid-func/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `fluid-func` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
+`@rivulet/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `Rivulet` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
 
 ---
 
 ## 1. Overview
 
-`@fluid-func/cli` operates both as an executable terminal tool (`fluid-func`) and as a programmatic TypeScript library:
+`@rivulet/cli` operates both as an executable terminal tool (`Rivulet`) and as a programmatic TypeScript library:
 
 ```
-                               @fluid-func/cli
+                               @rivulet/cli
                  ┌────────────────────┴────────────────────┐
                  │                                         │
                  ▼                                         ▼
          Terminal Command Line                   Programmatic Node.js API
     ┌─────────────────────────────┐           ┌─────────────────────────────┐
-    │ fluid-func init             │           │ initProject()               │
-    │ fluid-func generate workflow│           │ generateWorkflow()          │
-    │ fluid-func generate step    │           │ generateStep()              │
-    │ fluid-func visualize        │           │ visualizeWorkflow()         │
-    │ fluid-func export           │           │ exportWorkflow()            │
-    │ fluid-func validate         │           │ validateWorkflow()          │
-    │ fluid-func inspect          │           │ inspectWorkflow()           │
-    │ fluid-func checkpoint       │           │ inspectCheckpoint()         │
-    │ fluid-func replay           │           │ replayFixture()             │
+    │ rivulet init             │           │ initProject()               │
+    │ rivulet generate workflow│           │ generateWorkflow()          │
+    │ rivulet generate step    │           │ generateStep()              │
+    │ rivulet visualize        │           │ visualizeWorkflow()         │
+    │ rivulet export           │           │ exportWorkflow()            │
+    │ rivulet validate         │           │ validateWorkflow()          │
+    │ rivulet inspect          │           │ inspectWorkflow()           │
+    │ rivulet checkpoint       │           │ inspectCheckpoint()         │
+    │ rivulet replay           │           │ replayFixture()             │
     └─────────────────────────────┘           └─────────────────────────────┘
 ```
 
@@ -31,26 +31,26 @@
 
 ## 2. Installation
 
-Install `@fluid-func/cli` locally in your project or globally:
+Install `@rivulet/cli` locally in your project or globally:
 
 ```bash
 # Local development dependency (recommended)
-npm install --save-dev @fluid-func/cli @fluid-func/testing fluid-func tsx
+npm install --save-dev @rivulet/cli @rivulet/testing Rivulet tsx
 
 # Or run directly via npx
-npx fluid-func --help
+npx rivulet --help
 ```
 
 ---
 
 ## 3. Command Line Interface (CLI)
 
-The CLI executable is `fluid-func`.
+The CLI executable is `Rivulet`.
 
 ### General Usage
 
 ```bash
-fluid-func <command> [arguments] [options]
+Rivulet <command> [arguments] [options]
 ```
 
 ### Global Options:
@@ -63,12 +63,12 @@ fluid-func <command> [arguments] [options]
 
 ---
 
-### Command 1: `fluid-func init [dir]`
+### Command 1: `rivulet init [dir]`
 
-Scaffolds a clean starter project preconfigured with `fluid-func`, `tsx`, modern TypeScript config, and a runnable workflow test.
+Scaffolds a clean starter project preconfigured with `Rivulet`, `tsx`, modern TypeScript config, and a runnable workflow test.
 
 ```bash
-fluid-func init ./services/order-orchestrator
+rivulet init ./services/order-orchestrator
 ```
 
 #### Generated Files:
@@ -78,12 +78,12 @@ fluid-func init ./services/order-orchestrator
 
 ---
 
-### Command 2: `fluid-func generate workflow <name>`
+### Command 2: `rivulet generate workflow <name>`
 
-Scaffolds a brand new typed workflow file and companion unit test powered by `@fluid-func/testing`.
+Scaffolds a brand new typed workflow file and companion unit test powered by `@rivulet/testing`.
 
 ```bash
-fluid-func generate workflow order-processing
+rivulet generate workflow order-processing
 ```
 
 #### Generated Files:
@@ -92,12 +92,12 @@ fluid-func generate workflow order-processing
 
 ---
 
-### Command 3: `fluid-func generate step <name>`
+### Command 3: `rivulet generate step <name>`
 
 Scaffolds an isolated, strongly-typed `Step` module and companion unit test.
 
 ```bash
-fluid-func generate step send-notification
+rivulet generate step send-notification
 ```
 
 #### Generated Files:
@@ -106,13 +106,13 @@ fluid-func generate step send-notification
 
 ---
 
-### Command 4: `fluid-func visualize <workflow-file> [options]`
+### Command 4: `rivulet visualize <workflow-file> [options]`
 
 Renders the workflow graph AST as either a Mermaid flowchart or an indented ASCII text hierarchy.
 
 #### Mermaid Diagram (Default):
 ```bash
-fluid-func visualize src/workflows/checkout.ts
+rivulet visualize src/workflows/checkout.ts
 ```
 *Output:*
 ```mermaid
@@ -126,7 +126,7 @@ flowchart TD
 
 #### Text Diagram (`--format=text`):
 ```bash
-fluid-func visualize src/workflows/checkout.ts --format=text
+rivulet visualize src/workflows/checkout.ts --format=text
 ```
 *Output:*
 ```text
@@ -138,7 +138,7 @@ Workflow Graph (total nodes: 3, edges: 2):
 
 ---
 
-### Command 5: `fluid-func export <workflow-file> [options]`
+### Command 5: `rivulet export <workflow-file> [options]`
 
 Exports the workflow topology graph directly to standard formats for architectural documentation, diagrams, or web visualization:
 - `--format=mermaid`: Mermaid flowchart with policy badges (retries, timeouts, fallback).
@@ -149,18 +149,18 @@ Exports the workflow topology graph directly to standard formats for architectur
 
 ```bash
 # Export Mermaid diagram to file with Left-to-Right layout
-fluid-func export src/workflows/order.workflow.ts --format=mermaid --direction=LR --out=docs/order-flow.mmd
+rivulet export src/workflows/order.workflow.ts --format=mermaid --direction=LR --out=docs/order-flow.mmd
 
 # Export Graphviz DOT format
-fluid-func export src/workflows/order.workflow.ts --format=dot --out=diagrams/order.dot
+rivulet export src/workflows/order.workflow.ts --format=dot --out=diagrams/order.dot
 
 # Export raw JSON AST
-fluid-func export src/workflows/order.workflow.ts --format=json --out=dist/order-ast.json
+rivulet export src/workflows/order.workflow.ts --format=json --out=dist/order-ast.json
 ```
 
 ---
 
-### Command 6: `fluid-func validate <workflow-file>`
+### Command 6: `rivulet validate <workflow-file>`
 
 Performs static analysis on the workflow graph AST without executing any step business logic:
 - Detects cyclic dependencies.
@@ -168,7 +168,7 @@ Performs static analysis on the workflow graph AST without executing any step bu
 - Verifies combinator structures (`parallel`, `branch`, `map`).
 
 ```bash
-fluid-func validate src/workflows/loan-pipeline.ts
+rivulet validate src/workflows/loan-pipeline.ts
 ```
 
 *Success Output:*
@@ -184,12 +184,12 @@ fluid-func validate src/workflows/loan-pipeline.ts
 
 ---
 
-### Command 7: `fluid-func inspect <workflow-file> [options]`
+### Command 7: `rivulet inspect <workflow-file> [options]`
 
 Returns a detailed JSON telemetry summary of the workflow topology, node classifications, edge connections, and total complexity metrics.
 
 ```bash
-fluid-func inspect src/workflows/settlement.ts --redact=taxId,secretKey
+rivulet inspect src/workflows/settlement.ts --redact=taxId,secretKey
 ```
 
 *Output:*
@@ -211,12 +211,12 @@ fluid-func inspect src/workflows/settlement.ts --redact=taxId,secretKey
 
 ---
 
-### Command 8: `fluid-func checkpoint <file> [options]`
+### Command 8: `rivulet checkpoint <file> [options]`
 
 Parses and validates a serialized checkpoint state JSON file (e.g., dumped from Redis or PostgreSQL during debugging), summarizing step chains and execution context while masking sensitive credentials.
 
 ```bash
-fluid-func checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
+rivulet checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
 ```
 
 *Output:*
@@ -239,16 +239,16 @@ fluid-func checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
 
 ---
 
-### Command 9: `fluid-func replay <fixture> [workflow-file]`
+### Command 9: `rivulet replay <fixture> [workflow-file]`
 
 Replays an end-to-end workflow execution using recorded inputs and validates that output values match golden expectations.
 
 ```bash
 # Replay against default src/workflow.ts
-fluid-func replay fixtures/order-regression.json
+rivulet replay fixtures/order-regression.json
 
 # Replay against explicit workflow module
-fluid-func replay fixtures/order-regression.json src/workflows/order.workflow.ts
+rivulet replay fixtures/order-regression.json src/workflows/order.workflow.ts
 ```
 
 *Success Output:*
@@ -289,7 +289,7 @@ import {
     ReplayResult,
     WorkflowVisualizationResult,
     ExportWorkflowOptions
-} from '@fluid-func/cli';
+} from '@rivulet/cli';
 ```
 
 ---
@@ -450,7 +450,7 @@ Use `replayFixture` in your test suite to ensure that workflow refactoring prese
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as path from 'path';
-import { replayFixture } from '@fluid-func/cli';
+import { replayFixture } from '@rivulet/cli';
 import { pricingFlow } from '../src/workflows/pricingFlow';
 
 test('Pricing Flow matches golden fixture expectations', async () => {
@@ -471,7 +471,7 @@ test('Pricing Flow matches golden fixture expectations', async () => {
 
 ## 6. Workflow File Loading Mechanics
 
-When `fluid-func` loads a workflow file specified on the command line (e.g. `fluid-func visualize src/workflow.ts` or `fluid-func export src/workflow.ts`):
+When `Rivulet` loads a workflow file specified on the command line (e.g. `rivulet visualize src/workflow.ts` or `rivulet export src/workflow.ts`):
 1. The file is dynamically imported using Node.js ES modules.
 2. The loader checks exports in the following order:
    - `export default flowInstance`

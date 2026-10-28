@@ -8,11 +8,11 @@ import {
     Flow,
     Step,
     StorageAdapter
-} from 'fluid-func';
+} from 'rivulet';
 import { SemanticAttributes } from './attributes';
 import { FluidTelemetryOptions } from './types';
 
-const DEFAULT_TRACER_NAME = '@fluid-func/opentelemetry';
+const DEFAULT_TRACER_NAME = '@rivulet/opentelemetry';
 const DEFAULT_TRACER_VERSION = '1.0.0';
 
 /**
@@ -39,7 +39,7 @@ function resolveValue<T>(valOrFn: any): T | undefined {
 export function createTelemetryStorageAdapter(options: FluidTelemetryOptions = {}): StorageAdapter {
     return {
         name: 'opentelemetry',
-        onContextChange(entry) {
+        onContextChange(entry: any) {
             if (!options.allowContextFields || !options.allowContextFields.includes(entry.field)) {
                 return; // Omit by default to protect secrets and full context
             }

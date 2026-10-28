@@ -1,12 +1,12 @@
-# @fluid-func/bullmq Adapter Guide
+# @rivulet/bullmq Adapter Guide
 
-`@fluid-func/bullmq` provides a high-throughput, Redis-backed job queue consumer and worker processor adapter for `fluid-func` workflows. It bridges BullMQ workers with the fluid-func execution engine, offering payload unwrapping, distributed idempotency deduplication, timeout enforcement, tenant namespace partitioning, and graceful failure handling.
+`@rivulet/bullmq` provides a high-throughput, Redis-backed job queue consumer and worker processor adapter for `Rivulet` workflows. It bridges BullMQ workers with the Rivulet execution engine, offering payload unwrapping, distributed idempotency deduplication, timeout enforcement, tenant namespace partitioning, and graceful failure handling.
 
 ---
 
 ## 1. Overview & Architecture
 
-When executing distributed workflows across worker clusters, BullMQ distributes asynchronous jobs backed by Redis. The `@fluid-func/bullmq` adapter wraps workflow execution within a standard BullMQ worker processor function (`(job: Job) => Promise<any>`).
+When executing distributed workflows across worker clusters, BullMQ distributes asynchronous jobs backed by Redis. The `@rivulet/bullmq` adapter wraps workflow execution within a standard BullMQ worker processor function (`(job: Job) => Promise<any>`).
 
 ```
                     ┌────────────────────────────┐
@@ -29,7 +29,7 @@ When executing distributed workflows across worker clusters, BullMQ distributes 
                                   │
                                   ▼
                     ┌────────────────────────────┐
-                    │   fluid-func Workflow      │
+                    │   Rivulet Workflow      │
                     │   (Flow<TInput, TOutput>)  │
                     └─────────────┬──────────────┘
                                   │
@@ -51,14 +51,14 @@ When executing distributed workflows across worker clusters, BullMQ distributes 
 
 ### Package Dependencies
 
-Install `@fluid-func/bullmq` alongside `fluid-func`. BullMQ and ioredis are declared as optional peer dependencies so you control the exact version:
+Install `@rivulet/bullmq` alongside `Rivulet`. BullMQ and ioredis are declared as optional peer dependencies so you control the exact version:
 
 ```bash
-npm install fluid-func @fluid-func/bullmq bullmq ioredis
+npm install Rivulet @rivulet/bullmq bullmq ioredis
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `bullmq`: `^5.0.0`
 - `ioredis`: `^5.0.0 || ^6.0.0`
 
@@ -78,7 +78,7 @@ function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
 ```
 
 #### Parameters:
-- `workflow` (`Flow<TInput, TOutput>`): The compiled `fluid-func` workflow instance to execute.
+- `workflow` (`Flow<TInput, TOutput>`): The compiled `Rivulet` workflow instance to execute.
 - `options` (`FluidBullMQOptions<TJob, TInput, TOutput>`): Optional configuration dictionary.
 
 ---
@@ -130,8 +130,8 @@ function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
 
 ```typescript
 import { Worker, Job } from 'bullmq';
-import { Step, flow } from 'fluid-func';
-import { createBullMQProcessor } from '@fluid-func/bullmq';
+import { Step, flow } from 'rivulet';
+import { createBullMQProcessor } from '@rivulet/bullmq';
 import { Redis } from 'ioredis';
 
 const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -199,15 +199,15 @@ worker.on('failed', (job, err) => {
 
 ---
 
-### Distributed Idempotent Worker with `@fluid-func/redis`
+### Distributed Idempotent Worker with `@rivulet/redis`
 
 In high-concurrency environments with Redis clusters, duplicate job events or worker restarts should never cause duplicate processing:
 
 ```typescript
 import { Worker } from 'bullmq';
-import { Step, flow } from 'fluid-func';
-import { createBullMQProcessor } from '@fluid-func/bullmq';
-import { RedisIdempotencyStore, RedisStorageAdapter } from '@fluid-func/redis';
+import { Step, flow } from 'rivulet';
+import { createBullMQProcessor } from '@rivulet/bullmq';
+import { RedisIdempotencyStore, RedisStorageAdapter } from '@rivulet/redis';
 import { Redis } from 'ioredis';
 
 const redis = new Redis('redis://localhost:6379');

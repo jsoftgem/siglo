@@ -2,7 +2,7 @@
 
 Long-running workflows that pause for days or weeks often outlive the software release that initiated them. If the workflow code changes while executions are suspended, resuming workflows must be done deterministically and safely.
 
-`fluid-func` v1.0.0 provides native workflow version tagging, compatibility enforcement, and state migration functions.
+`Rivulet` v1.0.0 provides native workflow version tagging, compatibility enforcement, and state migration functions.
 
 ---
 
@@ -11,7 +11,7 @@ Long-running workflows that pause for days or weeks often outlive the software r
 Assign semantic version identifiers to flows using `.version()` or execution options:
 
 ```typescript
-import { flow, Step, waitForEvent } from 'fluid-func';
+import { flow, Step, waitForEvent } from 'rivulet';
 
 const invoiceWorkflow = flow(
   generateInvoice,
@@ -32,7 +32,7 @@ When resuming a workflow, `resumeWorkflow` compares the target workflow version 
 - **Mismatched Versions**: If versions differ and no migration is declared, resumption fails safely with `WorkflowVersionMismatchException`.
 
 ```typescript
-import { WorkflowVersionMismatchException } from 'fluid-func';
+import { WorkflowVersionMismatchException } from 'rivulet';
 
 try {
   await v2Workflow.resume('invoice:inv-123', eventData);

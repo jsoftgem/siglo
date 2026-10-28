@@ -1,4 +1,4 @@
-import { Step, flow, parallel, toGraph, validateGraph, inspectGraph, assertValidGraph } from 'fluid-func';
+import { Step, flow, parallel, toGraph, validateGraph, inspectGraph, assertValidGraph } from 'rivulet';
 
 export interface DeploymentInput {
     releaseId: string;

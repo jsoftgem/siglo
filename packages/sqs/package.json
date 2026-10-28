@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/sqs",
+  "name": "@rivulet/sqs",
   "version": "1.0.0",
-  "description": "AWS SQS message batch processor and event consumer adapter for fluid-func workflows",
+  "description": "AWS SQS message batch processor and event consumer adapter for Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "peerDependencies": {
     "@aws-sdk/client-sqs": "^3.0.0"

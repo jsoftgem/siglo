@@ -1,12 +1,12 @@
 # 02. Core Concepts
 
-This chapter outlines the fundamental mental model and architecture of `fluid-func`.
+This chapter outlines the fundamental mental model and architecture of `Rivulet`.
 
 ---
 
 ## 1. Workflows as Directed Acyclic Graphs (AST)
 
-In `fluid-func`, a workflow is not a simple promise chain. It is an **executable Abstract Syntax Tree (AST)** composed of nodes:
+In `Rivulet`, a workflow is not a simple promise chain. It is an **executable Abstract Syntax Tree (AST)** composed of nodes:
 - `StepNode`: An isolated unit of work with schemas, lifecycles, and policies.
 - `SequenceNode`: Sequential execution pipeline.
 - `ParallelNode`: Concurrent fan-out/fan-in with merge strategies.
@@ -17,7 +17,7 @@ In `fluid-func`, a workflow is not a simple promise chain. It is an **executable
 Because workflows are represented as ASTs, they can be statically inspected, validated for cycles, visualised as diagrams, and checked before runtime execution.
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const s1 = Step.create('step1', async () => ({ a: 1 }));
 const s2 = Step.create('step2', async () => ({ b: 2 }));
@@ -83,7 +83,7 @@ Each step goes through a strict 5-phase lifecycle:
 
 ## 4. Reserved Keys and Namespaces
 
-`fluid-func` reserves specific context keys prefixed with `$` to expose execution metadata without polluting business properties:
+`Rivulet` reserves specific context keys prefixed with `$` to expose execution metadata without polluting business properties:
 
 | Reserved Key | Description | Type |
 |---|---|---|
@@ -101,7 +101,7 @@ Each step goes through a strict 5-phase lifecycle:
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const auditStep = Step.create('auditStep', async (param: { transactionId: string }) => {
     return {
@@ -122,7 +122,7 @@ console.log(res.status); // 'RECORDED'
 When an action or lifecycle hook throws, the runtime tags the error with the phase and step name:
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const validateAge = Step.create('validateAge', (p: { age: number }) => {
     if (p.age < 18) {
@@ -147,8 +147,8 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
-import { Step, flow } from 'fluid-func';
+import { createWorkflowHarness } from '@rivulet/testing';
+import { Step, flow } from 'rivulet';
 
 const s1 = Step.create('load', () => ({ val: 10 })).modern();
 const s2 = Step.create('double', (p: { val: number }) => ({ doubled: p.val * 2 })).modern();

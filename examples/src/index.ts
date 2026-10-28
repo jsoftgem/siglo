@@ -304,7 +304,7 @@ async function main() {
     // ========================================================================
 
     // --- 18. HTTP Checkout & Order Processing Microservice ---
-    console.log('\n[Demo] 18. HTTP Checkout & Order Processing Microservice (@fluid-func/fastify)...');
+    console.log('\n[Demo] 18. HTTP Checkout & Order Processing Microservice (@rivulet/fastify)...');
     const fastifyHandler = createFastifyCheckoutHandler(createHttpCheckoutWorkflow());
     const mockReply = {
         statusCode: 200,
@@ -326,7 +326,7 @@ async function main() {
     console.log(`  ✔ HTTP Checkout -> Status: ${checkoutData.status}, Total: $${checkoutData.totalAmount}, Confirmation: ${checkoutData.confirmationCode}`);
 
     // --- 19. High-Volume Event-Driven Kafka Stream Enrichment ---
-    console.log('\n[Demo] 19. High-Volume Event-Driven Kafka Stream Enrichment (@fluid-func/kafka)...');
+    console.log('\n[Demo] 19. High-Volume Event-Driven Kafka Stream Enrichment (@rivulet/kafka)...');
     const kafkaConsumer = createKafkaTransactionConsumer();
     const kafkaRes: any = await kafkaConsumer({
         topic: 'payments.stream',
@@ -346,7 +346,7 @@ async function main() {
     console.log(`  ✔ Kafka Stream -> Status: ${kafkaRes.status}, Tier: ${kafkaRes.enriched.accountTier}, Flagged: ${kafkaRes.enriched.isFlagged}, Risk Score: ${kafkaRes.enriched.riskScore}`);
 
     // --- 20. Resilient Asynchronous Queue Worker & Dead-Letter Handling ---
-    console.log('\n[Demo] 20. Resilient Asynchronous Queue Worker (@fluid-func/bullmq)...');
+    console.log('\n[Demo] 20. Resilient Asynchronous Queue Worker (@rivulet/bullmq)...');
     const bullMqWorker = createBullMqImageProcessor();
     let currentProgress = 0;
     const bullRes: any = await bullMqWorker({
@@ -364,7 +364,7 @@ async function main() {
     console.log(`  ✔ BullMQ Worker -> Job ID: ${bullRes.jobId}, Compression Ratio: ${bullRes.compressionRatio}, Progress: ${currentProgress}%`);
 
     // --- 21. Distributed Tracing & W3C Trace Context Propagation ---
-    console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@fluid-func/opentelemetry)...');
+    console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@rivulet/opentelemetry)...');
     const tracer = new MockTracer();
     const { instrumented } = setupInstrumentedWorkflow(tracer, { allowNamespace: true });
     const otelRes = await instrumented.run({
@@ -377,7 +377,7 @@ async function main() {
     console.log(`  ✔ OpenTelemetry -> Status: ${otelRes.dispatchStatus()}, Spans Recorded: ${tracer.spans.length}, Tracking: ${otelRes.trackingNumber()}`);
 
     // --- 22. Multi-Tenant SaaS Billing & Audit Ledger ---
-    console.log('\n[Demo] 22. Multi-Tenant SaaS Billing & Audit Ledger (@fluid-func/postgres & @fluid-func/redis)...');
+    console.log('\n[Demo] 22. Multi-Tenant SaaS Billing & Audit Ledger (@rivulet/postgres & @rivulet/redis)...');
     const pgClient = new MockPostgresClient();
     const redisClient = new MockRedisClient();
     const { workflow: billingWf } = setupSaaSBillingInfrastructure(pgClient, redisClient);

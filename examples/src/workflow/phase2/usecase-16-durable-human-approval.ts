@@ -1,4 +1,4 @@
-import { Step, flow, waitForEvent } from 'fluid-func';
+import { Step, flow, waitForEvent } from 'rivulet';
 
 export interface ExpenseReportInput {
     reportId: string;

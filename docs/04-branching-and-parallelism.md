@@ -1,6 +1,6 @@
 # 04. Branching and Parallelism
 
-`fluid-func` provides high-performance combinators for concurrent fan-out, competitive racing, conditional routing, and bounded batch processing.
+`Rivulet` provides high-performance combinators for concurrent fan-out, competitive racing, conditional routing, and bounded batch processing.
 
 ---
 
@@ -9,7 +9,7 @@
 Execute multiple branches or steps concurrently:
 
 ```typescript
-import { Step, flow, parallel } from 'fluid-func';
+import { Step, flow, parallel } from 'rivulet';
 
 const fetchCreditScore = Step.create('fetchCredit', async () => ({ creditScore: 750 })).modern();
 const fetchBankHistory = Step.create('fetchHistory', async () => ({ hasDefaults: false })).modern();
@@ -42,7 +42,7 @@ parallel([branchA, branchB], {
 Execute multiple alternatives concurrently and accept the fastest result:
 
 ```typescript
-import { Step, flow, race } from 'fluid-func';
+import { Step, flow, race } from 'rivulet';
 
 const queryFastReplica = Step.create('queryFast', async () => ({ source: 'replica-1', price: 99.5 }));
 const queryPrimaryDb = Step.create('queryPrimary', async () => ({ source: 'primary', price: 99.5 }));
@@ -59,7 +59,7 @@ export const pricingWorkflow = flow(
 Route execution based on runtime conditions:
 
 ```typescript
-import { Step, flow, branch, when } from 'fluid-func';
+import { Step, flow, branch, when } from 'rivulet';
 
 const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 })).modern();
 const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 })).modern();
@@ -93,7 +93,7 @@ const taxFlow = flow(
 Process collections with controlled concurrency without exhausting memory or database connections:
 
 ```typescript
-import { Step, flow, map } from 'fluid-func';
+import { Step, flow, map } from 'rivulet';
 
 const processItem = Step.create('processItem', async (item: { sku: string; qty: number }) => {
     return { sku: item.sku, processed: true };
@@ -112,7 +112,7 @@ export const batchWorkflow = flow(
 ## Minimal Example
 
 ```typescript
-import { Step, flow, parallel } from 'fluid-func';
+import { Step, flow, parallel } from 'rivulet';
 
 const s1 = Step.create('s1', () => ({ a: 10 }));
 const s2 = Step.create('s2', () => ({ b: 20 }));
@@ -129,7 +129,7 @@ console.log(res); // { a: 10, b: 20 }
 Using `allSettled` mode ensures individual step errors do not crash other concurrent operations:
 
 ```typescript
-import { Step, flow, parallel } from 'fluid-func';
+import { Step, flow, parallel } from 'rivulet';
 
 const goodStep = Step.create('good', async () => ({ ok: true }));
 const badStep = Step.create('bad', async () => {
@@ -153,8 +153,8 @@ console.log(result);
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
-import { Step, flow, branch } from 'fluid-func';
+import { createWorkflowHarness } from '@rivulet/testing';
+import { Step, flow, branch } from 'rivulet';
 
 const decisionWf = flow(
     branch(

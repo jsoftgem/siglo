@@ -9,9 +9,9 @@ import {
     defaultStorageManager,
     DuplicateEventException,
     useStorage
-} from 'fluid-func';
+} from 'rivulet';
 import { step } from '../engine/step-helper';
-import { InMemoryStorageFake } from '@fluid-func/testing';
+import { InMemoryStorageFake } from '@rivulet/testing';
 import { CharterResult } from './combinators.explore';
 
 export async function runDurableOccCharter(

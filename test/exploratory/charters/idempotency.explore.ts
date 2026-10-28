@@ -1,5 +1,5 @@
-import { InMemoryIdempotencyStore } from 'fluid-func';
-import { flow } from 'fluid-func';
+import { InMemoryIdempotencyStore } from 'rivulet';
+import { flow } from 'rivulet';
 import { step } from '../engine/step-helper';
 import { RandomSource } from '../engine/property-generators';
 import { CharterResult } from './combinators.explore';

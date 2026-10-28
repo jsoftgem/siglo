@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import { fluidExpressMiddleware, getErrorStatusCode } from './index';
 
-describe('@fluid-func/express Adapter Suite', () => {
+describe('@rivulet/express Adapter Suite', () => {
     it('executes workflow using express request and sends json response', async () => {
         const stepA = Step.create(async ({ a, b }: { a: number; b: number }) => ({
             sum: a + b,

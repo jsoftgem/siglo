@@ -1,4 +1,4 @@
-import { IdempotencyStore } from 'fluid-func';
+import { IdempotencyStore } from 'rivulet';
 import { RedisIdempotencyOptions, RedisClientInterface } from './types';
 
 const COMPLETED_PREFIX = 'COMPLETED:';

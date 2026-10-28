@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions } from 'fluid-func';
+import { Flow, ExecutionOptions } from 'rivulet';
 
 export interface FluidExpressOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;

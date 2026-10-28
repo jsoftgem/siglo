@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/kafka",
+  "name": "@rivulet/kafka",
   "version": "1.0.0",
-  "description": "Kafka consumer message handler and event streaming adapter for fluid-func workflows",
+  "description": "Kafka consumer message handler and event streaming adapter for Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "peerDependencies": {
     "kafkajs": "^2.0.0"

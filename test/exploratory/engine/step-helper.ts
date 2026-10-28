@@ -1,4 +1,4 @@
-import {Step} from 'fluid-func';
+import {Step} from 'rivulet';
 
 /**
  * Convenience helper to create a modern Step instance for exploratory testing.

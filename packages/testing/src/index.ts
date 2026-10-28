@@ -5,7 +5,7 @@ import {
     useStorage,
     toPOJO,
     resumeWorkflow
-} from 'fluid-func';
+} from 'rivulet';
 
 export interface StepTraceRecord {
     stepName: string;

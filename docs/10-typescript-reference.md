@@ -1,6 +1,6 @@
 # 10. TypeScript Reference
 
-`fluid-func` is built from the ground up for modern TypeScript (strict mode, noImplicitAny, exactOptionalPropertyTypes).
+`Rivulet` is built from the ground up for modern TypeScript (strict mode, noImplicitAny, exactOptionalPropertyTypes).
 
 ---
 
@@ -103,11 +103,11 @@ const client = stepWithDeps.requireDependency<HttpClient>('apiClient');
 
 ## 5. Schema Validation Support
 
-`fluid-func` integrates with **Standard Schema** (`~standard`) compatible libraries including **Zod**, **Valibot**, and **ArkType**:
+`Rivulet` integrates with **Standard Schema** (`~standard`) compatible libraries including **Zod**, **Valibot**, and **ArkType**:
 
 ```typescript
 import { z } from 'zod';
-import { Step } from 'fluid-func';
+import { Step } from 'rivulet';
 
 const UserSchema = z.object({
     username: z.string().min(3),
@@ -126,7 +126,7 @@ const validateStep = Step.create('validate', async (param) => {
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 interface Input {
     val: number;
@@ -165,7 +165,7 @@ const stepB = Step.create('stepB', (param: { y: string }) => ({ z: param.y.toUpp
 
 ```typescript
 import { expect } from 'chai';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const s1 = Step.create<'calc', { n: number }, { isEven: boolean }>('calc', (p) => ({
     isEven: p.n % 2 === 0

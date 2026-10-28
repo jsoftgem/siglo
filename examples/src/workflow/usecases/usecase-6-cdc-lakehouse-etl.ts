@@ -1,4 +1,4 @@
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 export interface DebeziumCdcEvent {
     op: 'c' | 'u' | 'd'; // create, update, delete

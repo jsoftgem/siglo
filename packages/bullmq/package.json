@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/bullmq",
+  "name": "@rivulet/bullmq",
   "version": "1.0.0",
-  "description": "BullMQ job queue consumer and worker adapter for fluid-func workflows",
+  "description": "BullMQ job queue consumer and worker adapter for Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "peerDependencies": {
     "bullmq": "^5.0.0"

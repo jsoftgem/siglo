@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions } from 'fluid-func';
+import { Flow, ExecutionOptions } from 'rivulet';
 
 export interface FluidHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (c: TReq) => Promise<TInput> | TInput;

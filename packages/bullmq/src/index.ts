@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'fluid-func';
+import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
 
 export interface FluidBullMQOptions<TJob = any, TInput = any, TOutput = any> {
     input?: (job: TJob) => Promise<TInput> | TInput;

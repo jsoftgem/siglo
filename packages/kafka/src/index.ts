@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'fluid-func';
+import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
 
 export interface FluidKafkaMessage {
     key?: Buffer | string | null;

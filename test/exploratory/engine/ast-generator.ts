@@ -6,7 +6,7 @@ import {
     when,
     branch,
     map
-} from 'fluid-func';
+} from 'rivulet';
 import { step } from './step-helper';
 import { RandomSource } from './property-generators';
 

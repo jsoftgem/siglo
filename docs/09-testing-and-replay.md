@@ -1,6 +1,6 @@
 # 09. Testing and Replay
 
-`@fluid-func/testing` provides a comprehensive, zero-flake test harness for deterministic execution, step mocking, spy inspection, virtual timers, execution trace snapshots, and production failure replay.
+`@rivulet/testing` provides a comprehensive, zero-flake test harness for deterministic execution, step mocking, spy inspection, virtual timers, execution trace snapshots, and production failure replay.
 
 ---
 
@@ -9,7 +9,7 @@
 Create a test harness wrapping any workflow:
 
 ```typescript
-import { createWorkflowHarness } from '@fluid-func/testing';
+import { createWorkflowHarness } from '@rivulet/testing';
 import { orderWorkflow } from './order.workflow';
 
 const harness = createWorkflowHarness(orderWorkflow, {
@@ -61,7 +61,7 @@ harness.mockStep('callStripe', async (param) => {
 Control virtual time for delays, timeouts, and expirations without `setTimeout` delays in tests:
 
 ```typescript
-import { FakeClock, createWorkflowHarness } from '@fluid-func/testing';
+import { FakeClock, createWorkflowHarness } from '@rivulet/testing';
 
 const clock = new FakeClock(1000);
 const harness = createWorkflowHarness(workflow, { clock });
@@ -86,7 +86,7 @@ const record = harness.exportExecutionRecord({
 });
 
 // 2. Replay execution against workflow definition
-import { replayExecution } from '@fluid-func/testing';
+import { replayExecution } from '@rivulet/testing';
 
 const replayResult = await replayExecution(record, orderWorkflow, {
     substituteFixtures: {
@@ -105,8 +105,8 @@ console.log(replayResult.discrepancies); // List of mismatches if any
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
-import { Step, flow } from 'fluid-func';
+import { createWorkflowHarness } from '@rivulet/testing';
+import { Step, flow } from 'rivulet';
 
 const s1 = Step.create('add', (p: { x: number }) => ({ res: p.x + 5 })).modern();
 const wf = flow(s1);
@@ -122,8 +122,8 @@ harness.assertStepExecuted('add', 1);
 ## Failure Example: Catching Regressions with Replay
 
 ```typescript
-import { replayExecution } from '@fluid-func/testing';
-import { Step, flow } from 'fluid-func';
+import { replayExecution } from '@rivulet/testing';
+import { Step, flow } from 'rivulet';
 
 // Modified workflow with a bug: calculates 10% tax instead of 5%
 const buggyWf = flow(
@@ -153,8 +153,8 @@ if (!result.matched) {
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
-import { Step, flow } from 'fluid-func';
+import { createWorkflowHarness } from '@rivulet/testing';
+import { Step, flow } from 'rivulet';
 
 const s1 = Step.create('fetchUser', () => ({ user: 'Alice' })).modern();
 const s2 = Step.create('emailUser', (p: any) => ({ sent: true })).modern();

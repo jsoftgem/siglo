@@ -1,6 +1,6 @@
-# @fluid-func/sqs Adapter Guide
+# @rivulet/sqs Adapter Guide
 
-`@fluid-func/sqs` provides an AWS SQS batch consumer adapter for executing `fluid-func` workflows. It is optimized for AWS Lambda event source mappings and standalone long-polling worker processes, implementing AWS partial batch failure protocols (`ReportBatchItemFailures`), message deduplication, and tenant namespace extraction.
+`@rivulet/sqs` provides an AWS SQS batch consumer adapter for executing `Rivulet` workflows. It is optimized for AWS Lambda event source mappings and standalone long-polling worker processes, implementing AWS partial batch failure protocols (`ReportBatchItemFailures`), message deduplication, and tenant namespace extraction.
 
 ---
 
@@ -8,7 +8,7 @@
 
 When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQSEvent`). If one message in the batch fails, returning an uncaught exception causes the entire batch to be retried by AWS, resulting in duplicate processing of previously successful messages.
 
-`@fluid-func/sqs` solves this using AWS SQS Partial Batch Responses:
+`@rivulet/sqs` solves this using AWS SQS Partial Batch Responses:
 
 ```
                   ┌───────────────────────────────┐
@@ -26,7 +26,7 @@ When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQS
                   │  • Iterates event.Records     │
                   │  • Checks IdempotencyStore    │
                   │  • Parses JSON Record Body    │
-                  │  • Executes fluid-func        │
+                  │  • Executes Rivulet        │
                   └───────────────┬───────────────┘
                                   │
                     ┌─────────────┴─────────────┐
@@ -57,15 +57,15 @@ When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQS
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/sqs`:
+Install `@rivulet/sqs`:
 
 ```bash
-npm install fluid-func @fluid-func/sqs
+npm install Rivulet @rivulet/sqs
 npm install --save-dev @types/aws-lambda
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `@aws-sdk/client-sqs`: `^3.0.0` (optional if running in AWS Lambda runtime)
 
 ---
@@ -142,9 +142,9 @@ When this is enabled, returning `{ batchItemFailures: [{ itemIdentifier: 'msg-01
 
 ```typescript
 import { SQSEvent, SQSBatchResponse, Context } from 'aws-lambda';
-import { Step, flow } from 'fluid-func';
-import { createSqsBatchHandler } from '@fluid-func/sqs';
-import { PostgresIdempotencyStore } from '@fluid-func/postgres';
+import { Step, flow } from 'rivulet';
+import { createSqsBatchHandler } from '@rivulet/sqs';
+import { PostgresIdempotencyStore } from '@rivulet/postgres';
 import { Pool } from 'pg';
 
 // 1. Initialize PostgreSQL Connection Pool outside handler

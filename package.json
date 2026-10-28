@@ -1,30 +1,32 @@
 {
-  "name": "fluid-func-monorepo",
+  "name": "rivulet-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Monorepo for fluid-func workflow runtime and ecosystem integration packages",
+  "description": "Monorepo for Rivulet workflow runtime and ecosystem integration packages",
   "workspaces": [
     "packages/core",
     "packages/*",
-    "examples"
+    "examples",
+    "monitoring"
   ],
   "scripts": {
-    "build": "npm run build --workspace=fluid-func && npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=rivulet && npm run build --workspaces --if-present",
     "compile": "npm run build",
     "lint": "eslint packages/*/src examples/src test",
-    "test": "npm run build --workspace=fluid-func && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
+    "test": "npm run build --workspace=rivulet && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
     "test:packages": "mocha 'packages/*/src/**/*.test.ts'",
-    "test:examples": "npm run test --workspace=fluid-func-examples",
+    "test:examples": "npm run test --workspace=rivulet-examples",
     "test:all": "npm test && npm run test:packages && npm run test:examples",
     "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
     "explore": "tsx test/exploratory/runner.ts",
-    "publish:core": "npm publish --workspace=fluid-func --registry https://registry.npmjs.org/"
+    "publish:core": "npm publish --workspace=rivulet --registry https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rickzx98/fluid-func.git"
   },
   "keywords": [
+    "rivulet",
     "fluid-func",
     "chain",
     "workflow",

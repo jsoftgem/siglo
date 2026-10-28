@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/testing",
+  "name": "@rivulet/testing",
   "version": "1.0.0",
-  "description": "Deterministic test utilities, workflow harness, mocks, fake clock, and replay tooling for fluid-func",
+  "description": "Deterministic test utilities, workflow harness, mocks, fake clock, and replay tooling for Rivulet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

@@ -109,7 +109,7 @@ async function main(): Promise<void> {
                 const subType = target;
                 const name = args[2];
                 if (!subType || !name) {
-                    console.error('Error: specify generator type and name (e.g. fluid-func generate workflow order)');
+                    console.error('Error: specify generator type and name (e.g. rivulet generate workflow order)');
                     process.exit(1);
                 }
                 if (subType === 'workflow') {
@@ -129,7 +129,7 @@ async function main(): Promise<void> {
 
             case 'visualize': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. fluid-func visualize src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. rivulet visualize src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
 
             case 'export': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. fluid-func export src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. rivulet export src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -156,7 +156,7 @@ async function main(): Promise<void> {
 
             case 'validate': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. fluid-func validate src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. rivulet validate src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
 
             case 'inspect': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. fluid-func inspect src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. rivulet inspect src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -188,7 +188,7 @@ async function main(): Promise<void> {
 
             case 'checkpoint': {
                 if (!target) {
-                    console.error('Error: specify checkpoint JSON file (e.g. fluid-func checkpoint stack-state.json)');
+                    console.error('Error: specify checkpoint JSON file (e.g. rivulet checkpoint stack-state.json)');
                     process.exit(1);
                 }
                 const cpPath = path.resolve(process.cwd(), target);
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
 
             case 'replay': {
                 if (!target) {
-                    console.error('Error: specify fixture file (e.g. fluid-func replay fixture.json [workflow.ts])');
+                    console.error('Error: specify fixture file (e.g. rivulet replay fixture.json [workflow.ts])');
                     process.exit(1);
                 }
                 const wfPath = args[2] || 'src/workflow.ts';

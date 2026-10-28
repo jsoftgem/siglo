@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import Step, { flow, waitForEvent } from 'fluid-func';
+import Step, { flow, waitForEvent } from 'rivulet';
 import {
     createWorkflowHarness,
     FakeClock,
@@ -9,7 +9,7 @@ import {
     ExecutionRecord
 } from './index';
 
-describe('@fluid-func/testing: Deterministic Test Utilities', () => {
+describe('@rivulet/testing: Deterministic Test Utilities', () => {
     describe('FakeClock', () => {
         it('should advance time and tick deterministically', async () => {
             const clock = new FakeClock(1000);

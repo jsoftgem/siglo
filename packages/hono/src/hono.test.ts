@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import { fluidMiddleware, getErrorStatusCode } from './index';
 
-describe('@fluid-func/hono Adapter Suite', () => {
+describe('@rivulet/hono Adapter Suite', () => {
     it('executes workflow using request input and sends response', async () => {
         const calculateTax = Step.create(async ({ subtotal }: { subtotal: number }) => ({
             total: Math.round(subtotal * 1.15),

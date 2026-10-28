@@ -1,18 +1,18 @@
 # 01. Getting Started
 
-Welcome to **fluid-func**, an enterprise-grade, asynchronous workflow engine and distributed execution runtime for TypeScript and Node.js.
+Welcome to **Rivulet** (formerly `Rivulet`), an enterprise-grade, asynchronous workflow engine and distributed execution runtime for TypeScript and Node.js.
 
-fluid-func makes it easy to compose complex business pipelines, sagas, parallel fan-outs, and durable human-in-the-loop orchestrations with complete type safety, deterministic testing, and zero mandatory infrastructure daemons.
+Rivulet makes it easy to compose complex business pipelines, sagas, parallel fan-outs, and durable human-in-the-loop orchestrations with complete type safety, deterministic testing, and zero mandatory infrastructure daemons.
 
 ---
 
 ## Installation
 
-Install `fluid-func` along with its test harness and CLI:
+Install `Rivulet` (or `@rivulet/core`) along with its test harness and CLI:
 
 ```bash
-npm install fluid-func
-npm install --save-dev @fluid-func/testing @fluid-func/cli
+npm install Rivulet
+npm install --save-dev @rivulet/testing @rivulet/cli
 ```
 
 ---
@@ -22,7 +22,7 @@ npm install --save-dev @fluid-func/testing @fluid-func/cli
 Create a new file `src/quickstart.ts`:
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 // 1. Define Step 1: Input validation and enrichment
 export const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
@@ -58,7 +58,7 @@ run();
 Here is a minimal step and flow demonstrating accumulated typed context:
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const greet = Step.create('greet', (p: { name: string }) => ({
     message: `Hello, ${p.name}!`
@@ -73,10 +73,10 @@ console.log(res.message); // 'Hello, World!'
 
 ## Failure Example
 
-When a step fails, `fluid-func` captures phase diagnostics, attaches error metadata, and cancels or recovers according to policy:
+When a step fails, `Rivulet` captures phase diagnostics, attaches error metadata, and cancels or recovers according to policy:
 
 ```typescript
-import { Step, flow, FluidFuncError } from 'fluid-func';
+import { Step, flow, FluidFuncError } from 'rivulet';
 
 const riskyStep = Step.create('riskyStep', async (param: { balance: number }) => {
     if (param.balance < 0) {
@@ -100,11 +100,11 @@ try {
 
 ## Testing Example
 
-Using `@fluid-func/testing`, you can deterministically test workflows without mock servers:
+Using `@rivulet/testing`, you can deterministically test workflows without mock servers:
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
+import { createWorkflowHarness } from '@rivulet/testing';
 import { userWorkflow } from './quickstart';
 
 describe('User Workflow Test Suite', () => {
@@ -139,13 +139,13 @@ Generate production-ready workflow templates using the CLI:
 
 ```bash
 # Scaffold a new project structure
-npx fluid-func init
+npx rivulet init
 
 # Generate a typed workflow and mocha/chai test
-npx fluid-func generate workflow checkout
+npx rivulet generate workflow checkout
 
 # Generate an isolated step and unit test
-npx fluid-func generate step charge-customer
+npx rivulet generate step charge-customer
 ```
 
 ---

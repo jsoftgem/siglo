@@ -8,7 +8,7 @@ import {
     SpanContext,
     TraceFlags
 } from '@opentelemetry/api';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import {
     SemanticAttributes,
     instrumentWorkflow,
@@ -109,7 +109,7 @@ class MockTracer implements Partial<Tracer> {
     }
 }
 
-describe('@fluid-func/opentelemetry Integration Suite', () => {
+describe('@rivulet/opentelemetry Integration Suite', () => {
     let mockTracer: MockTracer;
 
     beforeEach(() => {

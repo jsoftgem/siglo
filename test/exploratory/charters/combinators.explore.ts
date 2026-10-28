@@ -1,7 +1,7 @@
 import { FlowAstGenerator } from '../engine/ast-generator';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
-import { flow, map, race, parallel, allSettled } from 'fluid-func';
+import { flow, map, race, parallel, allSettled } from 'rivulet';
 import { step } from '../engine/step-helper';
 
 export interface CharterResult {

@@ -1,4 +1,4 @@
-import { Step, flow, map } from 'fluid-func';
+import { Step, flow, map } from 'rivulet';
 
 export interface DocumentItem {
     docId: string;

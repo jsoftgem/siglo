@@ -13,6 +13,7 @@ import { generateUUID } from '../../shared';
 
 export {
     FluidFuncError,
+    RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
     FlowTimeoutException,

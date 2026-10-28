@@ -9,7 +9,7 @@ Durable workflows allow executions to sleep, suspend, wait for external human ap
 Use `waitForEvent()` to halt workflow execution until an external signal or webhook is received:
 
 ```typescript
-import { Step, flow, waitForEvent } from 'fluid-func';
+import { Step, flow, waitForEvent } from 'rivulet';
 
 export const expenseApprovalWorkflow = flow(
     Step.create('submitExpense', async (param: { amount: number }) => ({
@@ -39,7 +39,7 @@ export const expenseApprovalWorkflow = flow(
 Pause workflow execution for a deterministic duration without blocking CPU threads:
 
 ```typescript
-import { Step, flow, wait } from 'fluid-func';
+import { Step, flow, wait } from 'rivulet';
 
 export const delayedNotificationWorkflow = flow(
     Step.create('sendWelcome', () => ({ sent: true })),
@@ -55,7 +55,7 @@ export const delayedNotificationWorkflow = flow(
 When an external event occurs (e.g., an incoming webhook), resume the workflow using `resumeWorkflow()` or `flow.resume()`:
 
 ```typescript
-import { resumeWorkflow } from 'fluid-func';
+import { resumeWorkflow } from 'rivulet';
 import { expenseApprovalWorkflow } from './workflows';
 
 // Webhook endpoint handler:
@@ -76,10 +76,10 @@ app.post('/api/webhooks/approval', async (req, res) => {
 
 ## 4. Workflow Versioning and State Migrations
 
-Long-running workflows that span days or weeks may have their code updated while executions are sleeping. `fluid-func` allows declarative state migrations:
+Long-running workflows that span days or weeks may have their code updated while executions are sleeping. `Rivulet` allows declarative state migrations:
 
 ```typescript
-import { resumeWorkflow } from 'fluid-func';
+import { resumeWorkflow } from 'rivulet';
 
 const updatedWorkflow = flow(...newSteps).version('2.0.0');
 
@@ -100,7 +100,7 @@ await resumeWorkflow(updatedWorkflow, correlationKey, eventPayload, {
 ## Minimal Example
 
 ```typescript
-import { Step, flow, waitForEvent, resumeWorkflow } from 'fluid-func';
+import { Step, flow, waitForEvent, resumeWorkflow } from 'rivulet';
 
 const wf = flow(
     Step.create('step1', () => ({ orderId: 'ord_123' })).modern(),
@@ -123,7 +123,7 @@ console.log(finalResult.amount);    // 150
 ## Failure Example: Expired Waits and Duplicate Resumptions
 
 ```typescript
-import { Step, flow, waitForEvent, resumeWorkflow, DuplicateEventException } from 'fluid-func';
+import { Step, flow, waitForEvent, resumeWorkflow, DuplicateEventException } from 'rivulet';
 
 const wf = flow(
     waitForEvent('approval', { correlationKey: 'app-99', timeout: '1h' })
@@ -150,8 +150,8 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
-import { Step, flow, waitForEvent } from 'fluid-func';
+import { createWorkflowHarness } from '@rivulet/testing';
+import { Step, flow, waitForEvent } from 'rivulet';
 
 const durableWf = flow(
     Step.create('start', () => ({ ticketId: 't-1' })).modern(),
@@ -179,7 +179,7 @@ describe('Durable Workflows Suite', () => {
 
 ## Operational Caveats
 
-1. **Use Persistent Storage in Production**: In production, register `@fluid-func/postgres` or `@fluid-func/redis` via `useStorage()`. The in-memory default storage is strictly for testing.
+1. **Use Persistent Storage in Production**: In production, register `@rivulet/postgres` or `@rivulet/redis` via `useStorage()`. The in-memory default storage is strictly for testing.
 2. **Correlation Key Uniqueness**: Correlation keys must be unique per waiting workflow instance. Using natural business identifiers (e.g. `orderId`, `ticketId`) avoids collision bugs.
 
 ---

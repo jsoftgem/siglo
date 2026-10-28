@@ -1,6 +1,6 @@
 # Concurrency and Parallelism
 
-`fluid-func` v1.0.0 introduces built-in combinators for concurrent execution, conditional branching, and collection mapping with bounded concurrency.
+`Rivulet` v1.0.0 introduces built-in combinators for concurrent execution, conditional branching, and collection mapping with bounded concurrency.
 
 ---
 
@@ -11,7 +11,7 @@
 Executes branches concurrently. Defaults to fail-fast mode with abort signal propagation:
 
 ```typescript
-import { Step, flow, parallel } from 'fluid-func';
+import { Step, flow, parallel } from 'rivulet';
 
 const orderWorkflow = flow(
   validateOrder,
@@ -49,7 +49,7 @@ When branches complete, their outputs are merged into the workflow context accor
 - **Custom Function**: `(target, source, branchKey) => mergedTarget`.
 
 ```typescript
-import { parallel, FieldCollisionException } from 'fluid-func';
+import { parallel, FieldCollisionException } from 'rivulet';
 
 const safeParallel = parallel([branchA, branchB], {
   mergeStrategy: 'error'
@@ -65,7 +65,7 @@ const safeParallel = parallel([branchA, branchB], {
 Executes conditional logic based on a predicate function:
 
 ```typescript
-import { Step, flow, when } from 'fluid-func';
+import { Step, flow, when } from 'rivulet';
 
 const approvalWorkflow = flow(
   calculateRisk,
@@ -87,7 +87,7 @@ const approvalWorkflow = flow(
 Multi-way branching based on a selector function or context key:
 
 ```typescript
-import { branch, Step } from 'fluid-func';
+import { branch, Step } from 'rivulet';
 
 const paymentBranch = branch(
   (ctx) => ctx.paymentMethod,
@@ -107,7 +107,7 @@ const paymentBranch = branch(
 The `map` combinator processes collections or streams with strict concurrency bounds:
 
 ```typescript
-import { map, flow } from 'fluid-func';
+import { map, flow } from 'rivulet';
 
 const batchProcess = flow(
   map(

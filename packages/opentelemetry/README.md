@@ -1,6 +1,6 @@
-# @fluid-func/opentelemetry Adapter Guide
+# @rivulet/opentelemetry Adapter Guide
 
-`@fluid-func/opentelemetry` provides vendor-neutral distributed tracing, semantic spans, context event streaming, and W3C Trace Context propagation for `fluid-func` workflows. It is fully compliant with the OpenTelemetry API (`@opentelemetry/api` v1.9.0+) and integrates seamlessly with collectors like Jaeger, Zipkin, Datadog, Prometheus, New Relic, and AWS X-Ray.
+`@rivulet/opentelemetry` provides vendor-neutral distributed tracing, semantic spans, context event streaming, and W3C Trace Context propagation for `Rivulet` workflows. It is fully compliant with the OpenTelemetry API (`@opentelemetry/api` v1.9.0+) and integrates seamlessly with collectors like Jaeger, Zipkin, Datadog, Prometheus, New Relic, and AWS X-Ray.
 
 ---
 
@@ -42,10 +42,10 @@ The OpenTelemetry integration creates an end-to-end distributed span hierarchy c
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/opentelemetry` and the OpenTelemetry API:
+Install `@rivulet/opentelemetry` and the OpenTelemetry API:
 
 ```bash
-npm install fluid-func @fluid-func/opentelemetry @opentelemetry/api
+npm install Rivulet @rivulet/opentelemetry @opentelemetry/api
 ```
 
 Recommended OpenTelemetry SDK packages for Node.js:
@@ -88,7 +88,7 @@ function instrumentWorkflow<TInput = any, TOutput = any>(
 ```
 
 #### Options (`FluidTelemetryOptions`):
-- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@fluid-func/opentelemetry', '1.0.0')`.
+- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@rivulet/opentelemetry', '1.0.0')`.
 - `serviceName` (`string`): Tracer service name identifier.
 - `workflowName` (`string`): Override workflow span label.
 - `workflowVersion` (`string`): Workflow version (default: `'1.0.0'`).
@@ -138,12 +138,12 @@ By default, **no context fields are streamed to OpenTelemetry spans**. Only fiel
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { trace } from '@opentelemetry/api';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import {
     instrumentWorkflow,
     createTelemetryStorageAdapter,
     getTraceHeaders
-} from '@fluid-func/opentelemetry';
+} from '@rivulet/opentelemetry';
 
 // 1. Initialize OpenTelemetry SDK
 const sdk = new NodeSDK({

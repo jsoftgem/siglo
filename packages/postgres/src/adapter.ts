@@ -1,4 +1,4 @@
-import { StorageAdapter, SerializedExecutionStack } from 'fluid-func';
+import { StorageAdapter, SerializedExecutionStack } from 'rivulet';
 import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
 
 export class PostgresStorageAdapter implements StorageAdapter {

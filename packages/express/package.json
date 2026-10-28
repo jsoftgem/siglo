@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/express",
+  "name": "@rivulet/express",
   "version": "1.0.0",
-  "description": "Express middleware and route handler adapter for executing fluid-func workflows",
+  "description": "Express middleware and route handler adapter for executing Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "peerDependencies": {
     "express": "^4.18.0 || ^5.0.0"

@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/fastify",
+  "name": "@rivulet/fastify",
   "version": "1.0.0",
-  "description": "Fastify route handler adapter for executing fluid-func workflows",
+  "description": "Fastify route handler adapter for executing Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "peerDependencies": {
     "fastify": "^4.0.0 || ^5.0.0"

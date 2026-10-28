@@ -1,12 +1,12 @@
-# @fluid-func/hono Adapter Guide
+# @rivulet/hono Adapter Guide
 
-`@fluid-func/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `fluid-func` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
+`@rivulet/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `Rivulet` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
 
 ---
 
 ## 1. Overview & Architecture
 
-Because Hono is built on standard `Request` and `Response` Web APIs, `@fluid-func/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
+Because Hono is built on standard `Request` and `Response` Web APIs, `@rivulet/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
 
 ```
     Web Standards HTTP Request (Fetch Event / Edge Worker)
@@ -22,7 +22,7 @@ Because Hono is built on standard `Request` and `Response` Web APIs, `@fluid-fun
                           │
                           ▼
              ┌─────────────────────────┐
-             │   fluid-func Workflow   │
+             │   Rivulet Workflow   │
              │  • In-Memory Sagas      │
              │  • Parallel Combinators │
              │  • Two-Tier Timeouts    │
@@ -46,14 +46,14 @@ Because Hono is built on standard `Request` and `Response` Web APIs, `@fluid-fun
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/hono` and Hono:
+Install `@rivulet/hono` and Hono:
 
 ```bash
-npm install fluid-func @fluid-func/hono hono
+npm install Rivulet @rivulet/hono hono
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `hono`: `^3.0.0 || ^4.0.0`
 
 ---
@@ -90,7 +90,7 @@ function fluidMiddleware<TInput = any, TOutput = any, TReq = any>(
 
 In modern edge runtimes (Cloudflare Workers, Bun, Deno), clients closing the connection abort the native Web Standard `c.req.raw.signal`.
 
-`@fluid-func/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
+`@rivulet/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
 
 ```typescript
 const fetchExchangeRates = Step.create(async (param) => {
@@ -108,8 +108,8 @@ const fetchExchangeRates = Step.create(async (param) => {
 
 ```typescript
 import { Hono } from 'hono';
-import { Step, flow } from 'fluid-func';
-import { fluidMiddleware } from '@fluid-func/hono';
+import { Step, flow } from 'rivulet';
+import { fluidMiddleware } from '@rivulet/hono';
 
 const app = new Hono();
 
@@ -147,8 +147,8 @@ export default app;
 ```typescript
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server'; // Or run directly with `bun run server.ts`
-import { Step, flow } from 'fluid-func';
-import { fluidMiddleware } from '@fluid-func/hono';
+import { Step, flow } from 'rivulet';
+import { fluidMiddleware } from '@rivulet/hono';
 
 const app = new Hono();
 
@@ -171,7 +171,7 @@ serve(app, (info) => {
 
 ## 7. Error Handling & Status Code Mapping
 
-When a step fails, `@fluid-func/hono` checks the error type using `getErrorStatusCode(err)`:
+When a step fails, `@rivulet/hono` checks the error type using `getErrorStatusCode(err)`:
 
 ```typescript
 app.post(

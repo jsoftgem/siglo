@@ -1,7 +1,7 @@
 services:
   # ---------------------------------------------------------------------------
   # 1. Redis 7: Distributed Caching, Checkpoints, Idempotency & Distributed Locks
-  #    Used by @fluid-func/redis (RedisStorageAdapter, RedisIdempotencyStore, RedisLock)
+  #    Used by @rivulet/redis (RedisStorageAdapter, RedisIdempotencyStore, RedisLock)
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -18,7 +18,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # 2. PostgreSQL 16: Durable Checkpointing, Audit Events & Scoped Idempotency
-  #    Used by @fluid-func/postgres (PostgresStorageAdapter, PostgresIdempotencyStore)
+  #    Used by @rivulet/postgres (PostgresStorageAdapter, PostgresIdempotencyStore)
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
@@ -58,7 +58,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # 4. Redpanda (Kafka-Compatible Streaming): Real-Time Event Enrichment
-  #    Used by @fluid-func/kafka (createKafkaHandler)
+  #    Used by @rivulet/kafka (createKafkaHandler)
   #    Single-node dev mode, zero-Zookeeper dependency, native Kafka wire protocol on 9092
   # ---------------------------------------------------------------------------
   redpanda:
@@ -88,7 +88,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # 5. Jaeger All-in-One: Distributed Tracing & W3C Trace Visualization
-  #    Used by @fluid-func/opentelemetry (instrumentWorkflow, trace context)
+  #    Used by @rivulet/opentelemetry (instrumentWorkflow, trace context)
   #    Web UI: http://localhost:16686
   #    OTLP gRPC: localhost:4317, OTLP HTTP: localhost:4318
   # ---------------------------------------------------------------------------

@@ -1,28 +1,28 @@
 # 12. Production Operations
 
-This runbook covers operational best practices, capacity planning, distributed coordination, and disaster recovery when running `fluid-func` workflows in mission-critical production environments.
+This runbook covers operational best practices, capacity planning, distributed coordination, and disaster recovery when running `Rivulet` workflows in mission-critical production environments.
 
 ---
 
 ## 1. Zero-Daemon Architecture vs Worker Clusters
 
-`fluid-func` does not mandate external central orchestration servers or daemons (like Temporal or Camunda). It operates as an embedded in-process execution engine that runs within your existing:
+`Rivulet` does not mandate external central orchestration servers or daemons (like Temporal or Camunda). It operates as an embedded in-process execution engine that runs within your existing:
 - Node.js API servers (Express, Fastify, Hono, NestJS)
 - Background queue workers (BullMQ, AWS SQS)
 - Stream consumers (Apache Kafka, RabbitMQ)
 - Serverless / Edge functions (AWS Lambda, Google Cloud Run, Cloudflare Workers)
 
 ### When to Run In-Process vs Dedicated Workers
-- **Synchronous Low-Latency APIs (< 5s)**: Execute workflows directly inside your HTTP route handlers using `@fluid-func/fastify` or `@fluid-func/express`.
+- **Synchronous Low-Latency APIs (< 5s)**: Execute workflows directly inside your HTTP route handlers using `@rivulet/fastify` or `@rivulet/express`.
 - **Long-Running & Background Workflows (> 5s)**: Ingest requests into a queue (BullMQ or SQS) and execute workflows within dedicated worker container pools.
 
 ---
 
 ## 2. Production Checklist
 
-1. [ ] **Storage Adapter Configured**: Production `StorageAdapter` (`@fluid-func/postgres` or `@fluid-func/redis`) registered via `useStorage()`.
+1. [ ] **Storage Adapter Configured**: Production `StorageAdapter` (`@rivulet/postgres` or `@rivulet/redis`) registered via `useStorage()`.
 2. [ ] **Idempotency Stores Enabled**: Critical payment, billing, or notification steps configured with `.idempotent()`.
-3. [ ] **Telemetry & Tracing**: Distributed tracing activated via `@fluid-func/opentelemetry`.
+3. [ ] **Telemetry & Tracing**: Distributed tracing activated via `@rivulet/opentelemetry`.
 4. [ ] **Deadlines Set**: Step and workflow level `.timeout(ms)` configured to prevent hung worker threads.
 5. [ ] **Compensations Tested**: Sagas and compensating rollbacks tested with fault injection in staging.
 6. [ ] **Retention Cleanup Cron**: Periodic maintenance job calling `cleanExpiredCheckpoints()` scheduled.
@@ -34,8 +34,8 @@ This runbook covers operational best practices, capacity planning, distributed c
 To prevent duplicate processing when workers run concurrently across multiple Kubernetes pods:
 
 ```typescript
-import { Step, flow } from 'fluid-func';
-import { PostgresIdempotencyStore } from '@fluid-func/postgres';
+import { Step, flow } from 'rivulet';
+import { PostgresIdempotencyStore } from '@rivulet/postgres';
 
 const pgStore = new PostgresIdempotencyStore(pgPool);
 
@@ -65,7 +65,7 @@ When running workflows with parallel fan-out (`parallel([...])`) or batch mappin
 Checkpoints and audit event tables should be cleaned according to compliance retention policies:
 
 ```typescript
-import { defaultStorageManager } from 'fluid-func';
+import { defaultStorageManager } from 'rivulet';
 
 // Daily maintenance job:
 async function runDailyCleanup() {
@@ -81,9 +81,9 @@ async function runDailyCleanup() {
 ```typescript
 import fastify from 'fastify';
 import { Pool } from 'pg';
-import { Step, flow, useStorage } from 'fluid-func';
-import { PostgresStorageAdapter } from '@fluid-func/postgres';
-import { createFastifyWorkflowHandler } from '@fluid-func/fastify';
+import { Step, flow, useStorage } from 'rivulet';
+import { PostgresStorageAdapter } from '@rivulet/postgres';
+import { createFastifyWorkflowHandler } from '@rivulet/fastify';
 
 const app = fastify();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -103,7 +103,7 @@ app.listen({ port: 3000 });
 ## Failure Example: Handling Distributed Lock Timeouts
 
 ```typescript
-import { RedisLock } from '@fluid-func/redis';
+import { RedisLock } from '@rivulet/redis';
 
 const lock = new RedisLock(redisClient);
 
@@ -123,8 +123,8 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness, InMemoryStorageFake } from '@fluid-func/testing';
-import { Step, flow } from 'fluid-func';
+import { createWorkflowHarness, InMemoryStorageFake } from '@rivulet/testing';
+import { Step, flow } from 'rivulet';
 
 const auditWorkflow = flow(
     Step.create('audit', () => ({ ok: true })).modern()
@@ -145,7 +145,7 @@ describe('Production Readiness Smoke Test', () => {
 
 ## Operational Caveats
 
-1. **Avoid Unbounded In-Memory Checkpoints**: In-memory checkpoints default to storing state in RAM. In production, always use `@fluid-func/postgres` or `@fluid-func/redis` to persist checkpoints across container restarts.
+1. **Avoid Unbounded In-Memory Checkpoints**: In-memory checkpoints default to storing state in RAM. In production, always use `@rivulet/postgres` or `@rivulet/redis` to persist checkpoints across container restarts.
 2. **Graceful Worker Shutdown**: Listen for `SIGTERM` and `SIGINT` in container workloads, aborting active `AbortController` signals to allow active steps to clean up cleanly.
 
 ---

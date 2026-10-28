@@ -1,4 +1,4 @@
-import { Step, flow, parallel, race, allSettled } from 'fluid-func';
+import { Step, flow, parallel, race, allSettled } from 'rivulet';
 
 export interface CloudAssetInput {
     assetId: string;

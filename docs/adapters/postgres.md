@@ -1,6 +1,6 @@
-# @fluid-func/postgres Adapter Guide
+# @rivulet/postgres Adapter Guide
 
-`@fluid-func/postgres` provides an enterprise ACID-compliant persistence adapter for `fluid-func` workflows using PostgreSQL. It offers durable execution checkpointing, immutable context mutation audit event logging, automated table initialization, schema indexing, retention policy cleanup, and distributed atomic idempotency claim locking.
+`@rivulet/postgres` provides an enterprise ACID-compliant persistence adapter for `Rivulet` workflows using PostgreSQL. It offers durable execution checkpointing, immutable context mutation audit event logging, automated table initialization, schema indexing, retention policy cleanup, and distributed atomic idempotency claim locking.
 
 ---
 
@@ -10,7 +10,7 @@ When workflows coordinate mission-critical financial, compliance, or enterprise 
 
 ```
                           ┌───────────────────────────┐
-                          │    fluid-func Engine      │
+                          │    Rivulet Engine      │
                           └─────────────┬─────────────┘
                                         │
              ┌──────────────────────────┴──────────────────────────┐
@@ -42,15 +42,15 @@ When workflows coordinate mission-critical financial, compliance, or enterprise 
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/postgres` and `pg`:
+Install `@rivulet/postgres` and `pg`:
 
 ```bash
-npm install fluid-func @fluid-func/postgres pg
+npm install Rivulet @rivulet/postgres pg
 npm install --save-dev @types/pg
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `pg`: `^8.0.0`
 
 ---
@@ -102,7 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_fluid_idempotency_expires ON fluid_idempotency(ex
 Implements the standard `StorageAdapter` interface.
 
 ```typescript
-import { PostgresStorageAdapter } from '@fluid-func/postgres';
+import { PostgresStorageAdapter } from '@rivulet/postgres';
 ```
 
 ### Constructor Options (`PostgresStorageAdapterOptions`)
@@ -141,7 +141,7 @@ Deletes audit records older than `retentionDays` (default `30` days). Returns th
 Implements the standard `IdempotencyStore` interface.
 
 ```typescript
-import { PostgresIdempotencyStore } from '@fluid-func/postgres';
+import { PostgresIdempotencyStore } from '@rivulet/postgres';
 ```
 
 ### Constructor Options (`PostgresIdempotencyOptions`)
@@ -181,8 +181,8 @@ Prunes expired idempotency records (`WHERE expires_at < NOW()`).
 
 ```typescript
 import { Pool } from 'pg';
-import { Step, flow } from 'fluid-func';
-import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@fluid-func/postgres';
+import { Step, flow } from 'rivulet';
+import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@rivulet/postgres';
 
 // 1. Initialize PostgreSQL Connection Pool
 const pool = new Pool({

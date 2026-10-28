@@ -1,11 +1,12 @@
 {
-  "name": "@fluid-func/cli",
+  "name": "@rivulet/cli",
   "version": "1.0.0",
-  "description": "Developer CLI and workflow visualizer/inspector for fluid-func workflows",
+  "description": "Developer CLI and workflow visualizer/inspector for Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "fluid-func": "./dist/bin.js"
+    "rivulet": "./dist/bin.js",
+    "rivulet": "./dist/bin.js"
   },
   "files": [
     "dist",
@@ -33,7 +34,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { Step, flow, InMemoryIdempotencyStore } from 'fluid-func';
+import { Step, flow, InMemoryIdempotencyStore } from 'rivulet';
 import { createBullMQProcessor } from './index';
 
-describe('@fluid-func/bullmq Adapter Suite', () => {
+describe('@rivulet/bullmq Adapter Suite', () => {
     it('processes job and returns workflow output', async () => {
         const step = Step.create(async ({ imageId }: { imageId: string }) => ({
             processed: true,

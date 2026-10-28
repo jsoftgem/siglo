@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import { createKafkaMessageHandler } from './index';
 
-describe('@fluid-func/kafka Adapter Suite', () => {
+describe('@rivulet/kafka Adapter Suite', () => {
     it('consumes kafka message, parses JSON payload, and executes workflow', async () => {
         const step = Step.create('creditEvent', async (param: any) => {
             const eventId = typeof param.eventId === 'function' ? param.eventId() : param.eventId;

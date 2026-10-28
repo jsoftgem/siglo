@@ -1,6 +1,6 @@
-# @fluid-func/express Adapter Guide
+# @rivulet/express Adapter Guide
 
-`@fluid-func/express` provides an Express middleware adapter for executing `fluid-func` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
+`@rivulet/express` provides an Express middleware adapter for executing `Rivulet` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
 
 ---
 
@@ -22,7 +22,7 @@ The Express adapter acts as a route-level or path-level middleware:
                      │
                      ▼
     ┌─────────────────────────────────┐
-    │       fluid-func Workflow       │
+    │       Rivulet Workflow       │
     │  • Validations & Computations   │
     │  • Cooperative Cancellation     │
     │  • Distributed Steps & Sagas    │
@@ -46,15 +46,15 @@ The Express adapter acts as a route-level or path-level middleware:
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/express` and `fluid-func`:
+Install `@rivulet/express` and `Rivulet`:
 
 ```bash
-npm install fluid-func @fluid-func/express express
+npm install Rivulet @rivulet/express express
 npm install --save-dev @types/express
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `express`: `^4.18.0 || ^5.0.0`
 
 ---
@@ -114,7 +114,7 @@ When an unhandled exception is thrown inside a workflow, the adapter's `getError
 
 When a client closes an HTTP connection early (e.g. user closes browser or upstream proxy aborts), Express exposes `req.signal` (in Express 5) or `req.raw?.signal`.
 
-`@fluid-func/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
+`@rivulet/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
 
 ```typescript
 const fetchExternalInventory = Step.create(async (param) => {
@@ -132,8 +132,8 @@ If the client terminates the connection while the fetch is pending, the HTTP req
 
 ```typescript
 import express, { Request, Response } from 'express';
-import { Step, flow } from 'fluid-func';
-import { fluidExpressMiddleware } from '@fluid-func/express';
+import { Step, flow } from 'rivulet';
+import { fluidExpressMiddleware } from '@rivulet/express';
 
 const app = express();
 app.use(express.json());

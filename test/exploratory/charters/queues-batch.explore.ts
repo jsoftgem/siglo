@@ -1,6 +1,6 @@
-import { flow } from 'fluid-func';
+import { flow } from 'rivulet';
 import { step } from '../engine/step-helper';
-import { createSqsBatchHandler, FluidSqsRecord } from '@fluid-func/sqs';
+import { createSqsBatchHandler, FluidSqsRecord } from '@rivulet/sqs';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
 import { CharterResult } from './combinators.explore';

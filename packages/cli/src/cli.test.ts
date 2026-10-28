@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Step, flow, parallel } from 'fluid-func';
+import { Step, flow, parallel } from 'rivulet';
 import {
     visualizeWorkflow,
     validateWorkflow,
@@ -16,7 +16,7 @@ import {
     exportWorkflow
 } from './index';
 
-describe('@fluid-func/cli Developer Tools Suite', () => {
+describe('@rivulet/cli Developer Tools Suite', () => {
     it('visualizes workflow as Mermaid and text diagram', () => {
         const step1 = Step.create('validate', async () => ({ valid: true }));
         const step2 = Step.create('charge', async () => ({ charged: true }));

@@ -1,12 +1,12 @@
-# @fluid-func/fastify Adapter Guide
+# @rivulet/fastify Adapter Guide
 
-`@fluid-func/fastify` provides an idiomatic Fastify route handler adapter for executing `fluid-func` workflows. It is optimized for high-throughput, low-overhead microservices, taking advantage of Fastify's asynchronous request lifecycle, schema validation, and raw Node.js HTTP stream signals for cooperative cancellation.
+`@rivulet/fastify` provides an idiomatic Fastify route handler adapter for executing `Rivulet` workflows. It is optimized for high-throughput, low-overhead microservices, taking advantage of Fastify's asynchronous request lifecycle, schema validation, and raw Node.js HTTP stream signals for cooperative cancellation.
 
 ---
 
 ## 1. Overview & Architecture
 
-Fastify is designed for minimal overhead. The `@fluid-func/fastify` handler adapter integrates as a standard Fastify route handler:
+Fastify is designed for minimal overhead. The `@rivulet/fastify` handler adapter integrates as a standard Fastify route handler:
 
 ```
     Fastify HTTP Request
@@ -22,7 +22,7 @@ Fastify is designed for minimal overhead. The `@fluid-func/fastify` handler adap
                      │
                      ▼
     ┌─────────────────────────────────┐
-    │       fluid-func Workflow       │
+    │       Rivulet Workflow       │
     │  • Typed Input Parameters       │
     │  • Timeout Deadlines            │
     │  • Subgraph Step Execution      │
@@ -42,14 +42,14 @@ Fastify is designed for minimal overhead. The `@fluid-func/fastify` handler adap
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/fastify` alongside Fastify:
+Install `@rivulet/fastify` alongside Fastify:
 
 ```bash
-npm install fluid-func @fluid-func/fastify fastify
+npm install Rivulet @rivulet/fastify fastify
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `fastify`: `^4.0.0 || ^5.0.0`
 
 ---
@@ -123,8 +123,8 @@ const queryExternalAPI = Step.create(async (param) => {
 
 ```typescript
 import Fastify from 'fastify';
-import { Step, flow } from 'fluid-func';
-import { fluidFastifyHandler } from '@fluid-func/fastify';
+import { Step, flow } from 'rivulet';
+import { fluidFastifyHandler } from '@rivulet/fastify';
 
 const fastify = Fastify({
     logger: true,

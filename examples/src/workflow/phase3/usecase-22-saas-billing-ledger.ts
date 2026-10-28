@@ -1,6 +1,6 @@
-import { Step, flow } from 'fluid-func';
-import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@fluid-func/postgres';
-import { RedisStorageAdapter, RedisIdempotencyStore, RedisLock } from '@fluid-func/redis';
+import { Step, flow } from 'rivulet';
+import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@rivulet/postgres';
+import { RedisStorageAdapter, RedisIdempotencyStore, RedisLock } from '@rivulet/redis';
 
 export interface SaaSUsageInput {
     billingPeriod: string;
@@ -169,7 +169,7 @@ export class MockRedisClient {
 
 /**
  * Use Case 22: Multi-Tenant SaaS Billing & Audit Ledger
- * Adapters demonstrated: @fluid-func/postgres & @fluid-func/redis
+ * Adapters demonstrated: @rivulet/postgres & @rivulet/redis
  * Features demonstrated:
  * - Scoped multi-tenant billing workflow partitioned by `namespace`
  * - Durable Postgres checkpoints and context event audit stream

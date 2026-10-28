@@ -1,6 +1,6 @@
 # 03. Sequential Workflows
 
-Sequential workflows are the primary building block in `fluid-func`. They execute a series of steps in strict order, passing accumulated context forward.
+Sequential workflows are the primary building block in `Rivulet`. They execute a series of steps in strict order, passing accumulated context forward.
 
 ---
 
@@ -9,7 +9,7 @@ Sequential workflows are the primary building block in `fluid-func`. They execut
 Use `Step.create(name, action)` to define an isolated step:
 
 ```typescript
-import { Step } from 'fluid-func';
+import { Step } from 'rivulet';
 
 export const parseInvoice = Step.create('parseInvoice', async (param: { rawText: string }) => {
     const lines = param.rawText.split('\n');
@@ -30,7 +30,7 @@ Invoking `.modern()` on a step enables clean POJO parameters, destructuring, and
 Compose multiple steps into a sequential pipeline using `flow(...steps)`:
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const validateInput = Step.create('validate', async (param: { email: string }) => {
     if (!param.email.includes('@')) throw new Error('Invalid email');
@@ -96,7 +96,7 @@ const fetchExchangeRates = Step.create('fetchRates', async () => {
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 const step1 = Step.create('add', (p: { x: number }) => ({ x: p.x + 10 })).modern();
 const step2 = Step.create('multiply', (p: { x: number }) => ({ result: p.x * 2 })).modern();
@@ -111,7 +111,7 @@ console.log(output.result); // 30
 ## Failure Example: Handling Validation & Lifecycle Rejections
 
 ```typescript
-import { Step, flow, ValidationException } from 'fluid-func';
+import { Step, flow, ValidationException } from 'rivulet';
 
 const strictStep = Step.create('strictStep', (param: { age: number }) => {
     if (param.age < 0) throw new Error('Invalid age');
@@ -136,8 +136,8 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@fluid-func/testing';
-import { Step, flow } from 'fluid-func';
+import { createWorkflowHarness } from '@rivulet/testing';
+import { Step, flow } from 'rivulet';
 
 const s1 = Step.create('step1', () => ({ a: 'hello' })).modern();
 const s2 = Step.create('step2', (p: { a: string }) => ({ b: `${p.a} world` })).modern();

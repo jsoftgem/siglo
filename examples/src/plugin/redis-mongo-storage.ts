@@ -3,7 +3,7 @@ import {
     ContextChangeEvent,
     SerializedExecutionStack,
     Step
-} from "fluid-func";
+} from 'rivulet';
 import { IRedisClient } from "../database/redis";
 import { IMongoClient } from "../database/mongodb";
 

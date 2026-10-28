@@ -16,7 +16,7 @@ import {
     Step,
     flow,
     CompensationException
-} from 'fluid-func';
+} from 'rivulet';
 
 test('Phase 2 Workflow Power Integration Test Suite', async (t) => {
     // 0. Initialize storage adapters and register plugins

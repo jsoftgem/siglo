@@ -87,7 +87,7 @@ class MockPostgresClient implements PostgresClientInterface {
     }
 }
 
-describe('@fluid-func/postgres Storage & Idempotency Adapter Suite', () => {
+describe('@rivulet/postgres Storage & Idempotency Adapter Suite', () => {
     let mockClient: MockPostgresClient;
 
     beforeEach(() => {

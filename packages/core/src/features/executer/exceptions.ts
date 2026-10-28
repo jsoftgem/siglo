@@ -460,3 +460,5 @@ export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}
     (fluidError as any).error = error;
     return fluidError;
 }
+
+export { FluidFuncError as RivuletError };

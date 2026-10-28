@@ -1,0 +1,240 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "uid": "fluid-func-apm",
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Total Workflow Spans Ingested",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(jaeger_collector_spans_saved_by_svc_total{svc!=\"jaeger-all-in-one\", svc!=\"other-services\"})",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "title": "Active Workflow Services",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (svc) (jaeger_collector_spans_saved_by_svc_total{svc!=\"jaeger-all-in-one\", svc!=\"other-services\"} > 0))",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "purple", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "title": "APM Pipeline Health",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"jaeger\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "text": "DOWN" },
+                "1": { "color": "green", "text": "UP & RECEIVING" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "id": 4,
+      "title": "Spans Ingested per Service",
+      "type": "barchart",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (svc) (jaeger_collector_spans_saved_by_svc_total{svc!=\"jaeger-all-in-one\", svc!=\"other-services\"})",
+          "instant": true,
+          "legendFormat": "{{svc}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Spans Count",
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "id": 5,
+      "title": "Direct Trace Explorer & Scenario Links",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "### 🔍 Explore Live Workflows\n\nClick any link below to open interactive trace waterfalls:\n\n- ⏱️ **[Scenario 1: Step Latencies & Concurrency (`order-service`)](/explore?left=%5B%22now-1h%22,%22now%22,%22jaeger%22,%7B%22query%22:%22%22,%22service%22:%22order-service%22%7D%5D)**\n  *Visualizes sequential steps alongside parallel fan-out branches.*\n\n- 🔁 **[Scenario 2: Retries & Backoff (`billing-service`)](/explore?left=%5B%22now-1h%22,%22now%22,%22jaeger%22,%7B%22query%22:%22%22,%22service%22:%22billing-service%22%7D%5D)**\n  *Visualizes transient failure attempts (`retry #2`, `retry #3`) and exception events.*\n\n- ⏪ **[Scenario 3: Sagas & Rollbacks (`travel-booking-service`)](/explore?left=%5B%22now-1h%22,%22now%22,%22jaeger%22,%7B%22query%22:%22%22,%22service%22:%22travel-booking-service%22%7D%5D)**\n  *Visualizes downstream failures and reverse LIFO compensation rollbacks.*\n\n- 🌐 **[Scenario 4: Distributed Tracing (`checkout-api` & `warehouse-worker`)](/explore?left=%5B%22now-1h%22,%22now%22,%22jaeger%22,%7B%22query%22:%22%22,%22service%22:%22checkout-api%22%7D%5D)**\n  *Visualizes cross-service parent-child context propagation (W3C `traceparent`).*\n\n---\n**External UI**: [Open Native Jaeger Tracing UI (http://localhost:16686)](http://localhost:16686)"
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 13 },
+      "id": 6,
+      "title": "Scenario Breakdown & Observed Attributes",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "| Service | Pattern Demonstrated | OpenTelemetry Attributes Recorded |\n|---|---|---|\n| `order-service` | **Latency & Concurrency** | `fluid.workflow.name`, `fluid.workflow.version`, `fluid.step.name`, `fluid.step.attempt`, step duration waterfall |\n| `billing-service` | **Retries & Backoff** | `fluid.step.attempt` (1, 2, 3), `status=ERROR` on failed attempts, `exception.message`, `delayMs` |\n| `travel-booking-service` | **Saga Rollbacks** | Workflow `status=ERROR`, `saga.action: rollback`, reverse compensation order (`refundPayment` &rarr; `releaseHotelRoom`) |\n| `checkout-api` & `warehouse-worker` | **Distributed W3C Tracing** | Single `traceId` shared across HTTP checkout API and async queue background worker |"
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["fluid-func", "apm", "tracing", "opentelemetry"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "fluid-func Workflow APM Overview",
+  "version": 3,
+  "weekStart": ""
+}

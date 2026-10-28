@@ -1,6 +1,6 @@
 # Workflow Graph Model
 
-`fluid-func` v1.0.0 introduces an internal, declarative Workflow Graph Model. The graph model cleanly separates workflow structure from runtime execution state, providing inspection, static validation, and tooling capabilities without breaking the sequential `flow(...)` API.
+`Rivulet` v1.0.0 introduces an internal, declarative Workflow Graph Model. The graph model cleanly separates workflow structure from runtime execution state, providing inspection, static validation, and tooling capabilities without breaking the sequential `flow(...)` API.
 
 ---
 
@@ -51,7 +51,7 @@ type WorkflowNode =
 Any `Step`, `Flow`, nested array, function, or combinator can be converted to a `WorkflowNode`:
 
 ```typescript
-import { Step, flow, parallel, toGraph } from 'fluid-func';
+import { Step, flow, parallel, toGraph } from 'rivulet';
 
 const workflow = flow(
   Step.create('validate'),
@@ -74,7 +74,7 @@ const graph = toGraph(workflow);
 Graph validation executes statically prior to execution, detecting structural defects, missing identifiers, empty branches, or cyclic dependencies:
 
 ```typescript
-import { validateGraph, assertValidGraph, GraphValidationException } from 'fluid-func';
+import { validateGraph, assertValidGraph, GraphValidationException } from 'rivulet';
 
 const result = validateGraph(graph);
 
@@ -102,7 +102,7 @@ assertValidGraph(graph);
 For visualization, developer tools, and analytics, `inspectGraph` produces a flattened summary with nodes, directed edges, entry points, and terminal exits:
 
 ```typescript
-import { inspectGraph } from 'fluid-func';
+import { inspectGraph } from 'rivulet';
 
 const inspection = inspectGraph(workflow);
 // Or: workflow.inspect();

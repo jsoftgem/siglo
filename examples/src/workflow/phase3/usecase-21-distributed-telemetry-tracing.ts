@@ -1,4 +1,4 @@
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import {
     instrumentWorkflow,
     SemanticAttributes,
@@ -6,7 +6,7 @@ import {
     extractTraceContext,
     getTraceHeaders,
     createTelemetryStorageAdapter
-} from '@fluid-func/opentelemetry';
+} from '@rivulet/opentelemetry';
 
 export interface TelemetryOrderInput {
     orderId: string;
@@ -72,7 +72,7 @@ export class MockTracer {
 
 /**
  * Use Case 21: Distributed Tracing & W3C Trace Context Propagation
- * Adapter demonstrated: @fluid-func/opentelemetry
+ * Adapter demonstrated: @rivulet/opentelemetry
  * Features demonstrated:
  * - instrumentWorkflow wrapping workflows with OpenTelemetry workflow & step spans
  * - Retry tracking via fluid.step.attempt attributes

@@ -1,7 +1,7 @@
 {
-  "name": "fluid-func",
+  "name": "rivulet",
   "version": "1.0.0",
-  "description": "A modern, type-safe, and composable workflow orchestrator for TypeScript and JavaScript.",
+  "description": "Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
     "directory": "packages/core"
   },
   "keywords": [
-    "fluid-func",
+    "rivulet",
     "workflow",
     "orchestrator",
     "pipeline",

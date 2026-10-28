@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Step } from "fluid-func";
+import { Step } from 'rivulet';
 import { createRedisClient } from "./database/redis";
 import { createMongoClient } from "./database/mongodb";
 import { registerRedisMongoStorage } from "./plugin/redis-mongo-storage";

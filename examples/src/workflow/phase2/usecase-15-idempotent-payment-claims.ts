@@ -1,4 +1,4 @@
-import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'fluid-func';
+import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'rivulet';
 
 export interface BankTransferInput {
     transactionId: string;

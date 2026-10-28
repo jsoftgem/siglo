@@ -1,7 +1,7 @@
-import { Step, flow } from 'fluid-func';
-import { fluidFastifyHandler } from '@fluid-func/fastify';
-import { fluidExpressMiddleware } from '@fluid-func/express';
-import { fluidMiddleware } from '@fluid-func/hono';
+import { Step, flow } from 'rivulet';
+import { fluidFastifyHandler } from '@rivulet/fastify';
+import { fluidExpressMiddleware } from '@rivulet/express';
+import { fluidMiddleware } from '@rivulet/hono';
 
 export interface HttpCheckoutRequest {
     orderId: string;

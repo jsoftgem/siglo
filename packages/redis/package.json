@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/redis",
+  "name": "@rivulet/redis",
   "version": "1.0.0",
-  "description": "Production Redis distributed cache, durable checkpoint, and idempotency adapter for fluid-func workflows",
+  "description": "Production Redis distributed cache, durable checkpoint, and idempotency adapter for Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "peerDependencies": {
     "ioredis": "^5.0.0 || ^6.0.0"

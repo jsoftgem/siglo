@@ -1,4 +1,4 @@
-import { flow, CancellationException } from 'fluid-func';
+import { flow, CancellationException } from 'rivulet';
 import { step } from '../engine/step-helper';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';

@@ -70,7 +70,7 @@ class MockRedisClient implements RedisClientInterface {
     }
 }
 
-describe('@fluid-func/redis Storage & Idempotency Adapter Suite', () => {
+describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
     let mockClient: MockRedisClient;
 
     beforeEach(() => {

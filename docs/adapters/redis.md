@@ -1,6 +1,6 @@
-# @fluid-func/redis Adapter Guide
+# @rivulet/redis Adapter Guide
 
-`@fluid-func/redis` provides an in-memory distributed persistence, step response caching, atomic idempotency deduplication, and distributed single-flight coordination layer for `fluid-func` workflows. It is powered by Redis and compatible with standalone Redis, Redis Sentinel, and Redis Cluster via `ioredis`.
+`@rivulet/redis` provides an in-memory distributed persistence, step response caching, atomic idempotency deduplication, and distributed single-flight coordination layer for `Rivulet` workflows. It is powered by Redis and compatible with standalone Redis, Redis Sentinel, and Redis Cluster via `ioredis`.
 
 ---
 
@@ -9,7 +9,7 @@
 The Redis adapter family encompasses three core modules:
 
 ```
-                            @fluid-func/redis
+                            @rivulet/redis
        ┌────────────────────────────┼────────────────────────────┐
        │                            │                            │
        ▼                            ▼                            ▼
@@ -33,21 +33,21 @@ The Redis adapter family encompasses three core modules:
 
 ## 2. Installation & Requirements
 
-Install `@fluid-func/redis` alongside `ioredis`:
+Install `@rivulet/redis` alongside `ioredis`:
 
 ```bash
-npm install fluid-func @fluid-func/redis ioredis
+npm install Rivulet @rivulet/redis ioredis
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `ioredis`: `^5.0.0 || ^6.0.0`
 
 ---
 
 ## 3. Key Topology & Redis Data Structures
 
-`@fluid-func/redis` uses structured key namespaces:
+`@rivulet/redis` uses structured key namespaces:
 
 | Key Pattern | Redis Type | Default TTL | Description |
 | :--- | :--- | :--- | :--- |
@@ -64,7 +64,7 @@ Peer dependency matrix:
 Implements the standard `StorageAdapter` interface for high-performance checkpointing and step caching.
 
 ```typescript
-import { RedisStorageAdapter } from '@fluid-func/redis';
+import { RedisStorageAdapter } from '@rivulet/redis';
 ```
 
 ### Options (`RedisStorageAdapterOptions`)
@@ -92,7 +92,7 @@ import { RedisStorageAdapter } from '@fluid-func/redis';
 Provides distributed, atomic idempotency guarantees across multi-instance clusters using Redis `SET key val PX ttl NX` semantics.
 
 ```typescript
-import { RedisIdempotencyStore } from '@fluid-func/redis';
+import { RedisIdempotencyStore } from '@rivulet/redis';
 ```
 
 ### Options (`RedisIdempotencyOptions`)
@@ -123,7 +123,7 @@ import { RedisIdempotencyStore } from '@fluid-func/redis';
 `RedisLock` prevents duplicate parallel execution of sensitive workflows (e.g., end-of-month payroll, nightly data synchronization) across multiple server instances.
 
 ```typescript
-import { RedisLock } from '@fluid-func/redis';
+import { RedisLock } from '@rivulet/redis';
 ```
 
 ### Methods:
@@ -154,12 +154,12 @@ Executes an asynchronous function wrapped in single-flight protection:
 
 ```typescript
 import { Redis } from 'ioredis';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import {
     RedisStorageAdapter,
     RedisIdempotencyStore,
     RedisLock
-} from '@fluid-func/redis';
+} from '@rivulet/redis';
 
 // 1. Initialize Redis Client
 const redis = new Redis('redis://localhost:6379');

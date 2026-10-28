@@ -1,4 +1,4 @@
-import { StorageAdapter, SerializedExecutionStack } from 'fluid-func';
+import { StorageAdapter, SerializedExecutionStack } from 'rivulet';
 import { RedisStorageAdapterOptions, RedisClientInterface } from './types';
 
 export class RedisStorageAdapter implements StorageAdapter {

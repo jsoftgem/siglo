@@ -94,6 +94,7 @@ import {
 
 export {
     FluidFuncError,
+    RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
     FlowTimeoutException,

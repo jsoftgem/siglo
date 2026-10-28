@@ -1,7 +1,7 @@
 {
-  "name": "@fluid-func/opentelemetry",
+  "name": "@rivulet/opentelemetry",
   "version": "1.0.0",
-  "description": "OpenTelemetry observability integration for fluid-func workflows",
+  "description": "OpenTelemetry observability integration for Rivulet workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -31,7 +31,7 @@
   "homepage": "https://github.com/rickzx98/fluid-func#readme",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "fluid-func": "^1.0.0"
+    "rivulet": "^1.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

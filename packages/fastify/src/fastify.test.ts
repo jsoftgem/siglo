@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 import { fluidFastifyHandler, getErrorStatusCode } from './index';
 
-describe('@fluid-func/fastify Adapter Suite', () => {
+describe('@rivulet/fastify Adapter Suite', () => {
     it('executes workflow using fastify request and returns clean response', async () => {
         const stepA = Step.create(async ({ price, qty }: { price: number; qty: number }) => ({
             subtotal: price * qty,

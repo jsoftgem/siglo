@@ -1,6 +1,6 @@
 # 11. Migration and Compatibility
 
-This guide details how to upgrade legacy `fluid-func` 0.x codebases to 1.0.0, how the backwards-compatibility layer operates, and how to safely adopt modern functional workflows.
+This guide details how to upgrade legacy `Rivulet` 0.x codebases to 1.0.0, how the backwards-compatibility layer operates, and how to safely adopt modern functional workflows.
 
 ---
 
@@ -20,11 +20,11 @@ This guide details how to upgrade legacy `fluid-func` 0.x codebases to 1.0.0, ho
 
 ## 2. The Compatibility Layer
 
-`fluid-func` 1.0.0 is 100% backwards-compatible with existing 0.x code. You can run legacy and modern steps side-by-side in the same codebase:
+`Rivulet` 1.0.0 is 100% backwards-compatible with existing 0.x code. You can run legacy and modern steps side-by-side in the same codebase:
 
 ```typescript
 // Legacy 0.x syntax: Still works!
-import { Chain, pipe } from 'fluid-func';
+import { Chain, pipe } from 'rivulet';
 
 const legacyStep = Chain.create('legacy', (param) => {
     // param was wrapped in getter closures: param.myField()
@@ -43,10 +43,10 @@ Change imports from `Chain` and `pipe` to `Step` and `flow`:
 
 ```typescript
 // Before
-import { Chain, pipe } from 'fluid-func';
+import { Chain, pipe } from 'rivulet';
 
 // After
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 ```
 
 ### Step 2: Enable `.modern()` on Steps
@@ -79,7 +79,7 @@ console.log(result.processed); // Direct boolean, not a function!
 
 ```typescript
 // Side-by-side legacy and modern compatibility
-import Step, { Chain, flow, pipe } from 'fluid-func';
+import Step, { Chain, flow, pipe } from 'rivulet';
 
 const legacyChain = Chain.create('legacyStep', (param: any) => {
     return { fromLegacy: 'ok' };
@@ -126,7 +126,7 @@ const fixedStep = Step.create('fixed', ({ isActive }: { isActive: boolean }) => 
 
 ```typescript
 import { expect } from 'chai';
-import { Chain, Step, flow, isFlow, isPipeline } from 'fluid-func';
+import { Chain, Step, flow, isFlow, isPipeline } from 'rivulet';
 
 describe('0.x to 1.0 Compatibility Test', () => {
     it('verifies aliases and mixed execution', async () => {

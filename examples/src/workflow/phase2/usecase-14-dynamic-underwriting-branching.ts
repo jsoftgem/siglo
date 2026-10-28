@@ -1,4 +1,4 @@
-import { Step, flow, branch, when } from 'fluid-func';
+import { Step, flow, branch, when } from 'rivulet';
 
 export interface LoanApplicationInput {
     applicationId: string;

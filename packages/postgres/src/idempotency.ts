@@ -1,4 +1,4 @@
-import { IdempotencyStore } from 'fluid-func';
+import { IdempotencyStore } from 'rivulet';
 import { PostgresIdempotencyOptions, PostgresClientInterface } from './types';
 
 export class PostgresIdempotencyStore implements IdempotencyStore {

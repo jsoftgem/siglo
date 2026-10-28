@@ -1,8 +1,8 @@
 {
-  "name": "fluid-func-examples",
+  "name": "rivulet-examples",
   "version": "1.0.0",
   "private": true,
-  "description": "Production-grade examples and use cases demonstrating fluid-func with ecosystem adapters and workflow power features",
+  "description": "Production-grade examples and use cases demonstrating Rivulet with ecosystem adapters and workflow power features",
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
@@ -13,17 +13,17 @@
     "test:order": "tsx --test src/index.test.ts"
   },
   "dependencies": {
-    "@fluid-func/bullmq": "^1.0.0",
-    "@fluid-func/cli": "^1.0.0",
-    "@fluid-func/express": "^1.0.0",
-    "@fluid-func/fastify": "^1.0.0",
-    "@fluid-func/hono": "^1.0.0",
-    "@fluid-func/kafka": "^1.0.0",
-    "@fluid-func/opentelemetry": "^1.0.0",
-    "@fluid-func/postgres": "^1.0.0",
-    "@fluid-func/redis": "^1.0.0",
-    "@fluid-func/sqs": "^1.0.0",
-    "fluid-func": "^1.0.0",
+    "@rivulet/bullmq": "^1.0.0",
+    "@rivulet/cli": "^1.0.0",
+    "@rivulet/express": "^1.0.0",
+    "@rivulet/fastify": "^1.0.0",
+    "@rivulet/hono": "^1.0.0",
+    "@rivulet/kafka": "^1.0.0",
+    "@rivulet/opentelemetry": "^1.0.0",
+    "@rivulet/postgres": "^1.0.0",
+    "@rivulet/redis": "^1.0.0",
+    "@rivulet/sqs": "^1.0.0",
+    "rivulet": "^1.0.0",
     "ioredis": "^6.0.0",
     "mongodb": "^7.7.0"
   }

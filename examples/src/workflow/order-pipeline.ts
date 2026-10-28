@@ -1,4 +1,4 @@
-import { Step, flow } from 'fluid-func';
+import { Step, flow } from 'rivulet';
 
 export interface OrderItem {
     id: string;

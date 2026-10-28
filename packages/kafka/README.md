@@ -1,12 +1,12 @@
-# @fluid-func/kafka Adapter Guide
+# @rivulet/kafka Adapter Guide
 
-`@fluid-func/kafka` provides an enterprise event streaming consumer adapter for executing `fluid-func` workflows from Apache Kafka topics. It handles binary and JSON payload deserialization, partition offset tracking, distributed idempotency deduplication, header-based tenant namespace routing, and graceful error recovery.
+`@rivulet/kafka` provides an enterprise event streaming consumer adapter for executing `Rivulet` workflows from Apache Kafka topics. It handles binary and JSON payload deserialization, partition offset tracking, distributed idempotency deduplication, header-based tenant namespace routing, and graceful error recovery.
 
 ---
 
 ## 1. Overview & Architecture
 
-In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@fluid-func/kafka` adapter handles incoming messages, ensures exactly-once semantics via an `IdempotencyStore`, and executes the workflow within configured timeout bounds:
+In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@rivulet/kafka` adapter handles incoming messages, ensures exactly-once semantics via an `IdempotencyStore`, and executes the workflow within configured timeout bounds:
 
 ```
                       ┌────────────────────────────┐
@@ -30,7 +30,7 @@ In an event-driven architecture, Kafka delivers partitioned event streams to con
                                     │
                                     ▼
                       ┌────────────────────────────┐
-                      │   fluid-func Workflow      │
+                      │   Rivulet Workflow      │
                       │  • Sagas & Compensations   │
                       │  • Timeout Deadlines       │
                       └─────────────┬──────────────┘
@@ -57,7 +57,7 @@ A common question in distributed event-driven systems is:
 
 ### Direct Answer: **No. By default, all 10 steps execute in-process on the single consumer server that pulled the Kafka message.**
 
-`fluid-func` is an **in-process orchestrator** rather than a multi-machine RPC scheduler (such as Temporal or AWS Step Functions).
+`Rivulet` is an **in-process orchestrator** rather than a multi-machine RPC scheduler (such as Temporal or AWS Step Functions).
 
 When an instance of your consumer service pulls a Kafka record, the entire 10-step pipeline runs in-memory on that node:
 
@@ -84,7 +84,7 @@ When an instance of your consumer service pulls a Kafka record, the entire 10-st
 
 ### Why In-Process Execution is Vastly Superior for 90%+ of Workloads
 
-| Dimension | In-Process Orchestration (`fluid-func`) | Distributed Step Orchestration (Temporal / Step Functions) |
+| Dimension | In-Process Orchestration (`Rivulet`) | Distributed Step Orchestration (Temporal / Step Functions) |
 | :--- | :--- | :--- |
 | **Step-to-Step Latency** | **Microseconds** ($\approx 1\text{–}5\ \mu\text{s}$) &mdash; Direct async promise resolution. | **Milliseconds** ($\approx 15\text{–}100\ \text{ms}$) &mdash; Every step requires network RPC, queue write, and DB commit. |
 | **End-to-End Latency (10 Steps)** | $\approx \mathbf{5\text{–}20\ \text{ms}}$ (pure business logic time) | $\approx \mathbf{200\text{–}1000\ \text{ms}}$ (dominated by orchestration network latency) |
@@ -97,7 +97,7 @@ When an instance of your consumer service pulls a Kafka record, the entire 10-st
 #### 1. The "10 Network Hops" Tax
 In systems that distribute every individual step to different servers:
 $$\text{Total Overhead} = 10 \times (\text{JSON Serialization} + \text{Queue Network Write} + \text{Broker Scheduling} + \text{Queue Network Read} + \text{Deserialization})$$
-In such systems, **95% of total workflow duration is spent waiting for network hops and queue contention**, and only 5% executing real code. In `fluid-func`, Step 1 immediately yields to Step 2 in memory with zero serialization penalty.
+In such systems, **95% of total workflow duration is spent waiting for network hops and queue contention**, and only 5% executing real code. In `Rivulet`, Step 1 immediately yields to Step 2 in memory with zero serialization penalty.
 
 #### 2. How High-Throughput Scaling Actually Works
 Work is scaled horizontally by **Kafka Partitions (Message-Level Distribution)**, not by splitting individual steps across machines:
@@ -182,23 +182,23 @@ const stage2Handler = createKafkaMessageHandler(stage2Flow);
 
 What happens if Server 1 is executing **Step 6** of 10 and the process crashes?
 
-1. **Uncommitted Offset**: The `@fluid-func/kafka` adapter only returns and acknowledges the Kafka record after the workflow completes. Because Step 6 failed or the process died, the offset is **never committed**.
+1. **Uncommitted Offset**: The `@rivulet/kafka` adapter only returns and acknowledges the Kafka record after the workflow completes. Because Step 6 failed or the process died, the offset is **never committed**.
 2. **Kafka Partition Rebalance**: Kafka detects consumer heartbeat loss and reassigns that topic partition to another consumer (Server 2).
-3. **Idempotency Protection**: Server 2 re-receives the message from the last committed offset. When it calls `createKafkaMessageHandler`, the configured `IdempotencyStore` (`@fluid-func/redis` or `@fluid-func/postgres`) ensures external payments or mutations aren't duplicated.
-4. **Durable Resumption**: If durable execution was used with `@fluid-func/postgres`, state saved from prior checkpoints can be loaded via `restoreCheckpoint()`.
+3. **Idempotency Protection**: Server 2 re-receives the message from the last committed offset. When it calls `createKafkaMessageHandler`, the configured `IdempotencyStore` (`@rivulet/redis` or `@rivulet/postgres`) ensures external payments or mutations aren't duplicated.
+4. **Durable Resumption**: If durable execution was used with `@rivulet/postgres`, state saved from prior checkpoints can be loaded via `restoreCheckpoint()`.
 
 ---
 
 ## 5. Installation & Requirements
 
-Install `@fluid-func/kafka` and `kafkajs`:
+Install `@rivulet/kafka` and `kafkajs`:
 
 ```bash
-npm install fluid-func @fluid-func/kafka kafkajs
+npm install Rivulet @rivulet/kafka kafkajs
 ```
 
 Peer dependency matrix:
-- `fluid-func`: `*` (v1.0.0+)
+- `Rivulet`: `*` (v1.0.0+)
 - `kafkajs`: `^2.0.0`
 
 ---
@@ -246,7 +246,7 @@ export interface FluidKafkaMessage {
 
 ## 8. Idempotency Key Semantics
 
-Kafka guarantees at-least-once message delivery under network failures or consumer rebalances. `@fluid-func/kafka` constructs an idempotency key using the message record's natural identity:
+Kafka guarantees at-least-once message delivery under network failures or consumer rebalances. `@rivulet/kafka` constructs an idempotency key using the message record's natural identity:
 
 $$\text{idempKey} = \text{kafka}:\langle\text{topic}\rangle:\langle\text{key} \lor (\text{partition}:\text{offset})\rangle$$
 
@@ -264,9 +264,9 @@ $$\text{idempKey} = \text{kafka}:\langle\text{topic}\rangle:\langle\text{key} \l
 
 ```typescript
 import { Kafka } from 'kafkajs';
-import { Step, flow } from 'fluid-func';
-import { createKafkaMessageHandler } from '@fluid-func/kafka';
-import { PostgresIdempotencyStore } from '@fluid-func/postgres';
+import { Step, flow } from 'rivulet';
+import { createKafkaMessageHandler } from '@rivulet/kafka';
+import { PostgresIdempotencyStore } from '@rivulet/postgres';
 import { Pool } from 'pg';
 
 // 1. Database & Idempotency Store
