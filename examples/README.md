@@ -14,7 +14,7 @@ This workspace provides runnable examples demonstrating [`Rivulet`](https://gith
 - [`idempotent`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/core/src/features/step/index.ts) (scoped idempotency claim locking)
 - [`waitForEvent`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/core/src/features/durable/index.ts) / `workflow.resume` / `flow.version` (durable human-in-the-loop suspension checkpoints and schema migrations)
 - [`toGraph`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/core/src/features/graph/index.ts) / [`validateGraph`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/core/src/features/graph/index.ts) (workflow AST graph governance and cycle validation)
-- [`fluidFastifyHandler`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/fastify/src/index.ts) / [`fluidExpressMiddleware`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/express/src/index.ts) / [`fluidMiddleware`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/hono/src/index.ts) (HTTP API adapters with `x-namespace` propagation)
+- [`rivuletFastifyHandler`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/fastify/src/index.ts) / [`rivuletExpressMiddleware`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/express/src/index.ts) / [`rivuletMiddleware`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/hono/src/index.ts) (HTTP API adapters with `x-namespace` propagation)
 - [`createKafkaMessageHandler`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/kafka/src/index.ts) / [`createBullMQProcessor`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/bullmq/src/index.ts) / [`createSqsBatchHandler`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/sqs/src/index.ts) (asynchronous messaging & queue workers)
 - [`instrumentWorkflow`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/opentelemetry/src/instrument.ts) / [`createTelemetryStorageAdapter`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/opentelemetry/src/instrument.ts) (OpenTelemetry spans, retry tracing, W3C trace context, and namespace redaction)
 - [`PostgresStorageAdapter`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/postgres/src/adapter.ts) / [`RedisStorageAdapter`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/redis/src/adapter.ts) (enterprise storage adapters and distributed locks)
@@ -42,7 +42,7 @@ This workspace provides runnable examples demonstrating [`Rivulet`](https://gith
 
 1. **Redis**: Acts as a fast distributed cache (`@rivulet/redis`), checkpoints, scoped idempotency keys, and distributed locks (`RedisLock`).
 2. **PostgreSQL**: Durable transactional checkpoints (`@rivulet/postgres`), audit event streams, and scoped idempotency claims.
-3. **MongoDB**: Document store for permanent analytical execution audit logs (`fluid_execution_logs`) with `stackId` and `namespace` tracing.
+3. **MongoDB**: Document store for permanent analytical execution audit logs (`rivulet_execution_logs`) with `stackId` and `namespace` tracing.
 4. **Redpanda / Kafka**: Streaming message broker (`@rivulet/kafka`) for high-throughput event enrichment and dead-letter handling.
 5. **Jaeger**: OpenTelemetry visualizer and collector (`@rivulet/opentelemetry`) displaying root workflow spans, step child spans, and retry attempts.
 
@@ -84,7 +84,7 @@ This workspace provides runnable examples demonstrating [`Rivulet`](https://gith
 | **18** | **HTTP Checkout & Order Processing** | [`usecase-18-http-order-service.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-18-http-order-service.ts) | Framework adapters (`@rivulet/fastify`, `@rivulet/express`, `@rivulet/hono`), automatic `x-namespace` routing, typed input extraction, and HTTP status mapping |
 | **19** | **Kafka Event Stream Enrichment** | [`usecase-19-kafka-stream-enrichment.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-19-kafka-stream-enrichment.ts) | Streaming event consumer (`@rivulet/kafka`), header namespace parsing, account tier enrichment, anomaly risk scoring, and dead-letter isolation |
 | **20** | **Resilient Async Queue Worker** | [`usecase-20-async-queue-worker.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-20-async-queue-worker.ts) | Heavy background job processor (`@rivulet/bullmq`) with progress reporting, plus AWS SQS batch consumer (`@rivulet/sqs`) with partial batch failure containment |
-| **21** | **Distributed Tracing & Context Propagation** | [`usecase-21-distributed-telemetry-tracing.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-21-distributed-telemetry-tracing.ts) | OpenTelemetry spans (`@rivulet/opentelemetry`), retry attempt counting (`fluid.step.attempt`), W3C `traceparent` propagation, and namespace privacy redaction |
+| **21** | **Distributed Tracing & Context Propagation** | [`usecase-21-distributed-telemetry-tracing.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-21-distributed-telemetry-tracing.ts) | OpenTelemetry spans (`@rivulet/opentelemetry`), retry attempt counting (`rivulet.step.attempt`), W3C `traceparent` propagation, and namespace privacy redaction |
 | **22** | **Multi-Tenant SaaS Billing & Audit Ledger** | [`usecase-22-saas-billing-ledger.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-22-saas-billing-ledger.ts) | Scoped multi-tenant billing (`@rivulet/postgres`, `@rivulet/redis`), durable checkpoints, audit streams, idempotency locks, and single-flight `RedisLock` |
 
 ---
@@ -158,8 +158,8 @@ docker compose -f examples/docker-compose.yml up -d
 
 # 2. Run the demo against live containers
 REDIS_URL="redis://:redispassword@localhost:6379" \
-MONGODB_URI="mongodb://admin:mongopassword@localhost:27017/fluid_func_db?authSource=admin" \
-POSTGRES_URL="postgres://postgres:postgrespassword@localhost:5432/fluid_func_db" \
+MONGODB_URI="mongodb://admin:mongopassword@localhost:27017/rivulet_db?authSource=admin" \
+POSTGRES_URL="postgres://postgres:postgrespassword@localhost:5432/rivulet_db" \
 KAFKA_BROKERS="localhost:9092" \
 npm start --workspace=Rivulet-examples
 ```

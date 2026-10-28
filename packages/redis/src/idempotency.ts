@@ -14,7 +14,7 @@ export class RedisIdempotencyStore implements IdempotencyStore {
             throw new Error('RedisIdempotencyStore requires a valid Redis client instance.');
         }
         this.client = options.client;
-        this.keyPrefix = options.keyPrefix || 'fluid:idemp:';
+        this.keyPrefix = options.keyPrefix || 'rivulet:idemp:';
         this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours default
     }
 

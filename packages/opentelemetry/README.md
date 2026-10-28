@@ -14,26 +14,26 @@ The OpenTelemetry integration creates an end-to-end distributed span hierarchy c
                                ▼ extractTraceContext()
     ┌──────────────────────────────────────────────────────────┐
     │  Span: workflow:CheckoutPipeline                         │
-    │  • fluid.workflow.name = 'CheckoutPipeline'              │
-    │  • fluid.workflow.version = '2.1.0'                      │
-    │  • fluid.stack.id = 'stack_9812_01'                      │
-    │  • fluid.namespace = 'ecommerce-us'                      │
-    │  • fluid.timeout = 30000                                 │
+    │  • rivulet.workflow.name = 'CheckoutPipeline'              │
+    │  • rivulet.workflow.version = '2.1.0'                      │
+    │  • rivulet.stack.id = 'stack_9812_01'                      │
+    │  • rivulet.namespace = 'ecommerce-us'                      │
+    │  • rivulet.timeout = 30000                                 │
     └──────────────────────────┬───────────────────────────────┘
                                │
             ┌──────────────────┴──────────────────┐
             ▼                                     ▼
     ┌───────────────────────────┐         ┌───────────────────────────┐
     │ Span: step:validateCart   │         │ Span: step:chargeCard     │
-    │ • fluid.step.name = ...   │         │ • fluid.step.attempt = 1  │
-    │ • fluid.step.attempt = 1  │         │ (Failure: recordException)│
+    │ • rivulet.step.name = ...   │         │ • rivulet.step.attempt = 1  │
+    │ • rivulet.step.attempt = 1  │         │ (Failure: recordException)│
     │ • Status: OK              │         └─────────────┬─────────────┘
     └───────────────────────────┘                       │
                                                         ▼
                                           ┌───────────────────────────┐
                                           │ Span: step:chargeCard     │
                                           │       (retry #2)          │
-                                          │ • fluid.step.attempt = 2  │
+                                          │ • rivulet.step.attempt = 2  │
                                           │ • Status: OK              │
                                           └───────────────────────────┘
 ```
@@ -61,16 +61,16 @@ npm install --save-dev @opentelemetry/sdk-node @opentelemetry/sdk-trace-node @op
 
 | Attribute Constant | String Key | Type | Description |
 | :--- | :--- | :--- | :--- |
-| `WORKFLOW_NAME` | `fluid.workflow.name` | `string` | Canonical name of the executing workflow. |
-| `WORKFLOW_VERSION` | `fluid.workflow.version` | `string` | Semantic version string of the workflow. |
-| `WORKFLOW_ID` | `fluid.workflow.id` | `string` | Unique workflow identifier. |
-| `STACK_ID` | `fluid.stack.id` | `string` | Unique stack execution identifier. |
-| `STEP_NAME` | `fluid.step.name` | `string` | Name or debug label of the active step. |
-| `STEP_ID` | `fluid.step.id` | `string` | Internal node identifier in the workflow graph AST. |
-| `STEP_ATTEMPT` | `fluid.step.attempt` | `number` | 1-based attempt count (incremented on retries). |
-| `NAMESPACE` | `fluid.namespace` | `string` | Tenant namespace partition (requires `allowNamespace: true`). |
-| `CACHE_HIT` | `fluid.cache.hit` | `boolean` | `true` if step result was served from cache. |
-| `TIMEOUT` | `fluid.timeout` | `number` | Configured timeout in milliseconds. |
+| `WORKFLOW_NAME` | `rivulet.workflow.name` | `string` | Canonical name of the executing workflow. |
+| `WORKFLOW_VERSION` | `rivulet.workflow.version` | `string` | Semantic version string of the workflow. |
+| `WORKFLOW_ID` | `rivulet.workflow.id` | `string` | Unique workflow identifier. |
+| `STACK_ID` | `rivulet.stack.id` | `string` | Unique stack execution identifier. |
+| `STEP_NAME` | `rivulet.step.name` | `string` | Name or debug label of the active step. |
+| `STEP_ID` | `rivulet.step.id` | `string` | Internal node identifier in the workflow graph AST. |
+| `STEP_ATTEMPT` | `rivulet.step.attempt` | `number` | 1-based attempt count (incremented on retries). |
+| `NAMESPACE` | `rivulet.namespace` | `string` | Tenant namespace partition (requires `allowNamespace: true`). |
+| `CACHE_HIT` | `rivulet.cache.hit` | `boolean` | `true` if step result was served from cache. |
+| `TIMEOUT` | `rivulet.timeout` | `number` | Configured timeout in milliseconds. |
 
 ---
 
@@ -83,16 +83,16 @@ Instruments a `Flow` instance with a root span, sets execution attributes, and a
 ```typescript
 function instrumentWorkflow<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidTelemetryOptions
+    options?: RivuletTelemetryOptions
 ): Flow<TInput, TOutput>;
 ```
 
-#### Options (`FluidTelemetryOptions`):
+#### Options (`RivuletTelemetryOptions`):
 - `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@rivulet/opentelemetry', '1.0.0')`.
 - `serviceName` (`string`): Tracer service name identifier.
 - `workflowName` (`string`): Override workflow span label.
 - `workflowVersion` (`string`): Workflow version (default: `'1.0.0'`).
-- `allowNamespace` (`boolean`): If `true`, injects `fluid.namespace` into span attributes. Default `false` to prevent accidental namespace leakage.
+- `allowNamespace` (`boolean`): If `true`, injects `rivulet.namespace` into span attributes. Default `false` to prevent accidental namespace leakage.
 - `allowContextFields` (`string[]`): Whitelist of step context mutation keys that are allowed to be recorded as span attributes.
 - `redactHook` (`(key: string, value: unknown) => unknown`): Sanitizer hook to scrub sensitive or PII data before recording attributes.
 
@@ -105,7 +105,7 @@ Wraps an individual `Step` with a child span covering step execution, attempt co
 ```typescript
 function instrumentStep<TInput = any, TOutput = any>(
     step: Step<TInput, TOutput>,
-    options?: FluidTelemetryOptions
+    options?: RivuletTelemetryOptions
 ): Step<TInput, TOutput>;
 ```
 
@@ -116,11 +116,11 @@ function instrumentStep<TInput = any, TOutput = any>(
 Creates a `StorageAdapter` that transforms context changes into OpenTelemetry span attributes:
 
 ```typescript
-function createTelemetryStorageAdapter(options?: FluidTelemetryOptions): StorageAdapter;
+function createTelemetryStorageAdapter(options?: RivuletTelemetryOptions): StorageAdapter;
 ```
 
 #### Security & PII Protection:
-By default, **no context fields are streamed to OpenTelemetry spans**. Only fields explicitly declared in `allowContextFields` are emitted as `fluid.context.<field>`, and all values pass through `redactHook` if configured.
+By default, **no context fields are streamed to OpenTelemetry spans**. Only fields explicitly declared in `allowContextFields` are emitted as `rivulet.context.<field>`, and all values pass through `redactHook` if configured.
 
 ---
 

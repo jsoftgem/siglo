@@ -16,13 +16,13 @@ import {
 
 function printHelp(): void {
     console.log(`
-fluid-func CLI v1.0.0
+rivulet CLI v1.0.0
 
 USAGE:
-    fluid-func <command> [arguments] [options]
+    rivulet <command> [arguments] [options]
 
 COMMANDS:
-    init [dir]                     Scaffold a starter fluid-func project
+    init [dir]                     Scaffold a starter rivulet project
     generate workflow <name>       Scaffold a new typed workflow with test
     generate step <name>           Scaffold a new typed step with test
     visualize <workflow-file>      Render workflow graph as Mermaid or text diagram
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
             case 'init': {
                 const targetDir = target || process.cwd();
                 const res = initProject(targetDir);
-                console.log(`\n✔ Initialized fluid-func workflow project in ${targetDir}`);
+                console.log(`\n✔ Initialized rivulet workflow project in ${targetDir}`);
                 for (const f of res.filesCreated) {
                     console.log(`  + ${f}`);
                 }

@@ -24,8 +24,8 @@ The Redis adapter family encompasses three core modules:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                             Redis Server                                   │
 │                                                                            │
-│  fluid:checkpoint:<id>      fluid:idemp:<key>          fluid:lock:<key>    │
-│  fluid:cache:<key>          fluid:context:<id>:<step>                      │
+│  rivulet:checkpoint:<id>      rivulet:idemp:<key>          rivulet:lock:<key>    │
+│  rivulet:cache:<key>          rivulet:context:<id>:<step>                      │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -51,11 +51,11 @@ Peer dependency matrix:
 
 | Key Pattern | Redis Type | Default TTL | Description |
 | :--- | :--- | :--- | :--- |
-| `fluid:checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. |
-| `fluid:cache:<key>` | `string` (JSON) | 24 hours (`86400000ms`) | Cached step evaluation output. |
-| `fluid:context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. |
-| `fluid:idemp:<key>` | `string` | 24 hours (`86400000ms`) | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). |
-| `fluid:lock:<key>` | `string` (UUID) | Caller specified (e.g. 10s) | Distributed mutex lock holding worker token. |
+| `rivulet:checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. |
+| `rivulet:cache:<key>` | `string` (JSON) | 24 hours (`86400000ms`) | Cached step evaluation output. |
+| `rivulet:context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. |
+| `rivulet:idemp:<key>` | `string` | 24 hours (`86400000ms`) | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). |
+| `rivulet:lock:<key>` | `string` (UUID) | Caller specified (e.g. 10s) | Distributed mutex lock holding worker token. |
 
 ---
 
@@ -72,7 +72,7 @@ import { RedisStorageAdapter } from '@rivulet/redis';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `RedisClientInterface \| Redis` | *Required* | Active `ioredis` instance. |
-| `keyPrefix` | `string` | `'fluid:'` | Root prefix for all Redis keys. |
+| `keyPrefix` | `string` | `'rivulet:'` | Root prefix for all Redis keys. |
 | `checkpointTtlMs` | `number` | `604800000` (7 days) | Checkpoint expiration TTL. |
 | `cacheTtlMs` | `number` | `86400000` (24 hours) | Default step response cache expiration TTL. |
 | `recordContextChanges` | `boolean` | `true` | When `true`, streams field updates to Redis Hashes. |
@@ -83,7 +83,7 @@ import { RedisStorageAdapter } from '@rivulet/redis';
 - **`getCheckpoint(stackId)`**: Retrieves and parses serialized checkpoint. Returns `undefined` if not found.
 - **`getCachedStep(key)`**: Retrieves cached step response.
 - **`setCachedStep(key, value, ttlMs?)`**: Writes cached step response with specified TTL.
-- **`onContextChange(entry)`**: Executes `HSET` on `fluid:context:<stackId>:<stepId>` and refreshes TTL with `PEXPIRE`.
+- **`onContextChange(entry)`**: Executes `HSET` on `rivulet:context:<stackId>:<stepId>` and refreshes TTL with `PEXPIRE`.
 
 ---
 
@@ -100,7 +100,7 @@ import { RedisIdempotencyStore } from '@rivulet/redis';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `RedisClientInterface \| Redis` | *Required* | Active `ioredis` instance. |
-| `keyPrefix` | `string` | `'fluid:idemp:'` | Prefix for idempotency keys. |
+| `keyPrefix` | `string` | `'rivulet:idemp:'` | Prefix for idempotency keys. |
 | `defaultTtlMs` | `number` | `86400000` (24 hours) | Default lock TTL. |
 
 ### Claim States & Transitions:

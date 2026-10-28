@@ -11,7 +11,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             throw new Error('PostgresIdempotencyStore requires a valid Postgres client or pool instance.');
         }
         this.client = options.client;
-        this.tableName = options.tableName || 'fluid_idempotency';
+        this.tableName = options.tableName || 'rivulet_idempotency';
         this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours
     }
 

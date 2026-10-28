@@ -1,6 +1,6 @@
 import { Flow, ExecutionOptions } from 'rivulet';
 
-export interface FluidExpressOptions<TReq = any, TInput = any, TOutput = any> {
+export interface RivuletExpressOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, res: any) => Promise<any> | any;
     timeout?: number;
@@ -47,11 +47,11 @@ function unwrapContext(obj: any): any {
 }
 
 /**
- * Creates an Express middleware handler for executing a fluid-func workflow.
+ * Creates an Express middleware handler for executing a rivulet workflow.
  */
-export function fluidExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
+export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidExpressOptions<TReq, TInput, TOutput> = {}
+    options: RivuletExpressOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (req: any, res: any, next: (err?: any) => void): Promise<any> => {
         try {
@@ -120,3 +120,4 @@ export function fluidExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
         }
     };
 }
+

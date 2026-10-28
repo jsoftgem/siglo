@@ -13,7 +13,7 @@ Because Hono is built on standard `Request` and `Response` Web APIs, `@rivulet/h
                           │
                           ▼
              ┌─────────────────────────┐
-             │     fluidMiddleware     │
+             │     rivuletMiddleware     │
              │  • Extract c.req.json() │
              │  • Extract raw.signal   │ (Web Standard AbortSignal)
              │  • Set X-Correlation-Id │
@@ -60,20 +60,20 @@ Peer dependency matrix:
 
 ## 3. API Reference
 
-### `fluidMiddleware(workflow, options)`
+### `rivuletMiddleware(workflow, options)`
 
 Creates a Hono route handler or middleware `(c: Context, next?: Next) => Promise<any>`:
 
 ```typescript
-function fluidMiddleware<TInput = any, TOutput = any, TReq = any>(
+function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidHonoMiddlewareOptions<TReq, TInput, TOutput>
+    options?: RivuletHonoMiddlewareOptions<TReq, TInput, TOutput>
 ): (c: any, next?: () => Promise<void>) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`FluidHonoMiddlewareOptions`)
+## 4. Configuration Options (`RivuletHonoMiddlewareOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -109,7 +109,7 @@ const fetchExchangeRates = Step.create(async (param) => {
 ```typescript
 import { Hono } from 'hono';
 import { Step, flow } from 'rivulet';
-import { fluidMiddleware } from '@rivulet/hono';
+import { rivuletMiddleware } from '@rivulet/hono';
 
 const app = new Hono();
 
@@ -125,7 +125,7 @@ const edgeFlow = flow(geoLookup, rateCalculation);
 
 app.post(
     '/api/calculate-tax',
-    fluidMiddleware(edgeFlow, {
+    rivuletMiddleware(edgeFlow, {
         input: async (c) => {
             const body = await c.req.json();
             return {
@@ -148,7 +148,7 @@ export default app;
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server'; // Or run directly with `bun run server.ts`
 import { Step, flow } from 'rivulet';
-import { fluidMiddleware } from '@rivulet/hono';
+import { rivuletMiddleware } from '@rivulet/hono';
 
 const app = new Hono();
 
@@ -159,7 +159,7 @@ const echoWorkflow = flow(
     })).modern()
 );
 
-app.post('/api/echo', fluidMiddleware(echoWorkflow));
+app.post('/api/echo', rivuletMiddleware(echoWorkflow));
 
 // For Node.js:
 serve(app, (info) => {
@@ -176,7 +176,7 @@ When a step fails, `@rivulet/hono` checks the error type using `getErrorStatusCo
 ```typescript
 app.post(
     '/api/orders',
-    fluidMiddleware(orderFlow, {
+    rivuletMiddleware(orderFlow, {
         onError: (err, c) => {
             if (err.name === 'IdempotencyConflictException') {
                 return c.json({ error: 'Order is currently being processed by another request.' }, 409);

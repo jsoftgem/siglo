@@ -122,7 +122,7 @@ describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
                 timestamp: Date.now(),
             });
 
-            const hash = await mockClient.hgetall('fluid:context:stack-202:processPayment');
+            const hash = await mockClient.hgetall('rivulet:context:stack-202:processPayment');
             expect(hash.transactionId).to.equal('txn_999');
         });
     });

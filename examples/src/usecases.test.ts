@@ -62,7 +62,7 @@ test('Top 10 Event-Driven Use Cases Integration Test Suite', async (t) => {
             documentId: 'DOC-RAG-882',
             sourceUri: 's3://company-docs/architecture-overview.pdf',
             mimeType: 'application/pdf',
-            rawText: 'Fluid-func provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
+            rawText: 'Rivulet provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
                      'Combined with Apache Kafka, teams can build fault-tolerant, event-driven pipelines across distributed clusters.'
         };
 
@@ -304,7 +304,7 @@ test('Top 10 Event-Driven Use Cases Integration Test Suite', async (t) => {
     });
 
     // Final verification: inspect MongoDB execution logs for recorded context telemetry
-    const logs = await mongo.collection("fluid_execution_logs").find();
+    const logs = await mongo.collection("rivulet_execution_logs").find();
     assert.ok(logs.length >= 30, "Execution logs should be recorded for all use cases");
     assert.ok(logs.every(l => typeof l.stackId === "string" && l.stackId.length > 0), "Every log must have a valid string stackId");
 });

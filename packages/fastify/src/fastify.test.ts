@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { Step, flow } from 'rivulet';
-import { fluidFastifyHandler, getErrorStatusCode } from './index';
+import { rivuletFastifyHandler, getErrorStatusCode } from './index';
 
 describe('@rivulet/fastify Adapter Suite', () => {
     it('executes workflow using fastify request and returns clean response', async () => {
@@ -9,7 +9,7 @@ describe('@rivulet/fastify Adapter Suite', () => {
         }));
         const orderFlow = flow(stepA);
 
-        const handler = fluidFastifyHandler(orderFlow);
+        const handler = rivuletFastifyHandler(orderFlow);
 
         const mockReq = {
             body: { price: 20, qty: 3 },
@@ -47,7 +47,7 @@ describe('@rivulet/fastify Adapter Suite', () => {
             },
         };
 
-        const handler = fluidFastifyHandler(failingFlow, {
+        const handler = rivuletFastifyHandler(failingFlow, {
             onError: (err, reply) => reply.status(403).send({ message: err.message }),
         });
 
@@ -66,7 +66,7 @@ describe('@rivulet/fastify Adapter Suite', () => {
         const failingStep = Step.create(async (): Promise<any> => {
             throw timeoutErr;
         });
-        const handler = fluidFastifyHandler(flow(failingStep));
+        const handler = rivuletFastifyHandler(flow(failingStep));
 
         let sentStatus = 0;
         let sentBody: any;

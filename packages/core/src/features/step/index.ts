@@ -93,7 +93,6 @@ import {
 } from '../durable';
 
 export {
-    FluidFuncError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,

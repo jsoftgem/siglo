@@ -6,7 +6,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "uid": "fluid-func-apm",
+  "uid": "rivulet-apm",
   "links": [],
   "liveNow": false,
   "panels": [
@@ -218,13 +218,13 @@
       "type": "text",
       "options": {
         "mode": "markdown",
-        "content": "| Service | Pattern Demonstrated | OpenTelemetry Attributes Recorded |\n|---|---|---|\n| `order-service` | **Latency & Concurrency** | `fluid.workflow.name`, `fluid.workflow.version`, `fluid.step.name`, `fluid.step.attempt`, step duration waterfall |\n| `billing-service` | **Retries & Backoff** | `fluid.step.attempt` (1, 2, 3), `status=ERROR` on failed attempts, `exception.message`, `delayMs` |\n| `travel-booking-service` | **Saga Rollbacks** | Workflow `status=ERROR`, `saga.action: rollback`, reverse compensation order (`refundPayment` &rarr; `releaseHotelRoom`) |\n| `checkout-api` & `warehouse-worker` | **Distributed W3C Tracing** | Single `traceId` shared across HTTP checkout API and async queue background worker |"
+        "content": "| Service | Pattern Demonstrated | OpenTelemetry Attributes Recorded |\n|---|---|---|\n| `order-service` | **Latency & Concurrency** | `rivulet.workflow.name`, `rivulet.workflow.version`, `rivulet.step.name`, `rivulet.step.attempt`, step duration waterfall |\n| `billing-service` | **Retries & Backoff** | `rivulet.step.attempt` (1, 2, 3), `status=ERROR` on failed attempts, `exception.message`, `delayMs` |\n| `travel-booking-service` | **Saga Rollbacks** | Workflow `status=ERROR`, `saga.action: rollback`, reverse compensation order (`refundPayment` &rarr; `releaseHotelRoom`) |\n| `checkout-api` & `warehouse-worker` | **Distributed W3C Tracing** | Single `traceId` shared across HTTP checkout API and async queue background worker |"
       }
     }
   ],
   "refresh": "5s",
   "schemaVersion": 39,
-  "tags": ["fluid-func", "apm", "tracing", "opentelemetry"],
+  "tags": ["rivulet", "apm", "tracing", "opentelemetry"],
   "templating": {
     "list": []
   },
@@ -234,7 +234,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "fluid-func Workflow APM Overview",
+  "title": "rivulet Workflow APM Overview",
   "version": 3,
   "weekStart": ""
 }

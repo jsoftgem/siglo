@@ -44,7 +44,7 @@ This is the initial production release of **`Rivulet`** (v1.0.0), marking the tr
   - `step.timeout(ms)`: Per-step SLA enforcement.
   - `flow.timeout(ms)`: Cumulative workflow deadline enforcement.
 - **Structured Retries**: Exponential, linear, or fixed backoff with jitter and retry callbacks.
-- **Standardized Error Hierarchy**: Rooted at `FluidFuncError`, with typed exceptions for timeouts, cancellation, validation, saga compensation, and idempotency conflicts.
+- **Standardized Error Hierarchy**: Rooted at `RivuletError`, with typed exceptions for timeouts, cancellation, validation, saga compensation, and idempotency conflicts.
 - **Cooperative Cancellation**: Automatic `AbortSignal` propagation to HTTP clients, database queries, and async timers.
 
 #### Durable Execution & Storage
@@ -88,7 +88,7 @@ This is the initial production release of **`Rivulet`** (v1.0.0), marking the tr
 
 #### Observability & Distributed Tracing (`@rivulet/opentelemetry`)
 - Automatic root workflow span and child step spans with retry attempt counters.
-- Standardized semantic attributes (`fluid.workflow.name`, `fluid.step.name`, `fluid.step.attempt`, `fluid.stack.id`, `fluid.namespace`).
+- Standardized semantic attributes (`rivulet.workflow.name`, `rivulet.step.name`, `rivulet.step.attempt`, `rivulet.stack.id`, `rivulet.namespace`).
 - W3C Trace Context propagation helpers (`injectTraceContext`, `extractTraceContext`, `getTraceHeaders`).
 - Telemetry storage adapter streaming sanitized context attributes with configurable redaction.
 

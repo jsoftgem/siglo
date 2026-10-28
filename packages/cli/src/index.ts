@@ -64,7 +64,7 @@ export function toTextGraph(inspection: GraphInspectionResult): string {
 }
 
 /**
- * Visualizes a fluid-func workflow graph as Mermaid and text flowchart representations.
+ * Visualizes a rivulet workflow graph as Mermaid and text flowchart representations.
  */
 export function visualizeWorkflow(workflow: Flow): WorkflowVisualizationResult {
     const graph = toGraph(workflow);
@@ -187,7 +187,7 @@ export function inspectCheckpoint(
 }
 
 /**
- * Scaffolds a new starter fluid-func project directory.
+ * Scaffolds a new starter rivulet project directory.
  */
 export function initProject(targetDir: string = process.cwd()): { filesCreated: string[] } {
     const srcDir = path.join(targetDir, 'src');
@@ -201,9 +201,9 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
 
     if (!fs.existsSync(packageJsonPath)) {
         const pkg = {
-            name: 'my-fluid-workflow',
+            name: 'my-rivulet-workflow',
             version: '1.0.0',
-            description: 'Starter project built with fluid-func workflow runtime',
+            description: 'Starter project built with rivulet workflow runtime',
             scripts: {
                 test: 'tsx --test src/**/*.test.ts',
                 start: 'tsx src/workflow.ts',

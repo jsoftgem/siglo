@@ -1,6 +1,6 @@
 import { flow } from 'rivulet';
 import { step } from '../engine/step-helper';
-import { createSqsBatchHandler, FluidSqsRecord } from '@rivulet/sqs';
+import { createSqsBatchHandler, RivuletSqsRecord } from '@rivulet/sqs';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
 import { CharterResult } from './combinators.explore';
@@ -20,7 +20,7 @@ export async function runQueuesBatchCharter(
 
         const allMessageIds: string[] = [];
         const expectedFailedIds: string[] = [];
-        const records: FluidSqsRecord[] = [];
+        const records: RivuletSqsRecord[] = [];
 
         for (let m = 0; m < batchSize; m++) {
             const messageId = `msg_${i}_${m}_${rng.string(4)}`;

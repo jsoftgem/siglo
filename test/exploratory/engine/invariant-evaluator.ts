@@ -1,5 +1,5 @@
 /**
- * Autonomous Invariant Oracles for fluid-func.
+ * Autonomous Invariant Oracles for rivulet.
  * These oracles enforce the core system axioms across all randomized, chaos-injected exploratory tests.
  */
 

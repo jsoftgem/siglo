@@ -13,7 +13,7 @@ export interface ExecutionErrorMetadata {
 }
 /* c8 ignore stop */
 
-export class FluidFuncError extends Error {
+export class RivuletError extends Error {
     readonly stepName?: string;
     readonly phase?: string;
     readonly retryable: boolean;
@@ -25,7 +25,7 @@ export class FluidFuncError extends Error {
 
     constructor(message: string, metadata: ExecutionErrorMetadata = {}) {
         super(message);
-        this.name = 'FluidFuncError';
+        this.name = 'RivuletError';
         this.stepName = metadata.stepName;
         this.phase = metadata.phase;
         this.retryable = metadata.retryable !== undefined ? metadata.retryable : true;
@@ -41,7 +41,7 @@ export class FluidFuncError extends Error {
             (this as any).stackId = metadata.stackId;
         }
 
-        Object.setPrototypeOf(this, FluidFuncError.prototype);
+        Object.setPrototypeOf(this, RivuletError.prototype);
     }
 
     get isTimeout(): boolean {
@@ -96,7 +96,7 @@ export class FluidFuncError extends Error {
 /* c8 ignore next */
 }
 
-export class StepTimeoutException extends FluidFuncError {
+export class StepTimeoutException extends RivuletError {
     readonly timeoutMs: number;
     readonly elapsedMs?: number;
 
@@ -117,7 +117,7 @@ export class StepTimeoutException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class FlowTimeoutException extends FluidFuncError {
+export class FlowTimeoutException extends RivuletError {
     override readonly stackId: string;
     readonly timeoutMs: number;
     readonly completedSteps: number;
@@ -137,7 +137,7 @@ export class FlowTimeoutException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class CancellationException extends FluidFuncError {
+export class CancellationException extends RivuletError {
     constructor(message: string = 'This operation was aborted', metadata: ExecutionErrorMetadata = {}) {
         super(message, {
             ...metadata,
@@ -156,7 +156,7 @@ export interface ValidationErrorDetail {
     [key: string]: any;
 }
 
-export class ValidationException extends FluidFuncError {
+export class ValidationException extends RivuletError {
     readonly errors: ValidationErrorDetail[];
 
     constructor(errors: ValidationErrorDetail[], metadata: ExecutionErrorMetadata = {}) {
@@ -175,7 +175,7 @@ export class ValidationException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class StorageAdapterException extends FluidFuncError {
+export class StorageAdapterException extends RivuletError {
     readonly operation: string;
     readonly adapterName?: string;
 
@@ -195,7 +195,7 @@ export class StorageAdapterException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class CheckpointConflictException extends FluidFuncError {
+export class CheckpointConflictException extends RivuletError {
     readonly currentRevision: number;
     readonly attemptedRevision: number;
 
@@ -222,7 +222,7 @@ export class CheckpointConflictException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class NamespaceMismatchException extends FluidFuncError {
+export class NamespaceMismatchException extends RivuletError {
     readonly expectedNamespace: string;
     readonly actualNamespace?: string;
 
@@ -241,7 +241,7 @@ export class NamespaceMismatchException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class CheckpointVersionException extends FluidFuncError {
+export class CheckpointVersionException extends RivuletError {
     readonly version: any;
 
     constructor(version: any, metadata: ExecutionErrorMetadata = {}) {
@@ -263,7 +263,7 @@ export interface CollisionDetail {
     branchNames: string[];
 }
 
-export class FieldCollisionException extends FluidFuncError {
+export class FieldCollisionException extends RivuletError {
     readonly collisions: CollisionDetail[];
 
     constructor(collisions: CollisionDetail[], metadata: ExecutionErrorMetadata = {}) {
@@ -280,7 +280,7 @@ export class FieldCollisionException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class IdempotencyConflictException extends FluidFuncError {
+export class IdempotencyConflictException extends RivuletError {
     readonly idempotencyKey: string;
 
     constructor(idempotencyKey: string, metadata: ExecutionErrorMetadata = {}) {
@@ -301,7 +301,7 @@ export interface CompensationErrorDetail {
     error: unknown;
 }
 
-export class CompensationException extends FluidFuncError {
+export class CompensationException extends RivuletError {
     readonly originalError: unknown;
     readonly compensationErrors: CompensationErrorDetail[];
     readonly completedCompensations: string[];
@@ -330,7 +330,7 @@ export class CompensationException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class WorkflowSuspendedException extends FluidFuncError {
+export class WorkflowSuspendedException extends RivuletError {
     readonly correlationKey?: string;
     readonly eventName?: string;
     readonly continuationNodeId?: string;
@@ -359,7 +359,7 @@ export class WorkflowSuspendedException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class DuplicateEventException extends FluidFuncError {
+export class DuplicateEventException extends RivuletError {
     readonly correlationKey: string;
     readonly eventName?: string;
 
@@ -377,7 +377,7 @@ export class DuplicateEventException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class ExpiredWaitException extends FluidFuncError {
+export class ExpiredWaitException extends RivuletError {
     readonly correlationKey: string;
     readonly eventName?: string;
     readonly expiredAt: number;
@@ -397,7 +397,7 @@ export class ExpiredWaitException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class WorkflowVersionMismatchException extends FluidFuncError {
+export class WorkflowVersionMismatchException extends RivuletError {
     readonly expectedVersion: any;
     readonly actualVersion: any;
 
@@ -415,7 +415,7 @@ export class WorkflowVersionMismatchException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export class GraphValidationException extends FluidFuncError {
+export class GraphValidationException extends RivuletError {
     readonly errors: string[];
 
     constructor(errors: string[], metadata: ExecutionErrorMetadata = {}) {
@@ -431,8 +431,8 @@ export class GraphValidationException extends FluidFuncError {
 /* c8 ignore next */
 }
 
-export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): FluidFuncError {
-    if (error instanceof FluidFuncError) {
+export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): RivuletError {
+    if (error instanceof RivuletError) {
         if (!error.stackId && metadata.stackId) (error as any).stackId = metadata.stackId;
         if (!error.namespace && metadata.namespace) (error as any).namespace = metadata.namespace;
         if (!error.workflowId && metadata.workflowId) (error as any).workflowId = metadata.workflowId;
@@ -452,13 +452,12 @@ export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}
     const message = error instanceof Error
         ? error.message
         : (typeof error === 'string' ? error : 'Execution failed');
-    const fluidError = new FluidFuncError(message, {
+    const rivuletError = new RivuletError(message, {
         ...metadata,
         cause: error instanceof Error ? error : undefined
     });
     // Legacy compatibility: maintain error property
-    (fluidError as any).error = error;
-    return fluidError;
+    (rivuletError as any).error = error;
+    return rivuletError;
 }
 
-export { FluidFuncError as RivuletError };

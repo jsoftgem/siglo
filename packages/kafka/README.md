@@ -212,14 +212,14 @@ Creates an asynchronous message consumer handler:
 ```typescript
 function createKafkaMessageHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidKafkaOptions<TInput, TOutput>
-): (payload: { topic: string; partition: number; message: FluidKafkaMessage }) => Promise<any>;
+    options?: RivuletKafkaOptions<TInput, TOutput>
+): (payload: { topic: string; partition: number; message: RivuletKafkaMessage }) => Promise<any>;
 ```
 
-### `FluidKafkaMessage` Interface
+### `RivuletKafkaMessage` Interface
 
 ```typescript
-export interface FluidKafkaMessage {
+export interface RivuletKafkaMessage {
     key?: Buffer | string | null;
     value?: Buffer | string | null;
     partition: number;
@@ -231,16 +231,16 @@ export interface FluidKafkaMessage {
 
 ---
 
-## 7. Configuration Options (`FluidKafkaOptions`)
+## 7. Configuration Options (`RivuletKafkaOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `input` | `(message: FluidKafkaMessage) => Promise<TInput> \| TInput` | JSON parser on `message.value` | Custom transformer converting Kafka record into workflow input. |
-| `output` | `(result: any, message: FluidKafkaMessage) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor formatting the workflow output. |
+| `input` | `(message: RivuletKafkaMessage) => Promise<TInput> \| TInput` | JSON parser on `message.value` | Custom transformer converting Kafka record into workflow input. |
+| `output` | `(result: any, message: RivuletKafkaMessage) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor formatting the workflow output. |
 | `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to prevent duplicate processing. |
 | `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for idempotency claim lock. |
 | `timeout` | `number` | `undefined` | SLA execution timeout in milliseconds. |
-| `namespace` | `string \| ((message: FluidKafkaMessage) => string \| undefined)` | `message.headers['x-namespace']` | Namespace identifier for tenant partitioning. |
+| `namespace` | `string \| ((message: RivuletKafkaMessage) => string \| undefined)` | `message.headers['x-namespace']` | Namespace identifier for tenant partitioning. |
 
 ---
 

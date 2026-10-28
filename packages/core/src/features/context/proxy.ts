@@ -1,5 +1,5 @@
 import { CHAIN_ID, STACK_ID, VALIDATORS, SIGNAL, SIGNAL_KEY, NAMESPACE, SERVICES, DEPENDENCIES, DEPS } from '../../shared';
-const WRAPPED = Symbol.for('fluid-func.wrapped');
+const WRAPPED = Symbol.for('rivulet.wrapped');
 
 export function toPOJO<T = Record<string, any>>(data: any): T {
     if (!data || typeof data !== 'object') {

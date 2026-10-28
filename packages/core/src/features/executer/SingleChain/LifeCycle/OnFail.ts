@@ -14,7 +14,7 @@ export interface RetryConfig {
     onRetry?: (error: any, attempt: number, delayMs?: number) => void;
 }
 
-const RETRY_MAP = Symbol.for('fluid-func.retry-map');
+const RETRY_MAP = Symbol.for('rivulet.retry-map');
 
 export default class OnFail {
     constructor(

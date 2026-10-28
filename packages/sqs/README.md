@@ -79,14 +79,14 @@ Creates an AWS Lambda-compliant batch processor function:
 ```typescript
 function createSqsBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidSqsOptions<TInput, TOutput>
-): (event: FluidSqsEvent) => Promise<SqsBatchResponse>;
+    options?: RivuletSqsOptions<TInput, TOutput>
+): (event: RivuletSqsEvent) => Promise<SqsBatchResponse>;
 ```
 
 ### TypeScript Interfaces
 
 ```typescript
-export interface FluidSqsRecord {
+export interface RivuletSqsRecord {
     messageId: string;
     receiptHandle: string;
     body: string;
@@ -94,8 +94,8 @@ export interface FluidSqsRecord {
     messageAttributes?: Record<string, any>;
 }
 
-export interface FluidSqsEvent {
-    Records: FluidSqsRecord[];
+export interface RivuletSqsEvent {
+    Records: RivuletSqsRecord[];
 }
 
 export interface SqsBatchResponse {
@@ -106,16 +106,16 @@ export interface SqsBatchResponse {
 
 ---
 
-## 4. Configuration Options (`FluidSqsOptions`)
+## 4. Configuration Options (`RivuletSqsOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `input` | `(record: FluidSqsRecord) => Promise<TInput> \| TInput` | `JSON.parse(record.body)` | Custom mapper transforming an SQS record into workflow parameters. |
-| `output` | `(result: any, record: FluidSqsRecord) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor for step result. |
+| `input` | `(record: RivuletSqsRecord) => Promise<TInput> \| TInput` | `JSON.parse(record.body)` | Custom mapper transforming an SQS record into workflow parameters. |
+| `output` | `(result: any, record: RivuletSqsRecord) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor for step result. |
 | `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store to deduplicate across re-deliveries. |
 | `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for idempotency lock. |
 | `timeout` | `number` | `undefined` | SLA execution timeout per record in milliseconds. |
-| `namespace` | `string \| ((record: FluidSqsRecord) => string \| undefined)` | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation. |
+| `namespace` | `string \| ((record: RivuletSqsRecord) => string \| undefined)` | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation. |
 
 ---
 

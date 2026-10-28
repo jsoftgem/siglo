@@ -1,4 +1,4 @@
-# Fluid-Func Ecosystem Adapters & Integrations Guide
+# Rivulet Ecosystem Adapters & Integrations Guide
 
 The `Rivulet` ecosystem provides modular, production-ready integrations across observability, HTTP web frameworks, message brokers, persistent storage backends, and developer tooling.
 
@@ -122,7 +122,7 @@ When clients disconnect or timeouts elapse, HTTP adapters propagate `AbortSignal
 | **Primary Use Case** | In-memory caching, sub-millisecond checkpoints, ephemeral locks | Durable relational persistence, compliance audit logs |
 | **Storage Mechanism** | Redis Strings (`SET PX`), Hashes (`HSET`) | Relational tables (`JSONB`, `BIGSERIAL`, `TIMESTAMPTZ`) |
 | **Checkpoint Retention** | Native Redis TTL expiration (`checkpointTtlMs`) | Automated cron cleanup (`cleanupOldCheckpoints(days)`) |
-| **Context Change Audit** | Real-time hash update (`HSET fluid:context:...`) | Append-only event log (`fluid_context_events`) |
+| **Context Change Audit** | Real-time hash update (`HSET rivulet:context:...`) | Append-only event log (`rivulet_context_events`) |
 | **Step Output Caching** | Yes (`getCachedStep` / `setCachedStep`) | Relies on application layer / Redis |
 | **Idempotency Locking** | Atomic Redis `SET ... PX ... NX` | PostgreSQL `INSERT ... ON CONFLICT DO NOTHING` |
 | **Single-Flight Mutex** | Yes (`RedisLock` with Lua token validation) | Advisory locks or custom transaction tables |
@@ -163,7 +163,7 @@ The following blueprint illustrates how to combine multiple adapters into an ent
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ @rivulet/postgres Storage Adapter                                       │
 │ • Persists execution checkpoint JSONB                                      │
-│ • Records field mutations to fluid_context_events                          │
+│ • Records field mutations to rivulet_context_events                          │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -174,7 +174,7 @@ import Fastify from 'fastify';
 import { Pool } from 'pg';
 import { Redis } from 'ioredis';
 import { Step, flow } from 'rivulet';
-import { fluidFastifyHandler } from '@rivulet/fastify';
+import { rivuletFastifyHandler } from '@rivulet/fastify';
 import { instrumentWorkflow, createTelemetryStorageAdapter } from '@rivulet/opentelemetry';
 import { PostgresStorageAdapter } from '@rivulet/postgres';
 import { RedisStorageAdapter } from '@rivulet/redis';
@@ -217,7 +217,7 @@ const app = Fastify({ logger: true });
 
 app.post(
     '/api/checkout',
-    fluidFastifyHandler(monitoredFlow, {
+    rivuletFastifyHandler(monitoredFlow, {
         timeout: 10000,
         correlationIdHeader: 'x-request-id',
         namespace: (req) => req.headers['x-tenant-id'] as string,

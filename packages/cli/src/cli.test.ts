@@ -116,7 +116,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
     });
 
     it('scaffolds starter project files via initProject', () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fluid-cli-init-test-'));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rivulet-cli-init-test-'));
         try {
             const res = initProject(tempDir);
             expect(res.filesCreated.length).to.equal(3);
@@ -128,7 +128,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
         }
     });
     it("scaffolds typed workflow files via generateWorkflow", () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fluid-cli-wf-test-"));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rivulet-cli-wf-test-"));
         try {
             const res = generateWorkflow("order-processing", tempDir);
             expect(fs.existsSync(res.filePath)).to.be.true;
@@ -142,7 +142,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
     });
 
     it("scaffolds typed step files via generateStep", () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fluid-cli-step-test-"));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rivulet-cli-step-test-"));
         try {
             const res = generateStep("authorize-payment", tempDir);
             expect(fs.existsSync(res.filePath)).to.be.true;

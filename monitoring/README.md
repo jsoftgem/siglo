@@ -84,7 +84,7 @@ workflow:OrderFulfillmentPipeline [=============================================
     - `step:chargeCreditCard` (attempt 1 &rarr; ❌ `ERROR`, records `503 UpstreamGatewayTimeout`)
     - `step:chargeCreditCard (retry #2)` (attempt 2 &rarr; ❌ `ERROR`, records `503 UpstreamGatewayTimeout`)
     - `step:chargeCreditCard (retry #3)` (attempt 3 &rarr; ✅ `OK`, payment captured)
-  - Spans include the attribute `fluid.step.attempt: 3` and exception stack traces attached directly to failed spans.
+  - Spans include the attribute `rivulet.step.attempt: 3` and exception stack traces attached directly to failed spans.
 
 ---
 

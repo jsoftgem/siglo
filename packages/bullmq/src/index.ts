@@ -1,6 +1,6 @@
 import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
 
-export interface FluidBullMQOptions<TJob = any, TInput = any, TOutput = any> {
+export interface RivuletBullMQOptions<TJob = any, TInput = any, TOutput = any> {
     input?: (job: TJob) => Promise<TInput> | TInput;
     output?: (result: any, job: TJob) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
@@ -25,11 +25,11 @@ function unwrapContext(obj: any): any {
 }
 
 /**
- * Creates a BullMQ worker processor function that runs a fluid-func workflow.
+ * Creates a BullMQ worker processor function that runs a rivulet workflow.
  */
 export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidBullMQOptions<TJob, TInput, TOutput> = {}
+    options: RivuletBullMQOptions<TJob, TInput, TOutput> = {}
 ) {
     return async (job: any): Promise<any> => {
         const jobId = job.id || String(Date.now());
@@ -83,3 +83,4 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
         }
     };
 }
+

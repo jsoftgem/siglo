@@ -37,7 +37,7 @@ import {
 
 async function main() {
     console.log('========================================================================');
-    console.log('   fluid-func: Top 22 Production Event-Driven & Workflow Use Cases');
+    console.log('   rivulet: Top 22 Production Event-Driven & Workflow Use Cases');
     console.log('========================================================================\n');
 
     // 1. Initialize Database Connectors & Register Storage Hooks
@@ -82,7 +82,7 @@ async function main() {
         documentId: 'DOC-RAG-882',
         sourceUri: 's3://company-docs/architecture-overview.pdf',
         mimeType: 'application/pdf',
-        rawText: 'Fluid-func provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
+        rawText: 'Rivulet provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
                  'Combined with Apache Kafka, teams can build fault-tolerant, event-driven pipelines across distributed clusters.'
     });
     console.log(`  ✔ AI / RAG Pipeline -> Status: ${ragRes.ragPipelineStatus()}, Vectors Indexed: ${ragRes.indexedVectors()}`);
@@ -353,7 +353,7 @@ async function main() {
         id: 'job-image-transcode-42',
         data: {
             jobId: 'IMG-BANNER-4K',
-            imageUrl: 'https://cdn.fluidfunc.io/assets/raw-banner.png',
+            imageUrl: 'https://cdn.rivulet.io/assets/raw-banner.png',
             targetWidth: 3840,
             targetHeight: 2160,
             format: 'webp',
@@ -393,7 +393,7 @@ async function main() {
     // --- Verification of Redis & MongoDB State ---
     console.log("\n------------------------------------------------------------------------");
     console.log("[Verification] Checking Storage Adapter State:");
-    const mongoLogs = await mongo.collection("fluid_execution_logs").find();
+    const mongoLogs = await mongo.collection("rivulet_execution_logs").find();
     console.log(`  • MongoDB Execution Logs: ${mongoLogs.length} step context entries logged with stackId & namespace tracing`);
     console.log("\n[Demo] All 22 use cases executed and streamed to storage adapter successfully!");
     console.log('========================================================================\n');

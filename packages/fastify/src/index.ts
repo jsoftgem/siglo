@@ -1,6 +1,6 @@
 import { Flow, ExecutionOptions } from 'rivulet';
 
-export interface FluidFastifyOptions<TReq = any, TInput = any, TOutput = any> {
+export interface RivuletFastifyOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, reply: any) => Promise<any> | any;
     timeout?: number;
@@ -47,11 +47,11 @@ function unwrapContext(obj: any): any {
 }
 
 /**
- * Creates a Fastify route handler for executing a fluid-func workflow.
+ * Creates a Fastify route handler for executing a rivulet workflow.
  */
-export function fluidFastifyHandler<TInput = any, TOutput = any, TReq = any>(
+export function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidFastifyOptions<TReq, TInput, TOutput> = {}
+    options: RivuletFastifyOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (request: any, reply: any): Promise<any> => {
         try {
@@ -113,3 +113,4 @@ export function fluidFastifyHandler<TInput = any, TOutput = any, TReq = any>(
         }
     };
 }
+

@@ -118,7 +118,7 @@ try {
     // Span will have:
     // - status: SpanStatusCode.ERROR
     // - exception event with stack trace
-    // - attributes: fluid.step.name = 'flakyCall', fluid.step.phase = 'action'
+    // - attributes: rivulet.step.name = 'flakyCall', rivulet.step.phase = 'action'
 }
 ```
 

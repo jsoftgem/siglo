@@ -13,7 +13,7 @@ The Express adapter acts as a route-level or path-level middleware:
              │
              ▼
     ┌─────────────────────────────────┐
-    │     fluidExpressMiddleware      │
+    │     rivuletExpressMiddleware      │
     │  • Extract Correlation ID       │ ──> Set X-Correlation-Id header
     │  • Extract Input (body / query) │
     │  • Extract Namespace Header     │
@@ -61,20 +61,20 @@ Peer dependency matrix:
 
 ## 3. API Reference
 
-### `fluidExpressMiddleware(workflow, options)`
+### `rivuletExpressMiddleware(workflow, options)`
 
 Returns a standard Express middleware function `(req, res, next) => Promise<any>`.
 
 ```typescript
-function fluidExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
+function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidExpressOptions<TReq, TInput, TOutput>
+    options?: RivuletExpressOptions<TReq, TInput, TOutput>
 ): (req: any, res: any, next: (err?: any) => void) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`FluidExpressOptions`)
+## 4. Configuration Options (`RivuletExpressOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -133,7 +133,7 @@ If the client terminates the connection while the fetch is pending, the HTTP req
 ```typescript
 import express, { Request, Response } from 'express';
 import { Step, flow } from 'rivulet';
-import { fluidExpressMiddleware } from '@rivulet/express';
+import { rivuletExpressMiddleware } from '@rivulet/express';
 
 const app = express();
 app.use(express.json());
@@ -165,10 +165,10 @@ const createOrderRecord = Step.create('createOrderRecord', async (param: any) =>
 
 const checkoutFlow = flow(validateCart, chargeCustomer, createOrderRecord);
 
-// 2. Mount Fluid-Func Route
+// 2. Mount Rivulet Route
 app.post(
     '/api/v1/checkout',
-    fluidExpressMiddleware(checkoutFlow, {
+    rivuletExpressMiddleware(checkoutFlow, {
         timeout: 10000, // 10s execution SLA
         correlationIdHeader: 'x-request-id',
         input: (req: Request) => ({

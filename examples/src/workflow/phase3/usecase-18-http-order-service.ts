@@ -1,7 +1,7 @@
 import { Step, flow } from 'rivulet';
-import { fluidFastifyHandler } from '@rivulet/fastify';
-import { fluidExpressMiddleware } from '@rivulet/express';
-import { fluidMiddleware } from '@rivulet/hono';
+import { rivuletFastifyHandler } from '@rivulet/fastify';
+import { rivuletExpressMiddleware } from '@rivulet/express';
+import { rivuletMiddleware } from '@rivulet/hono';
 
 export interface HttpCheckoutRequest {
     orderId: string;
@@ -21,7 +21,7 @@ export interface HttpCheckoutResponse {
  * Use Case 18: HTTP Checkout & Order Processing Microservice
  * Frameworks demonstrated: Fastify, Express, and Hono adapters
  * Features demonstrated:
- * - Workflow wrapped seamlessly as HTTP endpoints via fluidFastifyHandler, fluidExpressMiddleware, fluidMiddleware
+ * - Workflow wrapped seamlessly as HTTP endpoints via rivuletFastifyHandler, rivuletExpressMiddleware, rivuletMiddleware
  * - Automated extraction of `x-namespace` and `x-stack-id` headers
  * - Typed request input extraction and response output mapping
  * - Centralized HTTP status code error handling
@@ -57,7 +57,7 @@ export function createHttpCheckoutWorkflow() {
  * Creates Fastify route handler for checkout workflow.
  */
 export function createFastifyCheckoutHandler(workflow = createHttpCheckoutWorkflow()) {
-    return fluidFastifyHandler(workflow, {
+    return rivuletFastifyHandler(workflow, {
         input: (req: any) => req.body,
         output: (result: any) => ({
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
@@ -79,7 +79,7 @@ export function createFastifyCheckoutHandler(workflow = createHttpCheckoutWorkfl
  * Creates Express route handler for checkout workflow.
  */
 export function createExpressCheckoutHandler(workflow = createHttpCheckoutWorkflow()) {
-    return fluidExpressMiddleware(workflow, {
+    return rivuletExpressMiddleware(workflow, {
         input: (req: any) => req.body,
         output: (result: any) => ({
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
@@ -102,7 +102,7 @@ export function createExpressCheckoutHandler(workflow = createHttpCheckoutWorkfl
  * Creates Hono route handler for checkout workflow.
  */
 export function createHonoCheckoutHandler(workflow = createHttpCheckoutWorkflow()) {
-    return fluidMiddleware(workflow, {
+    return rivuletMiddleware(workflow, {
         input: async (c: any) => (typeof c.req.json === 'function' ? await c.req.json() : c.req.body),
         output: (result: any) => ({
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,

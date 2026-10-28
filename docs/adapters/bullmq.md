@@ -73,17 +73,17 @@ Creates a BullMQ-compliant worker processor function:
 ```typescript
 function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidBullMQOptions<TJob, TInput, TOutput>
+    options?: RivuletBullMQOptions<TJob, TInput, TOutput>
 ): (job: any) => Promise<any>;
 ```
 
 #### Parameters:
 - `workflow` (`Flow<TInput, TOutput>`): The compiled `Rivulet` workflow instance to execute.
-- `options` (`FluidBullMQOptions<TJob, TInput, TOutput>`): Optional configuration dictionary.
+- `options` (`RivuletBullMQOptions<TJob, TInput, TOutput>`): Optional configuration dictionary.
 
 ---
 
-## 4. Configuration Options (`FluidBullMQOptions`)
+## 4. Configuration Options (`RivuletBullMQOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -218,7 +218,7 @@ Step.useStorage(new RedisStorageAdapter({ client: redis }));
 // Configure distributed idempotency store
 const idempotencyStore = new RedisIdempotencyStore({
     client: redis,
-    keyPrefix: 'fluid:idemp:bullmq:',
+    keyPrefix: 'rivulet:idemp:bullmq:',
     defaultTtlMs: 3600000, // 1 hour
 });
 

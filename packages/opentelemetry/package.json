@@ -20,15 +20,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rickzx98/fluid-func.git",
+    "url": "git+https://github.com/jsoftgem/rivulet.git",
     "directory": "packages/opentelemetry"
   },
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/rickzx98/fluid-func/issues"
+    "url": "https://github.com/jsoftgem/rivulet/issues"
   },
-  "homepage": "https://github.com/rickzx98/fluid-func#readme",
+  "homepage": "https://github.com/jsoftgem/rivulet#readme",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "rivulet": "^1.0.0"

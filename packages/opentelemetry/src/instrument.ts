@@ -10,7 +10,7 @@ import {
     StorageAdapter
 } from 'rivulet';
 import { SemanticAttributes } from './attributes';
-import { FluidTelemetryOptions } from './types';
+import { RivuletTelemetryOptions } from './types';
 
 const DEFAULT_TRACER_NAME = '@rivulet/opentelemetry';
 const DEFAULT_TRACER_VERSION = '1.0.0';
@@ -18,7 +18,7 @@ const DEFAULT_TRACER_VERSION = '1.0.0';
 /**
  * Returns an OpenTelemetry tracer based on configuration.
  */
-export function getTracer(options?: FluidTelemetryOptions): Tracer {
+export function getTracer(options?: RivuletTelemetryOptions): Tracer {
     return options?.tracer || trace.getTracer(options?.serviceName || DEFAULT_TRACER_NAME, DEFAULT_TRACER_VERSION);
 }
 
@@ -36,7 +36,7 @@ function resolveValue<T>(valOrFn: any): T | undefined {
 /**
  * Creates a StorageAdapter that streams allowed, sanitized context changes to active telemetry spans.
  */
-export function createTelemetryStorageAdapter(options: FluidTelemetryOptions = {}): StorageAdapter {
+export function createTelemetryStorageAdapter(options: RivuletTelemetryOptions = {}): StorageAdapter {
     return {
         name: 'opentelemetry',
         onContextChange(entry: any) {
@@ -51,7 +51,7 @@ export function createTelemetryStorageAdapter(options: FluidTelemetryOptions = {
                 }
                 if (val !== undefined) {
                     activeSpan.setAttribute(
-                        `fluid.context.${entry.field}`,
+                        `rivulet.context.${entry.field}`,
                         typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)
                     );
                 }
@@ -66,7 +66,7 @@ export function createTelemetryStorageAdapter(options: FluidTelemetryOptions = {
  */
 export function instrumentStep<TInput = any, TOutput = any>(
     step: Step<TInput, TOutput>,
-    options: FluidTelemetryOptions = {}
+    options: RivuletTelemetryOptions = {}
 ): Step<TInput, TOutput> {
     const tracer = getTracer(options);
     const originalAction = step.action;
@@ -127,7 +127,7 @@ export function instrumentStep<TInput = any, TOutput = any>(
  */
 export function instrumentWorkflow<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidTelemetryOptions = {}
+    options: RivuletTelemetryOptions = {}
 ): Flow<TInput, TOutput> {
     const tracer = getTracer(options);
 

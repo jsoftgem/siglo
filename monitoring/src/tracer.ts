@@ -25,7 +25,7 @@ export interface TelemetryConfig {
  * Supports distinct service names across microservices and scenarios.
  */
 export function initTelemetry(config: TelemetryConfig = {}): Tracer {
-    const serviceName = config.serviceName || process.env.OTEL_SERVICE_NAME || 'fluid-func-apm';
+    const serviceName = config.serviceName || process.env.OTEL_SERVICE_NAME || 'rivulet-apm';
     const serviceVersion = config.serviceVersion || '1.0.0';
     const otlpEndpoint = config.otlpEndpoint || process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces';
     const exportToOtlp = config.exportToOtlp ?? (process.env.NODE_ENV !== 'test');
@@ -132,14 +132,14 @@ export function printTraceWaterfall(title: string, spans: ReadableSpan[]): void 
         const indent = isRoot ? '  ├── ' : '  │   ├── ';
         const isError = span.status.code === 2; // SpanStatusCode.ERROR
         const statusBadge = isError ? '❌ ERROR' : '✅ OK';
-        const attempt = span.attributes['fluid.step.attempt'];
+        const attempt = span.attributes['rivulet.step.attempt'];
         const attemptStr = attempt && Number(attempt) > 1 ? ` (retry #${attempt})` : '';
 
         console.log(
             `${indent}[+${offset.toString().padStart(3, ' ')}ms] ${span.name}${attemptStr} (${duration}ms) [${statusBadge}]`
         );
-        if (span.attributes['fluid.step.timeout']) {
-            console.log(`  │   │   └─ timeout: ${span.attributes['fluid.step.timeout']}ms`);
+        if (span.attributes['rivulet.step.timeout']) {
+            console.log(`  │   │   └─ timeout: ${span.attributes['rivulet.step.timeout']}ms`);
         }
         if (span.events && span.events.length > 0) {
             for (const ev of span.events) {

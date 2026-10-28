@@ -13,7 +13,7 @@ Fastify is designed for minimal overhead. The `@rivulet/fastify` handler adapter
              │
              ▼
     ┌─────────────────────────────────┐
-    │       fluidFastifyHandler       │
+    │       rivuletFastifyHandler       │
     │  • Extract request.body / query │
     │  • Extract request.raw.signal   │ (Native AbortSignal)
     │  • Mirror X-Correlation-Id      │
@@ -56,20 +56,20 @@ Peer dependency matrix:
 
 ## 3. API Reference
 
-### `fluidFastifyHandler(workflow, options)`
+### `rivuletFastifyHandler(workflow, options)`
 
 Creates a Fastify route handler `(request, reply) => Promise<any>`:
 
 ```typescript
-function fluidFastifyHandler<TInput = any, TOutput = any, TReq = any>(
+function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: FluidFastifyOptions<TReq, TInput, TOutput>
+    options?: RivuletFastifyOptions<TReq, TInput, TOutput>
 ): (request: any, reply: any) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`FluidFastifyOptions`)
+## 4. Configuration Options (`RivuletFastifyOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -124,7 +124,7 @@ const queryExternalAPI = Step.create(async (param) => {
 ```typescript
 import Fastify from 'fastify';
 import { Step, flow } from 'rivulet';
-import { fluidFastifyHandler } from '@rivulet/fastify';
+import { rivuletFastifyHandler } from '@rivulet/fastify';
 
 const fastify = Fastify({
     logger: true,
@@ -169,7 +169,7 @@ fastify.post(
             },
         },
     },
-    fluidFastifyHandler(kycPipeline, {
+    rivuletFastifyHandler(kycPipeline, {
         timeout: 8000, // 8-second timeout SLA
         correlationIdHeader: 'x-request-id',
         namespace: (req) => req.headers['x-tenant-id'] as string,

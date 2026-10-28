@@ -117,7 +117,7 @@ export class LiveMongoClient implements IMongoClient {
     private client: any;
     private db: any;
 
-    constructor(client: any, dbName = 'fluid_func_db') {
+    constructor(client: any, dbName = 'rivulet_db') {
         this.client = client;
         this.db = client.db(dbName);
     }

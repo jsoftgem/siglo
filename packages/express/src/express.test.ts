@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { Step, flow } from 'rivulet';
-import { fluidExpressMiddleware, getErrorStatusCode } from './index';
+import { rivuletExpressMiddleware, getErrorStatusCode } from './index';
 
 describe('@rivulet/express Adapter Suite', () => {
     it('executes workflow using express request and sends json response', async () => {
@@ -9,7 +9,7 @@ describe('@rivulet/express Adapter Suite', () => {
         }));
         const calcFlow = flow(stepA);
 
-        const middleware = fluidExpressMiddleware(calcFlow);
+        const middleware = rivuletExpressMiddleware(calcFlow);
 
         const mockReq = {
             body: { a: 15, b: 25 },
@@ -40,7 +40,7 @@ describe('@rivulet/express Adapter Suite', () => {
         });
         const brokenFlow = flow(failStep);
 
-        const middleware = fluidExpressMiddleware(brokenFlow);
+        const middleware = rivuletExpressMiddleware(brokenFlow);
 
         let errorReceived: any;
         await middleware({}, {}, (err: any) => {
@@ -61,7 +61,7 @@ describe('@rivulet/express Adapter Suite', () => {
         const failStep = Step.create(async (): Promise<any> => {
             throw timeoutErr;
         });
-        const middleware = fluidExpressMiddleware(flow(failStep));
+        const middleware = rivuletExpressMiddleware(flow(failStep));
 
         let sentStatus = 0;
         let sentJson: any;

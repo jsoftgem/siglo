@@ -1,6 +1,6 @@
 import { Flow, ExecutionOptions } from 'rivulet';
 
-export interface FluidHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> {
+export interface RivuletHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (c: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, c: TReq) => Promise<any> | any;
     timeout?: number;
@@ -47,11 +47,11 @@ function unwrapContext(obj: any): any {
 }
 
 /**
- * Creates a Hono-compatible middleware / route handler for executing a fluid-func workflow.
+ * Creates a Hono-compatible middleware / route handler for executing a rivulet workflow.
  */
-export function fluidMiddleware<TInput = any, TOutput = any, TReq = any>(
+export function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidHonoMiddlewareOptions<TReq, TInput, TOutput> = {}
+    options: RivuletHonoMiddlewareOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (c: any, next?: () => Promise<void>): Promise<any> => {
         try {
@@ -132,3 +132,4 @@ export function fluidMiddleware<TInput = any, TOutput = any, TReq = any>(
         }
     };
 }
+

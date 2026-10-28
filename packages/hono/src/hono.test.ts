@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { Step, flow } from 'rivulet';
-import { fluidMiddleware, getErrorStatusCode } from './index';
+import { rivuletMiddleware, getErrorStatusCode } from './index';
 
 describe('@rivulet/hono Adapter Suite', () => {
     it('executes workflow using request input and sends response', async () => {
@@ -9,7 +9,7 @@ describe('@rivulet/hono Adapter Suite', () => {
         }));
         const taxFlow = flow(calculateTax);
 
-        const handler = fluidMiddleware(taxFlow, {
+        const handler = rivuletMiddleware(taxFlow, {
             input: (c: any) => ({ subtotal: c.body.subtotal }),
             output: (result: any, c: any) => c.json(result, 200),
         });
@@ -49,7 +49,7 @@ describe('@rivulet/hono Adapter Suite', () => {
         });
         const orderFlow = flow(failingStep);
 
-        const handler = fluidMiddleware(orderFlow, {
+        const handler = rivuletMiddleware(orderFlow, {
             onError: (err: any, c: any) => c.json({ error: err.message }, 400),
         });
 
@@ -91,7 +91,7 @@ describe('@rivulet/hono Adapter Suite', () => {
         const failingStep = Step.create(async (): Promise<any> => {
             throw timeoutErr;
         });
-        const handler = fluidMiddleware(flow(failingStep));
+        const handler = rivuletMiddleware(flow(failingStep));
 
         const mockContext = {
             jsonResponse: null as any,

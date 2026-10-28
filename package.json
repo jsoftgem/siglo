@@ -23,11 +23,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rickzx98/fluid-func.git"
+    "url": "git+https://github.com/jsoftgem/rivulet.git"
   },
   "keywords": [
     "rivulet",
-    "fluid-func",
     "chain",
     "workflow",
     "asynchronous",
@@ -37,9 +36,9 @@
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/rickzx98/fluid-func/issues"
+    "url": "https://github.com/jsoftgem/rivulet/issues"
   },
-  "homepage": "https://github.com/rickzx98/fluid-func#readme",
+  "homepage": "https://github.com/jsoftgem/rivulet#readme",
   "devDependencies": {
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",

@@ -269,7 +269,7 @@ test('Phase 3 Ecosystem & Adoption Integration Test Suite', async (t) => {
             assert.ok(tracer.spans.length >= 3, 'Expected root workflow span and step spans');
             const wfSpan = tracer.spans.find(s => s.name === 'workflow:ObservableOrderWorkflow');
             assert.ok(wfSpan, 'Workflow root span exists');
-            assert.equal(wfSpan?.attributes['fluid.workflow.name'], 'ObservableOrderWorkflow');
+            assert.equal(wfSpan?.attributes['rivulet.workflow.name'], 'ObservableOrderWorkflow');
 
             // Verification of namespace redaction privacy guard
             assert.equal(
@@ -281,11 +281,11 @@ test('Phase 3 Ecosystem & Adoption Integration Test Suite', async (t) => {
             // Verification of retry attempt tracking
             const initialSpan = tracer.spans.find(s => s.name === 'step:dispatchOrder');
             assert.ok(initialSpan, 'Initial dispatch order step span exists');
-            assert.equal(initialSpan?.attributes['fluid.step.attempt'], 1);
+            assert.equal(initialSpan?.attributes['rivulet.step.attempt'], 1);
 
             const retrySpan = tracer.spans.find(s => s.name === 'step:dispatchOrder (retry #2)');
             assert.ok(retrySpan, 'Retry step span exists with incremented attempt attribute');
-            assert.equal(retrySpan?.attributes['fluid.step.attempt'], 2);
+            assert.equal(retrySpan?.attributes['rivulet.step.attempt'], 2);
         });
 
         await st.test('Extracts W3C traceparent headers across boundaries', async () => {
@@ -326,8 +326,8 @@ test('Phase 3 Ecosystem & Adoption Integration Test Suite', async (t) => {
                 (trace as any).getActiveSpan = origGetSpan;
             }
 
-            assert.equal(testSpan.attributes['fluid.context.orderId'], 'ORD-OTEL-99');
-            assert.equal(testSpan.attributes['fluid.context.apiKeySecret'], undefined);
+            assert.equal(testSpan.attributes['rivulet.context.orderId'], 'ORD-OTEL-99');
+            assert.equal(testSpan.attributes['rivulet.context.apiKeySecret'], undefined);
             assert.equal(auditEvents.length, 1, 'Only allowlisted orderId was recorded; apiKeySecret was omitted');
             assert.equal(auditEvents[0].field, 'orderId');
         });

@@ -21,12 +21,12 @@ class MockPostgresClient implements PostgresClientInterface {
         }
 
         // Checkpoints
-        if (text.startsWith('INSERT INTO FLUID_CHECKPOINTS')) {
+        if (text.startsWith('INSERT INTO RIVULET_CHECKPOINTS')) {
             const [stackId, namespace, state] = values || [];
             this.checkpoints.set(stackId, { stackId, namespace, state });
             return { rows: [], rowCount: 1 };
         }
-        if (text.startsWith('SELECT STATE FROM FLUID_CHECKPOINTS')) {
+        if (text.startsWith('SELECT STATE FROM RIVULET_CHECKPOINTS')) {
             const [stackId] = values || [];
             if (this.checkpoints.has(stackId)) {
                 return { rows: [{ state: this.checkpoints.get(stackId).state } as unknown as T], rowCount: 1 };
@@ -35,14 +35,14 @@ class MockPostgresClient implements PostgresClientInterface {
         }
 
         // Events
-        if (text.startsWith('INSERT INTO FLUID_CONTEXT_EVENTS')) {
+        if (text.startsWith('INSERT INTO RIVULET_CONTEXT_EVENTS')) {
             const [stackId, stepId, namespace, field, value] = values || [];
             this.events.push({ stackId, stepId, namespace, field, value });
             return { rows: [], rowCount: 1 };
         }
 
         // Idempotency
-        if (text.startsWith('INSERT INTO FLUID_IDEMPOTENCY')) {
+        if (text.startsWith('INSERT INTO RIVULET_IDEMPOTENCY')) {
             const [key, expiresAt] = values || [];
             if (this.idempotency.has(key)) {
                 return { rows: [], rowCount: 0 }; // Conflict
@@ -50,7 +50,7 @@ class MockPostgresClient implements PostgresClientInterface {
             this.idempotency.set(key, { status: 'in-progress', expires_at: expiresAt });
             return { rows: [], rowCount: 1 };
         }
-        if (text.startsWith('SELECT STATUS, RESULT, EXPIRES_AT FROM FLUID_IDEMPOTENCY')) {
+        if (text.startsWith('SELECT STATUS, RESULT, EXPIRES_AT FROM RIVULET_IDEMPOTENCY')) {
             const [key] = values || [];
             const rec = this.idempotency.get(key);
             if (rec) {
@@ -58,7 +58,7 @@ class MockPostgresClient implements PostgresClientInterface {
             }
             return { rows: [], rowCount: 0 };
         }
-        if (text.startsWith('UPDATE FLUID_IDEMPOTENCY')) {
+        if (text.startsWith('UPDATE RIVULET_IDEMPOTENCY')) {
             const [key, resultJson, expiresAt] = values || [];
             if (this.idempotency.has(key)) {
                 this.idempotency.set(key, { status: 'completed', result: JSON.parse(resultJson), expires_at: expiresAt });
@@ -66,7 +66,7 @@ class MockPostgresClient implements PostgresClientInterface {
             }
             return { rows: [], rowCount: 0 };
         }
-        if (text.startsWith('DELETE FROM FLUID_IDEMPOTENCY')) {
+        if (text.startsWith('DELETE FROM RIVULET_IDEMPOTENCY')) {
             const [key] = values || [];
             if (key && this.idempotency.has(key)) {
                 this.idempotency.delete(key);
@@ -74,7 +74,7 @@ class MockPostgresClient implements PostgresClientInterface {
             }
             return { rows: [], rowCount: 0 };
         }
-        if (text.startsWith('SELECT RESULT FROM FLUID_IDEMPOTENCY')) {
+        if (text.startsWith('SELECT RESULT FROM RIVULET_IDEMPOTENCY')) {
             const [key] = values || [];
             const rec = this.idempotency.get(key);
             if (rec && rec.status === 'completed') {
@@ -103,7 +103,7 @@ describe('@rivulet/postgres Storage & Idempotency Adapter Suite', () => {
             const adapter = new PostgresStorageAdapter({ client: mockClient });
             await adapter.ensureTables();
 
-            const createQuery = mockClient.queries.find(q => q.text.includes('CREATE TABLE IF NOT EXISTS fluid_checkpoints'));
+            const createQuery = mockClient.queries.find(q => q.text.includes('CREATE TABLE IF NOT EXISTS rivulet_checkpoints'));
             expect(createQuery).to.exist;
         });
 
@@ -147,8 +147,8 @@ describe('@rivulet/postgres Storage & Idempotency Adapter Suite', () => {
             await adapter.cleanupOldCheckpoints(14);
             await adapter.cleanupOldEvents(7);
 
-            expect(mockClient.queries.some(q => q.text.includes('DELETE FROM fluid_checkpoints'))).to.be.true;
-            expect(mockClient.queries.some(q => q.text.includes('DELETE FROM fluid_context_events'))).to.be.true;
+            expect(mockClient.queries.some(q => q.text.includes('DELETE FROM rivulet_checkpoints'))).to.be.true;
+            expect(mockClient.queries.some(q => q.text.includes('DELETE FROM rivulet_context_events'))).to.be.true;
         });
     });
 
@@ -160,7 +160,7 @@ describe('@rivulet/postgres Storage & Idempotency Adapter Suite', () => {
         it('creates schema with ensureTable()', async () => {
             const store = new PostgresIdempotencyStore({ client: mockClient });
             await store.ensureTable();
-            expect(mockClient.queries.some(q => q.text.includes('CREATE TABLE IF NOT EXISTS fluid_idempotency'))).to.be.true;
+            expect(mockClient.queries.some(q => q.text.includes('CREATE TABLE IF NOT EXISTS rivulet_idempotency'))).to.be.true;
         });
 
         it('manages claim lifecycle: fresh claim -> in-progress -> completed', async () => {

@@ -24,13 +24,13 @@ export interface SaaSInvoiceOutput {
  */
 export class MockPostgresClient {
     public rows: {
-        fluid_checkpoints: any[];
-        fluid_context_events: any[];
-        fluid_idempotency: any[];
+        rivulet_checkpoints: any[];
+        rivulet_context_events: any[];
+        rivulet_idempotency: any[];
     } = {
-        fluid_checkpoints: [],
-        fluid_context_events: [],
-        fluid_idempotency: []
+        rivulet_checkpoints: [],
+        rivulet_context_events: [],
+        rivulet_idempotency: []
     };
     public queryLogs: string[] = [];
 
@@ -42,15 +42,15 @@ export class MockPostgresClient {
         }
 
         // Checkpoints
-        if (sql.includes('INSERT INTO fluid_checkpoints')) {
+        if (sql.includes('INSERT INTO rivulet_checkpoints')) {
             const [stackId, namespace, stateJson] = params;
             const parsedState = typeof stateJson === 'string' ? JSON.parse(stateJson) : stateJson;
-            const existing = this.rows.fluid_checkpoints.find(r => r.stack_id === stackId);
+            const existing = this.rows.rivulet_checkpoints.find(r => r.stack_id === stackId);
             if (existing) {
                 existing.namespace = namespace;
                 existing.state = parsedState;
             } else {
-                this.rows.fluid_checkpoints.push({
+                this.rows.rivulet_checkpoints.push({
                     stack_id: stackId,
                     namespace,
                     state: parsedState,
@@ -60,16 +60,16 @@ export class MockPostgresClient {
             return { rows: [], rowCount: 1 };
         }
 
-        if (sql.includes('SELECT state FROM fluid_checkpoints')) {
+        if (sql.includes('SELECT state FROM rivulet_checkpoints')) {
             const [stackId] = params;
-            const match = this.rows.fluid_checkpoints.find(r => r.stack_id === stackId);
+            const match = this.rows.rivulet_checkpoints.find(r => r.stack_id === stackId);
             return { rows: match ? [{ state: match.state }] : [], rowCount: match ? 1 : 0 };
         }
 
         // Context Events
-        if (sql.includes('INSERT INTO fluid_context_events')) {
+        if (sql.includes('INSERT INTO rivulet_context_events')) {
             const [stackId, stepId, namespace, field, value] = params;
-            this.rows.fluid_context_events.push({
+            this.rows.rivulet_context_events.push({
                 stack_id: stackId,
                 step_id: stepId,
                 namespace,
@@ -81,13 +81,13 @@ export class MockPostgresClient {
         }
 
         // Idempotency: INSERT ON CONFLICT DO NOTHING
-        if (sql.includes('INSERT INTO fluid_idempotency')) {
+        if (sql.includes('INSERT INTO rivulet_idempotency')) {
             const [key, expiresAt] = params;
-            const existing = this.rows.fluid_idempotency.find(r => r.key === key);
+            const existing = this.rows.rivulet_idempotency.find(r => r.key === key);
             if (existing) {
                 return { rows: [], rowCount: 0 };
             }
-            this.rows.fluid_idempotency.push({
+            this.rows.rivulet_idempotency.push({
                 key,
                 status: 'in-progress',
                 result: null,
@@ -96,15 +96,15 @@ export class MockPostgresClient {
             return { rows: [], rowCount: 1 };
         }
 
-        if (sql.includes('SELECT status, result, expires_at FROM fluid_idempotency')) {
+        if (sql.includes('SELECT status, result, expires_at FROM rivulet_idempotency')) {
             const [key] = params;
-            const match = this.rows.fluid_idempotency.find(r => r.key === key);
+            const match = this.rows.rivulet_idempotency.find(r => r.key === key);
             return { rows: match ? [match] : [], rowCount: match ? 1 : 0 };
         }
 
-        if (sql.includes('UPDATE fluid_idempotency')) {
+        if (sql.includes('UPDATE rivulet_idempotency')) {
             const [resultJson, key] = params;
-            const match = this.rows.fluid_idempotency.find(r => r.key === key);
+            const match = this.rows.rivulet_idempotency.find(r => r.key === key);
             if (match) {
                 match.status = 'completed';
                 match.result = resultJson;
@@ -244,7 +244,7 @@ export function setupSaaSBillingInfrastructure(
     const redisIdempotency = new RedisIdempotencyStore({ client: redisClient as any, defaultTtlMs: 86400000 });
 
     // 5. Redis Distributed Lock
-    const redisLock = new RedisLock(redisClient as any, 'fluid:lock:');
+    const redisLock = new RedisLock(redisClient as any, 'rivulet:lock:');
 
     return {
         workflow,

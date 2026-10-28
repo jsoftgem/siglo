@@ -5,7 +5,7 @@ services:
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: fluid-func-redis
+    container_name: rivulet-redis
     command: ["redis-server", "--requirepass", "redispassword"]
     ports:
       - "6379:6379"
@@ -22,16 +22,16 @@ services:
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: fluid-func-postgres
+    container_name: rivulet-postgres
     ports:
       - "5432:5432"
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: fluid_func_db
+      POSTGRES_DB: rivulet_db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d fluid_func_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rivulet_db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -42,14 +42,14 @@ services:
   # ---------------------------------------------------------------------------
   mongodb:
     image: mongo:7.0
-    container_name: fluid-func-mongodb
+    container_name: rivulet-mongodb
     ports:
       - "27017:27017"
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
-      MONGO_INITDB_DATABASE: fluid_func_db
+      MONGO_INITDB_DATABASE: rivulet_db
     healthcheck:
       test: ["CMD", "mongosh", "-u", "admin", "-p", "mongopassword", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
       interval: 5s
@@ -63,7 +63,7 @@ services:
   # ---------------------------------------------------------------------------
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
-    container_name: fluid-func-kafka
+    container_name: rivulet-kafka
     command:
       - redpanda
       - start
@@ -94,7 +94,7 @@ services:
   # ---------------------------------------------------------------------------
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: fluid-func-jaeger
+    container_name: rivulet-jaeger
     ports:
       - "16686:16686"
       - "4317:4317"

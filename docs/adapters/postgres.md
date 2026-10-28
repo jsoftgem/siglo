@@ -28,7 +28,7 @@ When workflows coordinate mission-critical financial, compliance, or enterprise 
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │                               PostgreSQL Database                                 │
 │                                                                                   │
-│  fluid_checkpoints          fluid_context_events        fluid_idempotency         │
+│  rivulet_checkpoints          rivulet_context_events        rivulet_idempotency         │
 │  ┌──────────────────────┐   ┌───────────────────────┐   ┌───────────────────────┐ │
 │  │ stack_id (PK)        │   │ id (BIGSERIAL PK)     │   │ key (VARCHAR(512) PK) │ │
 │  │ namespace            │   │ stack_id              │   │ status                │ │
@@ -63,17 +63,17 @@ Both `PostgresStorageAdapter` and `PostgresIdempotencyStore` support automated t
 
 ```sql
 -- 1. Checkpoint Storage Table
-CREATE TABLE IF NOT EXISTS fluid_checkpoints (
+CREATE TABLE IF NOT EXISTS rivulet_checkpoints (
     stack_id VARCHAR(255) PRIMARY KEY,
     namespace VARCHAR(255),
     state JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_fluid_checkpoints_namespace ON fluid_checkpoints(namespace);
+CREATE INDEX IF NOT EXISTS idx_rivulet_checkpoints_namespace ON rivulet_checkpoints(namespace);
 
 -- 2. Context Mutation Audit Log
-CREATE TABLE IF NOT EXISTS fluid_context_events (
+CREATE TABLE IF NOT EXISTS rivulet_context_events (
     id BIGSERIAL PRIMARY KEY,
     stack_id VARCHAR(255) NOT NULL,
     step_id VARCHAR(255) NOT NULL,
@@ -82,17 +82,17 @@ CREATE TABLE IF NOT EXISTS fluid_context_events (
     value JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_fluid_context_events_stack ON fluid_context_events(stack_id);
+CREATE INDEX IF NOT EXISTS idx_rivulet_context_events_stack ON rivulet_context_events(stack_id);
 
 -- 3. Distributed Idempotency Table
-CREATE TABLE IF NOT EXISTS fluid_idempotency (
+CREATE TABLE IF NOT EXISTS rivulet_idempotency (
     key VARCHAR(512) PRIMARY KEY,
     status VARCHAR(50) NOT NULL,
     result JSONB,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_fluid_idempotency_expires ON fluid_idempotency(expires_at);
+CREATE INDEX IF NOT EXISTS idx_rivulet_idempotency_expires ON rivulet_idempotency(expires_at);
 ```
 
 ---
@@ -110,8 +110,8 @@ import { PostgresStorageAdapter } from '@rivulet/postgres';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `PostgresClientInterface \| Pool` | *Required* | Active PostgreSQL `Pool` or `Client` instance. |
-| `checkpointsTable` | `string` | `'fluid_checkpoints'` | Name of checkpoints table. |
-| `eventsTable` | `string` | `'fluid_context_events'` | Name of context change audit table. |
+| `checkpointsTable` | `string` | `'rivulet_checkpoints'` | Name of checkpoints table. |
+| `eventsTable` | `string` | `'rivulet_context_events'` | Name of context change audit table. |
 | `recordContextChanges` | `boolean` | `true` | If `true`, writes all step context mutations into `eventsTable`. |
 
 ### Methods
@@ -126,7 +126,7 @@ Upserts a serialized execution stack by `stackId`, updating the `state` JSONB an
 Fetches the checkpoint by `stackId`. Returns `undefined` if no checkpoint is found.
 
 #### `onContextChange(entry): Promise<void>`
-Streams a field modification into `fluid_context_events` with step ID, field name, JSONB value, and high-resolution timestamp.
+Streams a field modification into `rivulet_context_events` with step ID, field name, JSONB value, and high-resolution timestamp.
 
 #### `cleanupOldCheckpoints(retentionDays?: number): Promise<number>`
 Deletes checkpoints older than `retentionDays` (default `30` days). Returns the count of deleted rows.
@@ -149,7 +149,7 @@ import { PostgresIdempotencyStore } from '@rivulet/postgres';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `PostgresClientInterface \| Pool` | *Required* | Active PostgreSQL `Pool` or `Client` instance. |
-| `tableName` | `string` | `'fluid_idempotency'` | Name of idempotency table. |
+| `tableName` | `string` | `'rivulet_idempotency'` | Name of idempotency table. |
 | `defaultTtlMs` | `number` | `86400000` (24h) | Fallback expiration TTL in milliseconds. |
 
 ### Methods

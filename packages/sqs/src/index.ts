@@ -1,6 +1,6 @@
 import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
 
-export interface FluidSqsRecord {
+export interface RivuletSqsRecord {
     messageId: string;
     receiptHandle: string;
     body: string;
@@ -8,17 +8,17 @@ export interface FluidSqsRecord {
     messageAttributes?: Record<string, any>;
 }
 
-export interface FluidSqsEvent {
-    Records: FluidSqsRecord[];
+export interface RivuletSqsEvent {
+    Records: RivuletSqsRecord[];
 }
 
-export interface FluidSqsOptions<TInput = any, TOutput = any> {
-    input?: (record: FluidSqsRecord) => Promise<TInput> | TInput;
-    output?: (result: any, record: FluidSqsRecord) => Promise<TOutput> | TOutput;
+export interface RivuletSqsOptions<TInput = any, TOutput = any> {
+    input?: (record: RivuletSqsRecord) => Promise<TInput> | TInput;
+    output?: (result: any, record: RivuletSqsRecord) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
     timeout?: number;
-    namespace?: string | ((record: FluidSqsRecord) => string | undefined);
+    namespace?: string | ((record: RivuletSqsRecord) => string | undefined);
 }
 
 function unwrapContext(obj: any): any {
@@ -42,13 +42,13 @@ export interface SqsBatchResponse {
 }
 
 /**
- * Creates an AWS Lambda compatible SQS batch message handler for fluid-func workflows.
+ * Creates an AWS Lambda compatible SQS batch message handler for rivulet workflows.
  */
 export function createSqsBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidSqsOptions<TInput, TOutput> = {}
+    options: RivuletSqsOptions<TInput, TOutput> = {}
 ) {
-    return async (event: FluidSqsEvent): Promise<SqsBatchResponse> => {
+    return async (event: RivuletSqsEvent): Promise<SqsBatchResponse> => {
         const batchItemFailures: Array<{ itemIdentifier: string }> = [];
         let processedCount = 0;
 
@@ -108,3 +108,4 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
         return { batchItemFailures, processedCount };
     };
 }
+

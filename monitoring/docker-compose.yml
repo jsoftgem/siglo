@@ -6,7 +6,7 @@ services:
   # ===========================================================================
   jaeger:
     image: jaegertracing/all-in-one:1.60
-    container_name: fluid-func-jaeger
+    container_name: rivulet-jaeger
     ports:
       - "16686:16686" # Jaeger Web UI
       - "4317:4317"   # OTLP gRPC receiver
@@ -23,7 +23,7 @@ services:
   # ===========================================================================
   prometheus:
     image: prom/prometheus:v2.54.1
-    container_name: fluid-func-prometheus
+    container_name: rivulet-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -37,7 +37,7 @@ services:
   # ===========================================================================
   grafana:
     image: grafana/grafana:11.2.0
-    container_name: fluid-func-grafana
+    container_name: rivulet-grafana
     ports:
       - "3000:3000"
     environment:

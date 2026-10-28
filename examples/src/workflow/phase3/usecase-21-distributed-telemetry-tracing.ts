@@ -75,7 +75,7 @@ export class MockTracer {
  * Adapter demonstrated: @rivulet/opentelemetry
  * Features demonstrated:
  * - instrumentWorkflow wrapping workflows with OpenTelemetry workflow & step spans
- * - Retry tracking via fluid.step.attempt attributes
+ * - Retry tracking via rivulet.step.attempt attributes
  * - W3C Trace Context propagation across distributed boundaries
  * - Telemetry Storage Adapter with field allowlists and namespace privacy redaction
  */

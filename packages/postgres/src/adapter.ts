@@ -13,8 +13,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
             throw new Error('PostgresStorageAdapter requires a valid Postgres client or pool instance.');
         }
         this.client = options.client;
-        this.checkpointsTable = options.checkpointsTable || 'fluid_checkpoints';
-        this.eventsTable = options.eventsTable || 'fluid_context_events';
+        this.checkpointsTable = options.checkpointsTable || 'rivulet_checkpoints';
+        this.eventsTable = options.eventsTable || 'rivulet_context_events';
         this.recordContextChanges = options.recordContextChanges ?? true;
     }
 

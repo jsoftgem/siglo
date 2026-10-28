@@ -17,7 +17,6 @@ import {
     PipeItem,
     PipeArg,
     // Error model
-    FluidFuncError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
@@ -167,7 +166,6 @@ export {
     PipeItem,
     PipeArg,
     // Error model
-    FluidFuncError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
@@ -295,7 +293,7 @@ export {
     isObject
 };
 
-// Compatibility for both CJS require('rivulet') and ESM import FluidFunc from 'rivulet'
+// Compatibility for both CJS require('rivulet') and ESM import Rivulet from 'rivulet'
 /* c8 ignore next 80 */
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Object.assign(Step, {
@@ -309,8 +307,7 @@ if (typeof module !== 'undefined' && module.exports) {
         Pipeline: flow,
         isPipeline,
         toPOJO,
-        FluidFuncError,
-    RivuletError,
+        RivuletError,
         StepTimeoutException,
         FlowTimeoutException,
         CancellationException,

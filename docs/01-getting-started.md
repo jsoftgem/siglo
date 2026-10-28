@@ -76,7 +76,7 @@ console.log(res.message); // 'Hello, World!'
 When a step fails, `Rivulet` captures phase diagnostics, attaches error metadata, and cancels or recovers according to policy:
 
 ```typescript
-import { Step, flow, FluidFuncError } from 'rivulet';
+import { Step, flow, RivuletError } from 'rivulet';
 
 const riskyStep = Step.create('riskyStep', async (param: { balance: number }) => {
     if (param.balance < 0) {

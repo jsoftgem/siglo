@@ -283,7 +283,7 @@ describe('@rivulet/opentelemetry Integration Suite', () => {
                 value: 'super-secret',
                 timestamp: Date.now(),
             });
-            expect(testSpan.attributes['fluid.context.password']).to.be.undefined;
+            expect(testSpan.attributes['rivulet.context.password']).to.be.undefined;
         });
     });
 });

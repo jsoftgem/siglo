@@ -1,6 +1,6 @@
 import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
 
-export interface FluidKafkaMessage {
+export interface RivuletKafkaMessage {
     key?: Buffer | string | null;
     value?: Buffer | string | null;
     partition: number;
@@ -9,13 +9,13 @@ export interface FluidKafkaMessage {
     headers?: Record<string, Buffer | string | undefined>;
 }
 
-export interface FluidKafkaOptions<TInput = any, TOutput = any> {
-    input?: (message: FluidKafkaMessage) => Promise<TInput> | TInput;
-    output?: (result: any, message: FluidKafkaMessage) => Promise<TOutput> | TOutput;
+export interface RivuletKafkaOptions<TInput = any, TOutput = any> {
+    input?: (message: RivuletKafkaMessage) => Promise<TInput> | TInput;
+    output?: (result: any, message: RivuletKafkaMessage) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
     timeout?: number;
-    namespace?: string | ((message: FluidKafkaMessage) => string | undefined);
+    namespace?: string | ((message: RivuletKafkaMessage) => string | undefined);
 }
 
 function unwrapContext(obj: any): any {
@@ -34,13 +34,13 @@ function unwrapContext(obj: any): any {
 }
 
 /**
- * Creates a Kafka message consumer handler for executing a fluid-func workflow.
+ * Creates a Kafka message consumer handler for executing a rivulet workflow.
  */
 export function createKafkaMessageHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: FluidKafkaOptions<TInput, TOutput> = {}
+    options: RivuletKafkaOptions<TInput, TOutput> = {}
 ) {
-    return async (payload: { topic: string; partition: number; message: FluidKafkaMessage }): Promise<any> => {
+    return async (payload: { topic: string; partition: number; message: RivuletKafkaMessage }): Promise<any> => {
         const { message, topic, partition } = payload;
         const msgKey = message.key ? String(message.key) : `${topic}:${partition}:${message.offset}`;
         const idempKey = `kafka:${topic}:${msgKey}`;
@@ -104,3 +104,4 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
         }
     };
 }
+

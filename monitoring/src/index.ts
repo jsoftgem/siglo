@@ -20,7 +20,7 @@ async function checkOtlpConnectivity(): Promise<boolean> {
 
 export async function runAllScenarios(): Promise<void> {
     console.log(`\n==============================================================================`);
-    console.log(`       🌊 fluid-func OpenTelemetry APM & Live Monitoring Demo                `);
+    console.log(`       🌊 rivulet OpenTelemetry APM & Live Monitoring Demo                `);
     console.log(`==============================================================================\n`);
 
     const isConnected = await checkOtlpConnectivity();
