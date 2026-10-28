@@ -127,7 +127,7 @@ describe('User Workflow Test Suite', () => {
 
 ## Operational Caveats
 
-1. **Step Immutability**: Always use `` or POJO execution mode (`{ pojo: true }`) in production to ensure pure functional context immutability and prevent side-effect pollution between concurrent executions.
+1. **Step Immutability**: Always use POJO execution mode (`{ pojo: true }`) in production to ensure pure functional context immutability and prevent side-effect pollution between concurrent executions.
 2. **Deterministic Step Actions**: Keep step actions idempotent and deterministic. Side effects (e.g. charging a payment or sending an email) should declare idempotency keys or compensation rollbacks.
 3. **Avoid Unhandled Promises**: Ensure all asynchronous steps return promises that resolve or reject explicitly.
 
