@@ -195,7 +195,6 @@ export function map(
         }
     });
 
-    step.modern();
     (step as any).workflowNode = mapNode;
     return step;
 }

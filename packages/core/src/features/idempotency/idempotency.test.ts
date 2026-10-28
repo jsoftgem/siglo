@@ -72,7 +72,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
     it('workflow-level idempotency deduplicates calls and returns stored output', async () => {
         let executions = 0;
-        const step = Step.create('payment').modern().onStart(async ({ amount }: any) => {
+        const step = Step.create('payment').onStart(async ({ amount }: any) => {
             executions++;
             await new Promise(r => setTimeout(r, 10));
             return { transactionId: `tx_${amount}`, paid: true, executions };
@@ -102,7 +102,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
     });
 
     it('workflow-level idempotency throws IdempotencyConflictException for in-progress duplicate', async () => {
-        const slowStep = Step.create('slowPayment').modern().onStart(async () => {
+        const slowStep = Step.create('slowPayment').onStart(async () => {
             await new Promise(r => setTimeout(r, 50));
             return { ok: true };
         });
@@ -127,7 +127,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
     it('step-level idempotency via step.idempotent() caches step output and deduplicates', async () => {
         let stepExecutions = 0;
         const idempotentStep = Step.create('chargeStep')
-            .modern()
+            
             .idempotent((ctx) => `charge:${ctx.invoiceId}`)
             .onStart(async ({ invoiceId }: any) => {
                 stepExecutions++;
@@ -146,7 +146,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
     it('failed workflow cleans up idempotency claim so it can be retried', async () => {
         let attempts = 0;
-        const failingStep = Step.create('failFirst').modern().onStart(() => {
+        const failingStep = Step.create('failFirst').onStart(() => {
             attempts++;
             if (attempts === 1) throw new Error('First try failed');
             return { success: true, attempts };
@@ -179,7 +179,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
     it("handles sync and async errors in idempotent steps and functional workflow idempotencyKey", async () => {
         const syncFailStep = Step.create("syncFail")
-            .modern()
+            
             .idempotent("sync-fail-k")
             .onStart(() => {
                 throw new Error("Sync fail in idempotent step");
@@ -192,7 +192,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         }
 
         const asyncFailStep = Step.create("asyncFail")
-            .modern()
+            
             .idempotent("async-fail-k")
             .onStart(async () => {
                 throw new Error("Async fail in idempotent step");
@@ -204,7 +204,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             expect(err.message).to.equal("Async fail in idempotent step");
         }
 
-        const stepFn = Step.create("stepFn").modern().onStart(() => ({ ok: true, fnProp: () => {} }));
+        const stepFn = Step.create("stepFn").onStart(() => ({ ok: true, fnProp: () => {} }));
         const resFn = await flow(stepFn).execute({ orderId: "ord-fn-1" }, {
             pojo: true,
             idempotencyKey: (ctx) => "wf-" + ctx.orderId
@@ -213,7 +213,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
     });
     it("handles onAfter failure and reduce failure in idempotent steps", async () => {
         const afterFailStep = Step.create("afterFail")
-            .modern()
+            
             .idempotent("after-fail-k")
             .onStart(() => ({ data: 1 }))
             .onAfter(() => {
@@ -227,7 +227,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         }
 
         const reduceFailStep = Step.create("reduceFail")
-            .modern()
+            
             .idempotent("reduce-fail-k")
             .reduce("items")
             .onStart(() => {
@@ -242,7 +242,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
     });
     it("handles step-level IdempotencyConflictException and store claim rejection", async () => {
         const slowStep = Step.create("slowStep")
-            .modern()
+            
             .idempotent("concurrent-step-key")
             .onStart(async () => {
                 await new Promise(r => setTimeout(r, 60));
@@ -264,7 +264,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             get: () => Promise.resolve(undefined)
         };
         const errorStoreStep = Step.create("storeErrorStep")
-            .modern()
+            
             .idempotent("key-store-err", { store: throwingStore })
             .onStart(() => ({ done: true }));
         try {

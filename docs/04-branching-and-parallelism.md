@@ -11,9 +11,9 @@ Execute multiple branches or steps concurrently:
 ```typescript
 import { Step, flow, parallel } from 'rivulet';
 
-const fetchCreditScore = Step.create('fetchCredit', async () => ({ creditScore: 750 })).modern();
-const fetchBankHistory = Step.create('fetchHistory', async () => ({ hasDefaults: false })).modern();
-const fetchIdentity = Step.create('fetchIdentity', async () => ({ idVerified: true })).modern();
+const fetchCreditScore = Step.create('fetchCredit', async () => ({ creditScore: 750 }));
+const fetchBankHistory = Step.create('fetchHistory', async () => ({ hasDefaults: false }));
+const fetchIdentity = Step.create('fetchIdentity', async () => ({ idVerified: true }));
 
 export const verificationPipeline = flow(
     parallel([
@@ -61,9 +61,9 @@ Route execution based on runtime conditions:
 ```typescript
 import { Step, flow, branch, when } from 'rivulet';
 
-const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 })).modern();
-const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 })).modern();
-const handleGlobalCustomer = Step.create('globalTax', async () => ({ taxRate: 0.00 })).modern();
+const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 }));
+const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 }));
+const handleGlobalCustomer = Step.create('globalTax', async () => ({ taxRate: 0.00 }));
 
 export const checkoutRouting = flow(
     when('country', {
@@ -97,7 +97,7 @@ import { Step, flow, map } from 'rivulet';
 
 const processItem = Step.create('processItem', async (item: { sku: string; qty: number }) => {
     return { sku: item.sku, processed: true };
-}).modern();
+});
 
 export const batchWorkflow = flow(
     map((param) => param.orderItems, processItem, {

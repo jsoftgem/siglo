@@ -123,7 +123,7 @@ const flaky = Step.create('flaky', async () => {
     attempts++;
     if (attempts < 2) throw new Error('Network timeout');
     return { recovered: true };
-}).onFail({ maxRetries: 3, delay: 50 }).modern();
+}).onFail({ maxRetries: 3, delay: 50 });
 
 const wf = flow(flaky);
 const res = await wf.run();
@@ -172,7 +172,7 @@ const step = Step.create('apiCall', () => {
     calls++;
     if (calls < 3) throw new Error('Rate limit');
     return { status: 200 };
-}).onFail({ maxRetries: 3, delay: 10 }).modern();
+}).onFail({ maxRetries: 3, delay: 10 });
 
 const testWf = flow(step);
 

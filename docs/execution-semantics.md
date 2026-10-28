@@ -6,8 +6,8 @@ This document provides a formal, binding contract for the runtime execution sema
 
 ### 1. What does a step return to the next step when it returns an object, a primitive, undefined, or a promise?
 
-- **Object (`Record<string, any>`)**: The returned keys are shallow-merged into the execution context. In modern mode (`Step.create().modern()`) or POJO execution mode (`{ pojo: true }`), keys are plain data properties. In legacy proxy mode, properties are wrapped as accessor getter functions `param.prop()` that cache their evaluated values.
-- **Primitive (`string`, `number`, `boolean`, `symbol`, `bigint`, etc.)**: Primitive values cannot be keyed directly into an execution context object. They are wrapped as context accessors or mapped through custom reducers (`step.reduce('field')`). When modern/POJO mode is enabled with a single primitive step, the direct primitive value is returned.
+- **Object (`Record<string, any>`)**: The returned keys are shallow-merged into the execution context as clean plain JavaScript objects (POJOs). Properties are directly accessible without wrappers or getter closures, allowing native object destructuring.
+- **Primitive (`string`, `number`, `boolean`, `symbol`, `bigint`, etc.)**: Primitive values cannot be keyed directly into an execution context object. They are wrapped as context accessors or mapped through custom reducers (`step.reduce('field')`). When executed as a single primitive step, the direct primitive value is returned.
 - **`undefined`**: If a step action returns `undefined` (or no return statement), the existing context passes through intact to the next step without modifying or removing existing properties.
 - **`Promise`**: If a step returns a `Promise` (or is declared `async`), the orchestrator awaits the promise resolution. Rejections trigger the step's failure lifecycle (`onFail`), while resolutions are handled according to the object/primitive/undefined rules above.
 

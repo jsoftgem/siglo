@@ -66,7 +66,6 @@ export function waitForEvent(
         };
     });
 
-    step.modern();
     (step as any).workflowNode = waitNode;
     (step as any).waitConfig = {
         eventName,
@@ -111,7 +110,6 @@ export function wait(
         return { waitedMs: durationMs };
     });
 
-    step.modern();
     (step as any).workflowNode = waitNode;
     return step;
 }

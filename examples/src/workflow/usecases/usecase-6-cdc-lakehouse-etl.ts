@@ -19,7 +19,7 @@ export interface DebeziumCdcEvent {
  * - Schema translator mapping legacy snake_case database rows to camelCase Lakehouse schemas
  * - Deduplication via LSN / binlog coordinate cache keys
  * - Dimension enrichment and analytical micro-batching
- * - Step.create(...).modern() for idiomatic POJO parameter unwrapping
+ * - Step.create(...) for idiomatic POJO parameter unwrapping
  */
 export function createCdcLakehousePipeline() {
     const seenLsns = new Set<number>();
@@ -37,7 +37,7 @@ export function createCdcLakehousePipeline() {
             lsn: source.lsn,
             capturedTimestamp: source.ts_ms
         };
-    }).modern()
+    })
       .spec('op', { require: true })
       .spec('source', { require: true });
 
@@ -61,7 +61,7 @@ export function createCdcLakehousePipeline() {
             transformedRow,
             schemaVersion: 'lakehouse.v2'
         };
-    }).modern();
+    });
 
     // Step 3: Enrich from Customer Service Dimensions
     const enrichFromCustomerService = Step.create('cdcEnrichCustomer', async (param: any) => {
@@ -77,7 +77,7 @@ export function createCdcLakehousePipeline() {
         return {
             enrichedRow
         };
-    }).modern();
+    });
 
     // Step 4: Deduplicate via LSN Check
     const deduplicate = Step.create('cdcDeduplicate', async (param: any) => {
@@ -92,7 +92,7 @@ export function createCdcLakehousePipeline() {
             isDuplicate,
             dedupKey: `cdc:lsn:${lsn}`
         };
-    }).modern();
+    });
 
     // Step 5: Sink to Lakehouse Warehouse (Parquet/Iceberg format)
     const sinkToWarehouse = Step.create('cdcSinkToWarehouse', async (param: any) => {
@@ -122,7 +122,7 @@ export function createCdcLakehousePipeline() {
             committedLsn: lsn,
             committedRecord: enrichedRow
         };
-    }).modern();
+    });
 
     return flow(
         captureDbEvent,

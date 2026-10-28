@@ -26,7 +26,7 @@ export interface EcommerceSagaInput {
  * Use Case 1: E-Commerce Distributed Checkout & Saga Orchestration
  * Flow: validateCart -> reserveInventory -> chargePayment -> createShipment -> sendConfirmationEmail
  * Features:
- * - Step.create(...).modern() clean POJO parameter mapping
+ * - Step.create(...) clean POJO parameter mapping
  * - Declarative spec validation
  * - In-memory / distributed state accumulation across steps
  * - Localized retry with onFail on chargePayment
@@ -50,7 +50,7 @@ export function createEcommerceSagaPipeline() {
             itemCount: items.length,
             totalAmount
         };
-    }).modern()
+    })
       .spec('orderId', { require: true })
       .spec('cartItems', { require: true });
 
@@ -66,7 +66,7 @@ export function createEcommerceSagaPipeline() {
             reservationId,
             reservedSkus: items.map((i: SagaCartItem) => i.sku)
         };
-    }).modern();
+    });
 
     // Step 3: Charge Payment (with onFail retry configuration)
     let paymentAttempts = 0;
@@ -87,7 +87,7 @@ export function createEcommerceSagaPipeline() {
             chargedAmount: totalAmount,
             paymentAttempts
         };
-    }).modern().onFail({
+    }).onFail({
         maxRetries: 2,
         delay: 10,
         backoff: 'exponential'
@@ -104,7 +104,7 @@ export function createEcommerceSagaPipeline() {
             estimatedDelivery: '3 business days',
             destinationCity: shippingAddress.city
         };
-    }).modern();
+    });
 
     // Step 5: Send Confirmation Email
     const sendConfirmationEmail = Step.create('sagaSendConfirmationEmail', async (param: any) => {
@@ -123,7 +123,7 @@ export function createEcommerceSagaPipeline() {
             emailSubject: `Order Confirmation #${orderId}`,
             summary: `Charged $${totalAmount}, Tracking: ${trackingNumber} sent to customer ${customerId}`
         };
-    }).modern();
+    });
 
     return flow(
         validateCart,

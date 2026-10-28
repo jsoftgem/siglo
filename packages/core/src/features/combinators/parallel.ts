@@ -331,7 +331,6 @@ export function parallel(
         }
     });
 
-    step.modern();
     (step as any).workflowNode = parallelNode;
     return step;
 }

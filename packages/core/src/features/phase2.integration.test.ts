@@ -53,13 +53,13 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const compensationsExecuted: string[] = [];
 
             // 1. Validate Order
-            const validateOrder = Step.create('validateOrder').modern().onStart(({orderId, amount, items}: any) => {
+            const validateOrder = Step.create('validateOrder').onStart(({orderId, amount, items}: any) => {
                 return {orderId, amount, items, validated: true};
             });
 
             // 2. Parallel: Reserve Inventory (with compensation) + Authorize Payment (with compensation) + Calculate Tax
             const reserveInventory = Step.create('reserveInventory')
-                .modern()
+                
                 .compensate(async (output: any) => {
                     compensationsExecuted.push(`release_inventory:${output.reservedItems.join(',')}`);
                 })
@@ -69,7 +69,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 });
 
             const authorizePayment = Step.create('authorizePayment')
-                .modern()
+                
                 .compensate(async (output: any) => {
                     compensationsExecuted.push(`refund_payment:${output.paymentAuthCode}`);
                 })
@@ -79,7 +79,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 });
 
             const calculateTax = Step.create('calculateTax')
-                .modern()
+                
                 .onStart(async ({amount}: any) => {
                     await new Promise(r => setTimeout(r, 10));
                     return {tax: amount * 0.08};
@@ -88,7 +88,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const prepareOrder = parallel(reserveInventory, authorizePayment, calculateTax);
 
             // 3. Downstream step that fails to trigger compensation
-            const packGoods = Step.create('packGoods').modern().onStart(() => {
+            const packGoods = Step.create('packGoods').onStart(() => {
                 throw new Error('Warehouse robotics failure');
             });
 
@@ -116,7 +116,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             };
 
             const reserveFlight = Step.create('reserveFlight')
-                .modern()
+                
                 .compensate(async (output: any, input: any) => {
                     auditLog.compensations.push(`Cancel Flight: ${output.ticketId} for ${input.passenger}`);
                 })
@@ -126,7 +126,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 });
 
             const reserveHotel = Step.create('reserveHotel')
-                .modern()
+                
                 .compensate(async (output: any, input: any) => {
                     auditLog.compensations.push(`Cancel Hotel: ${output.hotelConfirmation} for ${input.passenger}`);
                 })
@@ -136,7 +136,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 });
 
             const chargePayment = Step.create('chargePayment')
-                .modern()
+                
                 .onStart(async ({flightCost, hotelCost, shouldFail}: any) => {
                     const total = flightCost + hotelCost;
                     if (shouldFail) {
@@ -179,13 +179,13 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         it('Scenario 1c: Compensation failure raises CompensationException with error diagnostics', async () => {
             const failingCompSaga = flow(
                 Step.create('stepA')
-                    .modern()
+                    
                     .compensate(async () => {
                         throw new Error('Hotel cancellation network timeout');
                     })
                     .onStart(async () => ({stepA: true})),
                 Step.create('stepB')
-                    .modern()
+                    
                     .onStart(async () => {
                         throw new Error('Primary booking failed');
                     })
@@ -209,7 +209,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             let capturedStackId: string | undefined;
 
             const compensatableStep = Step.create('inventoryReservation')
-                .modern()
+                
                 .compensate(async () => {
                     compensationAttempts++;
                     if (compensationAttempts < 2) {
@@ -242,12 +242,12 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         it('Scenario 2a: Latency race selects fastest gateway and aborts losing branch', async () => {
             let slowerBranchAborted = false;
 
-            const usEastGateway = Step.create('usEastGateway').modern().onStart(async () => {
+            const usEastGateway = Step.create('usEastGateway').onStart(async () => {
                 await new Promise(r => setTimeout(r, 15));
                 return {selectedEdge: 'US_EAST', latencyMs: 15};
             });
 
-            const euCentralGateway = Step.create('euCentralGateway').modern().onStart(async ({$signal}: any) => {
+            const euCentralGateway = Step.create('euCentralGateway').onStart(async ({$signal}: any) => {
                 const signal = typeof $signal === 'function' ? $signal() : $signal;
                 await new Promise((resolve, reject) => {
                     const timer = setTimeout(resolve, 100);
@@ -271,26 +271,26 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         });
 
         it('Scenario 2b: Multi-cloud parallel fan-out with deep merge and non-blocking allSettled telemetry', async () => {
-            const replicateS3 = Step.create('replicateS3').modern().onStart(async ({assetId}: any) => ({
+            const replicateS3 = Step.create('replicateS3').onStart(async ({assetId}: any) => ({
                 replicas: {
                     aws: {uri: `s3://bucket/${assetId}`, status: 'SYNCED'}
                 }
             }));
 
-            const replicateGcs = Step.create('replicateGcs').modern().onStart(async ({assetId}: any) => ({
+            const replicateGcs = Step.create('replicateGcs').onStart(async ({assetId}: any) => ({
                 replicas: {
                     gcp: {uri: `gs://bucket/${assetId}`, status: 'SYNCED'}
                 }
             }));
 
-            const replicateAzure = Step.create('replicateAzure').modern().onStart(async ({assetId}: any) => ({
+            const replicateAzure = Step.create('replicateAzure').onStart(async ({assetId}: any) => ({
                 replicas: {
                     azure: {uri: `https://azure.blob/${assetId}`, status: 'SYNCED'}
                 }
             }));
 
-            const logAnalytics = Step.create('logAnalytics').modern().onStart(async () => ({analyticsLogged: true}));
-            const pushAudit = Step.create('pushAudit').modern().onStart(async () => {
+            const logAnalytics = Step.create('logAnalytics').onStart(async () => ({analyticsLogged: true}));
+            const pushAudit = Step.create('pushAudit').onStart(async () => {
                 // Secondary telemetry non-fatal failure
                 throw new Error('Audit webhook unreachable');
             });
@@ -316,12 +316,12 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         });
 
         it('Scenario 2c: Strict collision detection halts execution and throws FieldCollisionException', async () => {
-            const branchA = Step.create('branchA').modern().onStart(async () => ({
+            const branchA = Step.create('branchA').onStart(async () => ({
                 token: 'TOKEN_A',
                 serviceA: true
             }));
 
-            const branchB = Step.create('branchB').modern().onStart(async () => ({
+            const branchB = Step.create('branchB').onStart(async () => ({
                 token: 'TOKEN_B', // Collision on 'token'
                 serviceB: true
             }));
@@ -344,7 +344,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
     describe('Workstream 3: Dynamic Branching & Conditional Routing', () => {
         it('Scenario 3a: Multi-way dynamic loan underwriting router via branch() and when()', async () => {
-            const classifyRisk = Step.create('classifyRisk').modern().onStart(({creditScore}: any) => {
+            const classifyRisk = Step.create('classifyRisk').onStart(({creditScore}: any) => {
                 let tier = 'SUBPRIME';
                 if (creditScore >= 750) tier = 'PRIME';
                 else if (creditScore >= 650) tier = 'NEAR_PRIME';
@@ -354,14 +354,14 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const primeFlow = flow(
                 when(
                     (ctx) => ctx.hasPartnerPromo === true,
-                    Step.create('promoRate').modern().onStart(() => ({interestRate: 4.25, tierRate: 'PROMO'})),
-                    Step.create('standardRate').modern().onStart(() => ({interestRate: 4.85, tierRate: 'STANDARD'}))
+                    Step.create('promoRate').onStart(() => ({interestRate: 4.25, tierRate: 'PROMO'})),
+                    Step.create('standardRate').onStart(() => ({interestRate: 4.85, tierRate: 'STANDARD'}))
                 ),
-                Step.create('primeDecision').modern().onStart(() => ({decision: 'APPROVED_INSTANT'}))
+                Step.create('primeDecision').onStart(() => ({decision: 'APPROVED_INSTANT'}))
             );
 
             const nearPrimeFlow = flow(
-                Step.create('nearPrimeAssessment').modern().onStart(() => ({
+                Step.create('nearPrimeAssessment').onStart(() => ({
                     decision: 'APPROVED_WITH_CONDITIONS',
                     interestRate: 7.5,
                     stipulationsRequired: true
@@ -369,7 +369,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             const subprimeFlow = flow(
-                Step.create('subprimeDecline').modern().onStart(() => ({
+                Step.create('subprimeDecline').onStart(() => ({
                     decision: 'DECLINED',
                     adverseNotice: true
                 }))
@@ -426,7 +426,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const optionalAudit = flow(
                 when(
                     (ctx) => ctx.enableAudit === true,
-                    Step.create('auditStep').modern().onStart(() => ({auditRecorded: true}))
+                    Step.create('auditStep').onStart(() => ({auditRecorded: true}))
                 )
             );
 
@@ -542,7 +542,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         it('Scenario 5a: Idempotent order processing preventing double charge (Workflow-level)', async () => {
             let chargeCounter = 0;
             const chargeStep = Step.create('charge')
-                .modern()
+                
                 .onStart(async ({amount}: any) => {
                     chargeCounter++;
                     return {transactionId: 'tx_abc123', amountCharged: amount};
@@ -572,7 +572,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const customStore = new InMemoryIdempotencyStore();
 
             const settleStep = Step.create('settleStep')
-                .modern()
+                
                 .idempotent((ctx) => buildIdempotencyKey('ledger-settlement', {namespace: ctx.transactionId}), {
                     ttlMs: 60000,
                     store: customStore
@@ -587,7 +587,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 });
 
             const issueReceipt = Step.create('issueReceipt')
-                .modern()
+                
                 .onStart(({journalRef, amountSettled}: any) => ({
                     receiptStatus: 'ISSUED',
                     journalRef,
@@ -626,7 +626,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             await inFlightStore.claim(scopedKey);
 
             const protectedStep = Step.create('lockStep')
-                .modern()
+                
                 .idempotent(() => 'tx-claim-lock-123', {store: inFlightStore})
                 .onStart(async () => ({executed: true}));
 
@@ -642,7 +642,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         it('Scenario 5d: Workflow failure clears idempotency claim so it can be retried safely', async () => {
             let attemptCount = 0;
             const flakyStep = Step.create('flakyPayment')
-                .modern()
+                
                 .onStart(async () => {
                     attemptCount++;
                     if (attemptCount === 1) {
@@ -675,7 +675,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
     describe('Workstream 6: Durable Waits, External Event Resumption & Version Migrations', () => {
         it('Scenario 6a: Durable wait, external event resumption, and batch map processing', async () => {
-            const step1 = Step.create('createAccount').modern().onStart(({username}: any) => ({
+            const step1 = Step.create('createAccount').onStart(({username}: any) => ({
                 username,
                 accountId: 'acc_456'
             }));
@@ -719,9 +719,9 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
         it('Scenario 6b: Durable sleep timer with wait() returns suspension descriptor', async () => {
             const timerFlow = flow(
-                Step.create('step1').modern().onStart(() => ({step1Done: true})),
+                Step.create('step1').onStart(() => ({step1Done: true})),
                 wait('100ms'),
-                Step.create('step2').modern().onStart(() => ({step2Done: true}))
+                Step.create('step2').onStart(() => ({step2Done: true}))
             );
 
             // Non-durable execution passes through wait
@@ -737,7 +737,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
         });
 
         it('Scenario 6c: Workflow version verification and state migration across versions', async () => {
-            const submitExpense = Step.create('submitExpense').modern().onStart(({reportId, amount}: any) => ({
+            const submitExpense = Step.create('submitExpense').onStart(({reportId, amount}: any) => ({
                 reportId,
                 amount,
                 submittedAt: Date.now()
@@ -747,7 +747,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 correlationKey: (ctx) => ctx.reportId
             });
 
-            const reimburse = Step.create('reimburse').modern().onStart(({
+            const reimburse = Step.create('reimburse').onStart(({
                                                                              reportId,
                                                                              amount,
                                                                              approvedBy,
@@ -808,7 +808,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 timeoutMs: 25
             });
 
-            const activateFlow = flow(waitEvent, Step.create('welcome').modern().onStart(() => ({welcomed: true})));
+            const activateFlow = flow(waitEvent, Step.create('welcome').onStart(() => ({welcomed: true})));
 
             // 1. Expired wait test
             await activateFlow.run({}, {durable: true});
@@ -846,12 +846,12 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
     describe('Workstream 7: Workflow Graph Model, Inspection & Static Governance', () => {
         it('Scenario 7a: CI/CD deployment pipeline governance with toGraph and inspectGraph', () => {
-            const buildPackage = Step.create('buildPackage').modern().onStart(() => ({buildUrl: 'pkg.tar.gz'}));
-            const runUnitTests = Step.create('runUnitTests').modern().onStart(() => ({unitTestsPassed: true}));
-            const runSecurityScan = Step.create('runSecurityScan').modern().onStart(() => ({cveCount: 0}));
-            const runLicenseAudit = Step.create('runLicenseAudit').modern().onStart(() => ({licenseOk: true}));
+            const buildPackage = Step.create('buildPackage').onStart(() => ({buildUrl: 'pkg.tar.gz'}));
+            const runUnitTests = Step.create('runUnitTests').onStart(() => ({unitTestsPassed: true}));
+            const runSecurityScan = Step.create('runSecurityScan').onStart(() => ({cveCount: 0}));
+            const runLicenseAudit = Step.create('runLicenseAudit').onStart(() => ({licenseOk: true}));
             const qualityGate = parallel(runUnitTests, runSecurityScan, runLicenseAudit);
-            const deployCluster = Step.create('deployCluster').modern().onStart(() => ({deployed: true}));
+            const deployCluster = Step.create('deployCluster').onStart(() => ({deployed: true}));
 
             const deploymentPipeline = flow(buildPackage, qualityGate, deployCluster);
 
@@ -897,13 +897,13 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const auditTrail: string[] = [];
 
             // 1. Pre-execution governance validation
-            const validateInput = Step.create('validateInput').modern().onStart(({orderId, amount, items}: any) => {
+            const validateInput = Step.create('validateInput').onStart(({orderId, amount, items}: any) => {
                 auditTrail.push(`Validated order: ${orderId}`);
                 return {orderId, amount, items, validated: true};
             });
 
             const reserveWarehouse = Step.create('reserveWarehouse')
-                .modern()
+                
                 .compensate(async (output: any) => {
                     auditTrail.push(`Rollback Inventory for items: ${output.allocatedItems.join(',')}`);
                 })
@@ -913,7 +913,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 });
 
             const authorizeCard = Step.create('authorizeCard')
-                .modern()
+                
                 .compensate(async (output: any) => {
                     auditTrail.push(`Rollback Card Auth: ${output.authCode}`);
                 })
@@ -932,11 +932,11 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const routeRiskAssessment = branch(
                 (ctx) => (ctx.amount > 1000 ? RiskTier.HIGH_VALUE : RiskTier.STANDARD),
                 {
-                    [RiskTier.HIGH_VALUE]: Step.create('flagHighValue').modern().onStart(() => ({
+                    [RiskTier.HIGH_VALUE]: Step.create('flagHighValue').onStart(() => ({
                         riskLevel: 'ELEVATED',
                         manualReviewRequired: true
                     })),
-                    [RiskTier.STANDARD]: Step.create('passStandard').modern().onStart(() => ({
+                    [RiskTier.STANDARD]: Step.create('passStandard').onStart(() => ({
                         riskLevel: 'LOW',
                         manualReviewRequired: false
                     }))
@@ -957,7 +957,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 {concurrency: 2, preserveOrder: true}
             );
 
-            const finalizeFulfillment = Step.create('finalizeFulfillment').modern().onStart(({
+            const finalizeFulfillment = Step.create('finalizeFulfillment').onStart(({
                                                                                                  orderId,
                                                                                                  approvedBy,
                                                                                                  items

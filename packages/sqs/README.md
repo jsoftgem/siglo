@@ -164,12 +164,12 @@ interface NotificationPayload {
 
 const formatNotification = Step.create('formatNotification', async (param: NotificationPayload) => {
     return { formattedBody: `Hello user ${param.userId}, template ${param.template}` };
-}).modern();
+});
 
 const dispatchEmail = Step.create('dispatchEmail', async (param: any) => {
     // Send email via AWS SES or external provider
     return { dispatched: true, messageRef: `ses_${Date.now()}` };
-}).modern();
+});
 
 const notificationFlow = flow(formatNotification, dispatchEmail);
 

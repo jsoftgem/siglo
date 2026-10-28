@@ -148,7 +148,7 @@ interface VideoJobData {
 const downloadSource = Step.create('downloadSource', async (param: VideoJobData) => {
     console.log(`Downloading video ${param.videoId} from ${param.sourceBucket}`);
     return { localPath: `/tmp/${param.videoId}.mp4` };
-}).modern();
+});
 
 const transcode = Step.create('transcode', async (param: any) => {
     console.log(`Transcoding ${param.localPath} into ${param.resolutions.join(', ')}`);
@@ -156,7 +156,7 @@ const transcode = Step.create('transcode', async (param: any) => {
         transcodedFiles: param.resolutions.map((r: string) => `/tmp/${param.videoId}_${r}.mp4`),
         durationSec: 124,
     };
-}).modern();
+});
 
 const uploadCdn = Step.create('uploadCdn', async (param: any) => {
     console.log(`Uploading ${param.transcodedFiles.length} files to CDN`);
@@ -164,7 +164,7 @@ const uploadCdn = Step.create('uploadCdn', async (param: any) => {
         cdnUrls: param.transcodedFiles.map((f: string) => `https://cdn.example.com/${param.videoId}`),
         status: 'READY',
     };
-}).modern();
+});
 
 const transcodeFlow = flow(downloadSource, transcode, uploadCdn);
 
@@ -226,7 +226,7 @@ const billingWorkflow = flow(
     Step.create('chargeInvoice', async ({ invoiceId, amount }: any) => {
         // Charging payment gateway
         return { chargeId: `ch_${invoiceId}`, settled: true };
-    }).modern()
+    })
 );
 
 const worker = new Worker(

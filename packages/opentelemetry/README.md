@@ -169,7 +169,7 @@ Step.useStorage(telemetryStorage);
 // 3. Define Workflow Steps with Retry
 const validateOrder = Step.create('validateOrder', async (input: any) => {
     return { orderId: input.orderId, validated: true };
-}).modern();
+});
 
 const chargePayment = Step.create('chargePayment', async (param: any) => {
     // Simulate transient failure on first attempt
@@ -179,7 +179,7 @@ const chargePayment = Step.create('chargePayment', async (param: any) => {
     return { paymentStatus: 'CHARGED', cardLast4: '4242' };
 })
     .retry({ maxRetries: 2, delayMs: 100 })
-    .modern();
+    ;
 
 const orderWorkflow = flow(validateOrder, chargePayment);
 

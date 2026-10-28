@@ -114,7 +114,7 @@ const queryExternalAPI = Step.create(async (param) => {
     const signal = param.$signal?.();
     const res = await fetch('https://api.upstream.io/data', { signal });
     return await res.json();
-}).modern();
+});
 ```
 
 ---
@@ -144,12 +144,12 @@ const verifyIdentity = Step.create('verifyIdentity', async (input: KYCInput) => 
         throw err;
     }
     return { verified: true, riskScore: 12 };
-}).modern();
+});
 
 const runSanctionCheck = Step.create('runSanctionCheck', async (param: any) => {
     // Upstream sanctions database check
     return { sanctioned: false, clearanceId: `clear_${Date.now()}` };
-}).modern();
+});
 
 const kycPipeline = flow(verifyIdentity, runSanctionCheck);
 

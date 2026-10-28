@@ -17,11 +17,11 @@ export const parseInvoice = Step.create('parseInvoice', async (param: { rawText:
         lineCount: lines.length,
         parsedAt: Date.now()
     };
-}).modern();
+});
 ```
 
-### The `.modern()` Modifier
-Invoking `.modern()` on a step enables clean POJO parameters, destructuring, and disables legacy getter-closure wrappers.
+### The `` Modifier
+Invoking `` on a step enables clean POJO parameters, destructuring, and disables legacy getter-closure wrappers.
 
 ---
 
@@ -35,15 +35,15 @@ import { Step, flow } from 'rivulet';
 const validateInput = Step.create('validate', async (param: { email: string }) => {
     if (!param.email.includes('@')) throw new Error('Invalid email');
     return { emailValid: true };
-}).modern();
+});
 
 const createAccount = Step.create('createAccount', async (param: { email: string }) => {
     return { accountId: 'acc_123' };
-}).modern();
+});
 
 const sendWelcomeEmail = Step.create('sendEmail', async (param: { email: string; accountId: string }) => {
     return { emailSent: true };
-}).modern();
+});
 
 export const signupWorkflow = flow(
     validateInput,
@@ -98,8 +98,8 @@ const fetchExchangeRates = Step.create('fetchRates', async () => {
 ```typescript
 import { Step, flow } from 'rivulet';
 
-const step1 = Step.create('add', (p: { x: number }) => ({ x: p.x + 10 })).modern();
-const step2 = Step.create('multiply', (p: { x: number }) => ({ result: p.x * 2 })).modern();
+const step1 = Step.create('add', (p: { x: number }) => ({ x: p.x + 10 }));
+const step2 = Step.create('multiply', (p: { x: number }) => ({ result: p.x * 2 }));
 
 const pipeline = flow(step1, step2);
 const output = await pipeline.run({ x: 5 });
@@ -139,8 +139,8 @@ import { expect } from 'chai';
 import { createWorkflowHarness } from '@rivulet/testing';
 import { Step, flow } from 'rivulet';
 
-const s1 = Step.create('step1', () => ({ a: 'hello' })).modern();
-const s2 = Step.create('step2', (p: { a: string }) => ({ b: `${p.a} world` })).modern();
+const s1 = Step.create('step1', () => ({ a: 'hello' }));
+const s2 = Step.create('step2', (p: { a: string }) => ({ b: `${p.a} world` }));
 const wf = flow(s1, s2);
 
 describe('Sequential Workflows Suite', () => {

@@ -31,12 +31,12 @@ test("Order pipeline executes correctly using Redis & MongoDB storage adapter", 
     const result = await pipeline.run(order);
 
     // 1. Verify pipeline business logic calculations
-    assert.equal(result.invoiceStatus(), "PAID");
-    assert.equal(result.invoiceId(), "INV-TEST-1001");
-    assert.equal(result.subtotal(), 100);
-    assert.equal(result.discount(), 10); // 10% of 100
-    assert.equal(result.tax(), 7.20);   // 8% of 90
-    assert.equal(result.amountCharged(), 97.20);
+    assert.equal(result.invoiceStatus, "PAID");
+    assert.equal(result.invoiceId, "INV-TEST-1001");
+    assert.equal(result.subtotal, 100);
+    assert.equal(result.discount, 10); // 10% of 100
+    assert.equal(result.tax, 7.20);   // 8% of 90
+    assert.equal(result.amountCharged, 97.20);
 
     // 2. Verify MongoDB persistent storage of execution logs
     const logsInDb = await mongo.collection("rivulet_execution_logs").find();

@@ -17,7 +17,7 @@ export async function runRetriesScenario(options: { silent?: boolean } = {}) {
     const preparePayment = Step.create('preparePayment', async (param: any) => {
         await sleep(20);
         return { paymentIntentId: `PI-${param.orderId}`, amount: param.amount };
-    }).modern();
+    });
 
     // Transient failure: fails first 2 times, succeeds on the 3rd
     const chargeCreditCard = Step.create('chargeCreditCard', async (param: any) => {
@@ -35,12 +35,12 @@ export async function runRetriesScenario(options: { silent?: boolean } = {}) {
         };
     })
         .onFail({ maxRetries: 3, delay: 50 })
-        .modern();
+        ;
 
     const notifyReceipt = Step.create('notifyReceipt', async (param: any) => {
         await sleep(15);
         return { receiptSent: true, chargeId: param.chargeId };
-    }).modern();
+    });
 
     const paymentWorkflow = flow(
         preparePayment,

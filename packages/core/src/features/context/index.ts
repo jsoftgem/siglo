@@ -4,7 +4,7 @@ import { CollectPromiseResult, CHAIN_ID, STACK_ID, NAMESPACE } from '../../share
 import { GetContext } from './get';
 import { Validators } from './validators';
 import { setContextValue } from './set';
-import { toPOJO, wrapParam } from './proxy';
+import { toPOJO } from './proxy';
 
 export default class Context {
     $chainId: string;
@@ -69,4 +69,4 @@ export default class Context {
 /* c8 ignore next */
 }
 
-export { Context, toPOJO, wrapParam };
+export { Context, toPOJO };

@@ -14,7 +14,7 @@ export interface MediaUploadInput {
  * - Claim-check pattern: large video file remains in S3; only URI pointers and metadata flow through steps
  * - Native AbortSignal cancellation support for long-running GPU/CPU transcoding jobs
  * - Multi-resolution variant generation and CDN edge cache syncing
- * - Step.create(...).modern() for idiomatic POJO parameter access
+ * - Step.create(...) for idiomatic POJO parameter access
  */
 export function createMediaTranscodingPipeline() {
     // Step 1: Receive Media Upload (Claim-Check Pointer)
@@ -26,7 +26,7 @@ export function createMediaTranscodingPipeline() {
             storagePointer: sourceS3Url,
             assetStatus: 'QUEUED_FOR_PROCESSING'
         };
-    }).modern()
+    })
       .spec('assetId', { require: true })
       .spec('sourceS3Url', { require: true });
 
@@ -41,7 +41,7 @@ export function createMediaTranscodingPipeline() {
             aspectRatio: '16:9',
             originalResolution: '1920x1080'
         };
-    }).modern();
+    });
 
     // Step 3: Transcode Resolutions (Respects AbortSignal if user cancels job)
     const transcodeResolutions = Step.create('mediaTranscodeResolutions', async (param: any) => {
@@ -58,7 +58,7 @@ export function createMediaTranscodingPipeline() {
             outputs: transcodedOutputs,
             variantCount: transcodedOutputs.length
         };
-    }).modern();
+    });
 
     // Step 4: Generate Thumbnails
     const generateThumbnails = Step.create('mediaGenerateThumbnails', async (param: any) => {
@@ -73,7 +73,7 @@ export function createMediaTranscodingPipeline() {
             thumbnailsGenerated: true,
             thumbnails: thumbnailUrls
         };
-    }).modern();
+    });
 
     // Step 5: Sync CDN Edge Distribution
     const syncCdn = Step.create('mediaSyncCdn', async (param: any) => {
@@ -95,7 +95,7 @@ export function createMediaTranscodingPipeline() {
             cdnPurgedAndWarm: true,
             completedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         receiveMediaUpload,

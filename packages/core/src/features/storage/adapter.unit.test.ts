@@ -79,7 +79,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
         const step = Step.create(async () => ({ ok: true }));
         const res = await step.run();
-        expect(res.ok.val).to.be.true;
+        expect(res.ok).to.be.true;
     });
 
     it('gracefully handles async rejection in onContextChange', async () => {
@@ -94,7 +94,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
         const step = Step.create(async () => ({ ok: true }));
         const res = await step.run();
-        expect(res.ok.val).to.be.true;
+        expect(res.ok).to.be.true;
     });
 
     it('persists and retrieves checkpoints through adapter.saveCheckpoint and getCheckpoint', async () => {
@@ -179,24 +179,24 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
         const heavyStep = Step.create('heavyQuery', async (p: any) => {
             dbQueries++;
-            const queryVal = p.query.val;
+            const queryVal = p.query;
             return { data: `result_for_${queryVal}` };
         }).cache(10000);
 
         // First call - runs action and populates cache
         const res1 = await heavyStep.run({ query: 'books' });
-        expect(res1.data.val).to.equal('result_for_books');
+        expect(res1.data).to.equal('result_for_books');
         expect(dbQueries).to.equal(1);
         expect(cacheStore.size).to.equal(1);
 
         // Second call with same input - serves from adapter cache
         const res2 = await heavyStep.run({ query: 'books' });
-        expect(res2.data.val).to.equal('result_for_books');
+        expect(res2.data).to.equal('result_for_books');
         expect(dbQueries).to.equal(1); // Cached!
 
         // Third call with different input - runs action again
         const res3 = await heavyStep.run({ query: 'movies' });
-        expect(res3.data.val).to.equal('result_for_movies');
+        expect(res3.data).to.equal('result_for_movies');
         expect(dbQueries).to.equal(2);
     });
 
@@ -215,7 +215,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
         const step = Step.create(async () => ({ computed: 99 })).cache(5000);
         const res = await step.run();
-        expect(res.computed.val).to.equal(99);
+        expect(res.computed).to.equal(99);
     });
 
     it('handles sync step action caching when adapter setCachedStep is defined', async () => {
@@ -228,9 +228,9 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         };
         defaultStorageManager.useStorage(adapter);
 
-        const syncStep = Step.create((p: any) => ({ doubled: p.num.val * 2 })).cache(5000);
+        const syncStep = Step.create((p: any) => ({ doubled: p.num * 2 })).cache(5000);
         const res = await syncStep.run({ num: 21 });
-        expect(res.doubled.val).to.equal(42);
+        expect(res.doubled).to.equal(42);
         expect(store.size).to.equal(1);
     });
 
@@ -238,7 +238,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         let asyncCalls = 0;
         const asyncStep = Step.create('cachedAsyncStep', async (p: any) => {
             asyncCalls++;
-            return { val: p.v.val * 10 };
+            return { val: p.v * 10 };
         })
         .spec('v', { require: true })
         .strict()
@@ -246,7 +246,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
         const combinedFlow = flow(asyncStep, asyncStep);
         const res = await combinedFlow.run({ v: 3 });
-        expect(res.val.val).to.equal(30);
+        expect(res.val).to.equal(30);
         expect(asyncCalls).to.equal(1); // Second step in same flow read from cache!
     });
     it("handles async step action caching when adapter setCachedStep is defined", async () => {
@@ -259,9 +259,9 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         };
         defaultStorageManager.useStorage(adapter);
 
-        const asyncStep = Step.create(async (p: any) => ({ doubled: p.num.val * 2 })).cache(5000);
+        const asyncStep = Step.create(async (p: any) => ({ doubled: p.num * 2 })).cache(5000);
         const res = await asyncStep.run({ num: 25 });
-        expect(res.doubled.val).to.equal(50);
+        expect(res.doubled).to.equal(50);
         expect(store.size).to.equal(1);
     });
     it("resolves stackId and namespace from existing stacks in onContextChange if not provided in meta", () => {

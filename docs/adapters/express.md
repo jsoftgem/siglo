@@ -121,7 +121,7 @@ const fetchExternalInventory = Step.create(async (param) => {
     const signal = param.$signal?.(); // AbortSignal combined from HTTP request & step timeout
     const res = await fetch('https://inventory.internal/check', { signal });
     return await res.json();
-}).modern();
+});
 ```
 
 If the client terminates the connection while the fetch is pending, the HTTP request is cancelled immediately, freeing server sockets.
@@ -152,16 +152,16 @@ const validateCart = Step.create('validateCart', async (input: CheckoutInput) =>
         throw err;
     }
     return { validated: true, subtotal: 150 };
-}).modern();
+});
 
 const chargeCustomer = Step.create('chargeCustomer', async (param: any) => {
     // Perform payment processing
     return { transactionId: `txn_${Date.now()}`, charged: true };
-}).modern();
+});
 
 const createOrderRecord = Step.create('createOrderRecord', async (param: any) => {
     return { orderId: `ord_${Date.now()}`, status: 'PLACED' };
-}).modern();
+});
 
 const checkoutFlow = flow(validateCart, chargeCustomer, createOrderRecord);
 

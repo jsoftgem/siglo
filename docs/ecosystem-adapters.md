@@ -196,12 +196,12 @@ const validateOrder = Step.create('validateOrder', async ({ orderId, amount }: a
         throw err;
     }
     return { orderId, amount, status: 'VALIDATED' };
-}).modern();
+});
 
 const chargeCard = Step.create('chargeCard', async (param: any) => {
     // Payment provider charge
     return { transactionId: `txn_${param.orderId}`, charged: true };
-}).modern();
+});
 
 const checkoutFlow = flow(validateOrder, chargeCard);
 

@@ -44,7 +44,7 @@ export function createKafkaEnrichmentWorkflow() {
             currency: currency || 'USD',
             decodedAt: Date.now()
         };
-    }).modern();
+    });
 
     // Step 2: Lookup Account Profile by Namespace & Account
     const enrichAccountProfile = Step.create('enrichAccountProfile', async (param: any) => {
@@ -59,7 +59,7 @@ export function createKafkaEnrichmentWorkflow() {
             namespace,
             isHighValue: amount > 5000
         };
-    }).modern();
+    });
 
     // Step 3: Compute Real-Time Risk Score
     const scoreTransaction = Step.create('scoreTransaction', async (param: any) => {
@@ -78,7 +78,7 @@ export function createKafkaEnrichmentWorkflow() {
             pipelineStatus: isFlagged ? 'FLAGGED_FOR_REVIEW' : 'ENRICHED_CLEARED',
             processedAt: Date.now()
         };
-    }).modern();
+    });
 
     return flow(decodeEvent, enrichAccountProfile, scoreTransaction);
 }

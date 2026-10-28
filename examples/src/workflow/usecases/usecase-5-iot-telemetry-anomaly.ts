@@ -22,7 +22,7 @@ export interface IotBatchInput {
  * - Data normalization via spec transformer converting raw sensor units (Fahrenheit to Celsius, PSI to Bar)
  * - Real-time threshold evaluation for industrial IoT anomalies
  * - Partition-ready cold storage serialization
- * - Step.create(...).modern() for idiomatic POJO parameter unwrapping
+ * - Step.create(...) for idiomatic POJO parameter unwrapping
  */
 export function createIotTelemetryPipeline() {
     // Step 1: Ingest Sensor Batch
@@ -34,7 +34,7 @@ export function createIotTelemetryPipeline() {
             sampleCount: readings.length,
             ingestedAt: Date.now()
         };
-    }).modern()
+    })
       .spec('deviceId', { require: true })
       .spec('readings', {
           require: true,
@@ -70,7 +70,7 @@ export function createIotTelemetryPipeline() {
                 maxVibration
             }
         };
-    }).modern();
+    });
 
     // Step 3: Evaluate Thresholds for Anomalies
     const evaluateThresholds = Step.create('iotEvaluateThresholds', async (param: any) => {
@@ -92,7 +92,7 @@ export function createIotTelemetryPipeline() {
             severity: isOverheated && isOverpressured ? 'CRITICAL' : hasAnomaly ? 'WARNING' : 'NORMAL',
             anomalyReasons: reasons
         };
-    }).modern();
+    });
 
     // Step 4: Trigger Alert (if anomaly detected)
     const triggerAlert = Step.create('iotTriggerAlert', async (param: any) => {
@@ -111,7 +111,7 @@ export function createIotTelemetryPipeline() {
             alertId,
             alertSummary: anomalyDetected ? `[${severity}] ${reasons.join(', ')}` : 'All metrics nominal'
         };
-    }).modern();
+    });
 
     // Step 5: Archive Cold Storage (Parquet / S3 partitioning)
     const archiveColdStorage = Step.create('iotArchiveColdStorage', async (param: any) => {
@@ -134,7 +134,7 @@ export function createIotTelemetryPipeline() {
             archiveKey,
             archivedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         ingestSensorBatch,

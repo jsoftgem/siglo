@@ -181,11 +181,11 @@ const fetchExchangeRates = Step.create('fetchRates', async () => {
     return { EUR: 1.08, GBP: 1.27, JPY: 154.2 };
 })
     .cache({ ttlMs: 300000, key: () => 'currency-rates-latest' }) // 5-minute cache
-    .modern();
+    ;
 
 const settleInvoice = Step.create('settleInvoice', async ({ invoiceId, amount, currency }: any) => {
     return { invoiceId, settled: true, amountUSD: amount * 1.08 };
-}).modern();
+});
 
 const billingFlow = flow(fetchExchangeRates, settleInvoice);
 

@@ -35,20 +35,20 @@ export function createLoanUnderwritingPipeline() {
             applicantName: param.applicantName,
             applicationVerified: true
         };
-    }).modern();
+    });
 
     // Subflow A: PRIME - Fast-Track Automated Approval
     const applyPartnerPromoRate = Step.create('applyPartnerPromoRate', async () => ({
         interestRate: 4.25,
         rateTier: 'PARTNER_PROMO',
         approved: true
-    })).modern();
+    }));
 
     const applyStandardPrimeRate = Step.create('applyStandardPrimeRate', async () => ({
         interestRate: 4.85,
         rateTier: 'STANDARD_PRIME',
         approved: true
-    })).modern();
+    }));
 
     const primeFlow = flow(
         when(
@@ -60,7 +60,7 @@ export function createLoanUnderwritingPipeline() {
             decision: 'APPROVED_INSTANT',
             maxAllowedAmount: param.requestedAmount,
             stipulationsRequired: false
-        })).modern()
+        }))
     );
 
     // Subflow B: NEAR_PRIME - Manual Review & Collateral Check
@@ -76,7 +76,7 @@ export function createLoanUnderwritingPipeline() {
                 stipulationsRequired: true,
                 stipulationNotes: 'Requires 2 months of verified pay stubs'
             };
-        }).modern()
+        })
     );
 
     // Subflow C: SUBPRIME - High Risk Queue / Auto-Decline
@@ -85,7 +85,7 @@ export function createLoanUnderwritingPipeline() {
             decision: 'DECLINED',
             adverseActionNoticeSent: true,
             declineReason: 'Credit score below minimum automated threshold (650)'
-        })).modern()
+        }))
     );
 
     // Dynamic Multi-Way Router
@@ -110,7 +110,7 @@ export function createLoanUnderwritingPipeline() {
             interestRate: param.interestRate ?? null,
             stipulationsRequired: param.stipulationsRequired ?? false
         };
-    }).modern();
+    });
 
     return flow(
         classifyRiskTier,

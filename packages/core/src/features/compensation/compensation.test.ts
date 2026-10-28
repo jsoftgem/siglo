@@ -24,7 +24,7 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         // Step 1: Reserve Inventory
         const reserveStep = Step.create('reserveInventory')
-            .modern()
+            
             .compensate(async (output: any, input: any) => {
                 compensationOrder.push(`release:${output.item}`);
                 expect(input.item).to.equal('laptop');
@@ -36,7 +36,7 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         // Step 2: Authorize Payment
         const paymentStep = Step.create('authorizePayment')
-            .modern()
+            
             .compensate(async (output: any) => {
                 compensationOrder.push(`refund:${output.chargeId}`);
             })
@@ -47,7 +47,7 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         // Step 3: Ship Goods (Fails!)
         const shipStep = Step.create('shipGoods')
-            .modern()
+            
             .onStart(() => {
                 executionOrder.push('shipGoods');
                 throw new Error('Out of delivery slots');
@@ -71,7 +71,7 @@ describe('Compensation and Sagas Unit Tests', () => {
         let compAttempts = 0;
 
         const flakyCompensationStep = Step.create('flakyService')
-            .modern()
+            
             .compensate(async () => {
                 compAttempts++;
                 if (compAttempts < 2) throw new Error('Transient DB timeout');
@@ -93,7 +93,7 @@ describe('Compensation and Sagas Unit Tests', () => {
 
     it('throws CompensationException when a compensation fails and exhausts retries', async () => {
         const badCompStep = Step.create('stepWithFailingCompensation')
-            .modern()
+            
             .compensate(() => {
                 throw new Error('Compensation network dropped');
             })
@@ -138,12 +138,12 @@ describe('Compensation and Sagas Unit Tests', () => {
 
     it('supports compensations defined as Step/Flow instances with execute method', async () => {
         let stepCompRan = false;
-        const compStep = Step.create('undo').modern().onStart(() => {
+        const compStep = Step.create('undo').onStart(() => {
             stepCompRan = true;
         });
 
         const mainStep = Step.create('main')
-            .modern()
+            
             .compensate(compStep)
             .onStart(() => ({ val: 1 }));
 

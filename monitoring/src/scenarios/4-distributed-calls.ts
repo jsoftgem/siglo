@@ -25,7 +25,7 @@ export async function runDistributedCallsScenario(options: { silent?: boolean } 
     const validatePayload = Step.create('validatePayload', async (param: any) => {
         await sleep(20);
         return { orderId: param.orderId, items: param.items, validated: true };
-    }).modern();
+    });
 
     const publishOrderEvent = Step.create('publishOrderEvent', async (param: any) => {
         await sleep(30);
@@ -38,7 +38,7 @@ export async function runDistributedCallsScenario(options: { silent?: boolean } 
             carrierHeaders,
             eventPublished: true
         };
-    }).modern();
+    });
 
     const checkoutFlow = flow(validatePayload, publishOrderEvent);
     const monitoredCheckout = instrumentWorkflow(checkoutFlow, {
@@ -66,12 +66,12 @@ export async function runDistributedCallsScenario(options: { silent?: boolean } 
     const pickItems = Step.create('pickItems', async (param: any) => {
         await sleep(40);
         return { itemsPicked: param.items?.length || 2, binLocation: 'BIN-C14' };
-    }).modern();
+    });
 
     const packAndShip = Step.create('packAndShip', async (param: any) => {
         await sleep(35);
         return { trackingCode: `SHIP-${param.orderId}-FAST`, status: 'DISPATCHED' };
-    }).modern();
+    });
 
     const fulfillmentFlow = flow(pickItems, packAndShip);
     const monitoredFulfillment = instrumentWorkflow(fulfillmentFlow, {

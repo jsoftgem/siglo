@@ -12,7 +12,7 @@ This guide details how to upgrade legacy `Rivulet` 0.x codebases to 1.0.0, how t
 | `pipe(...)` | `flow(...)` | Deprecated alias preserved |
 | `Pipeline` | `Flow` | Deprecated alias preserved |
 | `Func` | `Step` | Deprecated alias preserved |
-| Getter closures: `param.field()` | Direct property: `param.field` (`.modern()`) | Supported via `.modern()` / `{ pojo: true }` |
+| Getter closures: `param.field()` | Direct property: `param.field` | Clean POJO parameters default in 1.0 |
 | Direct context mutation | Pure functional returns | Migrated |
 | `getChainContext` / `putChainContext` | `StorageManager` / `StorageAdapter` | Deprecated compatibility wrappers |
 
@@ -49,8 +49,8 @@ import { Chain, pipe } from 'rivulet';
 import { Step, flow } from 'rivulet';
 ```
 
-### Step 2: Enable `.modern()` on Steps
-Add `.modern()` to step definitions to allow plain object destructuring without `param.field()` getter calls:
+### Step 2: Native Clean POJO Parameters by Default
+In Rivulet 1.0, steps receive and return plain JavaScript objects (POJOs) by default. Legacy getter closures are removed, allowing natural object destructuring without special configuration:
 
 ```typescript
 // Before
@@ -62,7 +62,7 @@ const step = Chain.create('process', (param) => {
 // After
 const step = Step.create('process', ({ userId }: { userId: string }) => {
     return { processed: true }; // Clean POJO destructuring!
-}).modern();
+});
 ```
 
 ### Step 3: Run in POJO Mode
@@ -87,7 +87,7 @@ const legacyChain = Chain.create('legacyStep', (param: any) => {
 
 const modernStep = Step.create('modernStep', (param: any) => {
     return { fromModern: 'ok' };
-}).modern();
+});
 
 // flow can execute legacy Chains and modern Steps together!
 const mixedFlow = flow(legacyChain, modernStep);
@@ -106,18 +106,18 @@ In legacy 0.x, reading a property as `param.field` instead of `param.field()` re
 ```typescript
 // Common 0.x bug:
 const step = Chain.create('buggy', (param: any) => {
-    // If not using .modern():
-    if (param.isActive) { // Fails! In 0.x param.isActive is a function, always truthy!
+    // In legacy 0.x getter closures:
+    if (param.isActive) { // Fails! In 0.x param.isActive was a function, always truthy!
         ...
     }
 });
 
-// Fixed in 1.0 by calling .modern():
+// Fixed in 1.0 by default clean POJO parameters:
 const fixedStep = Step.create('fixed', ({ isActive }: { isActive: boolean }) => {
     if (isActive) { // Works correctly as a boolean!
         ...
     }
-}).modern();
+});
 ```
 
 ---
@@ -134,7 +134,7 @@ describe('0.x to 1.0 Compatibility Test', () => {
         expect(isPipeline).to.equal(isFlow);
 
         const s1 = Chain.create('c1', () => ({ val: 1 }));
-        const s2 = Step.create('s2', (p: any) => ({ val2: 2 })).modern();
+        const s2 = Step.create('s2', (p: any) => ({ val2: 2 }));
 
         const wf = flow(s1, s2);
         const res = await wf.run({}, { pojo: true });

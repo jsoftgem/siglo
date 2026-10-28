@@ -35,7 +35,7 @@ export function createImageOptimizationWorkflow() {
             originalSize: 4194304, // 4MB
             dimensions: { width: 1920, height: 1080 }
         };
-    }).modern();
+    });
 
     // Step 2: Resize & Compress
     const processCompression = Step.create('processCompression', async (param: any) => {
@@ -50,7 +50,7 @@ export function createImageOptimizationWorkflow() {
             compressionRatio: '93.75%',
             status: 'COMPLETED'
         };
-    }).modern();
+    });
 
     return flow(inspectImage, processCompression);
 }

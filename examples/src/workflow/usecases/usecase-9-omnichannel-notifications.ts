@@ -19,7 +19,7 @@ export interface CampaignNotificationInput {
  * - Dynamic routing slip per recipient preferences
  * - Localized gateway retry with onFail backoff
  * - Automated channel failover (e.g., fallback from PUSH to SMS/EMAIL on rate limits)
- * - Step.create(...).modern() for idiomatic POJO parameter unwrapping
+ * - Step.create(...) for idiomatic POJO parameter unwrapping
  */
 export function createOmnichannelNotificationPipeline() {
     let pushAttempts = 0;
@@ -33,7 +33,7 @@ export function createOmnichannelNotificationPipeline() {
             dispatchId: `DISPATCH-${campaignId}-${userId}`,
             triggeredAt: Date.now()
         };
-    }).modern()
+    })
       .spec('campaignId', { require: true })
       .spec('userId', { require: true })
       .spec('templateKey', { require: true });
@@ -50,7 +50,7 @@ export function createOmnichannelNotificationPipeline() {
             primaryChannel: selectedChannel,
             availableFallbacks: fallbackChannels.slice(1)
         };
-    }).modern();
+    });
 
     // Step 3: Render Template
     const renderTemplate = Step.create('notifyRenderTemplate', async (param: any) => {
@@ -66,7 +66,7 @@ export function createOmnichannelNotificationPipeline() {
             renderedBody: body,
             characterCount: body.length
         };
-    }).modern();
+    });
 
     // Step 4: Route to Channel & Dispatch (with onFail retries for external SMS/Push gateways)
     const routeToChannel = Step.create('notifyRouteToChannel', async (param: any) => {
@@ -86,7 +86,7 @@ export function createOmnichannelNotificationPipeline() {
             destinationTarget: primaryChannel === 'EMAIL' ? email : phone,
             deliveryStatus: 'SENT'
         };
-    }).modern().onFail({
+    }).onFail({
         retries: 2,
         delay: 10,
         backoff: 1.5
@@ -118,7 +118,7 @@ export function createOmnichannelNotificationPipeline() {
             trackingPixelUrl,
             sentAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         triggerCampaign,

@@ -133,7 +133,7 @@ import { instrumentWorkflow } from '@rivulet/opentelemetry';
 
 describe('OpenTelemetry Integration Test', () => {
     it('instruments workflow and executes cleanly', async () => {
-        const step = Step.create('calculate', () => ({ num: 42 })).modern();
+        const step = Step.create('calculate', () => ({ num: 42 }));
         const traced = instrumentWorkflow(flow(step));
 
         const result = await traced.run();

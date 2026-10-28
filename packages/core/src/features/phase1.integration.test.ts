@@ -45,8 +45,8 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(pipe).to.equal(flow);
             expect(isPipeline).to.equal(isFlow);
 
-            const c1 = Chain.create('step1').modern().onStart(({a}: any) => ({val1: a + 10}));
-            const c2 = Chain.create('step2').modern().onStart(({val1}: any) => ({final: val1 * 2}));
+            const c1 = Chain.create('step1').onStart(({a}: any) => ({val1: a + 10}));
+            const c2 = Chain.create('step2').onStart(({val1}: any) => ({final: val1 * 2}));
 
             const pipeline = pipe(c1, c2);
             expect(isPipeline(pipeline)).to.be.true;
@@ -290,7 +290,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             let attempts = 0;
 
             const retryStep = Step.create('linearJitterStep')
-                .modern()
+                
                 .onStart(() => {
                     attempts++;
                     if (attempts < 3) throw new Error(`Fail ${attempts}`);
@@ -320,7 +320,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             let observedJitterDelay = 0;
 
             const step = Step.create('customBackoffJitter')
-                .modern()
+                
                 .onStart(() => {
                     attempts++;
                     if (attempts < 2) throw new Error('Fail once');
@@ -369,7 +369,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
 
         it('onFail callback can return fallback value or resolve promise as recovery', async () => {
             const stepWithFallback = Step.create('fallbackStep')
-                .modern()
+                
                 .onStart(() => {
                     throw new Error('Primary call failed');
                 })
@@ -383,7 +383,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
 
             // Async fallback
             const stepWithAsyncFallback = Step.create('asyncFallbackStep')
-                .modern()
+                
                 .onStart(() => {
                     throw new Error('Primary async call failed');
                 })
@@ -440,7 +440,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             try {
                 let executions = 0;
                 const cachedStep = Step.create('cleanKeyStep')
-                    .modern()
+                    
                     .cache(1000)
                     .onStart((param: any) => {
                         executions++;
@@ -463,7 +463,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
         it('protects against cache stampede by deduplicating concurrent in-flight promises', async () => {
             let executions = 0;
             const stampedeStep = Step.create('stampedeStep')
-                .modern()
+                
                 .cache(2000)
                 .onStart(async ({id}: any) => {
                     executions++;
@@ -488,7 +488,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
         it('supports disabling stampedeProtection via cache options', async () => {
             let executions = 0;
             const noStampedeStep = Step.create('noStampede')
-                .modern()
+                
                 .cache({ttl: 2000, stampedeProtection: false})
                 .onStart(async ({id}: any) => {
                     executions++;
@@ -509,7 +509,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
         it('supports custom keySerializer in CacheOptions and storage config', async () => {
             let executions = 0;
             const customSerializerStep = Step.create('customKeyStep')
-                .modern()
+                
                 .cache({
                     ttl: 2000,
                     keySerializer: (stepId, param) => `${stepId}:custom:${param.category}`
@@ -779,7 +779,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(resBefore.recovered).to.equal(true);
 
             // 2. OnFail retryFn with fallback
-            const stepRetryFallback = Step.create("retryFallback").modern()
+            const stepRetryFallback = Step.create("retryFallback")
                 .onStart(() => {
                     throw new Error("fail");
                 })
@@ -787,7 +787,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                     retry({custom: "val"});
                 });
             const resFallback = await flow(stepRetryFallback).execute();
-            expect(resFallback.custom()).to.equal("val");
+            expect(resFallback.custom).to.equal("val");
 
             // 3. OnFail function throws synchronously
             const stepFailThrows = Step.create("onFailThrows")
@@ -813,7 +813,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             defaultStorageManager.useStorage(faultyAsyncAdapter);
             const asyncStep = Step.create("asyncCacheFail")
-                .modern()
+                
                 .cache(1000)
                 .onStart(async () => ({ok: 1}));
             const rAsync = await flow(asyncStep).execute({}, {pojo: true});
@@ -827,7 +827,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             defaultStorageManager.useStorage(faultySyncAdapter);
             const syncStep = Step.create("syncCacheFail")
-                .modern()
+                
                 .cache(1000)
                 .onStart(() => ({ok: 2}));
             const rSync = await flow(syncStep).execute({}, {pojo: true});

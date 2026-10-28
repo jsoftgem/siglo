@@ -108,7 +108,7 @@ const auditStep = Step.create('auditStep', async (param: { transactionId: string
         loggedAt: Date.now(),
         status: 'RECORDED'
     };
-}).modern();
+});
 
 const workflow = flow(auditStep);
 const res = await workflow.run({ transactionId: 'tx_99' });
@@ -129,7 +129,7 @@ const validateAge = Step.create('validateAge', (p: { age: number }) => {
         throw new Error('Customer must be at least 18');
     }
     return { eligible: true };
-}).modern();
+});
 
 const wf = flow(validateAge);
 
@@ -150,8 +150,8 @@ import { expect } from 'chai';
 import { createWorkflowHarness } from '@rivulet/testing';
 import { Step, flow } from 'rivulet';
 
-const s1 = Step.create('load', () => ({ val: 10 })).modern();
-const s2 = Step.create('double', (p: { val: number }) => ({ doubled: p.val * 2 })).modern();
+const s1 = Step.create('load', () => ({ val: 10 }));
+const s2 = Step.create('double', (p: { val: number }) => ({ doubled: p.val * 2 }));
 const wf = flow(s1, s2);
 
 describe('Core Concepts Test', () => {

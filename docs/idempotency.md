@@ -83,7 +83,7 @@ Fine-grained deduplication on individual steps prevents redundant side effects (
 import { Step } from 'rivulet';
 
 const chargePayment = Step.create('chargePayment')
-  .modern()
+  
   .idempotent((ctx) => `charge:${ctx.invoiceId}`, { ttlMs: 86400000 })
   .onStart(async ({ invoiceId, amount }) => {
     return await paymentGateway.charge({ invoiceId, amount });

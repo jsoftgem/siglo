@@ -285,12 +285,12 @@ interface PaymentEvent {
 const validateAccount = Step.create('validateAccount', async (param: PaymentEvent) => {
     console.log(`Checking account ${param.accountId} balance for payment ${param.paymentId}`);
     return { accountValid: true };
-}).modern();
+});
 
 const debitAccount = Step.create('debitAccount', async (param: any) => {
     console.log(`Debiting ${param.amount} ${param.currency} from ${param.accountId}`);
     return { ledgerEntryId: `led_${Date.now()}`, debited: true };
-}).modern();
+});
 
 const paymentPipeline = flow(validateAccount, debitAccount);
 

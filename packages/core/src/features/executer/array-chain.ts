@@ -9,7 +9,7 @@ import {
     STEPS,
     HISTORY
 } from '../../shared';
-import { toPOJO, wrapParam } from '../context/proxy';
+import { toPOJO } from '../context/proxy';
 import { WorkflowSuspendedException } from './exceptions';
 import { defaultStorageManager } from '../storage';
 import { defaultDurableManager } from '../durable';
@@ -150,8 +150,7 @@ const executeArrayChain = (
                         [HISTORY]: stepsAccessor
                     })
                     : result;
-                const isPojo = options?.pojo === true || options?.mode === 'pojo';
-                const finalResult = isPojo ? toPOJO(outputObj) : wrapParam(outputObj);
+                const finalResult = toPOJO(outputObj);
                 done(undefined, finalResult);
             }
         })

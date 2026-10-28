@@ -101,22 +101,22 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
         it('completes normally when action finishes before step timeout', async () => {
             const step = Step.create('quickStep', async (p: any) => {
                 await new Promise(r => setTimeout(r, 20));
-                return { done: true, value: p.value.val + 1 };
+                return { done: true, value: p.value + 1 };
             }).timeout(200);
 
             const result = await step.run({ value: 10 });
-            expect(result.done.val).to.be.true;
-            expect(result.value.val).to.equal(11);
+            expect(result.done).to.be.true;
+            expect(result.value).to.equal(11);
         });
 
         it('works with synchronous step action when step timeout is set', async () => {
             const syncStep = Step.create('syncStep', (p: any) => {
-                return { syncDone: true, doubled: p.num.val * 2 };
+                return { syncDone: true, doubled: p.num * 2 };
             }).timeout(200);
 
             const res = await syncStep.run({ num: 5 });
-            expect(res.syncDone.val).to.be.true;
-            expect(res.doubled.val).to.equal(10);
+            expect(res.syncDone).to.be.true;
+            expect(res.doubled).to.equal(10);
         });
 
         it('rejects with StepTimeoutException when action exceeds timeout without onFail', async () => {
@@ -195,8 +195,8 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
             });
 
             const result = await step.run();
-            expect(result.success.val).to.be.true;
-            expect(result.attempts.val).to.equal(2);
+            expect(result.success).to.be.true;
+            expect(result.attempts).to.equal(2);
         });
 
         it('step timeout exhausts onFail retries and rejects with StepTimeoutException', async () => {

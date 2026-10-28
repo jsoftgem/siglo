@@ -17,7 +17,7 @@ export interface KycApplicationInput {
  * - Sensitive PII isolation: raw biometrics & passport images stay in encrypted storage hooks
  * - Multi-service orchestration: OCR scanning, biometric facial matching, OFAC watchlist screening
  * - Automatic retry policy with onFail for external compliance gateway requests
- * - Step.create(...).modern() for idiomatic POJO parameter access
+ * - Step.create(...) for idiomatic POJO parameter access
  */
 export function createKycOnboardingPipeline() {
     let ocrAttempts = 0;
@@ -31,7 +31,7 @@ export function createKycOnboardingPipeline() {
             submissionId: `KYC-SUB-${applicantId}`,
             submittedAt: Date.now()
         };
-    }).modern()
+    })
       .spec('applicantId', { require: true })
       .spec('fullName', { require: true })
       .spec('documentNumber', { require: true });
@@ -53,7 +53,7 @@ export function createKycOnboardingPipeline() {
             documentExpiry: '2030-01-01',
             mrzChecksumValid: true
         };
-    }).modern().onFail({
+    }).onFail({
         retries: 2,
         delay: 15,
         backoff: 1.5
@@ -74,7 +74,7 @@ export function createKycOnboardingPipeline() {
             matchConfidence,
             livenessCheckPassed
         };
-    }).modern();
+    });
 
     // Step 4: Screen Sanctions & AML Watchlist
     const screenSanctionsWatchlist = Step.create('kycScreenSanctions', async (param: any) => {
@@ -93,7 +93,7 @@ export function createKycOnboardingPipeline() {
             riskClassification: 'LOW',
             checkedDatabases: ['OFAC_SDN', 'UN_SANCTIONS', 'PEP_GLOBAL']
         };
-    }).modern();
+    });
 
     // Step 5: Activate Account
     const activateAccount = Step.create('kycActivateAccount', async (param: any) => {
@@ -114,7 +114,7 @@ export function createKycOnboardingPipeline() {
             accountStatus: 'ACTIVE',
             approvedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         submitApplication,

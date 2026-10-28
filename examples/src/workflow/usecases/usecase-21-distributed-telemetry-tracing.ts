@@ -86,7 +86,7 @@ export function createObservableOrderWorkflow() {
         const { orderId, itemsCount } = param;
         if (!orderId) throw new Error('Missing orderId');
         return { orderId, validated: true, itemsCount: itemsCount || 1 };
-    }).modern();
+    });
 
     const dispatchOrder = Step.create('dispatchOrder', async (param: any) => {
         const { orderId } = param;
@@ -100,7 +100,7 @@ export function createObservableOrderWorkflow() {
             trackingNumber: `TRK-${orderId}-EXPRESS`,
             dispatchStatus: 'DISPATCHED'
         };
-    }).modern().onFail({ maxRetries: 2, delay: 5 });
+    }).onFail({ maxRetries: 2, delay: 5 });
 
     return {
         workflow: flow(validateOrder, dispatchOrder),

@@ -1,6 +1,6 @@
 import { STEPS, HISTORY, STACK_ID, isReservedKey } from '../../../../shared';
 import SetResolvedContexts from './SetResolvedContexts';
-import { wrapParam, toPOJO } from '../../../context/proxy';
+import { toPOJO } from '../../../context/proxy';
 
 export default class ResolveChain {
     constructor(
@@ -18,7 +18,6 @@ export default class ResolveChain {
             message: 'Completed',
             resolvedContext: context
         });
-        const isPojo = options?.pojo === true || options?.mode === 'pojo';
         const resolveFinal = (ctx: any) => {
             if (!ctx) {
                 resolve(ctx);
@@ -41,10 +40,11 @@ export default class ResolveChain {
                 };
                 const stepsAccessor: any = (subField?: string) => subField !== undefined ? singleSteps[subField] : singleSteps;
                 Object.assign(stepsAccessor, singleSteps);
+                ctx = Object.assign({}, ctx);
                 ctx[STEPS] = stepsAccessor;
                 ctx[HISTORY] = stepsAccessor;
             }
-            resolve(isPojo ? toPOJO(ctx) : wrapParam(ctx));
+            resolve(toPOJO(ctx));
         };
 
         if (executeAfter) {

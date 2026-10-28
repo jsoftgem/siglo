@@ -34,7 +34,7 @@ export function createMultiCloudReplicationPipeline() {
             edgeLatencyMs: 10,
             ingressUrl: `https://us-east.edge.cloud/upload/${param.assetId}`
         };
-    }).modern();
+    });
 
     // Edge Gateway 2: Secondary EU Edge (slower simulation)
     const euEdgeGateway = Step.create('euEdgeGateway', async (param: any) => {
@@ -53,7 +53,7 @@ export function createMultiCloudReplicationPipeline() {
             edgeLatencyMs: 80,
             ingressUrl: `https://eu-central.edge.cloud/upload/${param.assetId}`
         };
-    }).modern();
+    });
 
     // Parallel Branch 1: Replicate to AWS S3
     const replicateToS3 = Step.create('replicateToS3', async (param: any) => {
@@ -66,7 +66,7 @@ export function createMultiCloudReplicationPipeline() {
                 }
             }
         };
-    }).modern();
+    });
 
     // Parallel Branch 2: Replicate to Google Cloud Storage (GCS)
     const replicateToGcs = Step.create('replicateToGcs', async (param: any) => {
@@ -79,7 +79,7 @@ export function createMultiCloudReplicationPipeline() {
                 }
             }
         };
-    }).modern();
+    });
 
     // Parallel Branch 3: Replicate to Azure Blob Storage
     const replicateToAzure = Step.create('replicateToAzure', async (param: any) => {
@@ -92,7 +92,7 @@ export function createMultiCloudReplicationPipeline() {
                 }
             }
         };
-    }).modern();
+    });
 
     // Telemetry Step 1: Analytics Hook
     const logReplicationAnalytics = Step.create('logReplicationAnalytics', async (param: any) => {
@@ -100,7 +100,7 @@ export function createMultiCloudReplicationPipeline() {
             analyticsLogged: true,
             bytesRecorded: param.byteSize
         };
-    }).modern();
+    });
 
     // Telemetry Step 2: Push Audit Event
     const pushReplicationAudit = Step.create('pushReplicationAudit', async () => {
@@ -108,7 +108,7 @@ export function createMultiCloudReplicationPipeline() {
             auditPushed: true,
             timestamp: Date.now()
         };
-    }).modern();
+    });
 
     // Final Assembly Step
     const assembleReceipt = Step.create('assembleReceipt', async (param: any) => {
@@ -118,7 +118,7 @@ export function createMultiCloudReplicationPipeline() {
             selectedEdge: param.selectedEdge,
             replicas: param.cloudReplicas
         };
-    }).modern();
+    });
 
     return flow(
         // 1. Race to discover lowest latency edge gateway

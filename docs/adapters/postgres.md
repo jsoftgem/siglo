@@ -216,12 +216,12 @@ interface SettlementInput {
 const debitSender = Step.create('debitSender', async (param: SettlementInput) => {
     // Perform database debit operation within pool
     return { debitReference: `dr_${param.settlementId}`, debited: true };
-}).modern();
+});
 
 const creditReceiver = Step.create('creditReceiver', async (param: any) => {
     // Perform receiver credit
     return { creditReference: `cr_${param.settlementId}`, credited: true };
-}).modern();
+});
 
 const settlementFlow = flow(debitSender, creditReceiver);
 

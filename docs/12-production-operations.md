@@ -46,7 +46,7 @@ export const idempotentBillingStep = Step.create('billCustomer', async (param: {
     store: pgStore,
     ttlMs: 86400000 // 24 hours
 })
-.modern();
+;
 ```
 
 ---
@@ -90,7 +90,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const storage = new PostgresStorageAdapter(pool);
 useStorage(storage);
 
-const myStep = Step.create('hello', async () => ({ status: 'HEALTHY' })).modern();
+const myStep = Step.create('hello', async () => ({ status: 'HEALTHY' }));
 const healthFlow = flow(myStep);
 
 app.get('/health', createFastifyWorkflowHandler(healthFlow));
@@ -127,7 +127,7 @@ import { createWorkflowHarness, InMemoryStorageFake } from '@rivulet/testing';
 import { Step, flow } from 'rivulet';
 
 const auditWorkflow = flow(
-    Step.create('audit', () => ({ ok: true })).modern()
+    Step.create('audit', () => ({ ok: true }))
 );
 
 describe('Production Readiness Smoke Test', () => {

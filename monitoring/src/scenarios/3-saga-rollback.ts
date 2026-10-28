@@ -31,7 +31,7 @@ export async function runSagaRollbackScenario(options: { silent?: boolean } = {}
             span.setStatus({ code: SpanStatusCode.OK });
             span.end();
         })
-        .modern();
+        ;
 
     // Step 2: Payment Authorization with compensation
     const chargeTravelerCard = Step.create('chargeTravelerCard', async (param: any) => {
@@ -48,13 +48,13 @@ export async function runSagaRollbackScenario(options: { silent?: boolean } = {}
             span.setStatus({ code: SpanStatusCode.OK });
             span.end();
         })
-        .modern();
+        ;
 
     // Step 3: Flight Booking (Fails due to sold out inventory!)
     const bookFlightSeat = Step.create('bookFlightSeat', async () => {
         await sleep(35);
         throw new Error('AirlineInventoryExhausted: No seats available on flight FL-302');
-    }).modern();
+    });
 
     const bookingSaga = flow(
         reserveHotelRoom,

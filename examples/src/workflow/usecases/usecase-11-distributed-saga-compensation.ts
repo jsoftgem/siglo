@@ -17,7 +17,7 @@ export interface TravelBookingAudit {
  * Use Case 11: Multi-Service Travel Booking Saga with Automatic LIFO Compensations
  * Flow: reserveFlight -> reserveHotel -> processPayment -> issueVouchers
  * Features demonstrated:
- * - Step.create(...).modern() for idiomatic POJO parameter access
+ * - Step.create(...) for idiomatic POJO parameter access
  * - Step.create(...).compensate(undoAction)
  * - Automatic reverse LIFO compensation rollback upon workflow failure
  * - Passing execution context to compensation handlers
@@ -36,7 +36,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
             flightStatus: 'CONFIRMED',
             flightCost: 450
         };
-    }).modern().compensate(async (ctx: any) => {
+    }).compensate(async (ctx: any) => {
         const ticketId = ctx?.flightTicketId || ctx?.output?.flightTicketId;
         auditLog.compensations.push(`Cancelled Flight: ${ticketId}`);
     });
@@ -53,7 +53,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
             hotelStatus: 'CONFIRMED',
             hotelCost: 350
         };
-    }).modern().compensate(async (ctx: any) => {
+    }).compensate(async (ctx: any) => {
         const reservationId = ctx?.hotelReservationId || ctx?.output?.hotelReservationId;
         auditLog.compensations.push(`Cancelled Hotel: ${reservationId}`);
     });
@@ -73,7 +73,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
             totalAmount,
             transactionId: `TXN-SAGA-${Date.now()}`
         };
-    }).modern();
+    });
 
     // Step 4: Issue Travel Vouchers
     const issueVouchers = Step.create('issueVouchers', async (param: any) => {
@@ -88,7 +88,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
             vouchersIssued: true,
             confirmationNumber: `CONF-${bookingId}`
         };
-    }).modern();
+    });
 
     return flow(
         reserveFlight,

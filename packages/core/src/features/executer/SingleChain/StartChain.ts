@@ -6,7 +6,7 @@ import OnAfter from './LifeCycle/OnAfter';
 import OnBefore from './LifeCycle/OnBefore';
 import OnFail from './LifeCycle/OnFail';
 import ResolveChain from './Helpers/ResolveChain';
-import { wrapParam, toPOJO } from '../../context';
+import { toPOJO } from '../../context';
 import {
     generateUUID,
     Status,
@@ -272,8 +272,8 @@ export default class StartChain {
                                         };
 
                                         if (chain.reducer && param[chain.reducer]) {
-                                            const array = param[chain.reducer]();
-                                            new Reducer(array, wrapParam(param), chain, Context, propertyToContext, undefined, stackId)
+                                            const array = typeof param[chain.reducer] === 'function' ? param[chain.reducer]() : param[chain.reducer];
+                                            new Reducer(array, toPOJO(param), chain, Context, propertyToContext, undefined, stackId)
                                                 .reduce((err: any, result: any) => {
                                                     clearStepTimeout();
                                                     if (err) {
@@ -285,13 +285,14 @@ export default class StartChain {
                                                             new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                         }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
                                                     } else {
-                                                        new OnAfter(chain, result, param, result, (_ctx: any, enrichProps: any) => {
+                                                        let enrichedResult = Object.assign({}, result);
+                                                        new OnAfter(chain, enrichedResult, param, enrichedResult, (_ctx: any, enrichProps: any) => {
                                                             for (const k in enrichProps) {
                                                                 const v = enrichProps[k];
-                                                                result[k] = () => v;
+                                                                enrichedResult[k] = v;
                                                             }
                                                         }, () => {
-                                                            new ResolveChain(safeResolve, result, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                            new ResolveChain(safeResolve, enrichedResult, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                         }, (afterErr: any) => {
                                                             tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
                                                             new OnFail(chain, afterErr, (context: any) => {
@@ -302,22 +303,46 @@ export default class StartChain {
                                                 });
                                         } else {
                                             let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
-                                            const isPojo = options?.pojo === true || options?.mode === 'pojo';
-                                            const wrappedParam = isPojo ? toPOJO(param) : wrapParam(param);
-                                            let actionParam = (chain.isModern || isPojo) ? toPOJO(param) : wrappedParam;
-                                            if (chain.isModern || isPojo) {
-                                                actionParam = Object.assign({}, actionParam);
-                                            }
+                                            let actionParam = Object.assign({}, toPOJO(param));
                                             (actionParam as any)[SERVICES] = mergedServices;
                                             (actionParam as any)[DEPENDENCIES] = mergedServices;
                                             (actionParam as any)[DEPS] = mergedServices;
                                             if (stackId) {
-                                                (actionParam as any)[STACK_ID] = () => stackId;
-                                                (actionParam as any)[STACK_ID_KEY] = stackId;
+                                                const stackFn: any = () => stackId;
+                                                stackFn.val = stackId;
+                                                (actionParam as any)[STACK_ID] = stackFn;
+                                                (actionParam as any)[STACK_ID_KEY] = stackFn;
+                                                (actionParam as any).$stackId = stackFn;
+                                                (actionParam as any).stackId = stackId;
                                             }
                                             if (options?.namespace) {
-                                                (actionParam as any)[NAMESPACE] = () => options.namespace;
-                                                (actionParam as any)[NAMESPACE_KEY] = options.namespace;
+                                                const nsFn: any = () => options.namespace;
+                                                nsFn.val = options.namespace;
+                                                (actionParam as any)[NAMESPACE] = nsFn;
+                                                (actionParam as any)[NAMESPACE_KEY] = nsFn;
+                                                (actionParam as any).$namespace = nsFn;
+                                                (actionParam as any).namespace = options.namespace;
+                                            }
+                                            if (stepEffectiveSignal) {
+                                                const sigFn: any = () => stepEffectiveSignal;
+                                                sigFn.val = stepEffectiveSignal;
+                                                sigFn.aborted = stepEffectiveSignal.aborted;
+                                                sigFn.addEventListener = stepEffectiveSignal.addEventListener.bind(stepEffectiveSignal);
+                                                sigFn.removeEventListener = stepEffectiveSignal.removeEventListener.bind(stepEffectiveSignal);
+                                                (actionParam as any)[SIGNAL] = sigFn;
+                                                (actionParam as any)[SIGNAL_KEY] = sigFn;
+                                                (actionParam as any).signal = stepEffectiveSignal;
+                                                (actionParam as any).$signal = sigFn;
+                                            }
+                                            if (initialParam?.[ATTEMPT] || param[ATTEMPT]) {
+                                                const attVal = param[ATTEMPT] || initialParam[ATTEMPT];
+                                                (actionParam as any)[ATTEMPT] = attVal;
+                                                (actionParam as any).$attempt = attVal;
+                                            }
+                                            if (initialParam?.[RETRY_DELAY] || param[RETRY_DELAY]) {
+                                                const delVal = param[RETRY_DELAY] || initialParam[RETRY_DELAY];
+                                                (actionParam as any)[RETRY_DELAY] = delVal;
+                                                (actionParam as any).$retryDelay = delVal;
                                             }
                                             let rawAction: any;
                                             try {

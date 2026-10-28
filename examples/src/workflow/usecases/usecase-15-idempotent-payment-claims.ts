@@ -34,7 +34,7 @@ export function createIdempotentSettlementPipeline(
         return {
             transferValidated: true
         };
-    }).modern();
+    });
 
     // Step 2: Critical Financial Settlement (Protected by Scoped Idempotency)
     const settleLedgerEntry = Step.create('settleLedgerEntry', async (param: any) => {
@@ -53,7 +53,7 @@ export function createIdempotentSettlementPipeline(
             currency,
             settlementTimestamp: Date.now()
         };
-    }).modern().idempotent((ctx) => buildIdempotencyKey('ledger-settlement', { txId: ctx.transactionId }), {
+    }).idempotent((ctx) => buildIdempotencyKey('ledger-settlement', { txId: ctx.transactionId }), {
         ttlMs: 60000,
         store
     });
@@ -68,7 +68,7 @@ export function createIdempotentSettlementPipeline(
             amount: param.amount,
             journalRef: param.journalRef
         };
-    }).modern();
+    });
 
     return {
         pipeline: flow(validateTransfer, settleLedgerEntry, issueTransferReceipt),

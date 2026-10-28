@@ -1,4 +1,4 @@
-import { toPOJO, wrapParam } from '../../../context';
+import { toPOJO } from '../../../context';
 import { isFunction } from '../../../../shared';
 
 export default class OnAfter {
@@ -13,9 +13,8 @@ export default class OnAfter {
     ) {
         if (isFunction(chain.onafter)) {
             try {
-                const wrappedParam = (param && (param as any).raw !== undefined) ? param : wrapParam(param);
-                const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;
-                const actionOutput = chain.isModern ? toPOJO(output) : output;
+                const actionParam = toPOJO(param);
+                const actionOutput = toPOJO(output);
                 const result = chain.onafter(actionOutput, actionParam);
                 if (result instanceof Promise) {
                     result.then((enrichProps: any) => {

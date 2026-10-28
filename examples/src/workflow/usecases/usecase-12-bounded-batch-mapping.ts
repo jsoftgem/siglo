@@ -54,7 +54,7 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
             indexedAt: Date.now(),
             status: 'INDEXED'
         };
-    }).modern();
+    });
 
     // Step 1: Pre-validation of Batch Metadata
     const validateBatch = Step.create('validateBatch', async (param: any) => {
@@ -67,7 +67,7 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
             totalDocumentCount: documents.length,
             batchInitialized: true
         };
-    }).modern();
+    });
 
     // Step 2: Bounded Concurrency Mapping (Worker pool of max 3 workers)
     const mapDocuments = map((ctx: any) => ctx.documents, indexDocumentWorker, {
@@ -88,7 +88,7 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
             totalTokens,
             catalogSummary: `Ingested ${mappedItems.length} documents (${totalTokens} tokens) with peak concurrency ${tracker.peak}`
         };
-    }).modern();
+    });
 
     return flow(
         validateBatch,

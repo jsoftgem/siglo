@@ -14,7 +14,7 @@ export interface FinancialTransactionInput {
  * Use Case 3: Financial Transaction Processing & Fraud Detection
  * Flow: ingestTransaction -> validateKycLimits -> runMlFraudModel -> executeLedgerTransfer -> emitAuditLog
  * Features:
- * - Step.create(...).modern() for idiomatic POJO parameter handling
+ * - Step.create(...) for idiomatic POJO parameter handling
  * - Strict spec contracts (validates currency format, positive numbers, required IDs)
  * - ML fraud risk scoring and compliance velocity checks
  * - Double-entry ledger booking with immutable audit logging
@@ -37,7 +37,7 @@ export function createFinancialFraudPipeline() {
             ingestedAmount: amount,
             ingestedCurrency: currency
         };
-    }).modern()
+    })
       .spec('transactionId', { require: true })
       .spec('sourceAccountId', { require: true })
       .spec('destinationAccountId', { require: true })
@@ -72,7 +72,7 @@ export function createFinancialFraudPipeline() {
             tier: 'TIER_2',
             remainingLimit: maxDailyLimit - amount
         };
-    }).modern();
+    });
 
     // Step 3: Run ML Fraud Model
     const runMlFraudModel = Step.create('finRunMlFraudModel', async (param: any) => {
@@ -94,7 +94,7 @@ export function createFinancialFraudPipeline() {
             riskScore,
             fraudAssessment: 'LOW_RISK'
         };
-    }).modern();
+    });
 
     // Step 4: Execute Ledger Transfer (Double-entry debit/credit)
     const executeLedgerTransfer = Step.create('finExecuteLedgerTransfer', async (param: any) => {
@@ -110,7 +110,7 @@ export function createFinancialFraudPipeline() {
                 { account: dest, type: 'CREDIT', amount, currency }
             ]
         };
-    }).modern();
+    });
 
     // Step 5: Emit Audit Log
     const emitAuditLog = Step.create('finEmitAuditLog', async (param: any) => {
@@ -129,7 +129,7 @@ export function createFinancialFraudPipeline() {
             riskScore,
             completedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         ingestTransaction,

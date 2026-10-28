@@ -1,3 +1,4 @@
+import { toPOJO } from "../context";
 export class Reducer {
     private array: any[];
     private param: any;
@@ -30,7 +31,7 @@ export class Reducer {
             try {
                 if (this.array && this.array.length > index) {
                     const currentValue = this.array[index];
-                    const action = this.chain.action(Object.assign(this.param, accumulated), currentValue, index);
+                    const action = this.chain.action(Object.assign({}, this.param, accumulated), currentValue, index);
                     if (action !== undefined) {
                         if (action instanceof Promise) {
                             action.then(props => {
@@ -43,7 +44,7 @@ export class Reducer {
                                     this.propertyToContext,
                                     this.context,
                                     this.stackId
-                                ).reduce(done, this.context.getData(), ++index);
+                                ).reduce(done, toPOJO(this.context.getData()), ++index);
                             }).catch(err => done(err));
                         } else {
                             this.propertyToContext(this.context, action);
@@ -55,7 +56,7 @@ export class Reducer {
                                 this.propertyToContext,
                                 this.context,
                                 this.stackId
-                            ).reduce(done, this.context.getData(), ++index);
+                            ).reduce(done, toPOJO(this.context.getData()), ++index);
                         }
                     } else {
                         new Reducer(
@@ -69,7 +70,7 @@ export class Reducer {
                         ).reduce(done, accumulated, ++index);
                     }
                 } else {
-                    done(undefined, accumulated);
+                    done(undefined, toPOJO(accumulated));
                 }
             } catch (err) {
                 done(err);

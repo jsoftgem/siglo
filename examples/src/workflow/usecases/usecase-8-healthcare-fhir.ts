@@ -35,7 +35,7 @@ export interface HealthcareHl7Input {
  * - HIPAA-compliant PII de-identification (masking patient names and hashing SSNs)
  * - Distributed OpenTelemetry traceparent context propagation
  * - Real-time provider alerting for critical abnormal clinical vitals
- * - Step.create(...).modern() for clean POJO parameter access
+ * - Step.create(...) for clean POJO parameter access
  */
 export function createHealthcareFhirPipeline() {
     // Step 1: Receive HL7 / FHIR Feed
@@ -48,7 +48,7 @@ export function createHealthcareFhirPipeline() {
             distributedTraceId: traceparent,
             receivedAt: Date.now()
         };
-    }).modern()
+    })
       .spec('feedId', { require: true })
       .spec('traceparent', { require: true })
       .spec('observation', { require: true });
@@ -71,7 +71,7 @@ export function createHealthcareFhirPipeline() {
             measuredValue: obs.valueQuantity.value,
             unit: obs.valueQuantity.unit
         };
-    }).modern();
+    });
 
     // Step 3: Anonymize PII for HIPAA Compliance
     const anonymizePii = Step.create('hl7AnonymizePii', async (param: any) => {
@@ -95,7 +95,7 @@ export function createHealthcareFhirPipeline() {
             anonymizedObservation,
             pseudonymousPatientId: pseudonymousHash
         };
-    }).modern();
+    });
 
     // Step 4: Update Electronic Health Record (EHR Repository)
     const updateElectronicHealthRecord = Step.create('hl7UpdateEhr', async (param: any) => {
@@ -112,7 +112,7 @@ export function createHealthcareFhirPipeline() {
                 reading: `${measuredValue} ${unit}`
             }
         };
-    }).modern();
+    });
 
     // Step 5: Dispatch Provider Alert (if abnormal vital thresholds breached)
     const dispatchProviderAlert = Step.create('hl7DispatchProviderAlert', async (param: any) => {
@@ -151,7 +151,7 @@ export function createHealthcareFhirPipeline() {
             alertLevel: urgency,
             ehrSynchronizedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         receiveHl7Feed,

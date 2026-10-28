@@ -108,7 +108,7 @@ import { expect } from 'chai';
 import { createWorkflowHarness } from '@rivulet/testing';
 import { Step, flow } from 'rivulet';
 
-const s1 = Step.create('add', (p: { x: number }) => ({ res: p.x + 5 })).modern();
+const s1 = Step.create('add', (p: { x: number }) => ({ res: p.x + 5 }));
 const wf = flow(s1);
 
 const harness = createWorkflowHarness(wf);
@@ -127,7 +127,7 @@ import { Step, flow } from 'rivulet';
 
 // Modified workflow with a bug: calculates 10% tax instead of 5%
 const buggyWf = flow(
-    Step.create('calcTax', (p: { amount: number }) => ({ tax: p.amount * 0.10 })).modern()
+    Step.create('calcTax', (p: { amount: number }) => ({ tax: p.amount * 0.10 }))
 );
 
 const recordedBaseline = {
@@ -156,8 +156,8 @@ import { expect } from 'chai';
 import { createWorkflowHarness } from '@rivulet/testing';
 import { Step, flow } from 'rivulet';
 
-const s1 = Step.create('fetchUser', () => ({ user: 'Alice' })).modern();
-const s2 = Step.create('emailUser', (p: any) => ({ sent: true })).modern();
+const s1 = Step.create('fetchUser', () => ({ user: 'Alice' }));
+const s2 = Step.create('emailUser', (p: any) => ({ sent: true }));
 const wf = flow(s1, s2);
 
 describe('Full Harness Suite', () => {

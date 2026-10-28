@@ -1,5 +1,5 @@
 import OnSkip from './OnSkip';
-import { wrapParam } from '../../../context';
+import { toPOJO } from '../../../context';
 import { isFunction } from '../../../../shared';
 
 export default class OnBefore {
@@ -27,8 +27,7 @@ export default class OnBefore {
         };
 
         try {
-            const wrappedParam = (param && (param as any).raw !== undefined) ? param : wrapParam(param);
-            const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;
+            const actionParam = toPOJO(param);
             const onbefore = chain.onbefore(actionParam);
             if (onbefore instanceof Promise) {
                 onbefore.then((con: any) => {

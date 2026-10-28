@@ -64,7 +64,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
             Step.create('calc', async ({ amount }: any) => ({
                 doubled: amount * 2,
                 status: 'OK'
-            })).modern()
+            }))
         );
 
         const fixture = {
@@ -80,7 +80,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
 
     it('detects output diff in replayFixture when expectations fail', async () => {
         const dummyFlow = flow(
-            Step.create('dummy', async () => ({ value: 100 })).modern()
+            Step.create('dummy', async () => ({ value: 100 }))
         );
 
         const fixture = {

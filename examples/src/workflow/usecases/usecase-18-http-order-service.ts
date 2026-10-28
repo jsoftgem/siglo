@@ -34,7 +34,7 @@ export function createHttpCheckoutWorkflow() {
         }
         const totalAmount = items.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0);
         return { orderId, totalAmount, currency: currency || 'USD', validated: true };
-    }).modern();
+    });
 
     const authorizePayment = Step.create('authorizePayment', async (param: any) => {
         const { orderId, totalAmount, currency } = param;
@@ -48,7 +48,7 @@ export function createHttpCheckoutWorkflow() {
             paidAmount: totalAmount,
             settledCurrency: currency
         };
-    }).modern();
+    });
 
     return flow(validateRequest, authorizePayment);
 }

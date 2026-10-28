@@ -438,7 +438,6 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     $chainId?: string;
     $stepId?: string;
     func?: string;
-    isModern?: boolean;
     // Phase 2
     compensationHandler?: any;
     compensationOptions?: CompensationOptions;
@@ -557,11 +556,6 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 
     timeout(ms: number): Step<TInput, TOutput, TName> {
         this.timeoutMs = ms;
-        return this;
-    }
-
-    modern(): Step<TInput, TOutput, TName> {
-        this.isModern = true;
         return this;
     }
 

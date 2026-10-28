@@ -13,7 +13,7 @@ import { Step, flow } from 'rivulet';
 
 // Step 1: Reserve Inventory (with compensation)
 const reserveInventory = Step.create('reserveInventory')
-  .modern()
+  
   .compensate(async (output, input) => {
     await inventoryService.releaseReservation(output.reservationId);
   })
@@ -24,7 +24,7 @@ const reserveInventory = Step.create('reserveInventory')
 
 // Step 2: Authorize Payment (with compensation)
 const authorizePayment = Step.create('authorizePayment')
-  .modern()
+  
   .compensate(async (output) => {
     await paymentGateway.refund(output.chargeId);
   })
@@ -35,7 +35,7 @@ const authorizePayment = Step.create('authorizePayment')
 
 // Step 3: Dispatch Delivery (Fails!)
 const dispatchDelivery = Step.create('dispatchDelivery')
-  .modern()
+  
   .onStart(async () => {
     throw new Error('No courier available');
   });

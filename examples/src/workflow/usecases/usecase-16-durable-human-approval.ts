@@ -31,7 +31,7 @@ export function createDurableExpenseApprovalWorkflow() {
             requiresExecutiveSignoff,
             workflowPhase: 'PENDING_APPROVAL'
         };
-    }).modern();
+    });
 
     // Step 2: Durable Suspension Point (Awaits webhook / human approval event)
     const awaitManagerApproval = waitForEvent('expense.decision', {
@@ -56,7 +56,7 @@ export function createDurableExpenseApprovalWorkflow() {
             disbursementRef,
             policyV2Applied: param.policyV2Applied ?? false
         };
-    }).modern();
+    });
 
     const workflow = flow(
         submitExpenseReport,

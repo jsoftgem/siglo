@@ -193,7 +193,7 @@ export function createSaaSBillingWorkflow() {
             subtotal,
             calculatedAt: Date.now()
         };
-    }).modern();
+    });
 
     // Step 2: Apply Tenant Tier Discount & Taxes
     const finalizeInvoice = Step.create('finalizeInvoice', async (param: any) => {
@@ -217,7 +217,7 @@ export function createSaaSBillingWorkflow() {
             status: 'INVOICED',
             namespace
         };
-    }).modern();
+    });
 
     return flow(computeUsageFees, finalizeInvoice);
 }

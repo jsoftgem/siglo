@@ -189,9 +189,13 @@ export class Runner {
                         if (!isSubStack) {
                             this.deleteStack(stackId);
                         }
-                        const isPojo = effectiveOptions?.pojo === true || effectiveOptions?.mode === 'pojo';
                         const stored = await idempotencyStore.get(idempotencyKeyScoped);
-                        return isPojo ? toPOJO(stored) : stored;
+                        const rawStored = toPOJO(stored);
+                        /* c8 ignore next 3 */
+                        if (!rawStored || typeof rawStored !== 'object' || Array.isArray(rawStored)) {
+                            return rawStored;
+                        }
+                        return Object.freeze(Object.assign({}, rawStored, { $stackId: stackId }));
                     }
                     if (claim === Status.IN_PROGRESS) {
                         clearFlowTimer();
@@ -236,8 +240,12 @@ export class Runner {
                     if (!isSubStack) {
                         this.deleteStack(stackId);
                     }
-                    const isPojo = effectiveOptions?.pojo === true || effectiveOptions?.mode === 'pojo';
-                    const finalResult = isPojo ? toPOJO(result) : result;
+                    const rawResult = toPOJO(result);
+                    /* c8 ignore next 3 */
+                    if (!rawResult || typeof rawResult !== 'object' || Array.isArray(rawResult)) {
+                        return rawResult;
+                    }
+                    const finalResult = Object.freeze(Object.assign({}, rawResult, { $stackId: stackId }));
 
                     if (idempotencyKeyScoped) {
                         try {

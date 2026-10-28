@@ -30,13 +30,13 @@ export const fetchUser = Step.create('fetchUser', async (param: { userId: string
         throw new Error('User ID is required');
     }
     return { name: 'Alice', tier: 'PRO' };
-}).modern();
+});
 
 // 2. Define Step 2: Business action using accumulated context
 export const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: string }) => {
     const discount = param.tier === 'PRO' ? 0.20 : 0.05;
     return { discountPercentage: discount };
-}).modern();
+});
 
 // 3. Compose workflow into a typed sequence
 export const userWorkflow = flow(fetchUser, calculateDiscount);
@@ -62,7 +62,7 @@ import { Step, flow } from 'rivulet';
 
 const greet = Step.create('greet', (p: { name: string }) => ({
     message: `Hello, ${p.name}!`
-})).modern();
+}));
 
 const pipeline = flow(greet);
 const res = await pipeline.run({ name: 'World' });
@@ -83,7 +83,7 @@ const riskyStep = Step.create('riskyStep', async (param: { balance: number }) =>
         throw new Error('Insufficient balance');
     }
     return { status: 'APPROVED' };
-}).modern();
+});
 
 const orderFlow = flow(riskyStep);
 
@@ -127,7 +127,7 @@ describe('User Workflow Test Suite', () => {
 
 ## Operational Caveats
 
-1. **Step Immutability**: Always use `.modern()` or POJO execution mode (`{ pojo: true }`) in production to ensure pure functional context immutability and prevent side-effect pollution between concurrent executions.
+1. **Step Immutability**: Always use `` or POJO execution mode (`{ pojo: true }`) in production to ensure pure functional context immutability and prevent side-effect pollution between concurrent executions.
 2. **Deterministic Step Actions**: Keep step actions idempotent and deterministic. Side effects (e.g. charging a payment or sending an email) should declare idempotency keys or compensation rollbacks.
 3. **Avoid Unhandled Promises**: Ensure all asynchronous steps return promises that resolve or reject explicitly.
 

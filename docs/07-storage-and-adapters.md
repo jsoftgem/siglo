@@ -107,7 +107,7 @@ const customAuditAdapter: StorageAdapter = {
 
 useStorage(customAuditAdapter);
 
-const s1 = Step.create('init', () => ({ initialized: true })).modern();
+const s1 = Step.create('init', () => ({ initialized: true }));
 const wf = flow(s1);
 await wf.run();
 ```
@@ -139,7 +139,7 @@ import { expect } from 'chai';
 import { InMemoryStorageFake, createWorkflowHarness } from '@rivulet/testing';
 import { Step, flow } from 'rivulet';
 
-const wf = flow(Step.create('test', () => ({ ok: true })).modern());
+const wf = flow(Step.create('test', () => ({ ok: true })));
 
 describe('Storage Adapter Testing', () => {
     it('captures context changes in memory fake', async () => {

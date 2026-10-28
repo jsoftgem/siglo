@@ -15,7 +15,7 @@ export interface RagDocumentInput {
  * - Claim-check pattern: large text extracted and passed with pointer references
  * - Deterministic caching with .cache(60000) on generateEmbeddings to prevent redundant token charges
  * - Fine-grained chunking & vector database upsert
- * - Step.create(...).modern() for idiomatic parameter unwrapping
+ * - Step.create(...) for idiomatic parameter unwrapping
  */
 export function createAiRagPipeline() {
     let embeddingCallCount = 0;
@@ -35,7 +35,7 @@ export function createAiRagPipeline() {
             wordCount,
             extractionStatus: 'SUCCESS'
         };
-    }).modern()
+    })
       .spec('documentId', { require: true })
       .spec('rawText', { require: true });
 
@@ -53,7 +53,7 @@ export function createAiRagPipeline() {
             chunks,
             chunkCount: chunks.length
         };
-    }).modern();
+    });
 
     // Step 3: Generate Embeddings (Cached for 60 seconds to eliminate redundant LLM API costs)
     const generateEmbeddings = Step.create('ragGenerateEmbeddings', async (param: any) => {
@@ -72,7 +72,7 @@ export function createAiRagPipeline() {
             embeddingCallCount,
             modelUsed: 'text-embedding-3-small'
         };
-    }).modern().cache(60000);
+    }).cache(60000);
 
     // Step 4: Upsert Vector Store
     const upsertVectorStore = Step.create('ragUpsertVectorStore', async (param: any) => {
@@ -85,7 +85,7 @@ export function createAiRagPipeline() {
             upsertedCount: vectorIds.length,
             vectorIds
         };
-    }).modern();
+    });
 
     // Step 5: Index Search Metadata
     const indexSearchMetadata = Step.create('ragIndexSearchMetadata', async (param: any) => {
@@ -100,7 +100,7 @@ export function createAiRagPipeline() {
             totalWordsIndexed: wordCount,
             indexedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     const pipeline = flow(
         extractDocumentText,

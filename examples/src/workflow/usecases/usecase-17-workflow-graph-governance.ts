@@ -19,15 +19,15 @@ export function createGovernedDeploymentPipeline() {
     const buildPackage = Step.create('buildPackage', async (param: any) => ({
         artifactUrl: `https://artifacts.corp/builds/${param.commitSha}.tar.gz`,
         buildSuccess: true
-    })).modern();
+    }));
 
     // Stage 2: Parallel Quality & Compliance Checks
-    const runUnitTests = Step.create('runUnitTests', async () => ({ unitTestsPassed: true })).modern();
+    const runUnitTests = Step.create('runUnitTests', async () => ({ unitTestsPassed: true }));
     const runSecurityScan = Step.create('runSecurityScan', async () => ({
         cveVulnerabilitiesCount: 0,
         securityPassed: true
-    })).modern();
-    const runLicenseAudit = Step.create('runLicenseAudit', async () => ({ licenseCompliant: true })).modern();
+    }));
+    const runLicenseAudit = Step.create('runLicenseAudit', async () => ({ licenseCompliant: true }));
 
     const qualityGate = parallel(runUnitTests, runSecurityScan, runLicenseAudit);
 
@@ -36,7 +36,7 @@ export function createGovernedDeploymentPipeline() {
         deploymentStatus: 'DEPLOYED',
         releaseId: param.releaseId,
         activeCluster: `k8s-${param.environment}-cluster-1`
-    })).modern();
+    }));
 
     // Compose Full Workflow
     const deploymentWorkflow = flow(

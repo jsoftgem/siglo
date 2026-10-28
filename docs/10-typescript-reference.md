@@ -23,7 +23,7 @@ When defining a step with `Step.create(name, action)`:
 const fetchUser = Step.create<'fetchUser', { id: string }, { user: { name: string; email: string } }>(
     'fetchUser',
     async (param) => ({ user: { name: 'Alice', email: 'alice@example.com' } })
-).modern();
+);
 ```
 
 ---
@@ -37,8 +37,8 @@ When steps are chained in `flow(s1, s2, s3)`:
 - The workflow execution returns `MergeStepContext<TIn, T1Out & T2Out & T3Out> & { $steps: Record<...> }`.
 
 ```typescript
-const s1 = Step.create('s1', (p: { a: number }) => ({ b: 'hello' })).modern();
-const s2 = Step.create('s2', (p: { a: number; b: string }) => ({ c: true })).modern();
+const s1 = Step.create('s1', (p: { a: number }) => ({ b: 'hello' }));
+const s2 = Step.create('s2', (p: { a: number; b: string }) => ({ c: true }));
 
 const wf = flow(s1, s2);
 
@@ -54,12 +54,12 @@ const result = await wf.run({ a: 10 });
 Every named step automatically registers its typed output in `$steps`:
 
 ```typescript
-const s1 = Step.create('loadUser', () => ({ user: { id: 'u1', role: 'admin' } })).modern();
+const s1 = Step.create('loadUser', () => ({ user: { id: 'u1', role: 'admin' } }));
 const s2 = Step.create('loadBilling', (param: any) => {
     // Statically typed access to s1's output!
     const userRole = param.$steps.loadUser.user.role;
     return { billed: true };
-}).modern();
+});
 ```
 
 ---
@@ -137,7 +137,7 @@ interface Step1Out {
 
 const s1 = Step.create<Input, Step1Out, 'doubleStep'>('doubleStep', (p) => ({
     doubled: p.val * 2
-})).modern();
+}));
 
 const wf = flow(s1);
 const res = await wf.run({ val: 21 });
@@ -151,10 +151,10 @@ console.log(res.doubled); // 42
 If a step requires a property not provided by previous steps, TypeScript flags it during compilation:
 
 ```typescript
-const stepA = Step.create('stepA', () => ({ x: 10 })).modern();
+const stepA = Step.create('stepA', () => ({ x: 10 }));
 
 // stepB requires 'y: string' which does not exist in context!
-const stepB = Step.create('stepB', (param: { y: string }) => ({ z: param.y.toUpperCase() })).modern();
+const stepB = Step.create('stepB', (param: { y: string }) => ({ z: param.y.toUpperCase() }));
 
 // TypeScript compile error if types are strictly parameterized!
 ```
@@ -169,7 +169,7 @@ import { Step, flow } from 'rivulet';
 
 const s1 = Step.create<'calc', { n: number }, { isEven: boolean }>('calc', (p) => ({
     isEven: p.n % 2 === 0
-})).modern();
+}));
 
 describe('TypeScript Type Parity Test', () => {
     it('verifies typed output parity', async () => {

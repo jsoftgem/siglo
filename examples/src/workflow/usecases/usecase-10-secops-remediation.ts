@@ -19,7 +19,7 @@ export interface SecOpsIncidentInput {
  * - Safe execution lifecycle with onBefore check verifying no maintenance conflicts
  * - Diagnostic log correlation and automated containment (cordoning node, terminating compromised pod)
  * - Forensic incident envelope capturing full execution context and Slack dispatch
- * - Step.create(...).modern() for idiomatic POJO parameter unwrapping
+ * - Step.create(...) for idiomatic POJO parameter unwrapping
  */
 export function createSecOpsRemediationPipeline() {
     // Step 1: Receive Monitoring Alert
@@ -33,7 +33,7 @@ export function createSecOpsRemediationPipeline() {
             severity,
             metric
         };
-    }).modern()
+    })
       .spec('alertId', { require: true })
       .spec('clusterName', { require: true })
       .spec('nodeId', { require: true })
@@ -51,7 +51,7 @@ export function createSecOpsRemediationPipeline() {
             hostNode: nodeId,
             blastRadius: 'ISOLATED_POD'
         };
-    }).modern().onBefore(async (param: any) => {
+    }).onBefore(async (param: any) => {
         // Enforce safety constraint: Ensure remediation is allowed unless maintenance freeze
         const isMaintenance = typeof param?.maintenanceWindowActive === 'function'
             ? param.maintenanceWindowActive()
@@ -80,7 +80,7 @@ export function createSecOpsRemediationPipeline() {
             quarantinedNode: hostNode,
             terminatedPod: affectedPod
         };
-    }).modern();
+    });
 
     // Step 4: Verify Infrastructure Health Post-Remediation
     const verifyHealth = Step.create('secopsVerifyHealth', async () => {
@@ -91,7 +91,7 @@ export function createSecOpsRemediationPipeline() {
             memoryUtilizationPercent: 41.5,
             healthStatus: 'HEALTHY'
         };
-    }).modern();
+    });
 
     // Step 5: Post Slack Incident Post-Mortem Summary
     const postSlackSummary = Step.create('secopsPostSlackSummary', async (param: any) => {
@@ -124,7 +124,7 @@ export function createSecOpsRemediationPipeline() {
             slackMessage,
             resolvedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         receiveMonitoringAlert,

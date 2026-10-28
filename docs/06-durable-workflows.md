@@ -15,7 +15,7 @@ export const expenseApprovalWorkflow = flow(
     Step.create('submitExpense', async (param: { amount: number }) => ({
         submittedAt: Date.now(),
         status: 'PENDING_APPROVAL'
-    })).modern(),
+    })),
 
     // Suspends until manager approval webhook arrives
     waitForEvent('managerApproval', {
@@ -28,7 +28,7 @@ export const expenseApprovalWorkflow = flow(
             return { payoutStatus: 'REJECTED' };
         }
         return { payoutStatus: 'PROCESSED', approvedBy: param.approverId };
-    }).modern()
+    })
 );
 ```
 
@@ -103,9 +103,9 @@ await resumeWorkflow(updatedWorkflow, correlationKey, eventPayload, {
 import { Step, flow, waitForEvent, resumeWorkflow } from 'rivulet';
 
 const wf = flow(
-    Step.create('step1', () => ({ orderId: 'ord_123' })).modern(),
+    Step.create('step1', () => ({ orderId: 'ord_123' })),
     waitForEvent('paymentReceived', { correlationKey: (p) => p.orderId }),
-    Step.create('step2', (p: any) => ({ completed: true, amount: p.amount })).modern()
+    Step.create('step2', (p: any) => ({ completed: true, amount: p.amount }))
 );
 
 // 1. Initial run suspends
@@ -154,9 +154,9 @@ import { createWorkflowHarness } from '@rivulet/testing';
 import { Step, flow, waitForEvent } from 'rivulet';
 
 const durableWf = flow(
-    Step.create('start', () => ({ ticketId: 't-1' })).modern(),
+    Step.create('start', () => ({ ticketId: 't-1' })),
     waitForEvent('userReply', { correlationKey: (p) => p.ticketId }),
-    Step.create('finish', (p: any) => ({ resolvedWith: p.message })).modern()
+    Step.create('finish', (p: any) => ({ resolvedWith: p.message }))
 );
 
 describe('Durable Workflows Suite', () => {

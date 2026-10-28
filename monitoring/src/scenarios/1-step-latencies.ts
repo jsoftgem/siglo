@@ -16,19 +16,19 @@ export async function runStepLatenciesScenario(options: { silent?: boolean } = {
     const validateOrder = Step.create('validateOrder', async (param: any) => {
         await sleep(30);
         return { orderId: param.orderId, amount: param.amount, validated: true };
-    }).modern();
+    });
 
     const enrichCustomer = Step.create('enrichCustomer', async () => {
         await sleep(40);
         return { tier: 'GOLD', loyaltyPoints: 450 };
-    }).modern();
+    });
 
     // 2. Parallel fan-out branches (concurrent evaluation)
     const checkInventory = instrumentStep(
         Step.create('checkInventory', async () => {
             await sleep(75);
             return { inStock: true, warehouse: 'WH-EAST-1' };
-        }).modern(),
+        }),
         { tracer }
     );
 
@@ -36,7 +36,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean } = {
         Step.create('performRiskAssessment', async () => {
             await sleep(90);
             return { riskScore: 0.02, fraudFlag: false };
-        }).modern(),
+        }),
         { tracer }
     );
 
@@ -44,7 +44,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean } = {
         Step.create('fetchPricingRules', async () => {
             await sleep(50);
             return { discountApplied: 0.10, taxRate: 0.08 };
-        }).modern(),
+        }),
         { tracer }
     );
 
@@ -54,7 +54,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean } = {
     const generateInvoice = Step.create('generateInvoice', async (param: any) => {
         await sleep(25);
         return { invoiceId: `INV-${param.orderId}`, total: 108.0 };
-    }).modern();
+    });
 
     const orderPipeline = flow(
         validateOrder,

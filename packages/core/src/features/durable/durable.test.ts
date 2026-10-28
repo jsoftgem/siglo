@@ -50,7 +50,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         });
 
         it('durable execution pauses at waitForEvent, checkpoints status as waiting, and returns suspension descriptor', async () => {
-            const step1 = Step.create('validateOrder').modern().onStart(({ orderId, amount }: any) => {
+            const step1 = Step.create('validateOrder').onStart(({ orderId, amount }: any) => {
                 return { orderId, amount, validated: true };
             });
 
@@ -59,7 +59,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                 timeout: '1h'
             });
 
-            const step3 = Step.create('fulfillOrder').modern().onStart(({ orderId, authCode }: any) => {
+            const step3 = Step.create('fulfillOrder').onStart(({ orderId, authCode }: any) => {
                 return { orderId, fulfilled: true, authCode };
             });
 
@@ -99,11 +99,11 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
     describe('Resume API and Event Safety', () => {
         it('resumeWorkflow resumes waiting workflow with event payload and finishes remaining steps', async () => {
-            const step1 = Step.create('step1').modern().onStart(() => ({ step1Done: true }));
+            const step1 = Step.create('step1').onStart(() => ({ step1Done: true }));
             const waitStep = waitForEvent('user.verified', {
                 correlationKey: (ctx) => `user:${ctx.userId}`
             });
-            const step2 = Step.create('step2').modern().onStart((ctx: any) => ({
+            const step2 = Step.create('step2').onStart((ctx: any) => ({
                 step2Done: true,
                 verifiedBy: ctx.verifiedBy
             }));
@@ -128,7 +128,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const waitStep = waitForEvent('signal.ready', {
                 correlationKey: 'sig-1'
             });
-            const afterStep = Step.create('after').modern().onStart((ctx: any) => ({ completed: true, token: ctx.token }));
+            const afterStep = Step.create('after').onStart((ctx: any) => ({ completed: true, token: ctx.token }));
 
             const f = flow(waitStep, afterStep);
             const suspended = await f.run({}, { durable: true, pojo: true });
@@ -180,7 +180,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
     describe('Workflow Versioning & Migrations', () => {
         it('resumes successfully when workflow versions match', async () => {
             const waitStep = waitForEvent('ev', { correlationKey: 'ver-match' });
-            const f = flow(waitStep, Step.create('ok').modern().onStart(() => ({ ok: true }))).version('2.1.0');
+            const f = flow(waitStep, Step.create('ok').onStart(() => ({ ok: true }))).version('2.1.0');
 
             await f.run({}, { durable: true });
             const res = await f.resume('ver-match', {}, { pojo: true });
@@ -205,9 +205,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         });
 
         it('applies state migration function on version upgrade when resuming', async () => {
-            const s1 = Step.create('init').modern().onStart(() => ({ user_name: 'John Doe' }));
+            const s1 = Step.create('init').onStart(() => ({ user_name: 'John Doe' }));
             const waitStep = waitForEvent('ev', { correlationKey: 'migrate-key' });
-            const s2 = Step.create('finish').modern().onStart((ctx: any) => ({
+            const s2 = Step.create('finish').onStart((ctx: any) => ({
                 displayName: ctx.user?.name
             }));
 
@@ -245,7 +245,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const origFlow = flow(waitStep);
             await origFlow.run({}, { durable: true });
 
-            const contStep = Step.create("contOnly").modern().onStart(() => ({ done: true }));
+            const contStep = Step.create("contOnly").onStart(() => ({ done: true }));
             const contFlow = flow(contStep);
             const res = await resumeWorkflow(contFlow, "alone-key", {}, { pojo: true });
             expect(res.done).to.equal(true);

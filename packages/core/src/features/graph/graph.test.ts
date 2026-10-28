@@ -18,7 +18,7 @@ import {
 describe('Workflow Graph Model Unit Tests', () => {
     it('toGraph converts steps, flows, arrays, functions, and combinators', () => {
         // Step
-        const s1 = Step.create('step1').modern();
+        const s1 = Step.create('step1');
         const g1 = toGraph(s1);
         expect(g1.type).to.equal('step');
         expect(g1.name).to.equal('step1');

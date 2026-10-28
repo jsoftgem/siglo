@@ -32,7 +32,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 
 1. 🚀 [01. Getting Started](docs/01-getting-started.md) &mdash; Installation, quickstart walkthrough, minimal examples, and CLI scaffolding.
 2. 💡 [02. Core Concepts](docs/02-core-concepts.md) &mdash; Executable ASTs, accumulated context immutability, 5-phase step lifecycle, and reserved keys.
-3. ⛓️ [03. Sequential Workflows](docs/03-sequential-workflows.md) &mdash; Linear pipelines, `.modern()` modifier, lifecycle hooks (`onBefore`, `onSkip`, `onAfter`), and caching.
+3. ⛓️ [03. Sequential Workflows](docs/03-sequential-workflows.md) &mdash; Linear pipelines, clean POJO parameters, lifecycle hooks (`onBefore`, `onSkip`, `onAfter`), and caching.
 4. 🔀 [04. Branching and Parallelism](docs/04-branching-and-parallelism.md) &mdash; Concurrent fan-outs (`parallel`, `all`, `allSettled`, `race`), dynamic routing (`when`, `branch`), and bounded mapping (`map`).
 5. 🛡️ [05. Retries, Timeouts, and Cancellation](docs/05-retries-timeouts-and-cancellation.md) &mdash; Two-tier timeouts, exponential backoff with jitter, cooperative `AbortSignal` cancellation, and saga rollbacks.
 6. ⏳ [06. Durable Workflows](docs/06-durable-workflows.md) &mdash; Long-running human-in-the-loop waits (`waitForEvent`, `wait`), checkpoint resumption, and state migrations.
@@ -115,12 +115,12 @@ import { Step, flow } from 'rivulet';
 // 1. Define modular steps with input/output contracts
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
     return { name: 'Alice', tier: 'PRO' };
-}).modern();
+});
 
 const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: string }) => {
     const discount = param.tier === 'PRO' ? 0.20 : 0.05;
     return { discountPercentage: discount };
-}).modern();
+});
 
 // 2. Compose into an executable flow
 export const orderWorkflow = flow(fetchUser, calculateDiscount);
@@ -367,7 +367,6 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 | Method | Description |
 |---|---|
 | `Step.create<TIn, TOut, TName>(name?, action)` | Instantiates a new typed `Step` execution unit. |
-| `step.modern()` | Enables plain object destructuring and disables getter closures. |
 | `step.withDependencies(deps)` | Attaches explicit runtime dependencies to the step. |
 | `step.requireDependency(key)` | Retrieves a required dependency or throws a clear error. |
 | `step.compensate(handler, options?)` | Registers a compensation rollback handler to run if downstream steps fail. |

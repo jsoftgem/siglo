@@ -97,7 +97,7 @@ const fetchExchangeRates = Step.create(async (param) => {
     const signal = param.$signal?.(); // Combined step timeout & request abort signal
     const response = await fetch('https://api.fx.internal/rates', { signal });
     return await response.json();
-}).modern();
+});
 ```
 
 ---
@@ -115,11 +115,11 @@ const app = new Hono();
 
 const geoLookup = Step.create('geoLookup', async (param: any) => {
     return { country: param.country || 'US', edgeRegion: 'WAF-EDGE-01' };
-}).modern();
+});
 
 const rateCalculation = Step.create('rateCalculation', async (param: any) => {
     return { taxRate: param.country === 'US' ? 0.08 : 0.20 };
-}).modern();
+});
 
 const edgeFlow = flow(geoLookup, rateCalculation);
 
@@ -156,7 +156,7 @@ const echoWorkflow = flow(
     Step.create('echo', async (input: any) => ({
         echoed: input,
         timestamp: Date.now(),
-    })).modern()
+    }))
 );
 
 app.post('/api/echo', rivuletMiddleware(echoWorkflow));

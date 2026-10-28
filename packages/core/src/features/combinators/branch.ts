@@ -107,7 +107,6 @@ export function when(
         }
     });
 
-    step.modern();
     (step as any).workflowNode = branchNode;
     return step;
 }
@@ -177,7 +176,6 @@ export function branch(
         };
     });
 
-    step.modern();
     (step as any).workflowNode = branchNode;
     return step;
 }

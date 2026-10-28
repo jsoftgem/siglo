@@ -1,4 +1,4 @@
-import { wrapParam } from '../../../context';
+import { toPOJO } from '../../../context';
 import { isFunction } from '../../../../shared';
 
 export default class OnSkip {
@@ -14,15 +14,14 @@ export default class OnSkip {
         const context = Context.createContext(chain.$chainId, stackId);
         if (isFunction(chain.onskip)) {
             try {
-                const wrappedParam = (param && (param as any).raw !== undefined) ? param : wrapParam(param);
-                const actionParam = chain.isModern && wrappedParam?.raw !== undefined ? wrappedParam.raw : wrappedParam;
+                const actionParam = toPOJO(param);
                 const result = chain.onskip(actionParam);
                 if (result instanceof Promise) {
                     result.then((fallbackProps: any) => {
                         if (fallbackProps !== undefined && propertyToContext) {
                             propertyToContext(context, fallbackProps);
                         }
-                        resolve(wrapParam(context.getData()));
+                        resolve(toPOJO(context.getData()));
                     }).catch((err: any) => {
                         reject(err);
                     });
@@ -30,13 +29,13 @@ export default class OnSkip {
                     if (result !== undefined && propertyToContext) {
                         propertyToContext(context, result);
                     }
-                    resolve(wrapParam(context.getData()));
+                    resolve(toPOJO(context.getData()));
                 }
             } catch (err) {
                 reject(err);
             }
         } else {
-            resolve(context.getData());
+            resolve(toPOJO(context.getData()));
         }
     }
 /* c8 ignore next */

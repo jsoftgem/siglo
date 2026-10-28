@@ -14,19 +14,19 @@ import {expect} from "chai";
 describe("Step unit test", () => {
     it("should execute multi-step pipeline with direct step instances", done => {
         const s0 = Step.create("sample_connect_0")
-            .onStart(({value}) => value.val + 1);
+            .onStart(({value}) => value + 1);
         const s2 = Step.create("sample_connect_2")
-            .onStart(({value}) => value.val + 2);
+            .onStart(({value}) => value + 2);
         const s3 = Step.create("sample_connect_3")
-            .onStart(({value}) => value.val + 3);
+            .onStart(({value}) => value + 3);
 
         const connectEverything = Step.create("connectEverything")
-            .onStart(({sum}) => sum.val);
+            .onStart(({sum}) => sum);
 
         flow(connectEverything, s0, s2, s3)
             .execute({sum: 1})
             .then(({value}) => {
-                expect(value.val).to.be.equal(7);
+                expect(value).to.be.equal(7);
                 done();
             }).catch(err => {
                 console.log("error", err);
@@ -38,14 +38,14 @@ describe("Step unit test", () => {
         const step1 = Step.create("_thr_step_0_1")
             .onStart((param) => {
                 expect(param.port).to.be.not.undefined;
-                expect(param.port.val).to.be.equal(1000);
+                expect(param.port).to.be.equal(1000);
             })
             .spec("port", {default: 1000});
 
         const step2 = Step.create("_thr_step_0_2")
             .onStart(param => {
                 expect(param.sample_port).to.be.not.undefined;
-                expect(param.sample_port.val).to.be.equal(2000);
+                expect(param.sample_port).to.be.equal(2000);
             })
             .spec("sample_port", {default: 2000});
 
@@ -58,26 +58,26 @@ describe("Step unit test", () => {
     it("should be able to get root paramaters throuhgout the chains", done => {
         const s1 = Step.create("_thru_step1").onStart((params) => {
             expect(params.config).to.be.not.undefined;
-            expect(params.config.val).to.be.equal("hello");
+            expect(params.config).to.be.equal("hello");
             expect(params.ignoreMe).to.be.not.undefined;
-            expect(params.ignoreMe.val).to.be.equal("ignored");
+            expect(params.ignoreMe).to.be.equal("ignored");
         }).spec("config", {require: true, default: "defaultConfig"});
         const s2 = Step.create("_thru_step2").onStart((params) => {
             expect(params.ignoreMe).to.be.undefined;
-            expect(params.config.val).to.be.equal("hello");
+            expect(params.config).to.be.equal("hello");
             expect(params.config).to.be.not.undefined;
         }).strict().spec("config", {require: true});
         const s3 = Step.create("_thru_step3").onStart((params) => {
             expect(params.ignoreMe).to.be.undefined;
-            expect(params.config.val).to.be.equal("hello");
+            expect(params.config).to.be.equal("hello");
             expect(params.config).to.be.not.undefined;
         }).strict().spec("config", {require: true});
         const s4 = Step.create("_thru_step4").onStart((params) => {
             expect(params.newValue).to.be.not.undefined;
             expect(params.config).to.be.not.undefined;
-            expect(params.config.val).to.be.equal("hello");
+            expect(params.config).to.be.equal("hello");
             expect(params.ignoreMe).to.be.not.undefined;
-            expect(params.ignoreMe.val).to.be.equal("ignored");
+            expect(params.ignoreMe).to.be.equal("ignored");
         }).spec("config", {
             require: true, translate: (value: any, context: { set: (arg0: string, arg1: any) => void; }) => new Promise<void>((resolve) => {
                 context.set("newValue", value);
@@ -86,9 +86,9 @@ describe("Step unit test", () => {
         });
         const s5 = Step.create("_thru_step5").onStart((params) => {
             expect(params.config).to.be.not.undefined;
-            expect(params.config.val).to.be.equal("hi");
+            expect(params.config).to.be.equal("hi");
             expect(params.ignoreMe).to.be.not.undefined;
-            expect(params.ignoreMe.val).to.be.equal("ignored");
+            expect(params.ignoreMe).to.be.equal("ignored");
         }).spec("config", {
             require: true, transform: (value) => new Promise((resolve) => {
                 resolve("hi");
@@ -207,14 +207,14 @@ describe("Step unit test", () => {
         const step = new Step("SampleStep1", (parameter) => {
             let context: any = {};
             context.hello = "world!";
-            context.fromParam = parameter.hi.val;
+            context.fromParam = parameter.hi;
             return context;
         });
 
         Step.start(step, {hi: "initParam"})
             .then(result => {
-                expect(result.hello.val).to.be.equal("world!");
-                expect(result.fromParam.val).to.be.equal("initParam");
+                expect(result.hello).to.be.equal("world!");
+                expect(result.fromParam).to.be.equal("initParam");
                 done();
             })
             .catch(err => {
@@ -231,7 +231,7 @@ describe("Step unit test", () => {
         const step = new Step("SampleStep2", (parameter) => {
             let context: any = {};
             context.hello = "world!";
-            context.fromParam = parameter.hi.val;
+            context.fromParam = parameter.hi;
             return new Promise((resolve) => {
                 setTimeout(() => {
                     resolve(context);
@@ -241,8 +241,8 @@ describe("Step unit test", () => {
 
         Step.start(step, {hi: "initParam"})
             .then(result => {
-                expect(result.hello.val).to.be.equal("world!");
-                expect(result.fromParam.val).to.be.equal("initParam");
+                expect(result.hello).to.be.equal("world!");
+                expect(result.fromParam).to.be.equal("initParam");
                 done();
             })
             .catch(err => {
@@ -258,7 +258,7 @@ describe("Step unit test", () => {
         Step.start(step)
             .then(result => {
                 expect(result.value).to.be.not.undefined;
-                expect(result.value.val).to.be.equal("hello");
+                expect(result.value).to.be.equal("hello");
                 done();
             });
     });
@@ -270,17 +270,17 @@ describe("Step unit test", () => {
             };
         });
         const s5 = new Step("SampleStep5", (parameter) => {
-            return parameter._1st.val + " - 2nd";
+            return parameter._1st + " - 2nd";
         });
         const s6 = new Step("SampleStep6", (parameter) => {
             return {
-                _3rd: parameter.value.val + " - 3rd"
+                _3rd: parameter.value + " - 3rd"
             };
         });
 
         Step.start([s4, s5, s6])
             .then(result => {
-                expect(result._3rd.val).to.be.equal("1st - 2nd - 3rd");
+                expect(result._3rd).to.be.equal("1st - 2nd - 3rd");
                 done();
             }).catch(() => {
             done();
@@ -289,12 +289,12 @@ describe("Step unit test", () => {
 
     it("executes step with reducer", done => {
         const step = new Step("SampleStepReducer", (parameter, current) => {
-            return current + (parameter.value ? parameter.value.val : 0);
+            return current + (parameter.value ? parameter.value : 0);
         }).reduce("sampleArray");
 
         Step.start(step, {sampleArray: [1, 2, 3, 4, 5]})
             .then(result => {
-                expect(result.value.val).to.be.equal(15);
+                expect(result.value).to.be.equal(15);
                 done();
             })
             .catch(err => console.log);
@@ -302,14 +302,14 @@ describe("Step unit test", () => {
 
     it("executes multiple steps with reducer", done => {
         const sRed = new Step("SampleStepReducer1", (parameter, current) => {
-            return current + (parameter.value ? parameter.value.val : 0);
+            return current + (parameter.value ? parameter.value : 0);
         }).reduce("sampleArray");
         const s7 = new Step("SampleStep7", (parameter) => {
-            return {sum: 5 + parameter.value.val};
+            return {sum: 5 + parameter.value};
         });
         Step.start([sRed, s7], {sampleArray: [1, 2, 3, 4, 5]})
             .then(result => {
-                expect(result.sum.val).to.be.equal(20);
+                expect(result.sum).to.be.equal(20);
                 done();
             })
             .catch(err => {
@@ -338,7 +338,7 @@ describe("Step unit test", () => {
 
     it("should executes step with transform spec", done => {
         const step = new Step("SampleStep9", (parameter) => {
-            expect(parameter.sample.val).to.be.equal("hello");
+            expect(parameter.sample).to.be.equal("hello");
         }).spec("sample", {
             transform: () => {
                 return new Promise((resolve) => {
@@ -358,7 +358,7 @@ describe("Step unit test", () => {
 
     it("should execute chain with translate spec", done => {
         const step = new Step("SampleStep10", (parameter) => {
-            expect(parameter.something.val).to.be.equal("sweet");
+            expect(parameter.something).to.be.equal("sweet");
         }).spec("sample", {
             translate: (value, context) => {
                 return new Promise((resolve) => {
@@ -380,7 +380,7 @@ describe("Step unit test", () => {
 
     it("should executes step with custom validator", done => {
         const s11 = new Step("SampleStep11", (parameter) => {
-            expect(parameter.sample.val).to.be.equal("sample");
+            expect(parameter.sample).to.be.equal("sample");
         }).spec("sample", {
             validate: (value) => {
                 return new Promise((resolve) => {
@@ -501,7 +501,7 @@ describe("Step unit test", () => {
             })
             .execute()
             .then(result => {
-                expect(result.value.val).to.be.equal("done");
+                expect(result.value).to.be.equal("done");
                 done();
             }).catch(err => console.log);
     });
@@ -599,50 +599,50 @@ describe("Step unit test", () => {
         const anonymous = new Step((param: any) => ({hello: "world"}));
         expect(anonymous.name).to.equal("");
         const res = await anonymous.execute({});
-        expect(res.hello.val).to.equal("world");
+        expect(res.hello).to.equal("world");
     });
 
     it("supports Step.create with action function", async () => {
         const anonymous = Step.create((param: any) => ({ans: 42}));
         const res = await anonymous.execute({});
-        expect(res.ans.val).to.equal(42);
+        expect(res.ans).to.equal(42);
     });
 
     it("supports Step.start with direct chain instances and array of chain instances", async () => {
-        const step1 = Step.create((param: any) => ({count: (param.count ? param.count.val : 0) + 1}));
-        const step2 = Step.create((param: any) => ({count: param.count.val * 10}));
+        const step1 = Step.create((param: any) => ({count: (param.count || 0) + 1}));
+        const step2 = Step.create((param: any) => ({count: param.count * 10}));
 
         const singleRes = await Step.start(step1, {count: 5});
-        expect(singleRes.count.val).to.equal(6);
+        expect(singleRes.count).to.equal(6);
 
         const arrayRes = await Step.start([step1, step2], {count: 2});
-        expect(arrayRes.count.val).to.equal(30);
+        expect(arrayRes.count).to.equal(30);
     });
 
     it("supports composing steps with direct Step instances in pipe", async () => {
         const step1 = Step.create((param: any) => ({first: "step1"}));
-        const step2 = Step.create((param: any) => ({second: param.first.val + "-step2"}));
+        const step2 = Step.create((param: any) => ({second: param.first + "-step2"}));
         const pipeline = flow(step1, step2);
         const res: any = await pipeline.execute();
-        expect(res.second.val).to.equal("step1-step2");
+        expect(res.second).to.equal("step1-step2");
     });
 
     it("supports pipe with spread arguments and array", async () => {
         const step1 = Step.create((param: any) => ({val: 10}));
-        const step2 = Step.create((param: any) => ({val: param.val.val + 5}));
+        const step2 = Step.create((param: any) => ({val: param.val + 5}));
 
         const pipeline1 = flow(step1, step2);
         const res1 = await pipeline1.execute();
-        expect(res1.val.val).to.equal(15);
+        expect(res1.val).to.equal(15);
 
         const pipeline2 = flow([step1, step2]);
         const res2 = await pipeline2.start();
-        expect(res2.val.val).to.equal(15);
+        expect(res2.val).to.equal(15);
 
         const pStep1 = Step.create((param: any) => ({val: 10}));
-        const pStep2 = Step.create((param: any) => ({val: param.val.val + 5}));
+        const pStep2 = Step.create((param: any) => ({val: param.val + 5}));
         const res3 = await Step.flow(pStep1, pStep2).execute();
-        expect(res3.val.val).to.equal(15);
+        expect(res3.val).to.equal(15);
     });
 
     it("supports caching on direct chain instance without name", async () => {
@@ -658,34 +658,30 @@ describe("Step unit test", () => {
 
     it("supports pipeline .run() and chain .run()", async () => {
         const step1 = Step.create((param: any) => ({a: 10}));
-        const step2 = Step.create((param: any) => ({b: param.a.val + 20}));
+        const step2 = Step.create((param: any) => ({b: param.a + 20}));
 
         const pipeline = flow(step1, step2);
         const resPipeline = await pipeline.run({});
-        expect(resPipeline.b.val).to.equal(30);
+        expect(resPipeline.b).to.equal(30);
 
         const singleStep = Step.create((param: any) => ({x: 42}));
         const resSingle = await singleStep.run({});
-        expect(resSingle.x.val).to.equal(42);
+        expect(resSingle.x).to.equal(42);
     });
 
-    it("supports modern property access and proxy getters on params", async () => {
+    it("supports clean POJO parameter access on params", async () => {
         let capturedVal: any;
         let capturedCoercedNumber: any;
         let capturedInterpolation: any;
         let capturedNested: any;
-        let capturedProps: any;
-        let capturedRaw: any;
 
         const chain = Step.create((param: any) => {
-            capturedVal = param.count.val;
+            capturedVal = param.count;
             capturedCoercedNumber = +param.count;
             capturedInterpolation = `${param.greeting}`;
             capturedNested = param.user.name;
-            capturedProps = param.props;
-            capturedRaw = param.raw;
             return {
-                result: param.count.val * 2
+                result: param.count * 2
             };
         });
 
@@ -699,22 +695,18 @@ describe("Step unit test", () => {
         expect(capturedCoercedNumber).to.equal(7);
         expect(capturedInterpolation).to.equal("hello");
         expect(capturedNested).to.equal("Bob");
-        expect(capturedProps.count).to.equal(7);
-        expect(capturedRaw.user.name).to.equal("Bob");
-        expect(res.result.val).to.equal(14);
-        expect(res.result.val).to.equal(14);
-        expect(res.props.result).to.equal(14);
+        expect(res.result).to.equal(14);
     });
 
-    it("supports chain.modern() for native object destructuring", async () => {
+    it("supports chain for native object destructuring", async () => {
         const modernStep = Step.create(async ({a, b}: any) => {
             return {sum: a + b};
-        }).modern();
+        });
 
         const res = await modernStep.execute({a: 15, b: 25});
-        expect(res.sum.val).to.equal(40);
-        expect(res.sum.val).to.equal(40);
-        expect(res.raw.sum).to.equal(40);
+        expect(res.sum).to.equal(40);
+        expect(res.sum).to.equal(40);
+        expect(res.sum).to.equal(40);
     });
 
     it("supports structured onFail with fixed backoff and delay 0", async () => {
@@ -733,7 +725,7 @@ describe("Step unit test", () => {
 
         const res = await retryStep.execute({});
         expect(attempts).to.equal(3);
-        expect(res.done.val).to.be.true;
+        expect(res.done).to.be.true;
     });
 
     it("supports structured onFail with exponential backoff, jitter, and onRetry callback", async () => {
@@ -760,7 +752,7 @@ describe("Step unit test", () => {
         const res = await expStep.execute({});
         expect(attempts).to.equal(3);
         expect(retryLogs).to.deep.equal([1, 2]);
-        expect(res.success.val).to.be.true;
+        expect(res.success).to.be.true;
     });
 
     it("supports structured onFail with linear backoff and custom backoff function", async () => {
@@ -778,7 +770,7 @@ describe("Step unit test", () => {
         });
         const resLinear = await linearStep.execute({});
         expect(linearAttempts).to.equal(2);
-        expect(resLinear.ok.val).to.be.true;
+        expect(resLinear.ok).to.be.true;
 
         let customAttempts = 0;
         const customStep = Step.create(() => {
@@ -794,7 +786,7 @@ describe("Step unit test", () => {
         });
         const resCustom: any = await customStep.execute({});
         expect(customAttempts).to.equal(2);
-        expect(resCustom.customOk.val).to.be.true;
+        expect(resCustom.customOk).to.be.true;
     });
 
     it("rejects when structured retries are exhausted", async () => {
@@ -846,13 +838,13 @@ describe("Step unit test", () => {
             });
 
         const res = await Step.start(namedStep);
-        expect(res.namedOk.val).to.be.true;
+        expect(res.namedOk).to.be.true;
     });
 
     describe("Standard Schema, Generics & AbortSignal cancellation", () => {
         it("supports chain.schema() with Standard Schema", async () => {
             const schemaStep = Step.create((param: any) => ({
-                doubled: param.num.val * 2
+                doubled: param.num * 2
             })).schema({
                 "~standard": {
                     version: 1,
@@ -867,7 +859,7 @@ describe("Step unit test", () => {
             });
 
             const res = await schemaStep.run({num: 5});
-            expect(res.doubled.val).to.equal(10);
+            expect(res.doubled).to.equal(10);
 
             try {
                 await schemaStep.run({num: -1});
@@ -880,7 +872,7 @@ describe("Step unit test", () => {
 
         it("supports chain.spec(schema) when first argument is a schema object", async () => {
             const schemaStep = Step.create((param: any) => ({
-                output: param.text.val + "!"
+                output: param.text + "!"
             })).spec({
                 safeParse: (val: any) => {
                     if (!val.text) {
@@ -891,7 +883,7 @@ describe("Step unit test", () => {
             });
 
             const res = await schemaStep.run({text: "hello"});
-            expect(res.output.val).to.equal("hello!");
+            expect(res.output).to.equal("hello!");
 
             try {
                 await schemaStep.run({});
@@ -913,7 +905,7 @@ describe("Step unit test", () => {
             });
 
             const res = await fieldSchemaStep.run({score: 85});
-            expect(res.valid.val).to.be.true;
+            expect(res.valid).to.be.true;
 
             try {
                 await fieldSchemaStep.run({score: 20});
@@ -933,7 +925,7 @@ describe("Step unit test", () => {
             });
 
             const res = await specWithSchemaStep.run({age: 25});
-            expect(res.confirmed.val).to.be.true;
+            expect(res.confirmed).to.be.true;
 
             try {
                 await specWithSchemaStep.run({age: 16});
@@ -958,18 +950,18 @@ describe("Step unit test", () => {
             const paymentStep = Step.create<CartInput, PaymentOutput>((param: any) => {
                 return {
                     status: "paid",
-                    total: Math.round(param.amount.val * 1.1)
+                    total: Math.round(param.amount * 1.1)
                 };
             });
 
             const res = await paymentStep.run({cartId: "c_1", amount: 100});
-            expect(res.status.val).to.equal("paid");
-            expect(res.total.val).to.equal(110);
+            expect(res.status).to.equal("paid");
+            expect(res.total).to.equal(110);
 
             const typedPipeline = flow<CartInput, PaymentOutput>(paymentStep);
             const pipeRes = await typedPipeline.run({cartId: "c_2", amount: 200});
-            expect(pipeRes.status.val).to.equal("paid");
-            expect(pipeRes.total.val).to.equal(220);
+            expect(pipeRes.status).to.equal("paid");
+            expect(pipeRes.total).to.equal(220);
         });
 
         it("rejects immediately if signal is already aborted prior to execution", async () => {
@@ -1076,8 +1068,8 @@ describe("Step unit test", () => {
             let receivedSignalViaProxy: any;
 
             const chain = Step.create((param: any) => {
-                receivedSignalViaMethod = param.$signal ? param.$signal.val : undefined;
-                receivedSignalViaProxy = param.signal ? param.signal.val : undefined;
+                receivedSignalViaMethod = typeof param.$signal === "function" ? param.$signal() : param.$signal;
+                receivedSignalViaProxy = param.signal;
                 return {ok: true};
             });
 
@@ -1157,7 +1149,7 @@ describe("Step unit test", () => {
             const step1 = Step.create<{ count: number }, { step1Done: boolean }>(({count}) => ({
                 step1Done: true,
                 count: count + 10
-            })).modern();
+            }));
             const step2 = Step.create<{ count: number; step1Done: boolean }, {
                 step1Done: boolean;
                 step2Done: boolean
@@ -1165,14 +1157,14 @@ describe("Step unit test", () => {
                 step1Done,
                 step2Done: true,
                 count: count * 2
-            })).modern();
+            }));
 
             const pipeline = flow(step1, step2);
             const result = await pipeline.run({count: 5});
 
-            expect((result as any).raw.count).to.equal(30);
-            expect((result as any).raw.step1Done).to.be.true;
-            expect((result as any).raw.step2Done).to.be.true;
+            expect((result as any).count).to.equal(30);
+            expect((result as any).step1Done).to.be.true;
+            expect((result as any).step2Done).to.be.true;
 
             const capturedStackIds = Object.keys(records);
             expect(capturedStackIds.length).to.be.greaterThan(0);
@@ -1235,7 +1227,7 @@ describe("Step unit test", () => {
             try {
                 const step = Step.create<{ num: number }, { result: number }>(({num}) => ({
                     result: num * 10
-                })).modern();
+                }));
 
                 await step.run({num: 7});
 
@@ -1271,13 +1263,13 @@ describe("Step unit test", () => {
                 .onSkip((param: any) => ({
                     skipped: true,
                     reason: "condition_unmet",
-                    receivedInput: param.initVal ? param.initVal.val : undefined
+                    receivedInput: param.initVal
                 }));
 
             const res = await skipStep.execute({initVal: "hello"});
-            expect(res.skipped.val).to.be.true;
-            expect(res.reason.val).to.equal("condition_unmet");
-            expect(res.receivedInput.val).to.equal("hello");
+            expect(res.skipped).to.be.true;
+            expect(res.reason).to.equal("condition_unmet");
+            expect(res.receivedInput).to.equal("hello");
             expect(res.ran).to.be.undefined;
         });
 
@@ -1294,8 +1286,8 @@ describe("Step unit test", () => {
                 });
 
             const res = await asyncSkipStep.run({});
-            expect(res.asyncSkipped.val).to.be.true;
-            expect(res.fallbackCode.val).to.equal(204);
+            expect(res.asyncSkipped).to.be.true;
+            expect(res.fallbackCode).to.equal(204);
             expect(res.executed).to.be.undefined;
         });
 
@@ -1317,7 +1309,7 @@ describe("Step unit test", () => {
         it("unwraps raw parameters in onSkip when chain is modern", async () => {
             let capturedParam: any;
             const modernSkipStep = Step.create(({age}: any) => ({canDrink: age >= 21}))
-                .modern()
+                
                 .onBefore(({age}: any) => age >= 21)
                 .onSkip((param: any) => {
                     capturedParam = param;
@@ -1326,8 +1318,8 @@ describe("Step unit test", () => {
 
             const res = await modernSkipStep.run({age: 19});
             expect(capturedParam).to.deep.equal({age: 19});
-            expect(res.canDrink.val).to.be.false;
-            expect(res.reason.val).to.equal("underage");
+            expect(res.canDrink).to.be.false;
+            expect(res.reason).to.equal("underage");
         });
 
         it("routes errors thrown in onSkip to onFail", async () => {
@@ -1355,7 +1347,7 @@ describe("Step unit test", () => {
             const enrichStep = Step.create("enrichStep")
                 .onStart((param: any) => ({
                     orderId: "ord_100",
-                    amount: param.basePrice.val * 2
+                    amount: param.basePrice * 2
                 }))
                 .onAfter((output: any, param: any) => {
                     capturedParam = param;
@@ -1366,11 +1358,11 @@ describe("Step unit test", () => {
                 });
 
             const res = await enrichStep.run({basePrice: 50});
-            expect(capturedParam.basePrice.val).to.equal(50);
-            expect(res.orderId.val).to.equal("ord_100");
-            expect(res.amount.val).to.equal(100);
-            expect(res.tax.val).to.equal(15);
-            expect(res.total.val).to.equal(115);
+            expect(capturedParam.basePrice).to.equal(50);
+            expect(res.orderId).to.equal("ord_100");
+            expect(res.amount).to.equal(100);
+            expect(res.tax).to.equal(15);
+            expect(res.total).to.equal(115);
         });
 
         it("supports asynchronous onAfter returning Promise to enrich context", async () => {
@@ -1385,9 +1377,9 @@ describe("Step unit test", () => {
                 });
 
             const res = await asyncAfterStep.run({});
-            expect(res.initialStatus.val).to.equal("pending");
-            expect(res.finalStatus.val).to.equal("confirmed");
-            expect(res.prevStatus.val).to.equal("pending");
+            expect(res.initialStatus).to.equal("pending");
+            expect(res.finalStatus).to.equal("confirmed");
+            expect(res.prevStatus).to.equal("pending");
         });
 
         it("supports onAfter returning undefined for pure side-effect while preserving output", async () => {
@@ -1403,14 +1395,14 @@ describe("Step unit test", () => {
 
             const res = await trackStep.run({});
             expect(sideEffectTracked).to.be.true;
-            expect(res.computed.val).to.equal(42);
+            expect(res.computed).to.equal(42);
         });
 
         it("unwraps raw parameters in onAfter when chain is modern", async () => {
             let capturedParam: any;
             let capturedOutput: any;
             const modernAfterStep = Step.create(({x, y}: any) => ({sum: x + y}))
-                .modern()
+                
                 .onAfter((output: any, param: any) => {
                     capturedOutput = output;
                     capturedParam = param;
@@ -1420,8 +1412,8 @@ describe("Step unit test", () => {
             const res = await modernAfterStep.run({x: 10, y: 20});
             expect(capturedParam).to.deep.equal({x: 10, y: 20});
             expect(capturedOutput).to.deep.equal({sum: 30});
-            expect(res.sum.val).to.equal(30);
-            expect(res.doubled.val).to.equal(60);
+            expect(res.sum).to.equal(30);
+            expect(res.doubled).to.equal(60);
         });
 
         it("routes errors thrown in onAfter to onFail for retry and recovery", async () => {
@@ -1442,32 +1434,32 @@ describe("Step unit test", () => {
 
             const res = await retryAfterStep.run({});
             expect(attempts).to.equal(2);
-            expect(res.stepResult.val).to.equal("ok");
-            expect(res.afterDone.val).to.be.true;
+            expect(res.stepResult).to.equal("ok");
+            expect(res.afterDone).to.be.true;
         });
 
         it("supports onAfter on reducer chains (.reduce)", async () => {
             const reduceStep = Step.create("reduceWithAfter")
                 .reduce("nums")
                 .onStart((param: any, current: number) => ({
-                    accum: (param.accum ? param.accum.val : 0) + current
+                    accum: (param.accum || 0) + current
                 }))
                 .onAfter((result: any) => {
                     return {
-                        isEven: result.accum.val % 2 === 0,
+                        isEven: result.accum % 2 === 0,
                         tag: "reduced"
                     };
                 });
 
             const res = await reduceStep.run({nums: [1, 2, 3, 4]});
-            expect(res.accum.val).to.equal(10);
-            expect(res.isEven.val).to.be.true;
-            expect(res.tag.val).to.equal("reduced");
+            expect(res.accum).to.equal(10);
+            expect(res.isEven).to.be.true;
+            expect(res.tag).to.equal("reduced");
         });
 
         it("integrates onSkip and onAfter seamlessly in a multi-step pipeline", async () => {
             const checkUser = Step.create(({user}: any) => ({validUser: true}))
-                .modern()
+                
                 .onBefore(({user}: any) => user?.isActive === true)
                 .onSkip(() => ({
                     validUser: false,
@@ -1480,7 +1472,7 @@ describe("Step unit test", () => {
                 }
                 return {orderProcessed: true, status: "charged"};
             })
-                .modern()
+                
                 .onAfter((output: any) => ({
                     completedAt: 123456789
                 }));
@@ -1489,15 +1481,15 @@ describe("Step unit test", () => {
 
             // Test skipped branch
             const inactiveRes = await pipeline.run({user: {isActive: false}, orderTotal: 100});
-            expect((inactiveRes as any).raw.orderProcessed).to.be.false;
-            expect((inactiveRes as any).raw.status).to.equal("user_inactive");
-            expect((inactiveRes as any).raw.completedAt).to.equal(123456789);
+            expect((inactiveRes as any).orderProcessed).to.be.false;
+            expect((inactiveRes as any).status).to.equal("user_inactive");
+            expect((inactiveRes as any).completedAt).to.equal(123456789);
 
             // Test active branch
             const activeRes = await pipeline.run({user: {isActive: true}, orderTotal: 100});
-            expect((activeRes as any).raw.orderProcessed).to.be.true;
-            expect((activeRes as any).raw.status).to.equal("charged");
-            expect((activeRes as any).raw.completedAt).to.equal(123456789);
+            expect((activeRes as any).orderProcessed).to.be.true;
+            expect((activeRes as any).status).to.equal("charged");
+            expect((activeRes as any).completedAt).to.equal(123456789);
         });
     });
 
@@ -1528,7 +1520,7 @@ describe("Step unit test", () => {
             const pipeline = flow(step1, step2, step3);
             const res = await pipeline.run({customer: "Alice"});
 
-            expect(res.status.val).to.equal("notified");
+            expect(res.status).to.equal("notified");
             expect(res.$steps.validateOrder.status).to.equal("validated");
             expect(res.$steps.processPayment.status).to.equal("paid");
             expect(res.$steps.notifyCustomer.status).to.equal("notified");
@@ -1538,17 +1530,17 @@ describe("Step unit test", () => {
             expect(res.$steps("processPayment").paymentId).to.equal("pay_99");
         });
 
-        it("Rec 1: supports .modern() destructuring with $steps and $history", async () => {
-            const stepA = Step.create("stepA", () => ({code: "A1"})).modern();
+        it("Rec 1: supports  destructuring with $steps and $history", async () => {
+            const stepA = Step.create("stepA", () => ({code: "A1"}));
             const stepB = Step.create("stepB", ({$steps, $history}: any) => {
                 expect($steps.stepA.code).to.equal("A1");
                 expect($history[0].code).to.equal("A1");
                 return {code: "B2", fromA: $steps.stepA.code};
-            }).modern();
+            });
 
             const res: any = await flow(stepA, stepB).run();
-            expect(res.code.val).to.equal("B2");
-            expect(res.fromA.val).to.equal("A1");
+            expect(res.code).to.equal("B2");
+            expect(res.fromA).to.equal("A1");
             expect(res.$steps.stepA.code).to.equal("A1");
         });
 
@@ -1562,7 +1554,7 @@ describe("Step unit test", () => {
             const step2 = Step.create("step2", () => ({step2Done: true}));
 
             const res = await flow(step1, step2).run(originalInput);
-            expect(res.step2Done.val).to.be.true;
+            expect(res.step2Done).to.be.true;
             expect(res.$steps.step1.step1Done).to.be.true;
             expect(Object.keys(originalInput)).to.deep.equal(["userId", "details"]);
             expect((originalInput as any).step1Done).to.be.undefined;
@@ -1570,8 +1562,8 @@ describe("Step unit test", () => {
         });
 
         it("Rec 3: lightweight POJO execution mode returns frozen plain objects without Proxy wrapper", async () => {
-            const step1 = Step.create("s1", (param: any) => ({count: param.count + 5})).modern();
-            const step2 = Step.create("s2", (param: any) => ({total: param.count * 2})).modern();
+            const step1 = Step.create("s1", (param: any) => ({count: param.count + 5}));
+            const step2 = Step.create("s2", (param: any) => ({total: param.count * 2}));
 
             const res: any = await flow(step1, step2).run({count: 10}, {pojo: true});
             expect(typeof res.total).to.equal("number");
@@ -1594,7 +1586,7 @@ describe("Step unit test", () => {
                 Step.create(() => null)
             );
             const primRes = await primPipeline.run();
-            expect(primRes.value.val).to.be.null;
+            expect(primRes.value).to.be.null;
         });
 
         it("Rec 4: durable execution via checkpointing, serialization, and hydration on Step", async () => {
@@ -1639,16 +1631,16 @@ describe("Step unit test", () => {
             const emptySeqStep = Step.create("emptySeq", () => ({ok: true}));
             emptySeqStep.sequence = [];
             const res = await emptySeqStep.execute();
-            expect(res.ok.val).to.be.true;
+            expect(res.ok).to.be.true;
         });
 
         it("supports spec aliases: defaultValue, validator, transformer, translator, and schema object in json", async () => {
             let capturedVal: any;
             const aliasStep = Step.create("aliasStep", (param: any) => {
                 capturedVal = {
-                    def: param.fieldDef.val,
-                    upper: param.fieldTrans.val,
-                    translated: param.translatedField.val
+                    def: param.fieldDef,
+                    upper: param.fieldTrans,
+                    translated: param.translatedField
                 };
                 return {success: true};
             })
@@ -1677,7 +1669,7 @@ describe("Step unit test", () => {
                 fieldSchema: 123
             });
 
-            expect(res.success.val).to.be.true;
+            expect(res.success).to.be.true;
             expect(capturedVal.def).to.equal("fallbackValue");
             expect(capturedVal.upper).to.equal("HELLO");
             expect(capturedVal.translated).to.equal("got_data");
@@ -1686,13 +1678,13 @@ describe("Step unit test", () => {
         it("supports pipe execution methods and default param", async () => {
             const p = flow(Step.create(() => ({num: 10})));
             const r1 = await p.start();
-            expect(r1.num.val).to.equal(10);
+            expect(r1.num).to.equal(10);
 
             const r2 = await p.execute();
-            expect(r2.num.val).to.equal(10);
+            expect(r2.num).to.equal(10);
 
             const r3 = await p.run();
-            expect(r3.num.val).to.equal(10);
+            expect(r3.num).to.equal(10);
         });
 
         it("exercises re-exports from chain module", () => {
@@ -1716,7 +1708,7 @@ describe("Step unit test", () => {
 
             const res = await retryDefault.run();
             expect(attempts).to.equal(2);
-            expect(res.recovered.val).to.be.true;
+            expect(res.recovered).to.be.true;
         });
 
         it("handles retry when initialParam is primitive or undefined", async () => {
@@ -1734,7 +1726,7 @@ describe("Step unit test", () => {
 
             const res = await noParamRetry.run(undefined);
             expect(attempts).to.equal(2);
-            expect(res.ok.val).to.be.true;
+            expect(res.ok).to.be.true;
         });
 
         it("supports cache with default duration when ms omitted", () => {
@@ -1767,10 +1759,10 @@ describe("Step unit test", () => {
             let capturedVal: any;
             const aliasStep = Step.create("aliasDirectStep", (param: any) => {
                 capturedVal = {
-                    def: param.fieldDef.val,
-                    valid: param.fieldValid.val,
-                    upper: param.fieldTrans.val,
-                    translated: param.translatedField.val
+                    def: param.fieldDef,
+                    valid: param.fieldValid,
+                    upper: param.fieldTrans,
+                    translated: param.translatedField
                 };
                 return { success: true };
             })
@@ -1795,7 +1787,7 @@ describe("Step unit test", () => {
                 fieldTranslate: "direct"
             });
 
-            expect(res.success.val).to.be.true;
+            expect(res.success).to.be.true;
             expect(capturedVal.def).to.equal("directDefaultValue");
             expect(capturedVal.upper).to.equal("WORLD");
             expect(capturedVal.translated).to.equal("translated_direct");
@@ -1856,7 +1848,7 @@ describe("Step unit test", () => {
 
             const anonRes = await anonRetryStep.run();
             expect(anonAttempts).to.equal(2);
-            expect(anonRes.anonOk.val).to.be.true;
+            expect(anonRes.anonOk).to.be.true;
         });
 
         it("handles OnAfter when chain returns null, undefined, or primitive", async () => {
@@ -1869,7 +1861,7 @@ describe("Step unit test", () => {
 
             const nullRes = await nullStep.run();
             expect(afterReceivedOut).to.be.null;
-            expect(nullRes.handledNull.val).to.be.true;
+            expect(nullRes.handledNull).to.be.true;
 
             let afterReceivedUndef: any;
             const undefStep = Step.create("undefStep", () => undefined)
@@ -1880,33 +1872,33 @@ describe("Step unit test", () => {
 
             const undefRes = await undefStep.run();
             expect(afterReceivedUndef).to.be.undefined;
-            expect(undefRes.handledUndef.val).to.be.true;
+            expect(undefRes.handledUndef).to.be.true;
         });
 
         it("handles Reducer when array is undefined or missing", async () => {
             const reduceMissing = Step.create("reduceMissing")
                 .reduce("missingList")
                 .onStart((param: any, current: any) => ({
-                    sum: (param.sum ? param.sum.val : 0) + current
+                    sum: (param.sum ? param.sum : 0) + current
                 }));
 
             const res = await reduceMissing.run({});
-            expect(Number.isNaN(res.sum.val)).to.be.true;
+            expect(Number.isNaN(res.sum)).to.be.true;
         });
 
         it("supports pipeline as argument in flow() sequentially and nested", async () => {
-            const step1 = Step.create("step1", (param: any) => ({ a: Number(param.input?.val || param.input || 0) + 1 }));
-            const step2 = Step.create("step2", (param: any) => ({ b: param.a.val * 2 }));
+            const step1 = Step.create("step1", (param: any) => ({ a: Number(param.input || 0) + 1 }));
+            const step2 = Step.create("step2", (param: any) => ({ b: param.a * 2 }));
             const subPipe1 = flow(step1, step2);
 
-            const step3 = Step.create("step3", (param: any) => ({ c: param.b.val + 10 }));
+            const step3 = Step.create("step3", (param: any) => ({ c: param.b + 10 }));
             const subPipe2 = flow(step3);
 
             const masterPipeline = flow(subPipe1, subPipe2);
             expect(masterPipeline.steps.length).to.equal(3);
 
             const res = await masterPipeline.run({ input: 5 });
-            expect(res.c.val).to.equal(22);
+            expect(res.c).to.equal(22);
             expect(res.$steps.step1.a).to.equal(6);
             expect(res.$steps.step2.b).to.equal(12);
             expect(res.$steps.step3.c).to.equal(22);
@@ -1936,11 +1928,11 @@ describe("Step unit test", () => {
             // in flow()
             const p = flow(Step.create(() => ({ seed: 10 })), customPipe as any);
             const pRes = await p.run({});
-            expect(pRes.fromCustom.val).to.equal(30);
+            expect(pRes.fromCustom).to.equal(30);
 
             // in Step.start()
             const sRes = await Step.start(customPipe as any, { seed: 5 });
-            expect(sRes.fromCustom.val).to.equal(15);
+            expect(sRes.fromCustom).to.equal(15);
         });
 
         it("supports Step.create(pipeline) and Step.start(pipeline)", async () => {
@@ -1949,11 +1941,11 @@ describe("Step unit test", () => {
             // Step.create(pipeline)
             const wrappedStep = Step.create(sub);
             const resWrapped = await wrappedStep.run();
-            expect(resWrapped.subVal.val).to.equal(99);
+            expect(resWrapped.subVal).to.equal(99);
 
             // Step.start(pipeline)
             const startRes = await Step.start(sub);
-            expect(startRes.subVal.val).to.equal(99);
+            expect(startRes.subVal).to.equal(99);
         });
 
         it("further improves branch coverage on Step and pipe in step/index.ts", async () => {
@@ -1967,7 +1959,7 @@ describe("Step unit test", () => {
             const directStep = Step.create(() => ({ directlyExecuted: true }));
             directStep.sequence = [];
             const directRes = await directStep.execute();
-            expect(directRes.directlyExecuted.val).to.be.true;
+            expect(directRes.directlyExecuted).to.be.true;
 
             // 3. pipe with falsy items in chains list
             const pWithFalsy = flow(
@@ -2005,12 +1997,12 @@ describe("Step unit test", () => {
                     schema: { safeParse: (v: any) => ({ success: true, data: v }) }
                 })
                 .onStart((param: any) => ({
-                    out: param.aliasField.val,
-                    translated: param.translatedAlias ? param.translatedAlias.val : undefined
+                    out: param.aliasField,
+                    translated: param.translatedAlias
                 }));
 
             const specRes = await specStep.run({});
-            expect(specRes.out.val).to.equal("aliasDefault_transformed");
+            expect(specRes.out).to.equal("aliasDefault_transformed");
 
             // 6. Step.cache() with default 1500ms
             const cachedDefault = Step.create(() => ({ cached: true })).cache();
@@ -2027,7 +2019,7 @@ describe("Step unit test", () => {
             const primPipeline = { run: async (p: any) => 123 };
             const primP = flow(primPipeline as any);
             const primRes = await primP.run(456);
-            expect(primRes.value.val).to.equal(123);
+            expect(primRes.value).to.equal(123);
 
             // 9. Step.config static method
             Step.config({ testProp: "configured" });
@@ -2053,7 +2045,7 @@ describe("Step unit test", () => {
 
     describe("Option B: Step and Flow Architecture", () => {
         it("creates and executes workflows using Step and flow orchestrator", async () => {
-            const validate = Step.create("optB_val", async (param: any) => ({ valid: Boolean(param.cartId?.val || param.cartId) }));
+            const validate = Step.create("optB_val", async (param: any) => ({ valid: Boolean(param.cartId) }));
             const charge = Step.create("optB_charge", async (param: any) => ({ charged: true, amount: 100 }));
             const checkout = flow(validate, charge);
 
@@ -2062,8 +2054,8 @@ describe("Step unit test", () => {
             expect(isFlow(checkout)).to.be.true;
 
             const res = await checkout.run({ cartId: "123" });
-            expect(res.charged.val).to.be.true;
-            expect(res.amount.val).to.equal(100);
+            expect(res.charged).to.be.true;
+            expect(res.amount).to.equal(100);
             expect(res.$steps.optB_val.valid).to.be.true;
             expect(res.$steps.optB_charge.charged).to.be.true;
         });
@@ -2086,11 +2078,11 @@ describe("Step unit test", () => {
 
         it("supports Step.flow as static orchestrator", async () => {
             const s1 = Step.create(() => ({ part1: "hello" }));
-            const s2 = Step.create((param: any) => ({ part2: param.part1.val + " world" }));
+            const s2 = Step.create((param: any) => ({ part2: param.part1 + " world" }));
             const myFlow = Step.flow(s1, s2);
 
             const res = await myFlow.execute();
-            expect(res.part2.val).to.equal("hello world");
+            expect(res.part2).to.equal("hello world");
         });
 
         it("supports aliases pipe, isPipeline, and Pipeline", async () => {
@@ -2103,7 +2095,7 @@ describe("Step unit test", () => {
             const legacyPipeline = pipe(testStep);
             expect(isPipeline(legacyPipeline)).to.be.true;
             const res = await legacyPipeline.run();
-            expect(res.legacy.val).to.be.true;
+            expect(res.legacy).to.be.true;
         });
 
         it("handles sanitizeFlowData with non-object and primitives in subflows", async () => {
@@ -2112,7 +2104,7 @@ describe("Step unit test", () => {
             };
             const wrapped = Step.create(returnPrimFlow as any);
             const res = await wrapped.run();
-            expect(res.value.val).to.equal("primitive_string");
+            expect(res.value).to.equal("primitive_string");
         });
     });
 

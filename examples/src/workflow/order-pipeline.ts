@@ -36,7 +36,7 @@ export function createOrderPipeline() {
             isValid: true,
             subtotal
         };
-    }).modern()
+    })
       .spec('orderId', { require: true })
       .spec('items', { require: true })
       .spec('customer', { require: true });
@@ -62,7 +62,7 @@ export function createOrderPipeline() {
             tax,
             finalTotal
         };
-    }).modern();
+    });
 
     // 3. Step 3: Generate Invoice Receipt
     const generateInvoice = Step.create('generateInvoice', async (param: any) => {
@@ -80,7 +80,7 @@ export function createOrderPipeline() {
             amountCharged: finalTotal,
             issuedAt: new Date().toISOString()
         };
-    }).modern();
+    });
 
     return flow(
         validateOrder,

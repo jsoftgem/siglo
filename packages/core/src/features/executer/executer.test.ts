@@ -38,7 +38,7 @@ describe('executer.unit.test', () => {
         );
         reducer.reduce((err, result) => {
             expect(err).to.be.undefined;
-            expect(result.value()).to.equal(6);
+            expect(result.value).to.equal(6);
             done();
         });
     });
@@ -152,18 +152,17 @@ describe('executer.unit.test', () => {
         }, () => {}, Context, () => {}, 'legacy_stack_id');
     });
 
-    it('OnBefore unwraps param.raw when isModern is true', done => {
+    it('OnBefore passes clean POJO param to onbefore', done => {
         let capturedParam: any;
         const chain = {
-            $chainId: 'ob_modern',
-            isModern: true,
+            $chainId: 'ob_pojo',
             onbefore: (p: any) => {
                 capturedParam = p;
                 return true;
             }
         };
-        new OnBefore(chain, { raw: { modernVal: 99 } }, () => {}, () => {}, Context, () => {
-            expect(capturedParam).to.deep.equal({ modernVal: 99 });
+        new OnBefore(chain, { modernVal: 99 }, () => {}, () => {}, Context, () => {
+            expect(capturedParam.modernVal).to.equal(99);
             done();
         });
     });
@@ -186,8 +185,8 @@ describe('executer.unit.test', () => {
                 for (const k in ret) ctx.set(k, ret[k]);
             };
             new OnSkip(chain, {}, (data: any) => {
-                expect(data.skipped()).to.be.true;
-                expect(data.reason()).to.equal('test');
+                expect(data.skipped).to.be.true;
+                expect(data.reason).to.equal('test');
                 done();
             }, () => {}, Context, propSetter);
         });
@@ -236,7 +235,7 @@ describe('executer.unit.test', () => {
                 for (const k in ret) ctx.set(k, ret[k]);
             };
             new OnSkip(chain, {}, (data: any) => {
-                expect(data.asyncFallback()).to.equal(100);
+                expect(data.asyncFallback).to.equal(100);
                 done();
             }, () => {}, Context, propSetter);
         });
@@ -263,18 +262,17 @@ describe('executer.unit.test', () => {
             }, Context);
         });
 
-        it('OnSkip provides raw unwrapped param when isModern is true', done => {
+        it('OnSkip provides clean POJO param to onskip', done => {
             let received: any;
             const chain = {
-                $chainId: 'skip_modern',
-                isModern: true,
+                $chainId: 'skip_pojo',
                 onskip: (p: any) => {
                     received = p;
                     return { ok: true };
                 }
             };
-            new OnSkip(chain, { raw: { modernKey: 'val' } }, () => {
-                expect(received).to.deep.equal({ modernKey: 'val' });
+            new OnSkip(chain, { modernKey: 'val' }, () => {
+                expect(received.modernKey).to.equal('val');
                 done();
             }, () => {}, Context);
         });
@@ -372,18 +370,17 @@ describe('executer.unit.test', () => {
             });
         });
 
-        it('OnAfter passes unwrapped raw param when isModern is true', done => {
+        it('OnAfter passes clean POJO param to onafter', done => {
             let receivedParam: any;
             const chain = {
-                $chainId: 'after_modern',
-                isModern: true,
+                $chainId: 'after_pojo',
                 onafter: (_output: any, param: any) => {
                     receivedParam = param;
                     return undefined;
                 }
             };
-            new OnAfter(chain, {}, { raw: { user: 'Alice' } }, {}, () => {}, () => {
-                expect(receivedParam).to.deep.equal({ user: 'Alice' });
+            new OnAfter(chain, {}, { user: 'Alice' }, {}, () => {}, () => {
+                expect(receivedParam.user).to.equal('Alice');
                 done();
             }, () => {});
         });
@@ -762,7 +759,7 @@ describe('executer.unit.test', () => {
         const exec = new Executer();
         exec.start({}, step)!
             .then((result: any) => {
-                expect(result.status()).to.equal('recovered');
+                expect(result.status).to.equal('recovered');
                 done();
             })
             .catch(done);
@@ -837,8 +834,8 @@ describe('executer.unit.test', () => {
         const exec = new Executer();
         exec.start({ items: [1] }, step)!
             .then((result: any) => {
-                expect(result.sum()).to.equal(1);
-                expect(result.recovered()).to.be.true;
+                expect(result.sum).to.equal(1);
+                expect(result.recovered).to.be.true;
                 done();
             })
             .catch(done);

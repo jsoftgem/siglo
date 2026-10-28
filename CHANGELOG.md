@@ -21,7 +21,7 @@ This is the initial production release of **`Rivulet`** (v1.0.0), marking the tr
 
 #### Pipeline Composition & Execution
 - **Functional Composition (`flow` / `Step`)**: Construct linear and branched workflows without global registries. Steps are pure, reusable execution units.
-- **Modern POJO Mode (`.modern()` / `{ pojo: true }`)**: Direct object destructuring and frozen plain outputs without accessor closures.
+- **Clean POJO Parameters (Default)**: Direct object destructuring and frozen plain outputs by default without legacy accessor closures.
 - **End-to-End TypeScript Context Inference**: Automatic compile-time context aggregation across sequential steps, including typed step history (`$steps[stepName]`).
 - **5-Phase Step Lifecycle**: Deterministic lifecycle execution:
   1. `onBefore`: Conditional execution guards; returning `false` skips the step.
