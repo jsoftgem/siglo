@@ -12,18 +12,14 @@ import {
     createKycOnboardingPipeline,
     createHealthcareFhirPipeline,
     createOmnichannelNotificationPipeline,
-    createSecOpsRemediationPipeline
-} from './workflow/usecases';
-import {
+    createSecOpsRemediationPipeline,
     createTravelBookingSagaPipeline,
     createBoundedBatchIngestionPipeline,
     createMultiCloudReplicationPipeline,
     createLoanUnderwritingPipeline,
     createIdempotentSettlementPipeline,
     createDurableExpenseApprovalWorkflow,
-    createGovernedDeploymentPipeline
-} from './workflow/phase2';
-import {
+    createGovernedDeploymentPipeline,
     createHttpCheckoutWorkflow,
     createFastifyCheckoutHandler,
     createKafkaTransactionConsumer,
@@ -33,7 +29,7 @@ import {
     MockPostgresClient,
     MockRedisClient,
     setupSaaSBillingInfrastructure
-} from './workflow/phase3';
+} from './workflow/usecases';
 
 async function main() {
     console.log('========================================================================');

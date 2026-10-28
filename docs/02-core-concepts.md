@@ -39,7 +39,7 @@ When steps execute sequentially, return values are merged into an **Accumulated 
 Input { userId } ──> [ fetchUser ] ──> { userId, user } ──> [ fetchBilling ] ──> { userId, user, balance }
 ```
 
-In Phase 4, TypeScript automatically computes the union type of this accumulated state at compile time:
+TypeScript automatically computes the union type of this accumulated state at compile time:
 
 ```typescript
 const stepA = Step.create('stepA', (p: { id: string }) => ({ name: 'Alice' }));

@@ -69,23 +69,23 @@ This workspace provides runnable examples demonstrating [`Rivulet`](https://gith
 
 | # | Use Case | Implementation File | Key Features Demonstrated |
 | :-: | :--- | :--- | :--- |
-| **11** | **Distributed Travel Booking Saga** | [`usecase-11-distributed-saga-compensation.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-11-distributed-saga-compensation.ts) | Forward distributed reservations across Flight, Hotel, and Car services with automatic LIFO rollback (`step.compensate(...)`, `CompensationException`) |
-| **12** | **Bounded Concurrency Batch Ingestion** | [`usecase-12-bounded-batch-mapping.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-12-bounded-batch-mapping.ts) | Controlled parallel document vectorization with fixed worker pool (`map(accessor, worker, { concurrency: 3 })`), dynamic rate limiting, and failure containment |
-| **13** | **Multi-Cloud Latency Race & Parallel Sync** | [`usecase-13-parallel-cloud-race.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-13-parallel-cloud-race.ts) | Competitive latency racing across cloud regions (`race(...)`), deep payload state merging (`parallel(..., { mergeStrategy: 'deep' })`), and non-blocking background telemetry (`allSettled(...)`) |
-| **14** | **Fintech Loan Underwriting Routing** | [`usecase-14-dynamic-underwriting-branching.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-14-dynamic-underwriting-branching.ts) | Multi-tier risk tier evaluation via switch routing (`branch(selector, branches, defaultBranch)`) and condition-based promo rate adjustments (`when(predicate, thenStep, elseStep)`) |
-| **15** | **Idempotent Bank Payment Settlement** | [`usecase-15-idempotent-payment-claims.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-15-idempotent-payment-claims.ts) | Scoped idempotency claim locking (`step.idempotent(...)`, `InMemoryIdempotencyStore`, `buildIdempotencyKey`) preventing concurrent double charges or duplicate execution |
-| **16** | **Durable Expense Approval & Versioning** | [`usecase-16-durable-human-approval.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-16-durable-human-approval.ts) | Durable human-in-the-loop wait checkpoints (`waitForEvent('expense.decision', { correlationKey })`), external event resumption (`workflow.resume`), and workflow schema version migration (`flow.version('v2.0.0')`) |
-| **17** | **CI/CD Pipeline AST Graph Governance** | [`usecase-17-workflow-graph-governance.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase2/usecase-17-workflow-graph-governance.ts) | Pipeline static compilation (`toGraph(pipeline)`), cycle detection & structural assertions (`validateGraph`, `assertValidGraph`), and compliance introspection (`inspectGraph`) |
+| **11** | **Distributed Travel Booking Saga** | [`usecase-11-distributed-saga-compensation.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-11-distributed-saga-compensation.ts) | Forward distributed reservations across Flight, Hotel, and Car services with automatic LIFO rollback (`step.compensate(...)`, `CompensationException`) |
+| **12** | **Bounded Concurrency Batch Ingestion** | [`usecase-12-bounded-batch-mapping.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-12-bounded-batch-mapping.ts) | Controlled parallel document vectorization with fixed worker pool (`map(accessor, worker, { concurrency: 3 })`), dynamic rate limiting, and failure containment |
+| **13** | **Multi-Cloud Latency Race & Parallel Sync** | [`usecase-13-parallel-cloud-race.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-13-parallel-cloud-race.ts) | Competitive latency racing across cloud regions (`race(...)`), deep payload state merging (`parallel(..., { mergeStrategy: 'deep' })`), and non-blocking background telemetry (`allSettled(...)`) |
+| **14** | **Fintech Loan Underwriting Routing** | [`usecase-14-dynamic-underwriting-branching.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-14-dynamic-underwriting-branching.ts) | Multi-tier risk tier evaluation via switch routing (`branch(selector, branches, defaultBranch)`) and condition-based promo rate adjustments (`when(predicate, thenStep, elseStep)`) |
+| **15** | **Idempotent Bank Payment Settlement** | [`usecase-15-idempotent-payment-claims.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-15-idempotent-payment-claims.ts) | Scoped idempotency claim locking (`step.idempotent(...)`, `InMemoryIdempotencyStore`, `buildIdempotencyKey`) preventing concurrent double charges or duplicate execution |
+| **16** | **Durable Expense Approval & Versioning** | [`usecase-16-durable-human-approval.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-16-durable-human-approval.ts) | Durable human-in-the-loop wait checkpoints (`waitForEvent('expense.decision', { correlationKey })`), external event resumption (`workflow.resume`), and workflow schema version migration (`flow.version('v2.0.0')`) |
+| **17** | **CI/CD Pipeline AST Graph Governance** | [`usecase-17-workflow-graph-governance.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-17-workflow-graph-governance.ts) | Pipeline static compilation (`toGraph(pipeline)`), cycle detection & structural assertions (`validateGraph`, `assertValidGraph`), and compliance introspection (`inspectGraph`) |
 
 ### Phase 3: Ecosystem, Adapters & Distributed Power
 
 | # | Use Case | Implementation File | Key Features Demonstrated |
 | :-: | :--- | :--- | :--- |
-| **18** | **HTTP Checkout & Order Processing** | [`usecase-18-http-order-service.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-18-http-order-service.ts) | Framework adapters (`@rivulet/fastify`, `@rivulet/express`, `@rivulet/hono`), automatic `x-namespace` routing, typed input extraction, and HTTP status mapping |
-| **19** | **Kafka Event Stream Enrichment** | [`usecase-19-kafka-stream-enrichment.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-19-kafka-stream-enrichment.ts) | Streaming event consumer (`@rivulet/kafka`), header namespace parsing, account tier enrichment, anomaly risk scoring, and dead-letter isolation |
-| **20** | **Resilient Async Queue Worker** | [`usecase-20-async-queue-worker.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-20-async-queue-worker.ts) | Heavy background job processor (`@rivulet/bullmq`) with progress reporting, plus AWS SQS batch consumer (`@rivulet/sqs`) with partial batch failure containment |
-| **21** | **Distributed Tracing & Context Propagation** | [`usecase-21-distributed-telemetry-tracing.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-21-distributed-telemetry-tracing.ts) | OpenTelemetry spans (`@rivulet/opentelemetry`), retry attempt counting (`rivulet.step.attempt`), W3C `traceparent` propagation, and namespace privacy redaction |
-| **22** | **Multi-Tenant SaaS Billing & Audit Ledger** | [`usecase-22-saas-billing-ledger.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/phase3/usecase-22-saas-billing-ledger.ts) | Scoped multi-tenant billing (`@rivulet/postgres`, `@rivulet/redis`), durable checkpoints, audit streams, idempotency locks, and single-flight `RedisLock` |
+| **18** | **HTTP Checkout & Order Processing** | [`usecase-18-http-order-service.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-18-http-order-service.ts) | Framework adapters (`@rivulet/fastify`, `@rivulet/express`, `@rivulet/hono`), automatic `x-namespace` routing, typed input extraction, and HTTP status mapping |
+| **19** | **Kafka Event Stream Enrichment** | [`usecase-19-kafka-stream-enrichment.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-19-kafka-stream-enrichment.ts) | Streaming event consumer (`@rivulet/kafka`), header namespace parsing, account tier enrichment, anomaly risk scoring, and dead-letter isolation |
+| **20** | **Resilient Async Queue Worker** | [`usecase-20-async-queue-worker.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-20-async-queue-worker.ts) | Heavy background job processor (`@rivulet/bullmq`) with progress reporting, plus AWS SQS batch consumer (`@rivulet/sqs`) with partial batch failure containment |
+| **21** | **Distributed Tracing & Context Propagation** | [`usecase-21-distributed-telemetry-tracing.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-21-distributed-telemetry-tracing.ts) | OpenTelemetry spans (`@rivulet/opentelemetry`), retry attempt counting (`rivulet.step.attempt`), W3C `traceparent` propagation, and namespace privacy redaction |
+| **22** | **Multi-Tenant SaaS Billing & Audit Ledger** | [`usecase-22-saas-billing-ledger.ts`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/examples/src/workflow/usecases/usecase-22-saas-billing-ledger.ts) | Scoped multi-tenant billing (`@rivulet/postgres`, `@rivulet/redis`), durable checkpoints, audit streams, idempotency locks, and single-flight `RedisLock` |
 
 ---
 
@@ -105,19 +105,9 @@ examples/
     │   └── redis-mongo-storage.ts  # Storage hook implementation for Rivulet
     ├── workflow/
     │   ├── order-pipeline.ts       # Original base e-commerce order pipeline
-    │   ├── usecases/               # Top 10 Event-Driven Use Cases (Phase 1)
-    │   │   ├── index.ts
-    │   │   └── usecase-1..10-*.ts
-    │   ├── phase2/                 # 7 Advanced Workflow Power Use Cases (Phase 2)
-    │   │   ├── index.ts
-    │   │   └── usecase-11..17-*.ts
-    │   └── phase3/                 # 5 Ecosystem & Adapter Use Cases (Phase 3)
+    │   └── usecases/               # Top 22 Production Event-Driven & Workflow Use Cases
     │       ├── index.ts
-    │       ├── usecase-18-http-order-service.ts
-    │       ├── usecase-19-kafka-stream-enrichment.ts
-    │       ├── usecase-20-async-queue-worker.ts
-    │       ├── usecase-21-distributed-telemetry-tracing.ts
-    │       └── usecase-22-saas-billing-ledger.ts
+    │       └── usecase-1..22-*.ts
     ├── index.ts                    # Executable demo script running all 22 use cases
     ├── index.test.ts               # Storage plugin & base order pipeline test suite
     ├── usecases.test.ts            # Integration test suite for Phase 1 use cases
