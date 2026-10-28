@@ -17,12 +17,12 @@ export async function runHttpAbortCharter(
         const executedSteps: string[] = [];
         const controller = new AbortController();
 
-        const s1 = step('step_pre_abort').onStart(async () => {
+        const s1 = step('step_pre_abort', async () => {
             executedSteps.push('step_pre_abort');
             return { s1: true };
         });
 
-        const s2 = step('step_during_abort').onStart(async () => {
+        const s2 = step('step_during_abort', async () => {
             executedSteps.push('step_during_abort');
             // Delay to allow abort to fire mid-flight
             await new Promise((resolve, reject) => {
@@ -44,12 +44,12 @@ export async function runHttpAbortCharter(
             return { s2: true };
         });
 
-        const s3 = step('step_post_abort_1').onStart(async () => {
+        const s3 = step('step_post_abort_1', async () => {
             executedSteps.push('step_post_abort_1');
             return { s3: true };
         });
 
-        const s4 = step('step_post_abort_2').onStart(async () => {
+        const s4 = step('step_post_abort_2', async () => {
             executedSteps.push('step_post_abort_2');
             return { s4: true };
         });

@@ -45,7 +45,7 @@ Context **accumulates** across sequential steps within the same execution flow:
 Step execution progresses through 4 explicit lifecycle phases:
 1. **`validation` / `spec`**: Schema validation or specification checks. If a spec validation fails, a `ValidationException` is created with `phase: 'validation'`.
 2. **`before` (`onBefore` / plugin `before`)**: Lifecycle hooks that execute prior to the step action. Failures in `onBefore` are caught with `phase: 'before'`.
-3. **`action` (`onStart` / step action)**: The primary business logic of the step.
+3. **`action` (`Step.create` action / step action)**: The primary business logic of the step.
 4. **`after` (`onAfter` / plugin `after`)**: Lifecycle hooks that execute after action completion. Failures in `onAfter` are caught with `phase: 'after'`.
 
 Any hook failure bypasses the remaining step logic and routes the error into `onFail`. If `onFail` does not recover, the flow terminates and rejects.

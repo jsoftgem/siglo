@@ -25,12 +25,12 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
     describe('Parallel Combinator', () => {
         it('executes branches concurrently and preserves timing and branch metadata', async () => {
-            const stepA = Step.create('stepA').onStart(async () => {
+            const stepA = Step.create('stepA', async () => {
                 await new Promise(r => setTimeout(r, 40));
                 return {a: 10};
             });
 
-            const stepB = Step.create('stepB').onStart(async () => {
+            const stepB = Step.create('stepB', async () => {
                 await new Promise(r => setTimeout(r, 40));
                 return {b: 20};
             });
@@ -54,12 +54,12 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it('fail-fast aborts sibling branches when one branch fails', async () => {
             let stepBAborted = false;
 
-            const failingStep = Step.create('failingStep').onStart(async () => {
+            const failingStep = Step.create('failingStep', async () => {
                 await new Promise(r => setTimeout(r, 15));
                 throw new Error('Branch failed rapidly');
             });
 
-            const slowStep = Step.create('slowStep').onStart(async (_p: any) => {
+            const slowStep = Step.create('slowStep', async (_p: any) => {
                 try {
                     await new Promise((resolve, reject) => {
                         const timer = setTimeout(resolve, 100);
@@ -90,8 +90,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('supports allSettled preserving all results and errors', async () => {
-            const stepSuccess = Step.create('ok').onStart(() => ({status: 'ok'}));
-            const stepFail = Step.create('bad').onStart(() => {
+            const stepSuccess = Step.create('ok', () => ({status: 'ok'}));
+            const stepFail = Step.create('bad', () => {
                 throw new Error('Boom');
             });
 
@@ -106,8 +106,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('supports all combinator (fail-fast alias)', async () => {
-            const step1 = Step.create('s1').onStart(() => ({v1: 1}));
-            const step2 = Step.create('s2').onStart(() => ({v2: 2}));
+            const step1 = Step.create('s1', () => ({v1: 1}));
+            const step2 = Step.create('s2', () => ({v2: 2}));
 
             const res = await flow(all([step1, step2])).execute({}, {pojo: true});
             expect(res.v1).to.equal(1);
@@ -117,12 +117,12 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it('race combinator returns the first resolving branch and aborts the loser', async () => {
             let slowAborted = false;
 
-            const fastStep = Step.create('fast').onStart(async () => {
+            const fastStep = Step.create('fast', async () => {
                 await new Promise(r => setTimeout(r, 10));
                 return {winner: 'fast'};
             });
 
-            const slowStep = Step.create('slow').onStart(async (p: any) => {
+            const slowStep = Step.create('slow', async (p: any) => {
                 await new Promise((resolve, reject) => {
                     const timer = setTimeout(resolve, 80);
                     const sig = typeof p.signal === 'function' ? (p.signal.val || p.signal()) : p.signal;
@@ -144,12 +144,12 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('race combinator rejects when the first resolving branch rejects', async () => {
-            const fastFailing = Step.create('fastFail').onStart(async () => {
+            const fastFailing = Step.create('fastFail', async () => {
                 await new Promise(r => setTimeout(r, 10));
                 throw new Error('Fast failed');
             });
 
-            const slowStep = Step.create('slow').onStart(async () => {
+            const slowStep = Step.create('slow', async () => {
                 await new Promise(r => setTimeout(r, 80));
                 return {slow: true};
             });
@@ -163,10 +163,10 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('supports deep merge strategy and custom merger function', async () => {
-            const s1 = Step.create('s1').onStart(() => ({
+            const s1 = Step.create('s1', () => ({
                 config: {host: 'localhost', port: 3000}
             }));
-            const s2 = Step.create('s2').onStart(() => ({
+            const s2 = Step.create('s2', () => ({
                 config: {port: 8080, secure: true}
             }));
 
@@ -190,12 +190,12 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('detects collisions and throws FieldCollisionException under mergeStrategy: error', async () => {
-            const stepA = Step.create('stepA').onStart(() => ({
+            const stepA = Step.create('stepA', () => ({
                 targetId: 100,
                 status: 'pending'
             }));
 
-            const stepB = Step.create('stepB').onStart(() => ({
+            const stepB = Step.create('stepB', () => ({
                 targetId: 200, // Conflict!
                 status: 'pending' // Same value, not a conflict
             }));
@@ -213,8 +213,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('supports argument overload variations for parallel and race', async () => {
-            const s1 = Step.create('s1').onStart(() => ({v: 1}));
-            const s2 = Step.create('s2').onStart(() => ({v: 2}));
+            const s1 = Step.create('s1', () => ({v: 1}));
+            const s2 = Step.create('s2', () => ({v: 2}));
 
             // parallel(s1, s2, options)
             const p1 = parallel(s1, s2, {name: 'customPar'});
@@ -234,8 +234,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it('when executes then branch when true and else branch when false', async () => {
             const conditionTrue = when(
                 (ctx: any) => ctx.score >= 50,
-                Step.create('pass').onStart(() => ({passed: true})),
-                Step.create('fail').onStart(() => ({passed: false}))
+                Step.create('pass', () => ({passed: true})),
+                Step.create('fail', () => ({passed: false}))
             );
 
             const resPass = await flow(conditionTrue).execute({score: 75}, {pojo: true});
@@ -252,7 +252,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it('when skips and returns $skipped: true without modifying context when false and no else provided', async () => {
             const conditionNoElse = when(
                 (ctx: any) => ctx.hasBonus === true,
-                Step.create('addBonus').onStart(() => ({bonus: 500}))
+                Step.create('addBonus', () => ({bonus: 500}))
             );
 
             const res = await flow(conditionNoElse).execute({base: 100, hasBonus: false}, {pojo: true});
@@ -265,10 +265,10 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const multiBranch = branch(
                 (ctx: any) => ctx.userType,
                 {
-                    admin: Step.create('adminStep').onStart(() => ({role: 'administrator', accessLevel: 10})),
-                    member: Step.create('memberStep').onStart(() => ({role: 'member', accessLevel: 1}))
+                    admin: Step.create('adminStep', () => ({role: 'administrator', accessLevel: 10})),
+                    member: Step.create('memberStep', () => ({role: 'member', accessLevel: 1}))
                 },
-                Step.create('guestStep').onStart(() => ({role: 'guest', accessLevel: 0}))
+                Step.create('guestStep', () => ({role: 'guest', accessLevel: 0}))
             );
 
             // 1. Admin
@@ -290,7 +290,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const branchNoDefault = branch(
                 (ctx: any) => ctx.type,
                 {
-                    known: Step.create('k').onStart(() => ({ok: true}))
+                    known: Step.create('k', () => ({ok: true}))
                 }
             );
             const resSkipped = await flow(branchNoDefault).execute({type: 'other'}, {pojo: true});
@@ -299,8 +299,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
         it('branch supports object-first syntax inspecting ctx.branch or ctx.status', async () => {
             const objBranch = branch({
-                approved: Step.create('app').onStart(() => ({approved: true})),
-                declined: Step.create('dec').onStart(() => ({approved: false}))
+                approved: Step.create('app', () => ({approved: true})),
+                declined: Step.create('dec', () => ({approved: false}))
             });
 
             const res = await flow(objBranch).execute({status: 'approved'}, {pojo: true});
@@ -420,7 +420,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('map supports Step instances and objects with run/execute as processItem', async () => {
-            const stepItem = Step.create('procItem').onStart(({item}: any) => ({doubled: item * 2}));
+            const stepItem = Step.create('procItem', ({item}: any) => ({doubled: item * 2}));
             const m = map([10, 20], stepItem);
             const res = await flow(m).execute({}, {pojo: true});
             expect(res.items).to.deep.equal([{doubled: 20}, {doubled: 40}]);
@@ -436,8 +436,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
     describe('Combinators Edge Cases & Overloads Coverage', () => {
         it('parallel merges primitive branch outputs onto branch names', async () => {
-            const s1 = Step.create('numBranch').onStart(() => 42);
-            const s2 = Step.create('strBranch').onStart(() => 'hello');
+            const s1 = Step.create('numBranch', () => 42);
+            const s2 = Step.create('strBranch', () => 'hello');
 
             const p = parallel(s1, s2);
             const res = await flow(p).execute({}, {pojo: true});
@@ -446,8 +446,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
         });
 
         it('race supports 2-argument array with options overload', async () => {
-            const s1 = Step.create('r1').onStart(() => ({winner: 1}));
-            const s2 = Step.create('r2').onStart(() => ({winner: 2}));
+            const s1 = Step.create('r1', () => ({winner: 1}));
+            const s2 = Step.create('r2', () => ({winner: 2}));
             const r = race([s1, s2], {name: 'twoArgRace'});
             expect(r.name).to.equal('twoArgRace');
             const res = await flow(r).execute({}, {pojo: true});
@@ -470,8 +470,8 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const res3 = await flow(w3).execute({}, {pojo: true});
             expect(res3.startOk).to.be.true;
 
-            const sub1 = Step.create('sub1').onStart(() => ({s1: 1}));
-            const sub2 = Step.create('sub2').onStart(() => ({s2: 2}));
+            const sub1 = Step.create('sub1', () => ({s1: 1}));
+            const sub2 = Step.create('sub2', () => ({s2: 2}));
             const w4 = when(() => true, [sub1, sub2]);
             const res4 = await flow(w4).execute({}, {pojo: true});
             expect(res4.s1).to.equal(1);
@@ -490,7 +490,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it("parallel supports branch objects with run, start, and subflow array", async () => {
             const runBranch = {run: async () => ({fromRun: 1})};
             const startBranch = {start: async () => ({fromStart: 2})};
-            const subflowBranch = [Step.create("sub").onStart(() => ({fromSub: 3}))];
+            const subflowBranch = [Step.create("sub", () => ({fromSub: 3}))];
 
             const p = parallel(runBranch, startBranch, subflowBranch);
             const res = await flow(p).execute({}, {pojo: true});
@@ -505,7 +505,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const resStart = await flow(mStart).execute({}, {pojo: true});
             expect(resStart.items[0]).to.deep.equal({started: 11});
 
-            const flowItem = [Step.create("itemStep").onStart((inp: any) => ({inFlow: inp.item * 3}))];
+            const flowItem = [Step.create("itemStep", (inp: any) => ({inFlow: inp.item * 3}))];
             const mFlow = map([2], flowItem);
             const resFlow = await flow(mFlow).execute({}, {pojo: true});
             expect(resFlow.items[0]).to.deep.equal({inFlow: 6});
@@ -516,7 +516,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             expect(res.branch_0).to.equal(42);
         });
         it("map processes Step returning primitive and run returning null", async () => {
-            const primStep = Step.create("primStep").onStart(({item}: any) => item * 5);
+            const primStep = Step.create("primStep", ({item}: any) => item * 5);
             const mPrim = map([2, 3], primStep);
             const resPrim = await flow(mPrim).execute({}, {pojo: true});
             expect(resPrim.items).to.deep.equal([10, 15]);

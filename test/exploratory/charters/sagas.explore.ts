@@ -24,8 +24,7 @@ export async function runSagasCharter(
 
         for (let s = 1; s <= stepCount; s++) {
             const stepName = `step_${s}`;
-            let st = step(stepName)
-                .onStart(async () => {
+            let st = step(stepName, async () => {
                     if (s === failAtStep) {
                         throw new Error(`Deliberate failure at ${stepName}`);
                     }

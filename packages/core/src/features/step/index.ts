@@ -273,7 +273,6 @@ export function isFlow(item: any): item is Flow {
         item.isFlow === true ||
         ((isFunction(item.run) || isFunction(item.execute) || isFunction(item.start)) &&
             !Array.isArray(item.specs) &&
-            !isFunction(item.onStart) &&
             !isFunction(item.onbefore))
     );
 }
@@ -505,11 +504,15 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 
     static create<TName extends string, TIn = any, TOut = any>(
         name: TName,
-        action: StepAction<TIn, TOut>
+        action?: StepAction<TIn, TOut>
     ): Step<TIn, TOut, TName>;
     static create<TIn = any, TOut = any>(
-        action: StepAction<TIn, TOut>
+        action: StepAction<TIn, TOut> | Flow<TIn, TOut>
     ): Step<TIn, TOut, string>;
+    static create<TIn, TOut, TName extends string>(
+        name: TName,
+        action: StepAction<TIn, TOut>
+    ): Step<TIn, TOut, TName>;
     static create<TIn = any, TOut = any>(
         nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>,
         action?: StepAction<TIn, TOut>,
@@ -636,11 +639,6 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 
     onAfter(onAfter: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput, TName> {
         this.onafter = onAfter;
-        return this;
-    }
-
-    onStart(action: StepAction<TInput, TOutput>): Step<TInput, TOutput, TName> {
-        this.action = action;
         return this;
     }
 

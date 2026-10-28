@@ -43,7 +43,7 @@ export async function runQueuesBatchCharter(
         }
 
         const batchWorkflow = flow(
-            step('processItem').onStart(async (ctx: any) => {
+            step('processItem', async (ctx: any) => {
                 const body = typeof ctx.body === 'string' ? JSON.parse(ctx.body) : ctx.body;
                 if (body?.shouldFail) {
                     throw new Error(`Poison message: ${body.id}`);

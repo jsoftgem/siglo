@@ -1,52 +1,61 @@
-import {Step, flow, isFlow, pipe, isPipeline, toPOJO as stepToPOJO} from "../../index";
 import {
-    defaultStorageManager,
-    setPutChainContextPlugin,
+    flow,
+    isFlow,
+    isPipeline,
+    pipe,
+    Step,
+    toPOJO as stepToPOJO,
+    parallel,
+    branch,
+    wait,
+    map,
+    toMermaid,
+    toJSON,
+    toDot
+} from "../../index";
+import {
+    addChainToStack,
     clearStorage,
     createExecutionStack,
-    addChainToStack,
-    putChainContext,
+    defaultStorageManager,
     getChainContext,
+    putChainContext,
+    setPutChainContextPlugin,
     StorageManager
 } from "../storage";
 import {expect} from "chai";
+import {FlowContextResult} from "./index";
 
 describe("Step unit test", () => {
     it("should execute multi-step pipeline with direct step instances", done => {
-        const s0 = Step.create("sample_connect_0")
-            .onStart(({value}) => value + 1);
-        const s2 = Step.create("sample_connect_2")
-            .onStart(({value}) => value + 2);
-        const s3 = Step.create("sample_connect_3")
-            .onStart(({value}) => value + 3);
+        const s0 = Step.create("sample_connect_0", ({value}) => value + 1);
+        const s2 = Step.create("sample_connect_2", ({value}) => value + 2);
+        const s3 = Step.create("sample_connect_3", ({value}) => value + 3);
 
-        const connectEverything = Step.create("connectEverything")
-            .onStart(({sum}) => sum);
+        const connectEverything = Step.create("connectEverything", ({sum}) => sum);
 
         flow(connectEverything, s0, s2, s3)
             .execute({sum: 1})
-            .then(({value}) => {
+            .then((value) => {
                 expect(value).to.be.equal(7);
                 done();
             }).catch(err => {
-                console.log("error", err);
-                done();
-            });
+            console.log("error", err);
+            done();
+        });
     });
 
     it("should get default spec throughout the steps", done => {
-        const step1 = Step.create("_thr_step_0_1")
-            .onStart((param) => {
-                expect(param.port).to.be.not.undefined;
-                expect(param.port).to.be.equal(1000);
-            })
+        const step1 = Step.create("_thr_step_0_1", (param) => {
+            expect(param.port).to.be.not.undefined;
+            expect(param.port).to.be.equal(1000);
+        })
             .spec("port", {default: 1000});
 
-        const step2 = Step.create("_thr_step_0_2")
-            .onStart(param => {
-                expect(param.sample_port).to.be.not.undefined;
-                expect(param.sample_port).to.be.equal(2000);
-            })
+        const step2 = Step.create("_thr_step_0_2", param => {
+            expect(param.sample_port).to.be.not.undefined;
+            expect(param.sample_port).to.be.equal(2000);
+        })
             .spec("sample_port", {default: 2000});
 
         Step.start([step1, step2]).then(() => {
@@ -56,41 +65,44 @@ describe("Step unit test", () => {
         });
     });
     it("should be able to get root paramaters throuhgout the chains", done => {
-        const s1 = Step.create("_thru_step1").onStart((params) => {
+        const s1 = Step.create("_thru_step1", (params) => {
             expect(params.config).to.be.not.undefined;
             expect(params.config).to.be.equal("hello");
             expect(params.ignoreMe).to.be.not.undefined;
             expect(params.ignoreMe).to.be.equal("ignored");
         }).spec("config", {require: true, default: "defaultConfig"});
-        const s2 = Step.create("_thru_step2").onStart((params) => {
+        const s2 = Step.create("_thru_step2", (params) => {
             expect(params.ignoreMe).to.be.undefined;
             expect(params.config).to.be.equal("hello");
             expect(params.config).to.be.not.undefined;
         }).strict().spec("config", {require: true});
-        const s3 = Step.create("_thru_step3").onStart((params) => {
+        const s3 = Step.create("_thru_step3", (params) => {
             expect(params.ignoreMe).to.be.undefined;
             expect(params.config).to.be.equal("hello");
             expect(params.config).to.be.not.undefined;
         }).strict().spec("config", {require: true});
-        const s4 = Step.create("_thru_step4").onStart((params) => {
+        const s4 = Step.create("_thru_step4", (params) => {
             expect(params.newValue).to.be.not.undefined;
             expect(params.config).to.be.not.undefined;
             expect(params.config).to.be.equal("hello");
             expect(params.ignoreMe).to.be.not.undefined;
             expect(params.ignoreMe).to.be.equal("ignored");
         }).spec("config", {
-            require: true, translate: (value: any, context: { set: (arg0: string, arg1: any) => void; }) => new Promise<void>((resolve) => {
+            require: true,
+            translate: (value: any, context: {
+                set: (arg0: string, arg1: any) => void;
+            }) => new Promise<void>((resolve) => {
                 context.set("newValue", value);
                 resolve();
             })
         });
-        const s5 = Step.create("_thru_step5").onStart((params) => {
+        const s5 = Step.create("_thru_step5", (params) => {
             expect(params.config).to.be.not.undefined;
             expect(params.config).to.be.equal("hi");
             expect(params.ignoreMe).to.be.not.undefined;
             expect(params.ignoreMe).to.be.equal("ignored");
         }).spec("config", {
-            require: true, transform: (value) => new Promise((resolve) => {
+            require: true, transform: () => new Promise((resolve) => {
                 resolve("hi");
             })
         });
@@ -117,10 +129,10 @@ describe("Step unit test", () => {
                 }
             ]
         });
-        const c2 = Step.create("stepBefore2").onStart((context) => {
+        const c2 = Step.create("stepBefore2", (context) => {
             expect(context.Sample1).to.be.undefined;
         });
-        const c3 = Step.create("stepBefore3").onStart((context) => {
+        const c3 = Step.create("stepBefore3", (context) => {
             expect(context.Sample1).to.be.not.undefined;
             expect(context.Sample1.something).to.be.equal("nice");
         });
@@ -142,7 +154,7 @@ describe("Step unit test", () => {
                 }
             ]
         });
-        Step.create("stepBefore1").onStart((context) => {
+        Step.create("stepBefore1", (context) => {
             expect(context.Sample1).to.be.not.undefined;
             expect(context.Sample1.something).to.be.equal("nice");
         }).execute({main: "lo"}).then(() => {
@@ -166,7 +178,7 @@ describe("Step unit test", () => {
             }).spec("sample", {
                 require: sampleClass.isRequired
             });
-            return { sampleClass, s };
+            return {sampleClass, s};
         }
 
         let inner = innerClass();
@@ -360,8 +372,8 @@ describe("Step unit test", () => {
         const step = new Step("SampleStep10", (parameter) => {
             expect(parameter.something).to.be.equal("sweet");
         }).spec("sample", {
-            translate: (value, context) => {
-                return new Promise((resolve) => {
+            translate: (value: any, context: any) => {
+                return new Promise((resolve: any) => {
                     expect(value).to.be.equal("sample");
                     context.set("something", "sweet");
                     resolve();
@@ -382,7 +394,7 @@ describe("Step unit test", () => {
         const s11 = new Step("SampleStep11", (parameter) => {
             expect(parameter.sample).to.be.equal("sample");
         }).spec("sample", {
-            validate: (value) => {
+            validate: (value: string) => {
                 return new Promise((resolve) => {
                     resolve(value === "sample");
                 });
@@ -395,7 +407,7 @@ describe("Step unit test", () => {
         const s12 = new Step("SampleStep12", (parameter) => {
             expect(parameter.sample).to.be.undefined;
         }).spec("sample", {
-            validate: (value) => {
+            validate: (value: string) => {
                 return new Promise((resolve, reject) => {
                     if (value !== "sample") {
                         reject(new Error("Value should be sample"));
@@ -439,11 +451,10 @@ describe("Step unit test", () => {
                 console.log("statc", stack);
             });
     });
-    it("should run onStart function before starting a step", done => {
+    it("should execute step action defined via Step.create with onBefore validation", done => {
         let ifIStarted = false;
         const c13 = Step
-            .create("SampleStep13")
-            .onStart((param) => {
+            .create("SampleStep13", (param) => {
                 return {
                     status: "I ran"
                 };
@@ -453,8 +464,7 @@ describe("Step unit test", () => {
                 return true;
             });
         const c14 = Step
-            .create("SampleStep14")
-            .onStart(() => "I ran 14")
+            .create("SampleStep14", () => "I ran 14")
             .onBefore(() => {
                 ifIStarted = false;
                 return false;
@@ -465,16 +475,15 @@ describe("Step unit test", () => {
                 expect(ifIStarted).to.be.false;
                 done();
             }).catch(err => {
-                console.log(err);
-                done();
-            });
+            console.log(err);
+            done();
+        });
     });
 
     it("should trigger onFail function is a chain has failed", done => {
-        Step.create("SampleStep15")
-            .onStart(() => {
-                throw new Error("I failed");
-            })
+        Step.create("SampleStep15", () => {
+            throw new Error("I failed");
+        })
             .onFail((error, retry, reject) => {
                 expect(error.message).to.be.equal("I failed");
                 reject();
@@ -486,42 +495,39 @@ describe("Step unit test", () => {
     });
     it("should retry when chain has failed", done => {
         let retried = false;
-        Step.create("SampleStep16")
-            .onStart(() => {
-                if (!retried) {
-                    throw new Error("I failed");
-                } else {
-                    return "done";
-                }
-            })
+        Step.create("SampleStep16", () => {
+            if (!retried) {
+                throw new Error("I failed");
+            } else {
+                return "done";
+            }
+        })
             .onFail((error, retry) => {
                 retried = true;
                 console.log("retried", retried);
                 retry();
             })
             .execute()
-            .then(result => {
-                expect(result.value).to.be.equal("done");
+            .then(({value}: any) => {
+                expect(value).to.be.equal("done");
                 done();
             }).catch(err => console.log);
     });
 
     it("should cache chain action", done => {
         let counter = 0;
-        const s17 = Step.create("SampleStep17")
-            .onStart(() => {
-                counter++;
-                return "17";
-            })
+        const s17 = Step.create("SampleStep17", () => {
+            counter++;
+            return "17";
+        })
             .spec("hello")
             .strict()
             .cache();
 
-        const s18 = Step.create("SampleStep18")
-            .onStart(() => {
-                counter++;
-                return "18";
-            })
+        const s18 = Step.create("SampleStep18", () => {
+            counter++;
+            return "18";
+        })
             .spec("hello")
             .strict()
             .cache(5000);
@@ -536,23 +542,21 @@ describe("Step unit test", () => {
 
     it("should cache chain action for a specific time", done => {
         let counter = 0;
-        const s19 = Step.create("SampleStep19")
-            .onStart(() => {
-                counter++;
-                return new Promise((resolve, reject) => {
-                    setTimeout(() => {
-                        resolve("19");
-                    }, 501);
-                })
+        const s19 = Step.create("SampleStep19", () => {
+            counter++;
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve("19");
+                }, 501);
             })
+        })
             .spec("hello")
             .strict();
 
-        const s20 = Step.create("SampleStep20")
-            .onStart(() => {
-                counter++;
-                return "18";
-            })
+        const s20 = Step.create("SampleStep20", () => {
+            counter++;
+            return "18";
+        })
             .spec("hello")
             .strict()
             .cache(500);
@@ -568,7 +572,8 @@ describe("Step unit test", () => {
     it("initializes chain sequence and default instance correctly", () => {
         const s1 = new Step("s1");
         const s2 = new Step("s2");
-        const customSeq = new Step("customSeq", () => {}, [s1, s2]);
+        const customSeq = new Step("customSeq", () => {
+        }, [s1, s2]);
         expect(customSeq.sequence).to.deep.equal([s1, s2]);
 
         const singleStep = Step.create("singleSeq");
@@ -824,14 +829,13 @@ describe("Step unit test", () => {
 
     it("supports structured onFail on named string chain", async () => {
         let namedRetried = false;
-        const namedStep = Step.create("namedRetryStep")
-            .onStart(() => {
-                if (!namedRetried) {
-                    namedRetried = true;
-                    throw new Error("fail once");
-                }
-                return {namedOk: true};
-            })
+        const namedStep = Step.create("namedRetryStep", () => {
+            if (!namedRetried) {
+                namedRetried = true;
+                throw new Error("fail once");
+            }
+            return {namedOk: true};
+        })
             .onFail({
                 maxRetries: 2,
                 delay: 0
@@ -1126,7 +1130,7 @@ describe("Step unit test", () => {
     describe("Recording chain process per stackId", () => {
         it("records execution progress per stackId using logMonitor", async () => {
             const records: Record<string, { status: string; events: any[] }> = {};
-            let activeStack: string | undefined;
+            let activeStack: string;
 
             Step.config({
                 logMonitor: (entry: any) => {
@@ -1257,16 +1261,15 @@ describe("Step unit test", () => {
     });
     describe("Step onSkip & onAfter lifecycles", () => {
         it("supports synchronous onSkip with fallback data when onBefore returns false", async () => {
-            const skipStep = Step.create("syncSkipStep")
+            const skipStep = Step.create("syncSkipStep", () => ({ran: true}))
                 .onBefore(() => false)
-                .onStart(() => ({ran: true}))
                 .onSkip((param: any) => ({
                     skipped: true,
                     reason: "condition_unmet",
                     receivedInput: param.initVal
                 }));
 
-            const res = await skipStep.execute({initVal: "hello"});
+            const res: any = await skipStep.execute({initVal: "hello"});
             expect(res.skipped).to.be.true;
             expect(res.reason).to.equal("condition_unmet");
             expect(res.receivedInput).to.equal("hello");
@@ -1274,18 +1277,17 @@ describe("Step unit test", () => {
         });
 
         it("supports asynchronous onSkip with Promise fallback when onBefore returns Promise(false)", async () => {
-            const asyncSkipStep = Step.create("asyncSkipStep")
+            const asyncSkipStep = Step.create("asyncSkipStep", () => ({executed: true}))
                 .onBefore(async () => {
                     await new Promise(r => setTimeout(r, 10));
                     return false;
                 })
-                .onStart(() => ({executed: true}))
                 .onSkip(async () => {
                     await new Promise(r => setTimeout(r, 10));
                     return {asyncSkipped: true, fallbackCode: 204};
                 });
 
-            const res = await asyncSkipStep.run({});
+            const res: any = await asyncSkipStep.run({});
             expect(res.asyncSkipped).to.be.true;
             expect(res.fallbackCode).to.equal(204);
             expect(res.executed).to.be.undefined;
@@ -1293,9 +1295,8 @@ describe("Step unit test", () => {
 
         it("supports onSkip returning undefined for pure side-effect without failing", async () => {
             let sideEffectLogged = false;
-            const sideEffectStep = Step.create("sideEffectSkipStep")
+            const sideEffectStep = Step.create("sideEffectSkipStep", () => ({actionRan: true}))
                 .onBefore(() => false)
-                .onStart(() => ({actionRan: true}))
                 .onSkip(() => {
                     sideEffectLogged = true;
                     return undefined;
@@ -1309,23 +1310,22 @@ describe("Step unit test", () => {
         it("unwraps raw parameters in onSkip when chain is modern", async () => {
             let capturedParam: any;
             const modernSkipStep = Step.create(({age}: any) => ({canDrink: age >= 21}))
-                
+
                 .onBefore(({age}: any) => age >= 21)
                 .onSkip((param: any) => {
                     capturedParam = param;
                     return {canDrink: false, reason: "underage"};
                 });
 
-            const res = await modernSkipStep.run({age: 19});
+            const res: any = await modernSkipStep.run({age: 19});
             expect(capturedParam).to.deep.equal({age: 19});
             expect(res.canDrink).to.be.false;
             expect(res.reason).to.equal("underage");
         });
 
         it("routes errors thrown in onSkip to onFail", async () => {
-            const throwSkipStep = Step.create("throwSkipStep")
+            const throwSkipStep = Step.create("throwSkipStep", () => ({ok: true}))
                 .onBefore(() => false)
-                .onStart(() => ({ok: true}))
                 .onSkip(() => {
                     throw new Error("Skip handler failed");
                 })
@@ -1344,11 +1344,10 @@ describe("Step unit test", () => {
 
         it("supports synchronous onAfter enriching the context with new properties", async () => {
             let capturedParam: any;
-            const enrichStep = Step.create("enrichStep")
-                .onStart((param: any) => ({
-                    orderId: "ord_100",
-                    amount: param.basePrice * 2
-                }))
+            const enrichStep = Step.create("enrichStep", (param: any) => ({
+                orderId: "ord_100",
+                amount: param.basePrice * 2
+            }))
                 .onAfter((output: any, param: any) => {
                     capturedParam = param;
                     return {
@@ -1357,7 +1356,7 @@ describe("Step unit test", () => {
                     };
                 });
 
-            const res = await enrichStep.run({basePrice: 50});
+            const res: any = await enrichStep.run({basePrice: 50});
             expect(capturedParam.basePrice).to.equal(50);
             expect(res.orderId).to.equal("ord_100");
             expect(res.amount).to.equal(100);
@@ -1366,8 +1365,7 @@ describe("Step unit test", () => {
         });
 
         it("supports asynchronous onAfter returning Promise to enrich context", async () => {
-            const asyncAfterStep = Step.create("asyncAfterStep")
-                .onStart(async () => ({initialStatus: "pending"}))
+            const asyncAfterStep = Step.create("asyncAfterStep", async () => ({initialStatus: "pending"}))
                 .onAfter(async (output: any) => {
                     await new Promise(r => setTimeout(r, 10));
                     return {
@@ -1376,7 +1374,7 @@ describe("Step unit test", () => {
                     };
                 });
 
-            const res = await asyncAfterStep.run({});
+            const res: any = await asyncAfterStep.run({});
             expect(res.initialStatus).to.equal("pending");
             expect(res.finalStatus).to.equal("confirmed");
             expect(res.prevStatus).to.equal("pending");
@@ -1384,8 +1382,7 @@ describe("Step unit test", () => {
 
         it("supports onAfter returning undefined for pure side-effect while preserving output", async () => {
             let sideEffectTracked = false;
-            const trackStep = Step.create("trackStep")
-                .onStart(() => ({computed: 42}))
+            const trackStep = Step.create("trackStep", () => ({computed: 42}))
                 .onAfter((output: any) => {
                     if (output.computed === 42) {
                         sideEffectTracked = true;
@@ -1402,14 +1399,14 @@ describe("Step unit test", () => {
             let capturedParam: any;
             let capturedOutput: any;
             const modernAfterStep = Step.create(({x, y}: any) => ({sum: x + y}))
-                
+
                 .onAfter((output: any, param: any) => {
                     capturedOutput = output;
                     capturedParam = param;
                     return {doubled: output.sum * 2};
                 });
 
-            const res = await modernAfterStep.run({x: 10, y: 20});
+            const res: any = await modernAfterStep.run({x: 10, y: 20});
             expect(capturedParam).to.deep.equal({x: 10, y: 20});
             expect(capturedOutput).to.deep.equal({sum: 30});
             expect(res.sum).to.equal(30);
@@ -1418,8 +1415,7 @@ describe("Step unit test", () => {
 
         it("routes errors thrown in onAfter to onFail for retry and recovery", async () => {
             let attempts = 0;
-            const retryAfterStep = Step.create("retryAfterStep")
-                .onStart(() => ({stepResult: "ok"}))
+            const retryAfterStep = Step.create("retryAfterStep", () => ({stepResult: "ok"}))
                 .onAfter(() => {
                     attempts++;
                     if (attempts < 2) {
@@ -1432,18 +1428,17 @@ describe("Step unit test", () => {
                     retry();
                 });
 
-            const res = await retryAfterStep.run({});
+            const res: any = await retryAfterStep.run({});
             expect(attempts).to.equal(2);
             expect(res.stepResult).to.equal("ok");
             expect(res.afterDone).to.be.true;
         });
 
         it("supports onAfter on reducer chains (.reduce)", async () => {
-            const reduceStep = Step.create("reduceWithAfter")
+            const reduceStep = Step.create("reduceWithAfter", (param: any, current: number) => ({
+                accum: (param.accum || 0) + current
+            }))
                 .reduce("nums")
-                .onStart((param: any, current: number) => ({
-                    accum: (param.accum || 0) + current
-                }))
                 .onAfter((result: any) => {
                     return {
                         isEven: result.accum % 2 === 0,
@@ -1451,7 +1446,7 @@ describe("Step unit test", () => {
                     };
                 });
 
-            const res = await reduceStep.run({nums: [1, 2, 3, 4]});
+            const res: any = await reduceStep.run({nums: [1, 2, 3, 4]});
             expect(res.accum).to.equal(10);
             expect(res.isEven).to.be.true;
             expect(res.tag).to.equal("reduced");
@@ -1459,7 +1454,7 @@ describe("Step unit test", () => {
 
         it("integrates onSkip and onAfter seamlessly in a multi-step pipeline", async () => {
             const checkUser = Step.create(({user}: any) => ({validUser: true}))
-                
+
                 .onBefore(({user}: any) => user?.isActive === true)
                 .onSkip(() => ({
                     validUser: false,
@@ -1472,7 +1467,7 @@ describe("Step unit test", () => {
                 }
                 return {orderProcessed: true, status: "charged"};
             })
-                
+
                 .onAfter((output: any) => ({
                     completedAt: 123456789
                 }));
@@ -1518,7 +1513,7 @@ describe("Step unit test", () => {
             });
 
             const pipeline = flow(step1, step2, step3);
-            const res = await pipeline.run({customer: "Alice"});
+            const res: any = await pipeline.run({customer: "Alice"});
 
             expect(res.status).to.equal("notified");
             expect(res.$steps.validateOrder.status).to.equal("validated");
@@ -1585,7 +1580,7 @@ describe("Step unit test", () => {
                 Step.create(() => ({stepA: 1})),
                 Step.create(() => null)
             );
-            const primRes = await primPipeline.run();
+            const primRes: any = await primPipeline.run();
             expect(primRes.value).to.be.null;
         });
 
@@ -1654,7 +1649,9 @@ describe("Step unit test", () => {
                     transformer: async (val: any) => val.toUpperCase()
                 })
                 .spec("fieldTranslate", {
-                    translator: async (val: any, ctx: any) => { ctx.set("translatedField", "got_" + val); }
+                    translator: async (val: any, ctx: any) => {
+                        ctx.set("translatedField", "got_" + val);
+                    }
                 })
                 .spec("fieldSchema", {
                     schema: {
@@ -1747,10 +1744,14 @@ describe("Step unit test", () => {
         it("calls static Step.config", () => {
             Step.config({
                 logger: {
-                    log: () => {},
-                    error: () => {},
-                    warn: () => {},
-                    info: () => {}
+                    log: () => {
+                    },
+                    error: () => {
+                    },
+                    warn: () => {
+                    },
+                    info: () => {
+                    }
                 }
             });
         });
@@ -1764,7 +1765,7 @@ describe("Step unit test", () => {
                     upper: param.fieldTrans,
                     translated: param.translatedField
                 };
-                return { success: true };
+                return {success: true};
             })
                 .spec("fieldDef", {
                     default: "directDefaultValue"
@@ -1799,7 +1800,7 @@ describe("Step unit test", () => {
             controller1.abort(customError1);
 
             try {
-                await Step.create("abortedSingle", () => ({ ok: true })).run({}, { signal: controller1.signal });
+                await Step.create("abortedSingle", () => ({ok: true})).run({}, {signal: controller1.signal});
                 expect.fail("Should have rejected");
             } catch (err: any) {
                 expect(err.message).to.equal("Custom cancel signal");
@@ -1810,7 +1811,7 @@ describe("Step unit test", () => {
             controller2.abort(customError2);
 
             try {
-                await flow(Step.create(() => ({ a: 1 }))).run({}, { signal: controller2.signal });
+                await flow(Step.create(() => ({a: 1}))).run({}, {signal: controller2.signal});
                 expect.fail("Should have rejected");
             } catch (err: any) {
                 expect(err.message).to.equal("Array abort reason");
@@ -1840,7 +1841,7 @@ describe("Step unit test", () => {
                 if (anonAttempts < 2) {
                     throw new Error("anon fail");
                 }
-                return { anonOk: true };
+                return {anonOk: true};
             }).onFail({
                 maxRetries: 2,
                 delay: 0
@@ -1853,10 +1854,10 @@ describe("Step unit test", () => {
 
         it("handles OnAfter when chain returns null, undefined, or primitive", async () => {
             let afterReceivedOut: any;
-            const nullStep = Step.create("nullStep", () => null)
+            const nullStep: Step<any, any> = Step.create("nullStep", () => null)
                 .onAfter((output: any) => {
                     afterReceivedOut = output;
-                    return { handledNull: true };
+                    return {handledNull: true};
                 });
 
             const nullRes = await nullStep.run();
@@ -1867,37 +1868,36 @@ describe("Step unit test", () => {
             const undefStep = Step.create("undefStep", () => undefined)
                 .onAfter((output: any) => {
                     afterReceivedUndef = output;
-                    return { handledUndef: true };
+                    return {handledUndef: true};
                 });
 
-            const undefRes = await undefStep.run();
+            const undefRes: FlowContextResult<any> = await undefStep.run();
             expect(afterReceivedUndef).to.be.undefined;
             expect(undefRes.handledUndef).to.be.true;
         });
 
         it("handles Reducer when array is undefined or missing", async () => {
-            const reduceMissing = Step.create("reduceMissing")
-                .reduce("missingList")
-                .onStart((param: any, current: any) => ({
-                    sum: (param.sum ? param.sum : 0) + current
-                }));
+            const reduceMissing = Step.create("reduceMissing", (param: any, current: any) => ({
+                sum: (param.sum ? param.sum : 0) + current
+            }))
+                .reduce("missingList");
 
-            const res = await reduceMissing.run({});
+            const res: FlowContextResult<any> = await reduceMissing.run({});
             expect(Number.isNaN(res.sum)).to.be.true;
         });
 
         it("supports pipeline as argument in flow() sequentially and nested", async () => {
-            const step1 = Step.create("step1", (param: any) => ({ a: Number(param.input || 0) + 1 }));
-            const step2 = Step.create("step2", (param: any) => ({ b: param.a * 2 }));
+            const step1 = Step.create("step1", (param: any) => ({a: Number(param.input || 0) + 1}));
+            const step2 = Step.create("step2", (param: any) => ({b: param.a * 2}));
             const subPipe1 = flow(step1, step2);
 
-            const step3 = Step.create("step3", (param: any) => ({ c: param.b + 10 }));
+            const step3 = Step.create("step3", (param: any) => ({c: param.b + 10}));
             const subPipe2 = flow(step3);
 
             const masterPipeline = flow(subPipe1, subPipe2);
             expect(masterPipeline.steps.length).to.equal(3);
 
-            const res = await masterPipeline.run({ input: 5 });
+            const res = await masterPipeline.run({input: 5});
             expect(res.c).to.equal(22);
             expect(res.$steps.step1.a).to.equal(6);
             expect(res.$steps.step2.b).to.equal(12);
@@ -1905,13 +1905,13 @@ describe("Step unit test", () => {
         });
 
         it("supports pipeline inside nested arrays and mixed with chains in flow()", async () => {
-            const stepA = Step.create("stepA", () => ({ stepA: true }));
-            const stepB = Step.create("stepB", () => ({ stepB: true }));
+            const stepA = Step.create("stepA", () => ({stepA: true}));
+            const stepB = Step.create("stepB", () => ({stepB: true}));
             const sub = flow(stepA);
-            const stepC = Step.create("stepC", () => ({ stepC: true }));
+            const stepC = Step.create("stepC", () => ({stepC: true}));
 
             const master = flow([sub, [stepB]], stepC);
-            const res = await master.run({}, { pojo: true });
+            const res = await master.run({}, {pojo: true});
             expect(res.stepC).to.be.true;
             expect(res.$steps.stepA.stepA).to.be.true;
             expect(res.$steps.stepB.stepB).to.be.true;
@@ -1920,23 +1920,23 @@ describe("Step unit test", () => {
 
         it("supports custom pipeline without .chains in flow() and Step.start()", async () => {
             const customPipe = {
-                run: async (param: any) => ({ fromCustom: (param.seed || 1) * 3 }),
-                execute: async (param: any) => ({ fromCustom: (param.seed || 1) * 3 }),
-                start: async (param: any) => ({ fromCustom: (param.seed || 1) * 3 })
+                run: async (param: any) => ({fromCustom: (param.seed || 1) * 3}),
+                execute: async (param: any) => ({fromCustom: (param.seed || 1) * 3}),
+                start: async (param: any) => ({fromCustom: (param.seed || 1) * 3})
             };
 
             // in flow()
-            const p = flow(Step.create(() => ({ seed: 10 })), customPipe as any);
-            const pRes = await p.run({});
+            const p = flow(Step.create(() => ({seed: 10})), customPipe as any);
+            const pRes: FlowContextResult<any> = await p.run({});
             expect(pRes.fromCustom).to.equal(30);
 
             // in Step.start()
-            const sRes = await Step.start(customPipe as any, { seed: 5 });
+            const sRes: FlowContextResult<any> = await Step.start(customPipe as any, {seed: 5});
             expect(sRes.fromCustom).to.equal(15);
         });
 
         it("supports Step.create(pipeline) and Step.start(pipeline)", async () => {
-            const sub = flow(Step.create(() => ({ subVal: 99 })));
+            const sub = flow(Step.create(() => ({subVal: 99})));
 
             // Step.create(pipeline)
             const wrappedStep = Step.create(sub);
@@ -1948,89 +1948,16 @@ describe("Step unit test", () => {
             expect(startRes.subVal).to.equal(99);
         });
 
-        it("further improves branch coverage on Step and pipe in step/index.ts", async () => {
-            // 1. Step.create with no arguments
-            const emptyStep = Step.create();
-            expect(emptyStep).to.be.an.instanceOf(Step);
-            const emptyRes = await emptyStep.run();
-            expect(emptyRes.value).to.be.undefined;
-
-            // 2. Step.execute when sequence is empty
-            const directStep = Step.create(() => ({ directlyExecuted: true }));
-            directStep.sequence = [];
-            const directRes = await directStep.execute();
-            expect(directRes.directlyExecuted).to.be.true;
-
-            // 3. pipe with falsy items in chains list
-            const pWithFalsy = flow(
-                Step.create(() => ({ part1: true })),
-                null as any,
-                undefined as any,
-                false as any,
-                Step.create(() => ({ part2: true }))
-            );
-            const resFalsy = await pWithFalsy.run({}, { pojo: true });
-            expect(resFalsy.part2).to.be.true;
-
-            // 4. Custom pipeline with only execute or only start
-            const onlyExecPipeline = {
-                execute: async (param: any) => ({ fromOnlyExec: true })
-            };
-            const pOnlyExec = flow(onlyExecPipeline as any);
-            const resOnlyExec = await pOnlyExec.run({}, { pojo: true });
-            expect(resOnlyExec.fromOnlyExec).to.be.true;
-
-            const onlyStartPipeline = {
-                start: async (param: any) => ({ fromOnlyStart: true })
-            };
-            const cOnlyStart = Step.create(onlyStartPipeline as any);
-            const resOnlyStart = await cOnlyStart.run({}, { pojo: true });
-            expect(resOnlyStart.fromOnlyStart).to.be.true;
-
-            // 5. Spec aliases: defaultValue, validator, transformer, translator, schema
-            const specStep = Step.create("specAliasStep")
-                .spec("aliasField", {
-                    defaultValue: "aliasDefault",
-                    validator: (v: any) => Promise.resolve(v),
-                    transformer: (v: any) => Promise.resolve(v + "_transformed"),
-                    translator: (v: any, ctx: any) => new Promise(res => { ctx.set("translatedAlias", v); res(); }),
-                    schema: { safeParse: (v: any) => ({ success: true, data: v }) }
-                })
-                .onStart((param: any) => ({
-                    out: param.aliasField,
-                    translated: param.translatedAlias
-                }));
-
-            const specRes = await specStep.run({});
-            expect(specRes.out).to.equal("aliasDefault_transformed");
-
-            // 6. Step.cache() with default 1500ms
-            const cachedDefault = Step.create(() => ({ cached: true })).cache();
-            expect(cachedDefault.cachedLast).to.equal(1500);
-
-            // 7. isPipeline negative checks for non-pipeline and Step-like objects
-            expect(isFlow({ run: "not_a_func" })).to.be.false;
-            expect(isFlow({ someProp: 123 })).to.be.false;
-            expect(isFlow({ run: () => {}, specs: [] })).to.be.false;
-            expect(isFlow({ run: () => {}, onStart: () => {} })).to.be.false;
-            expect(isFlow({ run: () => {}, onbefore: () => {} })).to.be.false;
-
-            // 8. pipeline returning primitive and string/number input
-            const primPipeline = { run: async (p: any) => 123 };
-            const primP = flow(primPipeline as any);
-            const primRes = await primP.run(456);
-            expect(primRes.value).to.equal(123);
-
-            // 9. Step.config static method
-            Step.config({ testProp: "configured" });
-        });
-
         it("correctly identifies flows with isFlow", () => {
             const p = flow(Step.create(() => ({})));
             expect(Step.isFlow(p)).to.be.true;
             expect(isFlow(p)).to.be.true;
 
-            const custom = { run: () => {}, execute: () => {} };
+            const custom = {
+                run: () => {
+                }, execute: () => {
+                }
+            };
             expect(isFlow(custom)).to.be.true;
 
             const stepInstance = Step.create(() => ({}));
@@ -2045,15 +1972,15 @@ describe("Step unit test", () => {
 
     describe("Option B: Step and Flow Architecture", () => {
         it("creates and executes workflows using Step and flow orchestrator", async () => {
-            const validate = Step.create("optB_val", async (param: any) => ({ valid: Boolean(param.cartId) }));
-            const charge = Step.create("optB_charge", async (param: any) => ({ charged: true, amount: 100 }));
+            const validate = Step.create("optB_val", async (param: any) => ({valid: Boolean(param.cartId)}));
+            const charge = Step.create("optB_charge", async (param: any) => ({charged: true, amount: 100}));
             const checkout = flow(validate, charge);
 
             expect(checkout.isFlow).to.be.true;
             expect(checkout.steps.length).to.equal(2);
             expect(isFlow(checkout)).to.be.true;
 
-            const res = await checkout.run({ cartId: "123" });
+            const res = await checkout.run({cartId: "123"});
             expect(res.charged).to.be.true;
             expect(res.amount).to.equal(100);
             expect(res.$steps.optB_val.valid).to.be.true;
@@ -2061,15 +1988,15 @@ describe("Step unit test", () => {
         });
 
         it("supports nested flows inside flow() orchestrator", async () => {
-            const stepA = Step.create("optB_stepA", () => ({ a: 1 }));
-            const stepB = Step.create("optB_stepB", () => ({ b: 2 }));
+            const stepA = Step.create("optB_stepA", () => ({a: 1}));
+            const stepB = Step.create("optB_stepB", () => ({b: 2}));
             const subFlow = flow(stepA, stepB);
 
-            const stepC = Step.create("optB_stepC", () => ({ c: 3 }));
+            const stepC = Step.create("optB_stepC", () => ({c: 3}));
             const topFlow = flow(subFlow, stepC);
 
             expect(topFlow.steps.length).to.equal(3);
-            const res = await topFlow.run({}, { pojo: true });
+            const res = await topFlow.run({}, {pojo: true});
             expect(res.c).to.equal(3);
             expect(res.$steps.optB_stepA.a).to.equal(1);
             expect(res.$steps.optB_stepB.b).to.equal(2);
@@ -2077,8 +2004,8 @@ describe("Step unit test", () => {
         });
 
         it("supports Step.flow as static orchestrator", async () => {
-            const s1 = Step.create(() => ({ part1: "hello" }));
-            const s2 = Step.create((param: any) => ({ part2: param.part1 + " world" }));
+            const s1 = Step.create(() => ({part1: "hello"}));
+            const s2 = Step.create((param: any) => ({part2: param.part1 + " world"}));
             const myFlow = Step.flow(s1, s2);
 
             const res = await myFlow.execute();
@@ -2091,7 +2018,7 @@ describe("Step unit test", () => {
             expect(Step.pipe).to.equal(flow);
             expect(Step.isPipeline).to.equal(isFlow);
 
-            const testStep = Step.create(() => ({ legacy: true }));
+            const testStep = Step.create(() => ({legacy: true}));
             const legacyPipeline = pipe(testStep);
             expect(isPipeline(legacyPipeline)).to.be.true;
             const res = await legacyPipeline.run();
@@ -2105,6 +2032,314 @@ describe("Step unit test", () => {
             const wrapped = Step.create(returnPrimFlow as any);
             const res = await wrapped.run();
             expect(res.value).to.equal("primitive_string");
+        });
+    });
+
+
+    describe('Phase 4: TypeScript and Developer Experience', () => {
+        describe('Accumulated Context & Typed Step History', () => {
+            it('should accumulate context across sequential steps and record history', async () => {
+                const step1 = Step.create('fetchUser', (param: { userId: string }) => {
+                    return {name: 'Alice', age: 30};
+                });
+
+                const step2 = Step.create('enrichProfile', (param: { name: string; age: number; $steps?: any }) => {
+                    expect(param.name).to.equal('Alice');
+                    expect(param.age).to.equal(30);
+                    expect(param.$steps?.fetchUser).to.deep.equal({name: 'Alice', age: 30});
+                    return {role: 'admin'};
+                });
+
+                const workflow = flow(step1, step2);
+                const result = await workflow.run({userId: 'u-123'}, {pojo: true});
+
+                expect(result.name).to.equal('Alice');
+                expect(result.age).to.equal(30);
+                expect(result.role).to.equal('admin');
+                expect(result.$steps?.fetchUser).to.deep.equal({name: 'Alice', age: 30});
+                expect(result.$steps?.enrichProfile).to.deep.equal({role: 'admin'});
+            });
+
+            it('should handle void step output without altering context', async () => {
+                const step1 = Step.create('init', () => ({count: 1}));
+                const step2 = Step.create('noop', (_param: { count: number }) => {
+                    // returns undefined / void
+                });
+                const step3 = Step.create('inc', (param: { count: number }) => ({count: param.count + 1}));
+
+                const workflow = flow(step1, step2, step3);
+                const result = await workflow.run({}, {pojo: true});
+                expect(result.count).to.equal(2);
+            });
+        });
+
+        describe('Dependency Injection & Services', () => {
+            it('should inject step-level dependencies via withDependencies() and requireDependency()', async () => {
+                const step = Step.create('callApi', (param: any) => {
+                    const client = param.$services?.apiClient || param.$dependencies?.apiClient;
+                    return {fetched: client.getData()};
+                });
+
+                step.withDependencies({
+                    apiClient: {getData: () => 'from-dep'}
+                });
+
+                expect(step.requireDependency('apiClient')).to.deep.equal({getData: step.dependencies!.apiClient.getData});
+                expect(() => step.requireDependency('missingDep')).to.throw("Missing required dependency 'missingDep' for step 'callApi'");
+
+                const anonStep = Step.create(() => ({}));
+                expect(() => anonStep.requireDependency('foo')).to.throw("Missing required dependency 'foo' for step 'anonymous'");
+
+                const result = await step.execute({}, {pojo: true});
+                expect(result.fetched).to.equal('from-dep');
+            });
+
+            it('should inject workflow-level services via options.services and merge with step dependencies', async () => {
+                const loggerMock = {log: (msg: string) => msg};
+                const dbMock = {query: () => ['row1']};
+
+                let capturedServices: any;
+                let capturedDeps: any;
+                let capturedDollarDeps: any;
+
+                const step = Step.create('dbStep', (param: any) => {
+                    capturedServices = param.$services;
+                    capturedDeps = param.$dependencies;
+                    capturedDollarDeps = param.$deps;
+                    return {
+                        dbResult: param.$services.db.query(),
+                        logged: param.$services.logger.log('hello')
+                    };
+                }).withDependencies({
+                    db: dbMock
+                });
+
+                const wf = flow(step);
+                const result = await wf.run({}, {
+                    pojo: true,
+                    services: {
+                        logger: loggerMock
+                    }
+                });
+
+                expect(result.dbResult).to.deep.equal(['row1']);
+                expect(result.logged).to.equal('hello');
+                expect(capturedServices.logger).to.equal(loggerMock);
+                expect(capturedServices.db).to.equal(dbMock);
+                expect(capturedDeps).to.equal(capturedServices);
+                expect(capturedDollarDeps).to.equal(capturedServices);
+            });
+
+            it('should support options.dependencies fallback for services', async () => {
+                const step = Step.create('testStep', (param: any) => {
+                    return {configVal: param.$services.config.env};
+                });
+
+                const res = await step.execute({}, {
+                    pojo: true,
+                    dependencies: {
+                        config: {env: 'staging'}
+                    }
+                });
+
+                expect(res.configVal).to.equal('staging');
+            });
+        });
+
+        describe('Workflow Visualization & Export APIs', () => {
+            it('should export workflow and steps to Mermaid diagram with badges', () => {
+                const s1 = Step.create('step1', () => ({a: 1}))
+                    .timeout(5000)
+                    .onFail({maxRetries: 3, delay: 100})
+                    .cache(2000)
+                    .compensate(() => {
+                    });
+
+                const s2 = wait(1000);
+                const s3 = branch(
+                    (p: any) => p.a === 1,
+                    Step.create('branchTrue', () => ({ok: true})),
+                    Step.create('branchFalse', () => ({ok: false}))
+                );
+                const s4 = parallel([
+                    Step.create('parallelA', () => ({a: 'done'})),
+                    Step.create('parallelB', () => ({b: 'done'}))
+                ]);
+                const s5 = map(
+                    (p: any) => p.items,
+                    Step.create('mapItem', (item: any) => item * 2)
+                );
+
+                const wf = flow(s1, s2, s3, s4, s5);
+
+                // flow.toMermaid()
+                const mermaidTD = wf.toMermaid();
+                expect(mermaidTD).to.include('flowchart TD');
+                expect(mermaidTD).to.include('⏱️ 5000ms');
+                expect(mermaidTD).to.include('🔁 retry(3)');
+                expect(mermaidTD).to.include('⏪ saga');
+                expect(mermaidTD).to.include('💾 cache');
+                expect(mermaidTD).to.include('⏳ wait');
+
+                // options.direction & includeBadges
+                const mermaidLR = toMermaid(wf, {direction: 'LR', includeBadges: false});
+                expect(mermaidLR).to.include('flowchart LR');
+                expect(mermaidLR).to.not.include('⏱️');
+
+                // static Step.toMermaid
+                const stepMermaid = Step.toMermaid(s1);
+                expect(stepMermaid).to.include('flowchart TD');
+                expect(stepMermaid).to.include('step1');
+            });
+
+            it('should export workflow to JSON AST and sanitize functions', () => {
+                const s1 = Step.create('step1', () => ({a: 1}));
+                const s2 = Step.create('step2', () => ({b: 2}));
+                const wf = flow(s1, s2);
+
+                const jsonStr = wf.toJSON();
+                const parsed = JSON.parse(jsonStr);
+                expect(parsed).to.have.property('type', 'sequence');
+                expect(parsed).to.have.property('children');
+                expect(parsed.children[0]).to.have.property('name', 'step1');
+                expect(jsonStr).to.not.include('"action"');
+
+                // Standalone toJSON
+                const standaloneJson = toJSON(wf);
+                const parsedStandalone = JSON.parse(standaloneJson);
+                expect(parsedStandalone).to.have.property('type', 'sequence');
+                expect(parsedStandalone.children[0]).to.have.property('name', 'step1');
+                expect(standaloneJson).to.not.include('"action"');
+
+                // Static Step.toJSON
+                const stepJson = Step.toJSON(s1);
+                const parsedStep = JSON.parse(stepJson);
+                expect(parsedStep.name).to.equal('step1');
+
+                // Standalone toJSON on single step
+                const stepStandaloneJson = toJSON(s1);
+                expect(JSON.parse(stepStandaloneJson).name).to.equal('step1');
+            });
+
+            it('should export complex workflow with combinators using standalone toJSON() and strip functions', () => {
+                const s1 = Step.create('initStep', () => ({count: 1}));
+                const sBranch = branch(
+                    (p: any) => p.count > 0 ? 'pos' : 'neg',
+                    {
+                        pos: Step.create('branchPos', () => ({isPos: true})),
+                        neg: Step.create('branchNeg', () => ({isPos: false}))
+                    }
+                );
+                const sWait = wait(200);
+                const sParallel = parallel([
+                    Step.create('parallel1', () => ({})),
+                    Step.create('parallel2', () => ({}))
+                ]);
+                const sMap = map(
+                    (p: any) => p.items,
+                    Step.create('mapWorker', (x: any) => x)
+                );
+
+                const complexWf = flow(s1, sBranch, sWait, sParallel, sMap);
+                const jsonOutput = toJSON(complexWf);
+                const parsed = JSON.parse(jsonOutput);
+
+                expect(parsed.type).to.equal('sequence');
+                expect(parsed.children).to.have.lengthOf(5);
+                expect(parsed.children[0].name).to.equal('initStep');
+                expect(parsed.children[1].type).to.equal('branch');
+                expect(parsed.children[1].branches.pos.name).to.equal('branchPos');
+                expect(parsed.children[1].branches.neg.name).to.equal('branchNeg');
+                expect(parsed.children[2].type).to.equal('wait');
+                expect(parsed.children[3].type).to.equal('parallel');
+                expect(parsed.children[3].branches).to.have.lengthOf(2);
+                expect(parsed.children[3].branches[0].name).to.equal('parallel1');
+                expect(parsed.children[3].branches[1].name).to.equal('parallel2');
+                expect(parsed.children[4].type).to.equal('map');
+                expect(parsed.children[4].itemNode.name).to.equal('mapWorker');
+
+                // Ensure cyclical/function pointers are sanitized
+                expect(jsonOutput).to.not.include('"action"');
+                expect(jsonOutput).to.not.include('"selector"');
+            });
+
+            it('should export workflow to Graphviz DOT format', () => {
+                const s1 = Step.create('step1', () => ({a: 1}))
+                    .timeout(3000)
+                    .onFail({maxRetries: 2});
+                const s2 = wait(500);
+                const s3 = branch(
+                    () => true,
+                    Step.create('branchA', () => ({})),
+                    Step.create('branchB', () => ({}))
+                );
+                const s4 = parallel([Step.create('pA', () => ({}))]);
+                const s5 = map((p: any) => p.list, Step.create('mItem', () => ({})));
+
+                const wf = flow(s1, s2, s3, s4, s5);
+
+                const dotStr = wf.toDot({graphName: 'CustomPipeline', direction: 'LR'});
+                expect(dotStr).to.include('digraph CustomPipeline {');
+                expect(dotStr).to.include('rankdir=LR;');
+                expect(dotStr).to.include('shape=diamond');
+                expect(dotStr).to.include('shape=ellipse');
+                expect(dotStr).to.include('shape=component');
+                expect(dotStr).to.include('shape=parallelogram');
+                expect(dotStr).to.include('->');
+
+                // Standalone toDot
+                const standaloneDot = toDot(wf, {graphName: 'CustomPipeline', direction: 'LR'});
+                expect(standaloneDot).to.include('digraph CustomPipeline {');
+                expect(standaloneDot).to.include('rankdir=LR;');
+                expect(standaloneDot).to.include('shape=diamond');
+                expect(standaloneDot).to.include('shape=ellipse');
+                expect(standaloneDot).to.include('shape=component');
+                expect(standaloneDot).to.include('shape=parallelogram');
+
+                // Static Step.toDot
+                const stepDot = Step.toDot(s1);
+                expect(stepDot).to.include('digraph Workflow {');
+                expect(stepDot).to.include('rankdir=TB;');
+            });
+
+            it('should export workflow and steps using standalone toDot() with default options and edge labels', () => {
+                const s1 = Step.create('step1', () => ({a: 1}))
+                    .timeout(2000)
+                    .compensate(() => {});
+                const sBranch = branch(
+                    (p: any) => p.a === 1 ? 'pos' : 'neg',
+                    {
+                        pos: Step.create('onTrue', () => ({})),
+                        neg: Step.create('onFalse', () => ({}))
+                    }
+                );
+                const wf = flow(s1, sBranch);
+
+                // Standalone toDot with default options
+                const defaultDot = toDot(wf);
+                expect(defaultDot).to.include('digraph Workflow {');
+                expect(defaultDot).to.include('rankdir=TB;');
+                expect(defaultDot).to.include('⏱️ 2000ms');
+                expect(defaultDot).to.include('⏪ saga');
+                expect(defaultDot).to.include('shape=box');
+                expect(defaultDot).to.include('shape=diamond');
+                expect(defaultDot).to.include('[label="first-step"]');
+                expect(defaultDot).to.include('[label="next"]');
+                expect(defaultDot).to.include('[label="when:pos"]');
+                expect(defaultDot).to.include('[label="when:neg"]');
+
+                // Standalone toDot on a single step
+                const singleDot = toDot(s1, {graphName: 'SingleStepGraph', direction: 'LR'});
+                expect(singleDot).to.include('digraph SingleStepGraph {');
+                expect(singleDot).to.include('rankdir=LR;');
+                expect(singleDot).to.include('step1');
+            });
+
+            it('should format retry badge with auto when retries and maxRetries are undefined', () => {
+                const s = Step.create('retryAuto', () => ({})).onFail({} as any);
+                const mermaid = toMermaid(s);
+                expect(mermaid).to.include('retry(auto)');
+            });
         });
     });
 

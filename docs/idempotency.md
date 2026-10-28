@@ -82,12 +82,10 @@ Fine-grained deduplication on individual steps prevents redundant side effects (
 ```typescript
 import { Step } from 'rivulet';
 
-const chargePayment = Step.create('chargePayment')
-  
-  .idempotent((ctx) => `charge:${ctx.invoiceId}`, { ttlMs: 86400000 })
-  .onStart(async ({ invoiceId, amount }) => {
+const chargePayment = Step.create('chargePayment', async ({ invoiceId, amount }) => {
     return await paymentGateway.charge({ invoiceId, amount });
-  });
+  })
+  .idempotent((ctx) => `charge:${ctx.invoiceId}`, { ttlMs: 86400000 });
 ```
 
 If a step fails, the idempotency claim is automatically released via `store.fail()`, allowing safe retries.

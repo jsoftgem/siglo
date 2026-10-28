@@ -56,18 +56,17 @@ export async function runCombinatorsCharter(
         let activeWorkers = 0;
         let highWaterMark = 0;
 
-        const workerStep = step(`worker_step_${i}`)
+        const workerStep = step(`worker_step_${i}`, async (ctx: any) => {
+                const sleepMs = rng.nextInt(2, 8);
+                await new Promise(r => setTimeout(r, sleepMs));
+                return { processed: true };
+            })
             .onBefore(async () => {
                 activeWorkers++;
                 if (activeWorkers > highWaterMark) {
                     highWaterMark = activeWorkers;
                 }
                 return true;
-            })
-            .onStart(async (ctx: any) => {
-                const sleepMs = rng.nextInt(2, 8);
-                await new Promise(r => setTimeout(r, sleepMs));
-                return { processed: true };
             })
             .onAfter(async () => {
                 activeWorkers--;
@@ -92,11 +91,11 @@ export async function runCombinatorsCharter(
 
         // Sub-test C: Race settlement and non-blocking loser cleanup
         let raceCompletedCount = 0;
-        const fastStep = step(`fast_${i}`).onStart(async () => {
+        const fastStep = step(`fast_${i}`, async () => {
             raceCompletedCount++;
             return { winner: 'fast' };
         });
-        const slowStep = step(`slow_${i}`).onStart(async () => {
+        const slowStep = step(`slow_${i}`, async () => {
             await new Promise(r => setTimeout(r, 20));
             raceCompletedCount++;
             return { winner: 'slow' };

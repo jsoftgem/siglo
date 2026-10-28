@@ -1,4 +1,4 @@
-import { Step, flow } from 'rivulet';
+import {Step, flow} from 'rivulet';
 
 export type NotificationChannel = 'PUSH' | 'SMS' | 'EMAIL';
 
@@ -26,7 +26,7 @@ export function createOmnichannelNotificationPipeline() {
 
     // Step 1: Trigger Campaign
     const triggerCampaign = Step.create('notifyTriggerCampaign', async (param: any) => {
-        const { campaignId, userId } = param;
+        const {campaignId, userId} = param;
 
         return {
             campaignTriggered: true,
@@ -34,9 +34,9 @@ export function createOmnichannelNotificationPipeline() {
             triggeredAt: Date.now()
         };
     })
-      .spec('campaignId', { require: true })
-      .spec('userId', { require: true })
-      .spec('templateKey', { require: true });
+        .spec('campaignId', {require: true})
+        .spec('userId', {require: true})
+        .spec('templateKey', {require: true});
 
     // Step 2: Resolve User Preferences & Channel Priority
     const resolveUserPreferences = Step.create('notifyResolvePreferences', async (param: any) => {
@@ -54,7 +54,7 @@ export function createOmnichannelNotificationPipeline() {
 
     // Step 3: Render Template
     const renderTemplate = Step.create('notifyRenderTemplate', async (param: any) => {
-        const { templateKey, templateVariables: vars = {} } = param;
+        const {templateKey, templateVariables: vars = {}} = param;
 
         let body = `Hello ${vars.name || 'Valued Customer'}, here is your update.`;
         if (templateKey === 'PROMO_FLASH_SALE') {
@@ -70,7 +70,7 @@ export function createOmnichannelNotificationPipeline() {
 
     // Step 4: Route to Channel & Dispatch (with onFail retries for external SMS/Push gateways)
     const routeToChannel = Step.create('notifyRouteToChannel', async (param: any) => {
-        const { primaryChannel, recipientPhone: phone, recipientEmail: email } = param;
+        const {primaryChannel, recipientPhone: phone, recipientEmail: email} = param;
 
         pushAttempts++;
         // Demonstrate handling transient rate limiting (HTTP 429) on first attempt
@@ -87,9 +87,9 @@ export function createOmnichannelNotificationPipeline() {
             deliveryStatus: 'SENT'
         };
     }).onFail({
-        retries: 2,
+        maxRetries: 2,
         delay: 10,
-        backoff: 1.5
+        backoff: () => 1.5
     });
 
     // Step 5: Track Engagement

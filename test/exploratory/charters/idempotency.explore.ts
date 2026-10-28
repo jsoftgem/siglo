@@ -19,14 +19,13 @@ export async function runIdempotencyCharter(
         const key = `order_${i}_${rng.string(5)}`;
         const ttlMs = 50;
 
-        const paymentStep = step('processPayment')
-            .idempotent(key, { store, ttlMs })
-            .onStart(async (ctx: any) => {
+        const paymentStep = step('processPayment', async (ctx: any) => {
                 actualExecutionCount++;
                 const delay = rng.nextInt(5, 15);
                 await new Promise(r => setTimeout(r, delay));
                 return { paymentRef: `ref_${key}`, charged: true };
-            });
+            })
+            .idempotent(key, { store, ttlMs });
 
         const paymentFlow = flow(paymentStep);
 

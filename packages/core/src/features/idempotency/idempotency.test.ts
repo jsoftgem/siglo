@@ -72,7 +72,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
     it('workflow-level idempotency deduplicates calls and returns stored output', async () => {
         let executions = 0;
-        const step = Step.create('payment').onStart(async ({ amount }: any) => {
+        const step = Step.create('payment', async ({ amount }: any) => {
             executions++;
             await new Promise(r => setTimeout(r, 10));
             return { transactionId: `tx_${amount}`, paid: true, executions };
@@ -102,7 +102,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
     });
 
     it('workflow-level idempotency throws IdempotencyConflictException for in-progress duplicate', async () => {
-        const slowStep = Step.create('slowPayment').onStart(async () => {
+        const slowStep = Step.create('slowPayment', async () => {
             await new Promise(r => setTimeout(r, 50));
             return { ok: true };
         });
@@ -126,13 +126,11 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
     it('step-level idempotency via step.idempotent() caches step output and deduplicates', async () => {
         let stepExecutions = 0;
-        const idempotentStep = Step.create('chargeStep')
-            
-            .idempotent((ctx) => `charge:${ctx.invoiceId}`)
-            .onStart(async ({ invoiceId }: any) => {
+        const idempotentStep = Step.create('chargeStep', async ({ invoiceId }: any) => {
                 stepExecutions++;
                 return { invoiceId, charged: true, stepExecutions };
-            });
+            })
+            .idempotent((ctx) => `charge:${ctx.invoiceId}`);
 
         const p = flow(idempotentStep);
 
@@ -146,7 +144,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
     it('failed workflow cleans up idempotency claim so it can be retried', async () => {
         let attempts = 0;
-        const failingStep = Step.create('failFirst').onStart(() => {
+        const failingStep = Step.create('failFirst', () => {
             attempts++;
             if (attempts === 1) throw new Error('First try failed');
             return { success: true, attempts };
@@ -178,12 +176,10 @@ describe('Idempotency Unit and Workflow Tests', () => {
     });
 
     it("handles sync and async errors in idempotent steps and functional workflow idempotencyKey", async () => {
-        const syncFailStep = Step.create("syncFail")
-            
-            .idempotent("sync-fail-k")
-            .onStart(() => {
+        const syncFailStep = Step.create("syncFail", () => {
                 throw new Error("Sync fail in idempotent step");
-            });
+            })
+            .idempotent("sync-fail-k");
         try {
             await flow(syncFailStep).execute();
             expect.fail("Should fail");
@@ -191,12 +187,10 @@ describe('Idempotency Unit and Workflow Tests', () => {
             expect(err.message).to.equal("Sync fail in idempotent step");
         }
 
-        const asyncFailStep = Step.create("asyncFail")
-            
-            .idempotent("async-fail-k")
-            .onStart(async () => {
+        const asyncFailStep = Step.create("asyncFail", async () => {
                 throw new Error("Async fail in idempotent step");
-            });
+            })
+            .idempotent("async-fail-k");
         try {
             await flow(asyncFailStep).execute();
             expect.fail("Should fail");
@@ -204,7 +198,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             expect(err.message).to.equal("Async fail in idempotent step");
         }
 
-        const stepFn = Step.create("stepFn").onStart(() => ({ ok: true, fnProp: () => {} }));
+        const stepFn = Step.create("stepFn", () => ({ ok: true, fnProp: () => {} }));
         const resFn = await flow(stepFn).execute({ orderId: "ord-fn-1" }, {
             pojo: true,
             idempotencyKey: (ctx) => "wf-" + ctx.orderId
@@ -212,10 +206,8 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(resFn.ok).to.equal(true);
     });
     it("handles onAfter failure and reduce failure in idempotent steps", async () => {
-        const afterFailStep = Step.create("afterFail")
-            
+        const afterFailStep = Step.create("afterFail", () => ({ data: 1 }))
             .idempotent("after-fail-k")
-            .onStart(() => ({ data: 1 }))
             .onAfter(() => {
                 throw new Error("OnAfter failed in idempotent step");
             });
@@ -226,13 +218,11 @@ describe('Idempotency Unit and Workflow Tests', () => {
             expect(err.message).to.equal("OnAfter failed in idempotent step");
         }
 
-        const reduceFailStep = Step.create("reduceFail")
-            
-            .idempotent("reduce-fail-k")
-            .reduce("items")
-            .onStart(() => {
+        const reduceFailStep = Step.create("reduceFail", () => {
                 throw new Error("Reducer action failed in idempotent step");
-            });
+            })
+            .idempotent("reduce-fail-k")
+            .reduce("items");
         try {
             await flow(reduceFailStep).execute({ items: [1, 2] });
             expect.fail("Should fail");
@@ -241,13 +231,11 @@ describe('Idempotency Unit and Workflow Tests', () => {
         }
     });
     it("handles step-level IdempotencyConflictException and store claim rejection", async () => {
-        const slowStep = Step.create("slowStep")
-            
-            .idempotent("concurrent-step-key")
-            .onStart(async () => {
+        const slowStep = Step.create("slowStep", async () => {
                 await new Promise(r => setTimeout(r, 60));
                 return { done: true };
-            });
+            })
+            .idempotent("concurrent-step-key");
         const p1 = flow(slowStep).execute();
         try {
             await flow(slowStep).execute();
@@ -263,10 +251,8 @@ describe('Idempotency Unit and Workflow Tests', () => {
             fail: () => Promise.resolve(),
             get: () => Promise.resolve(undefined)
         };
-        const errorStoreStep = Step.create("storeErrorStep")
-            
-            .idempotent("key-store-err", { store: throwingStore })
-            .onStart(() => ({ done: true }));
+        const errorStoreStep = Step.create("storeErrorStep", () => ({ done: true }))
+            .idempotent("key-store-err", { store: throwingStore });
         try {
             await flow(errorStoreStep).execute();
             expect.fail("Should fail");

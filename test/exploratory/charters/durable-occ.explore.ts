@@ -35,11 +35,11 @@ export async function runDurableOccCharter(
         const correlationKey = `corr_${i}_${rng.string(6)}`;
         const stackId = `stack_${i}_${rng.string(6)}`;
 
-        const s1 = step('initStep').onStart(async (ctx: any) => ({ step1Done: true }));
+        const s1 = step('initStep', async (ctx: any) => ({ step1Done: true }));
         const waitStep = waitForEvent('user_approval', {
             correlationKey: (ctx: any) => correlationKey
         });
-        const s2 = step('postWaitStep').onStart(async (ctx: any) => ({
+        const s2 = step('postWaitStep', async (ctx: any) => ({
             approved: ctx.approved ?? false,
             completedAt: Date.now()
         }));

@@ -88,17 +88,7 @@ export class FlowAstGenerator {
             delayMs
         });
 
-        let s = step(name)
-            .onBefore(async () => {
-                execCtx.executedSteps.push(name);
-                execCtx.activeConcurrency++;
-                if (execCtx.activeConcurrency > execCtx.highWaterMark) {
-                    execCtx.highWaterMark = execCtx.activeConcurrency;
-                }
-                execCtx.events.push({ type: 'start', step: name, timestamp: Date.now() });
-                return true;
-            })
-            .onStart(async (ctx: any) => {
+        let s = step(name, async (ctx: any) => {
                 try {
                     if (delayMs > 0) {
                         await new Promise(r => setTimeout(r, delayMs));
@@ -115,6 +105,15 @@ export class FlowAstGenerator {
                 } finally {
                     execCtx.activeConcurrency = Math.max(0, execCtx.activeConcurrency - 1);
                 }
+            })
+            .onBefore(async () => {
+                execCtx.executedSteps.push(name);
+                execCtx.activeConcurrency++;
+                if (execCtx.activeConcurrency > execCtx.highWaterMark) {
+                    execCtx.highWaterMark = execCtx.activeConcurrency;
+                }
+                execCtx.events.push({ type: 'start', step: name, timestamp: Date.now() });
+                return true;
             });
 
         if (hasCompensation) {

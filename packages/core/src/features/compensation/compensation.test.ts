@@ -23,32 +23,26 @@ describe('Compensation and Sagas Unit Tests', () => {
         const compensationOrder: string[] = [];
 
         // Step 1: Reserve Inventory
-        const reserveStep = Step.create('reserveInventory')
-            
+        const reserveStep = Step.create('reserveInventory', ({ item }: any) => {
+                executionOrder.push('reserveInventory');
+                return { item, reserved: true };
+            })
             .compensate(async (output: any, input: any) => {
                 compensationOrder.push(`release:${output.item}`);
                 expect(input.item).to.equal('laptop');
-            })
-            .onStart(({ item }: any) => {
-                executionOrder.push('reserveInventory');
-                return { item, reserved: true };
             });
 
         // Step 2: Authorize Payment
-        const paymentStep = Step.create('authorizePayment')
-            
-            .compensate(async (output: any) => {
-                compensationOrder.push(`refund:${output.chargeId}`);
-            })
-            .onStart(() => {
+        const paymentStep = Step.create('authorizePayment', () => {
                 executionOrder.push('authorizePayment');
                 return { chargeId: 'ch_123', paid: true };
+            })
+            .compensate(async (output: any) => {
+                compensationOrder.push(`refund:${output.chargeId}`);
             });
 
         // Step 3: Ship Goods (Fails!)
-        const shipStep = Step.create('shipGoods')
-            
-            .onStart(() => {
+        const shipStep = Step.create('shipGoods', () => {
                 executionOrder.push('shipGoods');
                 throw new Error('Out of delivery slots');
             });
@@ -70,15 +64,13 @@ describe('Compensation and Sagas Unit Tests', () => {
     it('supports compensation retry policy when compensation handler transiently fails', async () => {
         let compAttempts = 0;
 
-        const flakyCompensationStep = Step.create('flakyService')
-            
+        const flakyCompensationStep = Step.create('flakyService', () => ({ data: 'ok' }))
             .compensate(async () => {
                 compAttempts++;
                 if (compAttempts < 2) throw new Error('Transient DB timeout');
-            }, { maxRetries: 2, delay: 10 })
-            .onStart(() => ({ data: 'ok' }));
+            }, { maxRetries: 2, delay: 10 });
 
-        const failingDownstream = Step.create('failStep').onStart(() => {
+        const failingDownstream = Step.create('failStep', () => {
             throw new Error('Downstream boom');
         });
 
@@ -92,14 +84,12 @@ describe('Compensation and Sagas Unit Tests', () => {
     });
 
     it('throws CompensationException when a compensation fails and exhausts retries', async () => {
-        const badCompStep = Step.create('stepWithFailingCompensation')
-            
+        const badCompStep = Step.create('stepWithFailingCompensation', () => ({ ready: true }))
             .compensate(() => {
                 throw new Error('Compensation network dropped');
-            })
-            .onStart(() => ({ ready: true }));
+            });
 
-        const failingStep = Step.create('failingStep').onStart(() => {
+        const failingStep = Step.create('failingStep', () => {
             throw new Error('Primary error');
         });
 
@@ -138,16 +128,14 @@ describe('Compensation and Sagas Unit Tests', () => {
 
     it('supports compensations defined as Step/Flow instances with execute method', async () => {
         let stepCompRan = false;
-        const compStep = Step.create('undo').onStart(() => {
+        const compStep = Step.create('undo', () => {
             stepCompRan = true;
         });
 
-        const mainStep = Step.create('main')
-            
-            .compensate(compStep)
-            .onStart(() => ({ val: 1 }));
+        const mainStep = Step.create('main', () => ({ val: 1 }))
+            .compensate(compStep);
 
-        const failStep = Step.create('fail').onStart(() => {
+        const failStep = Step.create('fail', () => {
             throw new Error('Error');
         });
 

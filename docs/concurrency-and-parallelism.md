@@ -71,8 +71,8 @@ const approvalWorkflow = flow(
   calculateRisk,
   when(
     (ctx) => ctx.riskScore > 80,
-    Step.create('manualReview').onStart(reviewApplication),
-    Step.create('autoApprove').onStart(instantApproval)
+    Step.create('manualReview', reviewApplication),
+    Step.create('autoApprove', instantApproval)
   )
 );
 ```

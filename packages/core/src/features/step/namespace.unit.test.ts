@@ -61,18 +61,18 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
         // Execute for ns_a with subtotal 100
         const outA1 = await taxFlow.run({subtotal: 100}, {namespace: 'ns_a'});
         expect(executionCount).to.equal(1);
-        expect(outA1.tax?.val ?? outA1.tax).to.equal(10);
+        expect(outA1.tax ?? outA1.tax).to.equal(10);
         expect(outA1.calculatedFor?.val ?? outA1.calculatedFor).to.equal('ns_a');
 
         // Execute for ns_a again with same subtotal -> hits cache!
         const outA2 = await taxFlow.run({subtotal: 100}, {namespace: 'ns_a'});
         expect(executionCount).to.equal(1);
-        expect(outA2.tax?.val ?? outA2.tax).to.equal(10);
+        expect(outA2.tax ?? outA2.tax).to.equal(10);
 
         // Execute for ns_b with identical subtotal 100 -> MUST NOT hit ns_a's cache!
         const outB1 = await taxFlow.run({subtotal: 100}, {namespace: 'ns_b'});
         expect(executionCount).to.equal(2);
-        expect(outB1.tax?.val ?? outB1.tax).to.equal(10);
+        expect(outB1.tax ?? outB1.tax).to.equal(10);
         expect(outB1.calculatedFor?.val ?? outB1.calculatedFor).to.equal('ns_b');
     });
 

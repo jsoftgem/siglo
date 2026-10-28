@@ -12,33 +12,27 @@ Compensations are attached directly to steps that produce external side effects:
 import { Step, flow } from 'rivulet';
 
 // Step 1: Reserve Inventory (with compensation)
-const reserveInventory = Step.create('reserveInventory')
-  
+const reserveInventory = Step.create('reserveInventory', async ({ item, quantity }) => {
+  const reservation = await inventoryService.reserve(item, quantity);
+  return { reservationId: reservation.id };
+})
   .compensate(async (output, input) => {
     await inventoryService.releaseReservation(output.reservationId);
-  })
-  .onStart(async ({ item, quantity }) => {
-    const reservation = await inventoryService.reserve(item, quantity);
-    return { reservationId: reservation.id };
   });
 
 // Step 2: Authorize Payment (with compensation)
-const authorizePayment = Step.create('authorizePayment')
-  
+const authorizePayment = Step.create('authorizePayment', async ({ amount }) => {
+  const charge = await paymentGateway.charge(amount);
+  return { chargeId: charge.id };
+})
   .compensate(async (output) => {
     await paymentGateway.refund(output.chargeId);
-  })
-  .onStart(async ({ amount }) => {
-    const charge = await paymentGateway.charge(amount);
-    return { chargeId: charge.id };
   });
 
 // Step 3: Dispatch Delivery (Fails!)
-const dispatchDelivery = Step.create('dispatchDelivery')
-  
-  .onStart(async () => {
-    throw new Error('No courier available');
-  });
+const dispatchDelivery = Step.create('dispatchDelivery', async () => {
+  throw new Error('No courier available');
+});
 
 const orderSaga = flow(reserveInventory, authorizePayment, dispatchDelivery);
 
