@@ -41,7 +41,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 9. 🧪 [09. Testing and Replay](docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@rivulet/testing`), fake clocks, step spies, mocks, and failure replay.
 10. 🏷️ [10. TypeScript Reference](docs/10-typescript-reference.md) &mdash; End-to-end accumulated context inference, typed step history (`$steps`), and Standard Schema integration.
 11. 🔄 [11. Migration and Compatibility](docs/11-migration-and-compatibility.md) &mdash; Upgrading from 0.x (`Chain`, `pipe`) to 1.0 (`Step`, `flow`), backwards compatibility, and modern POJO mode.
-12. 🏭 [12. Production Operations](docs/12-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
+12. 🏭 [12. Production Operations](docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
 
 ### Architectural Contracts & Adapter Guides
 - 🔌 [Ecosystem Adapters Overview](docs/ecosystem-adapters.md) &mdash; Master guide for all official adapters and CLI tooling.
@@ -70,10 +70,10 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - ⏪ **Sagas & LIFO Compensations** &mdash; Attach rollback handlers (`step.compensate(handler)`) that run automatically in reverse execution order upon failure.
 - ⏳ **Durable Waits & Event Resumption** &mdash; Pause execution with `waitForEvent(eventName)` or `wait('30m')`, persist suspended checkpoints, and safely resume workflows.
 - 🏷️ **Workflow Versioning & State Migrations** &mdash; Declare workflow versions (`flow.version('v2')`), detect version mismatches upon resumption, and run registered state transformation functions.
-- ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) and workflow-level deadlines (`flow.timeout(ms)`).\
-- 🔁 **Structured Retry Strategies** &mdash; Automatic retries with exponential, linear, or fixed backoff, jitter, and `onRetry` hooks right in `onFail`.\
-- 📦 **Standard Schema Integration (`spec` / `schema`)** &mdash; Native Standard Schema, Zod, Valibot, and ArkType contract enforcement.\
-- 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.\
+- ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) and workflow-level deadlines (`flow.timeout(ms)`).
+- 🔁 **Structured Retry Strategies** &mdash; Automatic retries with exponential, linear, or fixed backoff, jitter, and `onRetry` hooks right in `onFail`.
+- 📦 **Standard Schema Integration (`spec` / `schema`)** &mdash; Native Standard Schema, Zod, Valibot, and ArkType contract enforcement.
+- 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.
 - 🔌 **Ecosystem Integration Packages** &mdash; Ready-to-use adapters for PostgreSQL, Redis, BullMQ, Kafka, SQS, OpenTelemetry, Express, Fastify, Hono, and CLI developer tooling.
 
 ---
@@ -271,8 +271,7 @@ import { Step, flow, when, branch } from 'rivulet';
 
 // Conditional If-Then-Else
 const discountFlow = flow(
-    when((ctx) => ctx.isVIP === true, applyVIPDiscount)
-        .otherwise(applyStandardDiscount)
+    when((ctx) => ctx.isVIP === true, applyVIPDiscount, applyStandardDiscount)
 );
 
 // Multi-path selector routing
@@ -340,47 +339,154 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 
 ## API Reference Summary
 
-### Orchestration & Combinators
+> 📘 **Comprehensive Reference Pages**: For complete TypeScript signatures, option tables, and in-depth code examples, consult each dedicated reference guide:
+> - ⛓️ [Orchestration & Combinators](docs/api/orchestration-and-combinators.md)
+> - 🌊 [Flow Instance Methods (`Flow`)](docs/api/flow.md)
+> - 🧱 [Step Methods (`Step`)](docs/api/step.md)
+> - ⚙️ [Execution Options (`ExecutionOptions`)](docs/api/execution-options.md)
+> - 💾 [Storage & Persistence Utilities](docs/api/storage-and-persistence.md)
+> - 🚨 [Error Hierarchy & Exceptions (`RivuletError`)](docs/api/error-hierarchy.md)
+> - 🧪 [Deterministic Testing (`@rivulet/testing`)](docs/api/testing.md)
+
+### ⛓️ [Orchestration & Combinators](docs/api/orchestration-and-combinators.md)
 
 | Function / Helper | Description |
 |---|---|
-| `flow<TIn, TOut>(...steps)` | Primary workflow orchestrator with accumulated context inference. |
+| `flow<TIn, TOut>(...steps)` | Primary workflow orchestrator with accumulated context inference and typed step history (`$steps`). |
 | `parallel(steps, options?)` | Runs branches concurrently, failing fast on error and isolating branch contexts. |
-| `all(steps, options?)` | Alias for `parallel`. Runs an array or list of branches concurrently. |
-| `allSettled(steps, options?)` | Runs branches concurrently and collects all outcomes without failing fast. |
-| `race(steps, options?)` | Settles as soon as the first branch completes; cancels losing branches. |
-| `when(predicate, thenStep)` | Conditional execution combinator supporting `.otherwise(elseStep)`. |
-| `branch({ selector, branches, defaultBranch? })` | Multi-path dynamic branch router based on selector result. |
-| `map(items, step, options?)` | Maps a collection through a step with bounded concurrency. |
-| `waitForEvent(eventName, options)` | Suspends workflow until external event arrives or timeout expires. |
-| `wait(duration)` | Pauses workflow execution for a duration string (`'10m'`, `'1h'`) or milliseconds. |
-| `resumeWorkflow(flow, key, payload?, options?)` | Restores and resumes a suspended workflow from storage. |
+| `all(steps, options?)` | Alias for `parallel` (`mode: 'fail-fast'`). Runs branches concurrently. |
+| `allSettled(steps, options?)` | Runs branches concurrently and collects all outcomes without failing fast (`$settled`, `$branches`). |
+| `race(steps, options?)` | Settles as soon as the first branch completes; cancels losing branches via `AbortSignal`. |
+| `when(predicate, thenStep, elseStep?)` | Conditional branch combinator running `thenStep` when predicate returns true, or optional `elseStep`. |
+| `branch({ selector, branches, defaultBranch? })` | Dynamic multi-path router selecting a branch based on selector function or context key. |
+| `map(items, step, options?)` | Maps a collection through a step or subflow with bounded concurrency and optional error aggregation. |
+| `waitForEvent(eventName, options)` | Suspends workflow execution until an external event arrives or timeout expires. |
+| `wait(duration)` | Pauses workflow execution for a duration string (`'10m'`, `'1h'`, `'2d'`) or milliseconds. |
+| `resumeWorkflow(flow, key, payload?, options?)` | Restores and resumes a suspended workflow from storage by correlation key or stack ID. |
 | `toGraph(item)` | Compiles any step, flow, or combinator into a JSON-serializable `WorkflowNode` AST. |
 | `inspectGraph(item)` | Analyzes workflow AST and returns topographical metrics (node count, depth, edges). |
-| `validateGraph(node)` | Validates graph structure, checking for cycles and reachability. |
+| `validateGraph(node)` | Validates graph structure, checking for cycles and reachability (returns `GraphValidationResult`). |
+| `assertValidGraph(node)` | Validates graph structure, throwing `GraphValidationException` if validation fails. |
 | `toMermaid(item, options?)` | Renders a workflow or node as a Mermaid flowchart diagram with badges. |
 | `toDot(item, options?)` | Renders a workflow or node as a Graphviz DOT diagram. |
 | `toJSON(item)` | Serializes a workflow AST to a clean JSON string. |
+| `toPOJO(context)` | Converts internal tracked execution context into a clean, plain JavaScript object. |
+| `isFlow(item)` | Type guard checking whether an object conforms to the `Flow` interface. |
 
-### Step Methods
+### 🌊 [Flow Instance Methods (`Flow`)](docs/api/flow.md)
+
+| Method / Property | Description |
+|---|---|
+| `flow.run(param?, options?)` | Executes the workflow with input parameters and runtime options, returning final accumulated context. |
+| `flow.execute(param?, options?)` | Alias for `flow.run()`. |
+| `flow.start(param?, options?)` | Alias for `flow.run()`. |
+| `flow.timeout(ms)` | Configures workflow-level SLA deadline; throws `FlowTimeoutException` if overall duration exceeds `ms`. |
+| `flow.version(version)` | Declares workflow schema version (e.g. `'v2'`) for durable state validation and schema migrations. |
+| `flow.resume(key, payload?, options?)` | Resumes a suspended instance of this flow by correlation key or stack ID. |
+| `flow.compensate(stackId, options?)` | Manually triggers saga compensation rollbacks in reverse execution order for a given stack. |
+| `flow.toGraph()` | Compiles the workflow into a `WorkflowNode` AST. |
+| `flow.inspect()` | Analyzes workflow topology and returns graph metrics (`GraphInspectionResult`). |
+| `flow.toMermaid(options?)` | Exports workflow graph as a Mermaid flowchart diagram string. |
+| `flow.toDot(options?)` | Exports workflow graph as a Graphviz DOT diagram string. |
+| `flow.toJSON()` | Serializes workflow AST to a formatted JSON string. |
+| `flow.steps` | Returns the flattened array of underlying `Step` execution units. |
+
+### 🧱 [Step Methods (`Step`)](docs/api/step.md)
 
 | Method | Description |
 |---|---|
-| `Step.create<TIn, TOut, TName>(name?, action)` | Instantiates a new typed `Step` execution unit. |
-| `step.withDependencies(deps)` | Attaches explicit runtime dependencies to the step. |
-| `step.requireDependency(key)` | Retrieves a required dependency or throws a clear error. |
-| `step.compensate(handler, options?)` | Registers a compensation rollback handler to run if downstream steps fail. |
-| `step.idempotent(keyOrFn?, options?)` | Attaches idempotency deduplication and claim locking. |
-| `step.timeout(ms)` | Sets per-step SLA deadline (throws `StepTimeoutException`). |
-| `step.onFail(config \| callback)` | Configures retry policies (`RetryConfig`) or error handler. |
-| `step.cache(ms \| options)` | Caches step results with namespace-aware partition keys. |
+| `Step.create<TIn, TOut, TName>(name?, action)` | Instantiates a new typed `Step` execution unit with input/output contracts. |
+| `step.withDependencies(deps)` | Attaches explicit runtime dependencies/services to the step. |
+| `step.requireDependency<T>(key)` | Retrieves a required injected dependency or throws a descriptive error if missing. |
+| `step.compensate(handler, options?)` | Registers a compensation rollback handler to execute in reverse order if downstream steps fail. |
+| `step.idempotent(keyOrFn?, options?)` | Attaches idempotency deduplication and claim locking with TTL. |
+| `step.timeout(ms)` | Sets per-step SLA deadline (throws `StepTimeoutException` on breach). |
+| `step.onFail(config \| callback)` | Configures structured retry policies (`RetryConfig` with backoff/jitter) or error fallback handler. |
+| `step.cache(ms \| options)` | Caches step results with namespace-aware partition keys and configurable TTL. |
 | `step.spec(field, options)` | Declares parameter validation, default values, transforms, and translations. |
-| `step.schema(schema)` | Validates context against Standard Schema, Zod, or Valibot. |
-| `step.onBefore(hook)` | Pre-execution guard hook; returning `false` skips the step. |
+| `step.schema(schema)` | Validates context against Standard Schema (`~standard`), Zod, Valibot, or ArkType contracts. |
+| `step.strict()` | Enforces strict parameter contract validation; rejects extra undeclared keys. |
+| `step.onBefore(hook)` | Pre-execution guard hook; returning `false` skips step execution. |
 | `step.onSkip(hook)` | Fallback hook executed when `onBefore` skips the step. |
-| `step.onAfter(hook)` | Post-execution hook enriching the output context. |
-| `step.toMermaid()` / `step.toDot()` / `step.toJSON()` | Exports visualization diagrams and AST. |
-| `step.execute(param?, options?)` / `step.run()` | Executes step returning a Promise. |
+| `step.onAfter(hook)` | Post-execution hook enriching or transforming the output context. |
+| `step.reduce(field)` | Assigns step output into a single targeted context property instead of shallow merge. |
+| `step.run(param?, options?)` | Executes step directly returning a Promise resolving to step output. |
+| `step.execute(param?, options?)` | Alias for `step.run()`. |
+| `step.toGraph()` / `step.inspect()` | Compiles and inspects the step's AST representation. |
+| `step.toMermaid()` / `step.toDot()` / `step.toJSON()` | Exports step diagram and AST. |
+
+### ⚙️ [Execution Options (`ExecutionOptions`)](docs/api/execution-options.md)
+
+| Option | Type | Description |
+|---|---|---|
+| `pojo` | `boolean` | When `true`, strips internal proxy wrappers and returns clean plain JavaScript objects (default in v1.0). |
+| `mode` | `'pojo' \| 'wrapped'` | Specifies return mode (`'pojo'` recommended for modern workflows). |
+| `signal` | `AbortSignal` | Cooperative cancellation signal that aborts in-flight async steps and retry delay timers. |
+| `timeout` / `timeoutMs` | `number` | Workflow-level SLA deadline in milliseconds. |
+| `services` / `dependencies` | `Record<string, any>` | Dependency injection container accessible inside steps via `param.$services`. |
+| `durable` | `boolean` | Enables durable execution state tracking and checkpoint persistence upon wait/suspend. |
+| `workflowVersion` | `string \| number` | Declared workflow version for schema migration verification upon checkpoint resumption. |
+| `workflowId` | `string` | Custom workflow identifier attached to telemetry, logs, and checkpoints. |
+| `namespace` | `string` | Multi-tenant partition namespace isolating checkpoints, caches, and idempotency keys. |
+| `idempotencyKey` | `string \| ((ctx) => string)` | Workflow-level idempotency deduplication key or generator function. |
+| `idempotencyStore` | `IdempotencyStore` | Custom idempotency store adapter (e.g. `PostgresIdempotencyStore`, `RedisIdempotencyStore`). |
+| `idempotencyTtlMs` | `number` | Retention TTL for idempotency records in milliseconds (default: 24h). |
+| `migrations` | `Record<string, (state) => any>` | State transformation functions keyed by target version for upgrading suspended checkpoints. |
+
+### 💾 [Storage & Persistence Utilities](docs/api/storage-and-persistence.md)
+
+| Function / Helper | Description |
+|---|---|
+| `useStorage(adapter)` | Registers the global default persistence storage adapter (`StorageAdapter`). |
+| `getStorageAdapter()` | Returns the currently configured storage adapter, or `undefined` if using in-memory default. |
+| `setErrorMode(mode)` | Configures storage failure tolerance (`'best-effort'`, `'warn'`, or `'strict'`). |
+| `getErrorMode()` | Retrieves the current storage error handling mode. |
+| `checkpoint(stackId, options?)` | Creates an optimistic concurrency checkpoint snapshot (schema v2.0.0). |
+| `restoreCheckpoint(data, options?)` | Restores an execution stack and context from serialized checkpoint data. |
+| `getCheckpoint(stackId)` | Retrieves the stored checkpoint snapshot for a given execution stack ID. |
+| `cleanExpiredCheckpoints()` | Prunes expired checkpoints from in-memory and persistent storage based on TTL. |
+| `serializeState(stackId?)` | Serializes complete storage state or a specific stack into a portable JSON string. |
+| `hydrateState(serialized, options?)` | Hydrates a serialized state string into the active storage manager. |
+
+### 🚨 [Error Hierarchy & Exceptions (`RivuletError`)](docs/api/error-hierarchy.md)
+
+| Exception | Phase | Description |
+|---|---|---|
+| `RivuletError` | &mdash; | Base error class with `stepName`, `phase`, `retryable`, `stackId`, `namespace`, `cause`, and `stateSnapshot`. |
+| `StepTimeoutException` | `action` | Thrown when a step exceeds its configured `step.timeout(ms)` SLA deadline. |
+| `FlowTimeoutException` | `action` | Thrown when workflow total execution duration exceeds `flow.timeout(ms)`. |
+| `CancellationException` | &mdash; | Thrown when execution is aborted via an `AbortSignal`. |
+| `ValidationException` | `validation` | Thrown when input parameters fail `step.spec()` or `step.schema()` validation contracts. |
+| `CompensationException` | `action` | Thrown when downstream steps fail and saga compensation rollbacks are triggered (or rollback fails). |
+| `IdempotencyConflictException` | `action` | Thrown when an in-progress idempotency key is concurrently claimed by another execution. |
+| `WorkflowSuspendedException` | `action` | Thrown internally when a workflow pauses at `waitForEvent` or `wait` and suspends to storage. |
+| `WorkflowVersionMismatchException` | `checkpoint` | Thrown when restoring a checkpoint whose version differs from workflow definition and no migration was provided. |
+| `DuplicateEventException` | `action` | Thrown when an event is received for a workflow that is not waiting or has already been resumed. |
+| `ExpiredWaitException` | `action` | Thrown when a suspended workflow wait duration or `waitForEvent` timeout window has expired. |
+| `StorageAdapterException` | `checkpoint` | Thrown in strict mode when a storage adapter operation (`saveCheckpoint`, `getCheckpoint`, etc.) fails. |
+| `CheckpointConflictException` | `checkpoint` | Thrown when optimistic concurrency control detects a revision conflict during checkpoint save. |
+| `NamespaceMismatchException` | `checkpoint` | Thrown when restoring a checkpoint into a mismatched namespace. |
+| `FieldCollisionException` | `action` | Thrown under `mergeStrategy: 'error'` when concurrent parallel branches write conflicting values to the same key. |
+| `GraphValidationException` | `validation` | Thrown when static graph validation detects cycles or unreachable nodes. |
+| `normalizeError(error, meta?)` | &mdash; | Normalizes any thrown error or primitive into a standard typed `RivuletError`. |
+
+### 🧪 [Deterministic Testing (`@rivulet/testing`)](docs/api/testing.md)
+
+| Function / Class | Description |
+|---|---|
+| `createWorkflowHarness(flow, options?)` | Factory creating an isolated `WorkflowHarness` with virtual clocks, storage, and spies. |
+| `harness.run(input?, options?)` | Executes workflow through test harness, recording step traces and timing. |
+| `harness.execute(input?, options?)` | Alias for `harness.run()`. |
+| `harness.mockStep(stepName, mockImpl)` | Overrides a specific step's action with a deterministic mock implementation. |
+| `harness.spyStep(stepName)` | Attaches a `StepSpy` tracking invocation count, inputs, outputs, errors, and timestamps. |
+| `harness.injectEvent(name, key, payload?)` | Injects an external event to resume a durable waiting workflow in test scenarios. |
+| `harness.assertStepExecuted(name, times?)` | Asserts that a step was executed an exact number of times (or at least once). |
+| `harness.assertStepRetried(name, minAttempts?)` | Asserts that a step failed and retried at least `minAttempts` times. |
+| `harness.assertStepFailed(name, errorPattern?)` | Asserts that a step failed, optionally matching against an error string or regex. |
+| `harness.exportExecutionRecord(options?)` | Exports a sanitized execution record fixture with sensitive credentials redacted. |
+| `replayExecution(record, flow, options?)` | Replays a recorded test fixture against a workflow to verify output parity and detect regressions. |
+| `FakeClock` | Deterministic virtual clock providing `.advanceTime(ms)`, `.tick(ms)`, and `.now()`. |
+| `InMemoryStorageFake` | In-memory storage adapter tracking context changes and checkpoints for zero-dependency testing. |
 
 ---
 

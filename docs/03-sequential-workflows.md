@@ -20,11 +20,6 @@ export const parseInvoice = Step.create('parseInvoice', async (param: { rawText:
 });
 ```
 
-### The `` Modifier
-Invoking `` on a step enables clean POJO parameters, destructuring, and disables legacy getter-closure wrappers.
-
----
-
 ## 2. Composing Sequences with `flow()`
 
 Compose multiple steps into a sequential pipeline using `flow(...steps)`:

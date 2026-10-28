@@ -41,7 +41,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 9. 🧪 [09. Testing and Replay](../../docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@rivulet/testing`), fake clocks, step spies, mocks, and failure replay.
 10. 🏷️ [10. TypeScript Reference](../../docs/10-typescript-reference.md) &mdash; End-to-end accumulated context inference, typed step history (`$steps`), and Standard Schema integration.
 11. 🔄 [11. Migration and Compatibility](../../docs/11-migration-and-compatibility.md) &mdash; Upgrading from 0.x (`Chain`, `pipe`) to 1.0 (`Step`, `flow`), backwards compatibility, and modern POJO mode.
-12. 🏭 [12. Production Operations](../../docs/12-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
+12. 🏭 [12. Production Operations](../../docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
 
 ---
 
