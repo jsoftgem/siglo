@@ -8,34 +8,28 @@
 
 When workflows coordinate mission-critical financial, compliance, or enterprise transactions, state persistence must survive node failures and network partitions:
 
-```
-                          ┌───────────────────────────┐
-                          │    Siglo Engine      │
-                          └─────────────┬─────────────┘
-                                        │
-             ┌──────────────────────────┴──────────────────────────┐
-             │                                                     │
-             ▼                                                     ▼
-┌─────────────────────────┐                               ┌─────────────────────────┐
-│ PostgresStorageAdapter  │                               │ PostgresIdempotencyStore│
-│ • saveCheckpoint()      │                               │ • claim()               │
-│ • getCheckpoint()       │                               │ • complete()            │
-│ • onContextChange()     │                               │ • fail()                │
-│ • cleanupOldCheckpoints │                               │ • cleanupExpired()      │
-└────────────┬────────────┘                               └────────────┬────────────┘
-             │                                                         │
-             ▼                                                         ▼
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                               PostgreSQL Database                                 │
-│                                                                                   │
-│  siglo_checkpoints          siglo_context_events        siglo_idempotency         │
-│  ┌──────────────────────┐   ┌───────────────────────┐   ┌───────────────────────┐ │
-│  │ stack_id (PK)        │   │ id (BIGSERIAL PK)     │   │ key (VARCHAR(512) PK) │ │
-│  │ namespace            │   │ stack_id              │   │ status                │ │
-│  │ state (JSONB)        │   │ step_id               │   │ result (JSONB)        │ │
-│  │ created_at / updated │   │ field, value (JSONB)  │   │ expires_at, created_at│ │
-│  └──────────────────────┘   └───────────────────────┘   └───────────────────────┘ │
-└───────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Engine["Siglo Engine"]
+
+    subgraph Adapters["@siglo/postgres"]
+        direction LR
+        SA["PostgresStorageAdapter<br/>• saveCheckpoint()<br/>• getCheckpoint()<br/>• onContextChange()<br/>• cleanupOldCheckpoints()"]
+        IS["PostgresIdempotencyStore<br/>• claim()<br/>• complete()<br/>• fail()<br/>• cleanupExpired()"]
+    end
+
+    subgraph DB["PostgreSQL Database"]
+        direction LR
+        T1["siglo_checkpoints<br/>• stack_id (PK)<br/>• namespace<br/>• state (JSONB)<br/>• created_at / updated"]
+        T2["siglo_context_events<br/>• id (BIGSERIAL PK)<br/>• stack_id, step_id<br/>• namespace, field<br/>• value (JSONB), created_at"]
+        T3["siglo_idempotency<br/>• key (VARCHAR(512) PK)<br/>• status, result (JSONB)<br/>• expires_at, created_at"]
+    end
+
+    Engine --> SA
+    Engine --> IS
+    SA --> T1
+    SA --> T2
+    IS --> T3
 ```
 
 ---

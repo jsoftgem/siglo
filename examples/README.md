@@ -23,21 +23,19 @@ This workspace provides runnable examples demonstrating [`Siglo`](https://github
 
 ## Architecture Overview
 
-```
-                      ┌─────────────────────────────────────────┐
-                      │               Siglo                │
-                      │        Distributed Step Pipelines       │
-                      └─────────────────────┬───────────────────┘
-                                            │
-                        Storage Hooks (Plugins Interface)
-                                            │
-         ┌───────────────────┬──────────────┴──────┬───────────────────┐
-         ▼                   ▼                     ▼                   ▼
-   ┌───────────┐       ┌───────────┐         ┌───────────┐       ┌───────────┐
-   │   Redis   │       │ Postgres  │         │  MongoDB  │       │  Jaeger   │
-   │  (Cache & │       │ (Durable  │         │ (Audit &  │       │ (Open-    │
-   │   Locks)  │       │ Ledgers)  │         │ Analytics)│       │ Telemetry)│
-   └───────────┘       └───────────┘         └───────────┘       └───────────┘
+```mermaid
+flowchart TD
+    Core["Siglo<br/>Distributed Step Pipelines"]
+    
+    subgraph StorageHooks["Storage Hooks (Plugins Interface)"]
+        direction LR
+        Redis["Redis<br/>(Cache & Locks)"]
+        Postgres["Postgres<br/>(Durable Ledgers)"]
+        MongoDB["MongoDB<br/>(Audit & Analytics)"]
+        Jaeger["Jaeger<br/>(OpenTelemetry)"]
+    end
+
+    Core --> StorageHooks
 ```
 
 1. **Redis**: Acts as a fast distributed cache (`@siglo/redis`), checkpoints, scoped idempotency keys, and distributed locks (`RedisLock`).

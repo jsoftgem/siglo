@@ -35,8 +35,12 @@ console.log('Total Nodes:', inspection.totalNodes);
 
 When steps execute sequentially, return values are merged into an **Accumulated Context**. Each subsequent step receives the combined outputs of all prior steps.
 
-```
-Input { userId } ──> [ fetchUser ] ──> { userId, user } ──> [ fetchBilling ] ──> { userId, user, balance }
+```mermaid
+flowchart LR
+    In["Input: { userId }"] --> S1["fetchUser"]
+    S1 --> O1["{ userId, user }"]
+    O1 --> S2["fetchBilling"]
+    S2 --> O2["{ userId, user, balance }"]
 ```
 
 TypeScript automatically computes the union type of this accumulated state at compile time:
@@ -57,26 +61,18 @@ const result = await wf.run({ id: '123' });
 
 Each step goes through a strict 5-phase lifecycle:
 
-```
-  ┌─────────────────┐
-  │ 1. VALIDATION   │  --> Validates input specs and schemas
-  └────────┬────────┘
-           ▼
-  ┌─────────────────┐
-  │ 2. BEFORE HOOK  │  --> Executes onBefore gate and plugin filters
-  └────────┬────────┘
-           ▼
-  ┌─────────────────┐
-  │ 3. ACTION       │  --> Executes idempotent business logic & external calls
-  └────────┬────────┘
-           ▼
-  ┌─────────────────┐
-  │ 4. AFTER HOOK   │  --> Executes onAfter transformers and context mutations
-  └────────┬────────┘
-           ▼ (on exception)
-  ┌─────────────────┐
-  │ 5. ONFAIL HOOK  │  --> Handles retry backoff, fallback, or error escalation
-  └─────────────────┘
+```mermaid
+flowchart TD
+    P1["1. VALIDATION<br/>(Validates input specs and schemas)"]
+    P2["2. BEFORE HOOK<br/>(Executes onBefore gate and plugin filters)"]
+    P3["3. ACTION<br/>(Executes idempotent business logic & external calls)"]
+    P4["4. AFTER HOOK<br/>(Executes onAfter transformers and context mutations)"]
+    P5["5. ONFAIL HOOK<br/>(Handles retry backoff, fallback, or error escalation)"]
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P3 -.->|on exception| P5
 ```
 
 ---

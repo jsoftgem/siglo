@@ -10,47 +10,16 @@ When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQS
 
 `@siglo/sqs` solves this using AWS SQS Partial Batch Responses:
 
-```
-                  ┌───────────────────────────────┐
-                  │           AWS SQS             │
-                  └───────────────┬───────────────┘
-                                  │ Batch of N records
-                                  ▼
-                  ┌───────────────────────────────┐
-                  │       AWS Lambda Trigger      │
-                  └───────────────┬───────────────┘
-                                  │
-                                  ▼
-                  ┌───────────────────────────────┐
-                  │    createSqsBatchHandler      │
-                  │  • Iterates event.Records     │
-                  │  • Checks IdempotencyStore    │
-                  │  • Parses JSON Record Body    │
-                  │  • Executes Siglo        │
-                  └───────────────┬───────────────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    ▼                           ▼
-            (Success Message)           (Failed Message)
-                    │                           │
-                    ▼                           ▼
-         ┌──────────────────────┐    ┌──────────────────────┐
-         │ • Complete Idemp Key │    │ • Fail Idemp Key     │
-         │ • Increment Count    │    │ • Append to          │
-         │                      │    │   batchItemFailures  │
-         └──────────────────────┘    └──────────────────────┘
-                                  │
-                                  ▼
-                  ┌───────────────────────────────┐
-                  │      Return Batch Result      │
-                  │  { batchItemFailures: [...] } │
-                  └───────────────────────────────┘
-                                  │
-                                  ▼
-                  ┌───────────────────────────────┐
-                  │ SQS deletes succeeded records │
-                  │ SQS retries only failed items │
-                  └───────────────────────────────┘
+```mermaid
+flowchart TD
+    SQS["AWS SQS"] -->|Batch of N records| Lambda["AWS Lambda Trigger"]
+    Lambda --> Handler["createSqsBatchHandler<br/>• Iterates event.Records<br/>• Checks IdempotencyStore<br/>• Parses JSON Record Body<br/>• Executes Siglo"]
+    Handler --> Split{Record Result}
+    Split -->|Success Message| SSuccess["• Complete Idemp Key<br/>• Increment Count"]
+    Split -->|Failed Message| SFail["• Fail Idemp Key<br/>• Append to batchItemFailures"]
+    SSuccess --> BatchRes["Return Batch Result<br/>{ batchItemFailures: [...] }"]
+    SFail --> BatchRes
+    BatchRes --> Final["SQS deletes succeeded records<br/>SQS retries only failed items"]
 ```
 
 ---

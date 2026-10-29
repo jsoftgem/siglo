@@ -8,34 +8,12 @@
 
 Fastify is designed for minimal overhead. The `@siglo/fastify` handler adapter integrates as a standard Fastify route handler:
 
-```
-    Fastify HTTP Request
-             │
-             ▼
-    ┌─────────────────────────────────┐
-    │       sigloFastifyHandler       │
-    │  • Extract request.body / query │
-    │  • Extract request.raw.signal   │ (Native AbortSignal)
-    │  • Mirror X-Correlation-Id      │
-    │  • Resolve Tenant Namespace     │
-    └────────────────┬────────────────┘
-                     │
-                     ▼
-    ┌─────────────────────────────────┐
-    │       Siglo Workflow       │
-    │  • Typed Input Parameters       │
-    │  • Timeout Deadlines            │
-    │  • Subgraph Step Execution      │
-    └────────────────┬────────────────┘
-                     │
-           ┌─────────┴─────────┐
-       (Success)            (Error)
-           │                   │
-           ▼                   ▼
-    ┌──────────────┐   ┌───────────────────────────┐
-    │ Set Stack ID │   │ getErrorStatusCode(err)   │
-    │ Return JSON  │   │ reply.status(code).send() │
-    └──────────────┘   └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["Fastify HTTP Request"] --> Handler["sigloFastifyHandler<br/>• Extract request.body / query<br/>• Extract request.raw.signal (Native AbortSignal)<br/>• Mirror X-Correlation-Id<br/>• Resolve Tenant Namespace"]
+    Handler --> WF["Siglo Workflow<br/>• Typed Input Parameters<br/>• Timeout Deadlines<br/>• Subgraph Step Execution"]
+    WF -->|Success| Success["Set Stack ID<br/>Return JSON"]
+    WF -->|Error| Error["getErrorStatusCode(err)<br/>reply.status(code).send()"]
 ```
 
 ---

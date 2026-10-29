@@ -27,36 +27,40 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 
 ## Architecture Overview
 
-```
-                                      TRIGGER / INGRESS LAYER
-           ┌───────────────────────────────┬───────────────────────────────┐
-           │         HTTP Routers          │        Message Queues         │
-           │  @siglo/hono             │  @siglo/bullmq           │
-           │  @siglo/fastify          │  @siglo/kafka            │
-           │  @siglo/express          │  @siglo/sqs              │
-           └───────────────┬───────────────┴───────────────┬───────────────┘
-                           │                               │
-                           ▼                               ▼
-           ┌───────────────────────────────────────────────────────────────┐
-           │                          Siglo                           │
-           │                     (Core Workflow Engine)                    │
-           │  • Composable Steps & Flows    • Concurrency & Combinators    │
-           │  • Two-Tier Timeouts           • Saga LIFO Compensations      │
-           │  • Cooperative Cancellation    • Graph AST & Introspection    │
-           └───────────────┬───────────────────────────────┬───────────────┘
-                           │                               │
-                           ▼                               ▼
-           ┌───────────────────────────────┐ ┌─────────────────────────────┐
-           │         Observability         │ │    Distributed Storage      │
-           │   @siglo/opentelemetry   │ │   @siglo/redis         │
-           │   • Workflow & Step Spans     │ │   • Distributed Checkpoints │
-           │   • Retry & Error Tracking    │ │   • Step Cache & Hash Stream│
-           │   • W3C Trace Context         │ │   • RedisLock Single-Flight │
-           │   • PII Sanitization          │ │   @siglo/postgres      │
-           │                               │ │   • ACID Checkpoint Storage │
-           │   DEVELOPER TOOLS             │ │   • Context Event Audit Log │
-           │   @siglo/cli             │ │   • Automated Data Retention│
-           └───────────────────────────────┘ └─────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph INGRESS["TRIGGER / INGRESS LAYER"]
+        direction LR
+        subgraph HTTP["HTTP Routers"]
+            Hono["@siglo/hono"]
+            Fastify["@siglo/fastify"]
+            Express["@siglo/express"]
+        end
+        subgraph QUEUES["Message Queues"]
+            BullMQ["@siglo/bullmq"]
+            Kafka["@siglo/kafka"]
+            SQS["@siglo/sqs"]
+        end
+    end
+
+    subgraph ENGINE["Siglo (Core Workflow Engine)"]
+        Core["• Composable Steps & Flows<br/>• Concurrency & Combinators<br/>• Two-Tier Timeouts<br/>• Saga LIFO Compensations<br/>• Cooperative Cancellation<br/>• Graph AST & Introspection"]
+    end
+
+    subgraph OBS["Observability & Developer Tools"]
+        OTel["@siglo/opentelemetry<br/>• Workflow & Step Spans<br/>• Retry & Error Tracking<br/>• W3C Trace Context<br/>• PII Sanitization"]
+        CLI["@siglo/cli<br/>• Scaffolding & Validation<br/>• AST Visualizer & Replay"]
+    end
+
+    subgraph STORAGE["Distributed Storage"]
+        Redis["@siglo/redis<br/>• Distributed Checkpoints<br/>• Step Cache & Hash Stream<br/>• RedisLock Single-Flight"]
+        Postgres["@siglo/postgres<br/>• ACID Checkpoint Storage<br/>• Context Event Audit Log<br/>• Automated Data Retention"]
+    end
+
+    HTTP --> ENGINE
+    QUEUES --> ENGINE
+    ENGINE --> OBS
+    ENGINE --> STORAGE
 ```
 
 ---
@@ -134,37 +138,12 @@ When clients disconnect or timeouts elapse, HTTP adapters propagate `AbortSignal
 
 The following blueprint illustrates how to combine multiple adapters into an enterprise microservice:
 
-```
-[ Client Request ]
-       │
-       ▼ (HTTP POST /checkout with x-request-id)
-┌────────────────────────────────────────────────────────────────────────────┐
-│ @siglo/fastify Ingress Handler                                        │
-│ • Extracts body, request.raw.signal, and correlation ID                    │
-└─────────────────────────────────────┬──────────────────────────────────────┘
-                                      │
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│ @siglo/opentelemetry Monitored Workflow                               │
-│ • Creates root span 'workflow:CheckoutPipeline'                            │
-│ • Injects W3C traceparent headers                                          │
-│ • Filters context attributes via allowlist                                 │
-└─────────────────────────────────────┬──────────────────────────────────────┘
-                                      │
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│ Siglo Engine Execution                                                │
-│ 1. Step: checkInventory (cached via @siglo/redis: 5-min TTL)          │
-│ 2. Step: chargeCustomer (protected by saga compensation)                   │
-│ 3. Step: publishFulfillmentEvent (sent to Kafka via @siglo/kafka)    │
-└─────────────────────────────────────┬──────────────────────────────────────┘
-                                      │
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│ @siglo/postgres Storage Adapter                                       │
-│ • Persists execution checkpoint JSONB                                      │
-│ • Records field mutations to siglo_context_events                          │
-└────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Client["Client Request<br/>(HTTP POST /checkout with x-request-id)"] --> Fastify["@siglo/fastify Ingress Handler<br/>• Extracts body, request.raw.signal, and correlation ID"]
+    Fastify --> OTel["@siglo/opentelemetry Monitored Workflow<br/>• Creates root span 'workflow:CheckoutPipeline'<br/>• Injects W3C traceparent headers<br/>• Filters context attributes via allowlist"]
+    OTel --> Engine["Siglo Engine Execution<br/>1. Step: checkInventory (cached via @siglo/redis: 5-min TTL)<br/>2. Step: chargeCustomer (protected by saga compensation)<br/>3. Step: publishFulfillmentEvent (sent to Kafka via @siglo/kafka)"]
+    Engine --> Postgres["@siglo/postgres Storage Adapter<br/>• Persists execution checkpoint JSONB<br/>• Records field mutations to siglo_context_events"]
 ```
 
 ### Complete Code Blueprint:

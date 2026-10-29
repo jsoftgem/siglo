@@ -8,38 +8,12 @@
 
 The Express adapter acts as a route-level or path-level middleware:
 
-```
-    HTTP Request (Client)
-             │
-             ▼
-    ┌─────────────────────────────────┐
-    │     sigloExpressMiddleware      │
-    │  • Extract Correlation ID       │ ──> Set X-Correlation-Id header
-    │  • Extract Input (body / query) │
-    │  • Partition Namespace Scope    │
-    │  • Extract req.signal (Abort)   │
-    └────────────────┬────────────────┘
-                     │
-                     ▼
-    ┌─────────────────────────────────┐
-    │       Siglo Workflow       │
-    │  • Validations & Computations   │
-    │  • Cooperative Cancellation     │
-    │  • Distributed Steps & Sagas    │
-    └────────────────┬────────────────┘
-                     │
-           ┌─────────┴─────────┐
-       (Success)            (Error)
-           │                   │
-           ▼                   ▼
-    ┌──────────────┐   ┌───────────────────────────┐
-    │ Set Stack ID │   │ getErrorStatusCode(err)   │
-    │ 200 OK /     │   │ • 504 Gateway Timeout     │
-    │ Custom JSON  │   │ • 400 Bad Request         │
-    └──────────────┘   │ • 409 Conflict            │
-                       │ • 499 Client Closed Req   │
-                       │ • 500 Server Error        │
-                       └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["HTTP Request (Client)"] --> MW["sigloExpressMiddleware<br/>• Extract Correlation ID (Set X-Correlation-Id header)<br/>• Extract Input (body / query)<br/>• Partition Namespace Scope<br/>• Extract req.signal (Abort)"]
+    MW --> WF["Siglo Workflow<br/>• Validations & Computations<br/>• Cooperative Cancellation<br/>• Distributed Steps & Sagas"]
+    WF -->|Success| Success["Set Stack ID<br/>200 OK / Custom JSON"]
+    WF -->|Error| Error["getErrorStatusCode(err)<br/>• 504 Gateway Timeout<br/>• 400 Bad Request<br/>• 409 Conflict<br/>• 499 Client Closed Req<br/>• 500 Server Error"]
 ```
 
 ---

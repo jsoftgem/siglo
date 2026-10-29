@@ -8,25 +8,25 @@
 
 The Redis adapter family encompasses three core modules:
 
-```
-                            @siglo/redis
-       ┌────────────────────────────┼────────────────────────────┐
-       │                            │                            │
-       ▼                            ▼                            ▼
-┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
-│ RedisStorageAdapter  │   │ RedisIdempotencyStore│   │      RedisLock       │
-│ • Ephemeral State    │   │ • Atomic NX Claims   │   │ • Distributed Mutex  │
-│ • Step Caching       │   │ • Result Caching     │   │ • Token Verification │
-│ • Context Hash Stream│   │ • Fast Lock Release  │   │ • Safe Lua Releasing │
-└──────────┬───────────┘   └──────────┬───────────┘   └──────────┬───────────┘
-           │                          │                          │
-           ▼                          ▼                          ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                             Redis Server                                   │
-│                                                                            │
-│  siglo:[<ns>:]checkpoint:<id>  siglo:idemp:<key>         siglo:lock:<key>  │
-│  siglo:cache:<key>             siglo:[<ns>:]context:<id>:<step>            │
-└────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Package["@siglo/redis"]
+        direction LR
+        SA["RedisStorageAdapter<br/>• Ephemeral State<br/>• Step Caching<br/>• Context Hash Stream"]
+        IS["RedisIdempotencyStore<br/>• Atomic NX Claims<br/>• Result Caching<br/>• Fast Lock Release"]
+        LK["RedisLock<br/>• Distributed Mutex<br/>• Token Verification<br/>• Safe Lua Releasing"]
+    end
+
+    subgraph RedisServer["Redis Server"]
+        Keys1["siglo:[ns:]checkpoint:id<br/>siglo:cache:key"]
+        Keys2["siglo:idemp:key"]
+        Keys3["siglo:lock:key<br/>siglo:[ns:]context:id:step"]
+    end
+
+    SA --> Keys1
+    SA --> Keys3
+    IS --> Keys2
+    LK --> Keys3
 ```
 
 ---

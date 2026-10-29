@@ -40,14 +40,22 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
 
 Every step executes through five distinct, deterministic phases:
 
-```
-Context In ──> [ 1. Validation ] ──> [ 2. onBefore ] ──> [ 3. Action ] ──> [ 4. onAfter ] ──> [ 5. Context Merge ] ──> Context Out
-                     │                      │                   │
-                     ▼ (fail)               ▼ (skip: false)     ▼ (fail)
-             ValidationException        [ onSkip ]         [ onFail (Retry/Fallback) ]
-                                            │                   │ (compensate)
-                                            ▼                   ▼
-                                       Skip Output      Compensation Rollback
+```mermaid
+flowchart TD
+    CIn["Context In"] --> V["1. Validation"]
+    V -->|Pass| B["2. onBefore"]
+    V -->|Fail| VE["ValidationException"]
+
+    B -->|Continue| A["3. Action"]
+    B -->|Skip: false| OS["onSkip"]
+    OS --> SO["Skip Output"]
+
+    A -->|Success| AF["4. onAfter"]
+    A -->|Fail| OF["onFail (Retry/Fallback)"]
+    OF -->|Compensate| CR["Compensation Rollback"]
+
+    AF --> CM["5. Context Merge"]
+    CM --> COut["Context Out"]
 ```
 
 1. **Validation**: Enforces parameter constraints declared via `.schema()` or `.spec()`. Rejections throw `ValidationException`.

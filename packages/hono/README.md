@@ -8,38 +8,12 @@
 
 Because Hono is built on standard `Request` and `Response` Web APIs, `@siglo/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
 
-```
-    Web Standards HTTP Request (Fetch Event / Edge Worker)
-                          │
-                          ▼
-             ┌─────────────────────────┐
-             │     sigloMiddleware     │
-             │  • Extract c.req.json() │
-             │  • Extract raw.signal   │ (Web Standard AbortSignal)
-             │  • Set X-Correlation-Id │
-             │  • Tenant Namespace     │
-             └────────────┬────────────┘
-                          │
-                          ▼
-             ┌─────────────────────────┐
-             │   Siglo Workflow   │
-             │  • In-Memory Sagas      │
-             │  • Parallel Combinators │
-             │  • Two-Tier Timeouts    │
-             └────────────┬────────────┘
-                          │
-                ┌─────────┴─────────┐
-            (Success)            (Error)
-                │                   │
-                ▼                   ▼
-         ┌──────────────┐    ┌───────────────────────────┐
-         │ Set Stack ID │    │ getErrorStatusCode(err)   │
-         │ c.json(...)  │    │ • 504 Gateway Timeout     │
-         │ 200/201 OK   │    │ • 400 Bad Request         │
-         └──────────────┘    │ • 409 Conflict            │
-                             │ • 499 Client Closed Req   │
-                             │ • 500 Server Error        │
-                             └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["Web Standards HTTP Request<br/>(Fetch Event / Edge Worker)"] --> MW["sigloMiddleware<br/>• Extract c.req.json()<br/>• Extract raw.signal (Web Standard AbortSignal)<br/>• Set X-Correlation-Id<br/>• Tenant Namespace"]
+    MW --> WF["Siglo Workflow<br/>• In-Memory Sagas<br/>• Parallel Combinators<br/>• Two-Tier Timeouts"]
+    WF -->|Success| Success["Set Stack ID<br/>c.json(...) 200/201 OK"]
+    WF -->|Error| Error["getErrorStatusCode(err)<br/>• 504 Gateway Timeout<br/>• 400 Bad Request<br/>• 409 Conflict<br/>• 499 Client Closed Req<br/>• 500 Server Error"]
 ```
 
 ---

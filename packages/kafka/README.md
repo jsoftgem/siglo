@@ -8,43 +8,13 @@
 
 In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@siglo/kafka` adapter handles incoming messages, ensures exactly-once semantics via an `IdempotencyStore`, and executes the workflow within configured timeout bounds:
 
-```
-                      ┌────────────────────────────┐
-                      │    Kafka Broker / Topic    │
-                      └─────────────┬──────────────┘
-                                    │ Record (key, value, headers, offset)
-                                    ▼
-                      ┌────────────────────────────┐
-                      │      KafkaJS Consumer      │
-                      └─────────────┬──────────────┘
-                                    │ eachMessage
-                                    ▼
-                      ┌────────────────────────────┐
-                      │ createKafkaMessageHandler  │
-                      │  • Parse JSON / Buffer     │
-                      │  • Generate Idemp Key:     │
-                      │    kafka:<topic>:<key|off> │
-                      │  • Claim Idempotency Key   │
-                      │  • Extract x-namespace     │
-                      └─────────────┬──────────────┘
-                                    │
-                                    ▼
-                      ┌────────────────────────────┐
-                      │   Siglo Workflow      │
-                      │  • Sagas & Compensations   │
-                      │  • Timeout Deadlines       │
-                      └─────────────┬──────────────┘
-                                    │
-                      ┌─────────────┴──────────────┐
-                      │                            │
-               (On Success)                   (On Failure)
-                      │                            │
-                      ▼                            ▼
-           ┌─────────────────────┐      ┌─────────────────────┐
-           │ Complete Claim      │      │ Fail Claim          │
-           │ (idempotencyStore)  │      │ (idempotencyStore)  │
-           │ Commit Offset       │      │ Re-throw / DLQ      │
-           └─────────────────────┘      └─────────────────────┘
+```mermaid
+flowchart TD
+    Broker["Kafka Broker / Topic"] -->|Record: key, value, headers, offset| Consumer["KafkaJS Consumer"]
+    Consumer -->|eachMessage| Handler["createKafkaMessageHandler<br/>• Parse JSON / Buffer<br/>• Generate Idemp Key: kafka:topic:key|off<br/>• Claim Idempotency Key<br/>• Extract x-namespace"]
+    Handler --> WF["Siglo Workflow<br/>• Sagas & Compensations<br/>• Timeout Deadlines"]
+    WF -->|On Success| Success["Complete Claim (idempotencyStore)<br/>Commit Offset"]
+    WF -->|On Failure| Failure["Fail Claim (idempotencyStore)<br/>Re-throw / DLQ"]
 ```
 
 ---
@@ -61,25 +31,14 @@ A common question in distributed event-driven systems is:
 
 When an instance of your consumer service pulls a Kafka record, the entire 10-step pipeline runs in-memory on that node:
 
-```
-[ Kafka Broker ] ─── (Topic Partition 0) ───► [ Consumer Server 1 ]
-                                                        │
-                                                        ▼ createKafkaMessageHandler
-                                              ┌───────────────────┐
-                                              │ Step 1 (Validate) │
-                                              └─────────┬─────────┘
-                                                        ▼ (Direct in-memory promise)
-                                              ┌───────────────────┐
-                                              │ Step 2 (Enrich)   │
-                                              └─────────┬─────────┘
-                                                        ▼
-                                                       ...
-                                                        ▼
-                                              ┌───────────────────┐
-                                              │ Step 10 (Audit)   │
-                                              └─────────┬─────────┘
-                                                        ▼
-                                              Commit Kafka Offset
+```mermaid
+flowchart TD
+    Broker["Kafka Broker"] -->|Topic Partition 0| Server["Consumer Server 1"]
+    Server -->|createKafkaMessageHandler| S1["Step 1 (Validate)"]
+    S1 -->|Direct in-memory promise| S2["Step 2 (Enrich)"]
+    S2 --> Dots["..."]
+    Dots --> S10["Step 10 (Audit)"]
+    S10 --> Commit["Commit Kafka Offset"]
 ```
 
 ### Why In-Process Execution is Vastly Superior for 90%+ of Workloads
@@ -102,17 +61,18 @@ In such systems, **95% of total workflow duration is spent waiting for network h
 #### 2. How High-Throughput Scaling Actually Works
 Work is scaled horizontally by **Kafka Partitions (Message-Level Distribution)**, not by splitting individual steps across machines:
 
-```
-[ Kafka: orders Topic (4 Partitions) ]
-      │             │               │              │
-      ▼             ▼               ▼              ▼
- Partition 0   Partition 1     Partition 2    Partition 3
-      │             │               │              │
-      ▼             ▼               ▼              ▼
-[ Server 1 ]   [ Server 2 ]    [ Server 3 ]   [ Server 4 ]
- (Runs steps    (Runs steps     (Runs steps    (Runs steps
-  1-10 for       1-10 for        1-10 for       1-10 for
-  Msg A)         Msg B)          Msg C)         Msg D)
+```mermaid
+flowchart TD
+    Topic["Kafka: orders Topic (4 Partitions)"]
+    Topic --> P0["Partition 0"]
+    Topic --> P1["Partition 1"]
+    Topic --> P2["Partition 2"]
+    Topic --> P3["Partition 3"]
+
+    P0 --> S0["Server 1<br/>(Runs steps 1-10 for Msg A)"]
+    P1 --> S1["Server 2<br/>(Runs steps 1-10 for Msg B)"]
+    P2 --> S2["Server 3<br/>(Runs steps 1-10 for Msg C)"]
+    P3 --> S3["Server 4<br/>(Runs steps 1-10 for Msg D)"]
 ```
 
 Each consumer server processes independent messages in parallel at full hardware capability with maximum CPU cache locality.
@@ -128,18 +88,22 @@ Distributing individual steps across physically separate machines is only necess
 
 For these cases, implement **Event-Driven Choreography** using intermediate Kafka topics:
 
-```
-                   STAGE 1                             STAGE 2                             STAGE 3
-              [ Order Service ]                   [ AI GPU Worker ]                   [ Ledger Service ]
-                 (Server A)                          (Server B)                          (Server C)
-                      │                                   │                                   │
-[ Topic 1: orders.created ]                         [ Topic 2: orders.validated ]       [ Topic 3: images.rendered ]
-         │                                                   │                                       │
-         ▼                                                   ▼                                       ▼
- ┌───────────────┐                                   ┌───────────────┐                       ┌───────────────┐
- │ Subflow 1     │                                   │ Subflow 2     │                       │ Subflow 3     │
- │ (Steps 1 - 3) │ ──(Produce to orders.validated)──►│ (Steps 4 - 7) │ ──(Produce to ...)──► │ (Steps 8 - 10)│
- └───────────────┘                                   └───────────────┘                       └───────────────┘
+```mermaid
+flowchart LR
+    subgraph Stage1["STAGE 1: Order Service (Server A)"]
+        T1["Topic 1: orders.created"] --> SF1["Subflow 1<br/>(Steps 1 - 3)"]
+    end
+
+    subgraph Stage2["STAGE 2: AI GPU Worker (Server B)"]
+        T2["Topic 2: orders.validated"] --> SF2["Subflow 2<br/>(Steps 4 - 7)"]
+    end
+
+    subgraph Stage3["STAGE 3: Ledger Service (Server C)"]
+        T3["Topic 3: images.rendered"] --> SF3["Subflow 3<br/>(Steps 8 - 10)"]
+    end
+
+    SF1 -->|Produce to orders.validated| T2
+    SF2 -->|Produce to images.rendered| T3
 ```
 
 ### Pattern Example: Chaining Workflows Across Topics

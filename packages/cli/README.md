@@ -8,23 +8,21 @@
 
 `@siglo/cli` operates both as an executable terminal tool (`Siglo`) and as a programmatic TypeScript library:
 
-```
-                               @siglo/cli
-                 ┌────────────────────┴────────────────────┐
-                 │                                         │
-                 ▼                                         ▼
-         Terminal Command Line                   Programmatic Node.js API
-    ┌─────────────────────────────┐           ┌─────────────────────────────┐
-    │ siglo init             │           │ initProject()               │
-    │ siglo generate workflow│           │ generateWorkflow()          │
-    │ siglo generate step    │           │ generateStep()              │
-    │ siglo visualize        │           │ visualizeWorkflow()         │
-    │ siglo export           │           │ exportWorkflow()            │
-    │ siglo validate         │           │ validateWorkflow()          │
-    │ siglo inspect          │           │ inspectWorkflow()           │
-    │ siglo checkpoint       │           │ inspectCheckpoint()         │
-    │ siglo replay           │           │ replayFixture()             │
-    └─────────────────────────────┘           └─────────────────────────────┘
+```mermaid
+flowchart TD
+    CLI["@siglo/cli"] --> CLI_Term["Terminal Command Line"]
+    CLI --> CLI_API["Programmatic Node.js API"]
+
+    subgraph TerminalCommands["CLI Commands"]
+        C1["siglo init<br/>siglo generate workflow<br/>siglo generate step<br/>siglo visualize<br/>siglo export<br/>siglo validate<br/>siglo inspect<br/>siglo checkpoint<br/>siglo replay"]
+    end
+
+    subgraph ProgrammaticAPI["Node.js API"]
+        A1["initProject()<br/>generateWorkflow()<br/>generateStep()<br/>visualizeWorkflow()<br/>exportWorkflow()<br/>validateWorkflow()<br/>inspectWorkflow()<br/>inspectCheckpoint()<br/>replayFixture()"]
+    end
+
+    CLI_Term --> TerminalCommands
+    CLI_API --> ProgrammaticAPI
 ```
 
 ---

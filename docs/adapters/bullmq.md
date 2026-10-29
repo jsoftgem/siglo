@@ -8,41 +8,13 @@
 
 When executing distributed workflows across worker clusters, BullMQ distributes asynchronous jobs backed by Redis. The `@siglo/bullmq` adapter wraps workflow execution within a standard BullMQ worker processor function (`(job: Job) => Promise<any>`).
 
-```
-                    ┌────────────────────────────┐
-                    │      Redis Queue (BullMQ)  │
-                    └─────────────┬──────────────┘
-                                  │ Job Polling
-                                  ▼
-                    ┌────────────────────────────┐
-                    │      BullMQ Worker         │
-                    └─────────────┬──────────────┘
-                                  │
-                                  ▼
-                    ┌────────────────────────────┐
-                    │   createBullMQProcessor    │
-                    │  • Extract job.id / claim  │
-                    │  • Input transformation    │
-                    │  • Namespace resolution    │
-                    │  • Timeout enforcement     │
-                    └─────────────┬──────────────┘
-                                  │
-                                  ▼
-                    ┌────────────────────────────┐
-                    │   Siglo Workflow      │
-                    │   (Flow<TInput, TOutput>)  │
-                    └─────────────┬──────────────┘
-                                  │
-                    ┌─────────────┴──────────────┐
-                    │                            │
-             (On Success)                   (On Failure)
-                    │                            │
-                    ▼                            ▼
-         ┌─────────────────────┐      ┌─────────────────────┐
-         │ Store Result        │      │ Clear/Fail Claim    │
-         │ (idempotencyStore)  │      │ (idempotencyStore)  │
-         │ Return Clean Context│      │ Re-throw to Worker  │
-         └─────────────────────┘      └─────────────────────┘
+```mermaid
+flowchart TD
+    Queue["Redis Queue (BullMQ)"] -->|Job Polling| Worker["BullMQ Worker"]
+    Worker --> Processor["createBullMQProcessor<br/>• Extract job.id / claim<br/>• Input transformation<br/>• Namespace resolution<br/>• Timeout enforcement"]
+    Processor --> WF["Siglo Workflow<br/>(Flow&lt;TInput, TOutput&gt;)"]
+    WF -->|On Success| Success["Store Result (idempotencyStore)<br/>Return Clean Context"]
+    WF -->|On Failure| Failure["Clear/Fail Claim (idempotencyStore)<br/>Re-throw to Worker"]
 ```
 
 ---

@@ -8,34 +8,12 @@
 
 The OpenTelemetry integration creates an end-to-end distributed span hierarchy covering workflows, steps, retries, and context mutations:
 
-```
-    [ Incoming HTTP / Kafka / SQS Request with W3C traceparent ]
-                               │
-                               ▼ extractTraceContext()
-    ┌──────────────────────────────────────────────────────────┐
-    │  Span: workflow:CheckoutPipeline                         │
-    │  • siglo.workflow.name = 'CheckoutPipeline'              │
-    │  • siglo.workflow.version = '2.1.0'                      │
-    │  • siglo.stack.id = 'stack_9812_01'                      │
-    │  • siglo.namespace = 'ecommerce-us'                      │
-    │  • siglo.timeout = 30000                                 │
-    └──────────────────────────┬───────────────────────────────┘
-                               │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-    ┌───────────────────────────┐         ┌───────────────────────────┐
-    │ Span: step:validateCart   │         │ Span: step:chargeCard     │
-    │ • siglo.step.name = ...   │         │ • siglo.step.attempt = 1  │
-    │ • siglo.step.attempt = 1  │         │ (Failure: recordException)│
-    │ • Status: OK              │         └─────────────┬─────────────┘
-    └───────────────────────────┘                       │
-                                                        ▼
-                                          ┌───────────────────────────┐
-                                          │ Span: step:chargeCard     │
-                                          │       (retry #2)          │
-                                          │ • siglo.step.attempt = 2  │
-                                          │ • Status: OK              │
-                                          └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["Incoming HTTP / Kafka / SQS Request<br/>(with W3C traceparent)"] -->|extractTraceContext()| WFSpan["Span: workflow:CheckoutPipeline<br/>• siglo.workflow.name = 'CheckoutPipeline'<br/>• siglo.workflow.version = '2.1.0'<br/>• siglo.stack.id = 'stack_9812_01'<br/>• siglo.namespace = 'ecommerce-us'<br/>• siglo.timeout = 30000"]
+    WFSpan --> Step1["Span: step:validateCart<br/>• siglo.step.name = ...<br/>• siglo.step.attempt = 1<br/>• Status: OK"]
+    WFSpan --> Step2["Span: step:chargeCard<br/>• siglo.step.attempt = 1<br/>• (Failure: recordException)"]
+    Step2 -->|Retry| Step2Retry["Span: step:chargeCard (retry #2)<br/>• siglo.step.attempt = 2<br/>• Status: OK"]
 ```
 
 ---
