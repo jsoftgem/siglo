@@ -24,8 +24,8 @@ The Redis adapter family encompasses three core modules:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                             Redis Server                                   │
 │                                                                            │
-│  siglo:checkpoint:<id>      siglo:idemp:<key>          siglo:lock:<key>    │
-│  siglo:cache:<key>          siglo:context:<id>:<step>                      │
+│  siglo:[<ns>:]checkpoint:<id>  siglo:idemp:<key>         siglo:lock:<key>  │
+│  siglo:cache:<key>             siglo:[<ns>:]context:<id>:<step>            │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -51,9 +51,9 @@ Peer dependency matrix:
 
 | Key Pattern | Redis Type | Default TTL | Description |
 | :--- | :--- | :--- | :--- |
-| `siglo:checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. |
+| `siglo:[<ns>:]checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. Partitioned by tenant namespace if provided (`siglo:<ns>:checkpoint:<stackId>`). |
 | `siglo:cache:<key>` | `string` (JSON) | 24 hours (`86400000ms`) | Cached step evaluation output. |
-| `siglo:context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. |
+| `siglo:[<ns>:]context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. Partitioned by tenant namespace if provided (`siglo:<ns>:context:<stackId>:<stepId>`). |
 | `siglo:idemp:<key>` | `string` | 24 hours (`86400000ms`) | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). |
 | `siglo:lock:<key>` | `string` (UUID) | Caller specified (e.g. 10s) | Distributed mutex lock holding worker token. |
 
@@ -80,10 +80,10 @@ import { RedisStorageAdapter } from '@siglo/redis';
 ### Methods
 
 - **`saveCheckpoint(checkpoint)`**: Saves JSON-serialized execution stack with millisecond TTL (`SET key val PX ttl`).
-- **`getCheckpoint(stackId)`**: Retrieves and parses serialized checkpoint. Returns `undefined` if not found.
+- **`getCheckpoint(stackId, namespace?)`**: Retrieves and parses serialized checkpoint (checks namespaced key first, falling back to legacy key). Returns `undefined` if not found.
 - **`getCachedStep(key)`**: Retrieves cached step response.
 - **`setCachedStep(key, value, ttlMs?)`**: Writes cached step response with specified TTL.
-- **`onContextChange(entry)`**: Executes `HSET` on `siglo:context:<stackId>:<stepId>` and refreshes TTL with `PEXPIRE`.
+- **`onContextChange(entry)`**: Executes `HSET` on `siglo:[<ns>:]context:<stackId>:<stepId>` and refreshes TTL with `PEXPIRE`.
 
 ---
 
@@ -123,8 +123,24 @@ import { RedisIdempotencyStore } from '@siglo/redis';
 `RedisLock` prevents duplicate parallel execution of sensitive workflows (e.g., end-of-month payroll, nightly data synchronization) across multiple server instances.
 
 ```typescript
-import { RedisLock } from '@siglo/redis';
+import { RedisLock, RedisLockOptions } from '@siglo/redis';
+
+// Simple prefix configuration:
+const lock = new RedisLock(redis, 'siglo:lock:');
+
+// Full options configuration:
+const strictLock = new RedisLock(redis, {
+    keyPrefix: 'siglo:lock:',
+    strictAtomicity: true, // Enforces Redis eval (Lua) for atomic lock release
+});
 ```
+
+### Options (`RedisLockOptions`)
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `keyPrefix` | `string` | `'siglo:lock:'` | Root prefix for distributed mutex keys. |
+| `strictAtomicity` | `boolean` | `false` | When `true`, enforces strict atomic Lua evaluation (`client.eval`) during lock release, throwing an error if Lua scripting is unavailable rather than falling back to non-atomic commands, preventing TOCTOU race conditions. |
 
 ### Methods:
 
@@ -140,6 +156,7 @@ else
     return 0
 end
 ```
+When `strictAtomicity` is enabled, failure or absence of Lua `eval` will throw an error to prevent non-atomic release races.
 
 #### `withLock(lockKey, fn, ttlMs?)`
 Executes an asynchronous function wrapped in single-flight protection:
@@ -173,7 +190,7 @@ Step.useStorage(storageAdapter);
 
 // 3. Initialize Idempotency & Distributed Lock
 const idempotencyStore = new RedisIdempotencyStore({ client: redis });
-const redisLock = new RedisLock(redis);
+const redisLock = new RedisLock(redis, { strictAtomicity: true });
 
 // 4. Define Workflow with Step Caching
 const fetchExchangeRates = Step.create('fetchRates', async () => {

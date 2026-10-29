@@ -17,7 +17,7 @@ Because Hono is built on standard `Request` and `Response` Web APIs, `@siglo/hon
              │  • Extract c.req.json() │
              │  • Extract raw.signal   │ (Web Standard AbortSignal)
              │  • Set X-Correlation-Id │
-             │  • Namespace Header     │
+             │  • Tenant Namespace     │
              └────────────┬────────────┘
                           │
                           ▼
@@ -80,8 +80,10 @@ function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
 | `input` | `(c: Context) => Promise<TInput> \| TInput` | `await c.req.json()` or `c.req.query()` | Custom parameter extraction from Hono context. |
 | `output` | `(result: TOutput, c: Context) => Promise<any> \| any` | `c.json(result)` | Custom responder formatting the HTTP response body and status code. |
 | `timeout` | `number` | `undefined` | SLA execution timeout in milliseconds. |
-| `namespace` | `string \| ((c: Context) => string \| undefined)` | `c.req.header('x-namespace')` | Namespace identifier for tenant partitioning. |
-| `onError` | `(err: any, c: Context) => Promise<any> \| any` | Default JSON error response | Custom exception handler. |
+| `namespace` | `string \| ((c: Context) => string \| undefined)` | `undefined` | Namespace identifier or extractor function for tenant partitioning. |
+| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
+| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError` | `(err: any, c: Context) => Promise<any> \| any` | Default JSON error response | Custom exception handler. If omitted, maps status codes and returns sanitized `{ error: message }`. |
 | `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name for correlation tracking. |
 
 ---
@@ -195,4 +197,4 @@ Default HTTP status mappings:
 - `ValidationException` / `SpecFailedException`: `400 Bad Request`
 - `IdempotencyConflictException`: `409 Conflict`
 - `CancellationException` / `AbortError`: `499 Client Closed Request`
-- Unhandled `Error`: `500 Internal Server Error`
+- Unhandled `Error`: `500 Internal Server Error` (sanitized in production)

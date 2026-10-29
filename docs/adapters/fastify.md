@@ -76,8 +76,10 @@ function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
 | `input` | `(req: TReq) => Promise<TInput> \| TInput` | `request.body \|\| request.query` | Function transforming incoming Fastify request into workflow parameters. |
 | `output` | `(result: TOutput, reply: FastifyReply) => Promise<any> \| any` | `result` | Function formatting the final response. If omitted, Fastify serializes the clean result. |
 | `timeout` | `number` | `undefined` | Execution timeout in milliseconds. |
-| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `req.headers['x-namespace']` | Namespace identifier for tenant partitioning. |
-| `onError` | `(err: any, reply: FastifyReply) => Promise<any> \| any` | Default JSON error handler | Custom error responder. |
+| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `undefined` | Namespace identifier or extractor function for tenant partitioning. |
+| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
+| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError` | `(err: any, reply: FastifyReply) => Promise<any> \| any` | Default JSON error handler | Custom error responder. If omitted, maps status codes and returns sanitized `{ error: message }`. |
 | `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name for correlation propagation. |
 
 ---
@@ -92,7 +94,7 @@ If a workflow throws an unhandled error and no `onError` hook is specified, the 
 | `ValidationException` / `SpecFailedException` | `400` | Bad Request |
 | `IdempotencyConflictException` | `409` | Conflict |
 | `CancellationException` / `AbortError` | `499` | Client Closed Request |
-| Other `Error` instances | `500` | Internal Server Error |
+| Other `Error` instances | `500` | Internal Server Error (sanitized in production) |
 
 *Default Error JSON Payload:*
 ```json

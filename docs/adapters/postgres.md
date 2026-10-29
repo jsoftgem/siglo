@@ -110,8 +110,8 @@ import { PostgresStorageAdapter } from '@siglo/postgres';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `PostgresClientInterface \| Pool` | *Required* | Active PostgreSQL `Pool` or `Client` instance. |
-| `checkpointsTable` | `string` | `'siglo_checkpoints'` | Name of checkpoints table. |
-| `eventsTable` | `string` | `'siglo_context_events'` | Name of context change audit table. |
+| `checkpointsTable` | `string` | `'siglo_checkpoints'` | Name of checkpoints table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/` (up to 63 chars) for SQL injection protection. |
+| `eventsTable` | `string` | `'siglo_context_events'` | Name of context change audit table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/` (up to 63 chars) for SQL injection protection. |
 | `recordContextChanges` | `boolean` | `true` | If `true`, writes all step context mutations into `eventsTable`. |
 
 ### Methods
@@ -149,7 +149,7 @@ import { PostgresIdempotencyStore } from '@siglo/postgres';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `PostgresClientInterface \| Pool` | *Required* | Active PostgreSQL `Pool` or `Client` instance. |
-| `tableName` | `string` | `'siglo_idempotency'` | Name of idempotency table. |
+| `tableName` | `string` | `'siglo_idempotency'` | Name of idempotency table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/` (up to 63 chars) for SQL injection protection. |
 | `defaultTtlMs` | `number` | `86400000` (24h) | Fallback expiration TTL in milliseconds. |
 
 ### Methods

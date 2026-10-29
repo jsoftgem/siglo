@@ -16,7 +16,7 @@ The Express adapter acts as a route-level or path-level middleware:
     │     sigloExpressMiddleware      │
     │  • Extract Correlation ID       │ ──> Set X-Correlation-Id header
     │  • Extract Input (body / query) │
-    │  • Extract Namespace Header     │
+    │  • Partition Namespace Scope    │
     │  • Extract req.signal (Abort)   │
     └────────────────┬────────────────┘
                      │
@@ -81,8 +81,10 @@ function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
 | `input` | `(req: TReq) => Promise<TInput> \| TInput` | `req.body \|\| req.query` | Custom mapping function from `Request` to workflow input parameters. |
 | `output` | `(result: TOutput, res: Response) => Promise<any> \| any` | `res.json(result)` | Custom responder to set custom status codes, headers, or response shapes. |
 | `timeout` | `number` | `undefined` | Execution timeout in milliseconds. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded. |
-| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `req.headers['x-namespace']` | Namespace string or extractor function for tenant data partitioning. |
-| `onError` | `(err: any, req: TReq, res: any, next: NextFunction) => any` | Default JSON handler | Custom error responder. If omitted, maps status codes and returns `{ error: message }`. |
+| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `undefined` | Namespace string or extractor function for tenant data partitioning. |
+| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
+| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError` | `(err: any, req: TReq, res: any, next: NextFunction) => any` | Default JSON handler | Custom error responder. If omitted, maps status codes and returns sanitized `{ error: message }`. |
 | `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name to inspect for incoming correlation IDs. |
 
 ---
