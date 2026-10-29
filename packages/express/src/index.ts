@@ -7,6 +7,8 @@ export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
     namespace?: string | ((req: TReq) => string | undefined);
     onError?: (err: any, req: TReq, res: any, next: (err?: any) => void) => Promise<any> | any;
     correlationIdHeader?: string;
+    allowHeaderNamespace?: boolean;
+    exposeErrorDetails?: boolean;
 }
 
 export function getErrorStatusCode(err: any): number {
@@ -76,7 +78,7 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
                 namespace = options.namespace(req);
             } else if (options.namespace) {
                 namespace = options.namespace;
-            } else if (req.headers?.['x-namespace']) {
+            } else if (options.allowHeaderNamespace && req.headers?.['x-namespace']) {
                 namespace = req.headers['x-namespace'];
             }
 
@@ -114,7 +116,12 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
             }
             if (res.status && res.json) {
                 const status = getErrorStatusCode(err);
-                return res.status(status).json({ error: err.message || 'Workflow execution error' });
+                const exposeDetails = options.exposeErrorDetails ?? (process.env.NODE_ENV !== 'production');
+                let errorMessage = err.message || 'Workflow execution error';
+                if (status === 500 && !exposeDetails) {
+                    errorMessage = 'Internal workflow execution error';
+                }
+                return res.status(status).json({ error: errorMessage });
             }
             return next(err);
         }

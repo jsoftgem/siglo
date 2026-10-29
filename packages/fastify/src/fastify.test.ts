@@ -28,6 +28,57 @@ describe('@siglo/fastify Adapter Suite', () => {
         expect(headersSet['X-Correlation-Id']).to.equal('corr-fastify-99');
     });
 
+    it('ignores x-namespace header by default and respects it only when allowHeaderNamespace is true', async () => {
+        let capturedNamespace: string | undefined;
+        const inspectStep = Step.create(async (param: any) => {
+            capturedNamespace = typeof param.$namespace === 'function' ? param.$namespace() : param.$namespace;
+            return { ok: true };
+        });
+        const testFlow = flow(inspectStep);
+
+        const mockReq = {
+            body: {},
+            headers: { 'x-namespace': 'attacker-fastify' },
+        };
+        const mockReply = { header: () => {} };
+
+        // Default: header is ignored for security
+        const secureHandler = sigloFastifyHandler(testFlow);
+        await secureHandler(mockReq, mockReply);
+        expect(capturedNamespace).to.be.undefined;
+
+        // With explicit opt-in: header is respected
+        const optInHandler = sigloFastifyHandler(testFlow, { allowHeaderNamespace: true });
+        await optInHandler(mockReq, mockReply);
+        expect(capturedNamespace).to.equal('attacker-fastify');
+    });
+
+    it('sanitizes internal 500 error messages when exposeErrorDetails is false', async () => {
+        const failStep = Step.create(async (): Promise<any> => {
+            throw new Error('Database password incorrect in /etc/db.conf');
+        });
+        const handler = sigloFastifyHandler(flow(failStep), {
+            exposeErrorDetails: false,
+        });
+
+        let sentStatus = 0;
+        let sentBody: any;
+        const mockReply = {
+            status(s: number) {
+                sentStatus = s;
+                return this;
+            },
+            send(b: any) {
+                sentBody = b;
+                return b;
+            },
+        };
+
+        await handler({}, mockReply);
+        expect(sentStatus).to.equal(500);
+        expect(sentBody.error).to.equal('Internal workflow execution error');
+    });
+
     it('handles errors and maps to reply status via onError', async () => {
         const failStep = Step.create(async (): Promise<any> => {
             throw new Error('Forbidden operation');

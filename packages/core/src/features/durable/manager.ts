@@ -2,11 +2,46 @@ import { Status } from '../../shared';
 import { WaitingWorkflowRecord } from './types';
 import { DuplicateEventException, ExpiredWaitException } from '../executer/exceptions';
 
+export interface DurableManagerOptions {
+    maxSize?: number;
+}
+
 export class DurableManager {
     private waitingRecords = new Map<string, WaitingWorkflowRecord>();
     private stackIndex = new Map<string, string>();
+    private maxSize: number;
+
+    constructor(options?: DurableManagerOptions) {
+        this.maxSize = options?.maxSize ?? 10000;
+    }
+
+    cleanExpired(): number {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, record] of this.waitingRecords.entries()) {
+            if (record.expiresAt !== undefined && now > record.expiresAt) {
+                this.stackIndex.delete(record.stackId);
+                this.waitingRecords.delete(key);
+                cleaned++;
+            }
+        }
+        return cleaned;
+    }
 
     registerWait(record: WaitingWorkflowRecord): void {
+        if (this.waitingRecords.size >= this.maxSize) {
+            this.cleanExpired();
+            if (this.waitingRecords.size >= this.maxSize) {
+                const oldestKey = this.waitingRecords.keys().next().value;
+                if (oldestKey !== undefined) {
+                    const oldRecord = this.waitingRecords.get(oldestKey);
+                    if (oldRecord) {
+                        this.stackIndex.delete(oldRecord.stackId);
+                    }
+                    this.waitingRecords.delete(oldestKey);
+                }
+            }
+        }
         this.waitingRecords.set(record.correlationKey, record);
         this.stackIndex.set(record.stackId, record.correlationKey);
     }

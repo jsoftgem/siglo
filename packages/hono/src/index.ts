@@ -7,6 +7,8 @@ export interface SigloHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = 
     namespace?: string | ((c: TReq) => string | undefined);
     onError?: (err: any, c: TReq) => Promise<any> | any;
     correlationIdHeader?: string;
+    allowHeaderNamespace?: boolean;
+    exposeErrorDetails?: boolean;
 }
 
 export function getErrorStatusCode(err: any): number {
@@ -84,7 +86,7 @@ export function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
                 namespace = options.namespace(c);
             } else if (options.namespace) {
                 namespace = options.namespace;
-            } else if (c.req?.header) {
+            } else if (options.allowHeaderNamespace && c.req?.header) {
                 namespace = c.req.header('x-namespace');
             }
 
@@ -126,7 +128,12 @@ export function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
             }
             if (c.json) {
                 const status = getErrorStatusCode(err);
-                return c.json({ error: err.message || 'Workflow execution error' }, status);
+                const exposeDetails = options.exposeErrorDetails ?? (process.env.NODE_ENV !== 'production');
+                let errorMessage = err.message || 'Workflow execution error';
+                if (status === 500 && !exposeDetails) {
+                    errorMessage = 'Internal workflow execution error';
+                }
+                return c.json({ error: errorMessage }, status);
             }
             throw err;
         }

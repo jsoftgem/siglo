@@ -24,12 +24,16 @@ export class RedisStorageAdapter implements StorageAdapter {
         return `${this.keyPrefix}cache:${key}`;
     }
 
-    private checkpointKey(stackId: string): string {
-        return `${this.keyPrefix}checkpoint:${stackId}`;
+    private checkpointKey(stackId: string, namespace?: string): string {
+        return namespace
+            ? `${this.keyPrefix}${namespace}:checkpoint:${stackId}`
+            : `${this.keyPrefix}checkpoint:${stackId}`;
     }
 
-    private contextKey(stackId: string, stepId: string): string {
-        return `${this.keyPrefix}context:${stackId}:${stepId}`;
+    private contextKey(stackId: string, stepId: string, namespace?: string): string {
+        return namespace
+            ? `${this.keyPrefix}${namespace}:context:${stackId}:${stepId}`
+            : `${this.keyPrefix}context:${stackId}:${stepId}`;
     }
 
     async onContextChange(entry: {
@@ -44,7 +48,7 @@ export class RedisStorageAdapter implements StorageAdapter {
             return;
         }
         try {
-            const key = this.contextKey(entry.stackId, entry.stepId);
+            const key = this.contextKey(entry.stackId, entry.stepId, entry.namespace);
             const serialized = typeof entry.value === 'object' && entry.value !== null
                 ? JSON.stringify(entry.value)
                 : String(entry.value ?? '');
@@ -62,17 +66,22 @@ export class RedisStorageAdapter implements StorageAdapter {
         if (!checkpoint || !checkpoint.stackId) {
             return;
         }
-        const key = this.checkpointKey(checkpoint.stackId);
+        const key = this.checkpointKey(checkpoint.stackId, checkpoint.namespace);
         const serialized = JSON.stringify(checkpoint);
         await this.client.set(key, serialized, 'PX', this.checkpointTtlMs);
     }
 
-    async getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined> {
+    async getCheckpoint(stackId: string, namespace?: string): Promise<SerializedExecutionStack | undefined> {
         if (!stackId) {
             return undefined;
         }
-        const key = this.checkpointKey(stackId);
-        const data = await this.client.get(key);
+        let data: string | null = null;
+        if (namespace) {
+            data = await this.client.get(this.checkpointKey(stackId, namespace));
+        }
+        if (!data) {
+            data = await this.client.get(this.checkpointKey(stackId));
+        }
         if (!data) {
             return undefined;
         }

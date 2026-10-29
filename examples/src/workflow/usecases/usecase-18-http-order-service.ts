@@ -58,6 +58,7 @@ export function createHttpCheckoutWorkflow() {
  */
 export function createFastifyCheckoutHandler(workflow = createHttpCheckoutWorkflow()) {
     return sigloFastifyHandler(workflow, {
+        allowHeaderNamespace: true,
         input: (req: any) => req.body,
         output: (result: any) => ({
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
@@ -80,6 +81,7 @@ export function createFastifyCheckoutHandler(workflow = createHttpCheckoutWorkfl
  */
 export function createExpressCheckoutHandler(workflow = createHttpCheckoutWorkflow()) {
     return sigloExpressMiddleware(workflow, {
+        allowHeaderNamespace: true,
         input: (req: any) => req.body,
         output: (result: any) => ({
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
@@ -103,6 +105,7 @@ export function createExpressCheckoutHandler(workflow = createHttpCheckoutWorkfl
  */
 export function createHonoCheckoutHandler(workflow = createHttpCheckoutWorkflow()) {
     return sigloMiddleware(workflow, {
+        allowHeaderNamespace: true,
         input: async (c: any) => (typeof c.req.json === 'function' ? await c.req.json() : c.req.body),
         output: (result: any) => ({
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,

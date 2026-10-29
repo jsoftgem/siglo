@@ -1,6 +1,13 @@
 import { StorageAdapter, SerializedExecutionStack } from 'siglo';
 import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
 
+function validateIdentifier(name: string, paramName: string): string {
+    if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
+        throw new Error(`Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`);
+    }
+    return name;
+}
+
 export class PostgresStorageAdapter implements StorageAdapter {
     public readonly name = 'postgres';
     private client: PostgresClientInterface;
@@ -13,8 +20,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
             throw new Error('PostgresStorageAdapter requires a valid Postgres client or pool instance.');
         }
         this.client = options.client;
-        this.checkpointsTable = options.checkpointsTable || 'siglo_checkpoints';
-        this.eventsTable = options.eventsTable || 'siglo_context_events';
+        this.checkpointsTable = validateIdentifier(options.checkpointsTable || 'siglo_checkpoints', 'checkpointsTable');
+        this.eventsTable = validateIdentifier(options.eventsTable || 'siglo_context_events', 'eventsTable');
         this.recordContextChanges = options.recordContextChanges ?? true;
     }
 

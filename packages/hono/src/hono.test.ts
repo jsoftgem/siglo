@@ -43,6 +43,58 @@ describe('@siglo/hono Adapter Suite', () => {
         expect(mockContext.headers['X-Correlation-Id']).to.equal('corr-123');
     });
 
+    it('ignores x-namespace header by default and respects it only when allowHeaderNamespace is true', async () => {
+        let capturedNamespace: string | undefined;
+        const inspectStep = Step.create(async (param: any) => {
+            capturedNamespace = typeof param.$namespace === 'function' ? param.$namespace() : param.$namespace;
+            return { ok: true };
+        });
+        const testFlow = flow(inspectStep);
+
+        const createMockContext = () => ({
+            req: {
+                header(name: string) {
+                    if (name.toLowerCase() === 'x-namespace') return 'attacker-hono';
+                    return undefined;
+                }
+            },
+            json: (b: any) => b,
+        });
+
+        // Default: header is ignored for security
+        const secureHandler = sigloMiddleware(testFlow);
+        await secureHandler(createMockContext());
+        expect(capturedNamespace).to.be.undefined;
+
+        // With explicit opt-in: header is respected
+        const optInHandler = sigloMiddleware(testFlow, { allowHeaderNamespace: true });
+        await optInHandler(createMockContext());
+        expect(capturedNamespace).to.equal('attacker-hono');
+    });
+
+    it('sanitizes internal 500 error messages when exposeErrorDetails is false', async () => {
+        const failStep = Step.create(async (): Promise<any> => {
+            throw new Error('Connection refused to redis://secret_auth@10.0.0.1:6379');
+        });
+        const handler = sigloMiddleware(flow(failStep), {
+            exposeErrorDetails: false,
+        });
+
+        const mockContext = {
+            jsonResponse: null as any,
+            statusCode: 0,
+            json(data: any, status = 200) {
+                this.jsonResponse = data;
+                this.statusCode = status;
+                return { data, status };
+            },
+        };
+
+        await handler(mockContext);
+        expect(mockContext.statusCode).to.equal(500);
+        expect(mockContext.jsonResponse.error).to.equal('Internal workflow execution error');
+    });
+
     it('maps workflow errors to error response via onError', async () => {
         const failingStep = Step.create(async (): Promise<any> => {
             throw new Error('Out of stock');

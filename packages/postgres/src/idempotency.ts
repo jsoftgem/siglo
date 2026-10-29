@@ -1,6 +1,13 @@
 import { IdempotencyStore } from 'siglo';
 import { PostgresIdempotencyOptions, PostgresClientInterface } from './types';
 
+function validateIdentifier(name: string, paramName: string = 'tableName'): string {
+    if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
+        throw new Error(`Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`);
+    }
+    return name;
+}
+
 export class PostgresIdempotencyStore implements IdempotencyStore {
     private client: PostgresClientInterface;
     private tableName: string;
@@ -11,7 +18,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             throw new Error('PostgresIdempotencyStore requires a valid Postgres client or pool instance.');
         }
         this.client = options.client;
-        this.tableName = options.tableName || 'siglo_idempotency';
+        this.tableName = validateIdentifier(options.tableName || 'siglo_idempotency', 'tableName');
         this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours
     }
 

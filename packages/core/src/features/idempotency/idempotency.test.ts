@@ -59,6 +59,34 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(storeTtl.size).to.equal(0);
     });
 
+    it('InMemoryIdempotencyStore enforces maxSize and evicts expired or oldest entries', async () => {
+        const store = new InMemoryIdempotencyStore({ maxSize: 2 });
+        await store.claim('k1', 10);
+        await store.claim('k2', 50000);
+        expect(store.size).to.equal(2);
+
+        await new Promise(r => setTimeout(r, 20));
+        // k1 expired; claiming k3 should trigger cleanExpired and evict k1
+        await store.claim('k3', 50000);
+        expect(store.size).to.equal(2);
+        expect(await store.get('k1')).to.be.undefined;
+
+        // Both k2 and k3 unexpired; claiming k4 should evict oldest (k2)
+        await store.claim('k4', 50000);
+        expect(store.size).to.equal(2);
+        expect(await store.get('k2')).to.be.undefined;
+
+        // complete() on a new key when store is full also triggers eviction
+        await store.complete('k5', { direct: true });
+        expect(store.size).to.equal(2);
+
+        // cleanExpired cleans expired entries
+        const storeClean = new InMemoryIdempotencyStore({ maxSize: 10 });
+        await storeClean.claim('temp', 10);
+        await new Promise(r => setTimeout(r, 20));
+        expect(storeClean.cleanExpired()).to.equal(1);
+    });
+
     it('buildIdempotencyKey formats key bound to namespace and workflow version', () => {
         const keyDefault = buildIdempotencyKey('order-123');
         expect(keyDefault).to.equal('ff:idemp:default:1:order-123');
@@ -164,6 +192,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(res.success).to.be.true;
         expect(res.attempts).to.equal(2);
     });
+
     it("handles expired key re-claim and complete on unclaimed key in store", async () => {
         const store = new InMemoryIdempotencyStore();
         await store.claim("k-exp", 10);
@@ -205,6 +234,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         });
         expect(resFn.ok).to.equal(true);
     });
+
     it("handles onAfter failure and reduce failure in idempotent steps", async () => {
         const afterFailStep = Step.create("afterFail", () => ({ data: 1 }))
             .idempotent("after-fail-k")
@@ -230,6 +260,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             expect(err.message).to.equal("Reducer action failed in idempotent step");
         }
     });
+
     it("handles step-level IdempotencyConflictException and store claim rejection", async () => {
         const slowStep = Step.create("slowStep", async () => {
                 await new Promise(r => setTimeout(r, 60));

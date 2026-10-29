@@ -99,6 +99,18 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
             expect(() => new PostgresStorageAdapter(undefined as any)).to.throw();
         });
 
+        it('validates custom table names and rejects SQL injection attempts', () => {
+            expect(() => new PostgresStorageAdapter({
+                client: mockClient,
+                checkpointsTable: 'checkpoints; DROP TABLE users;--'
+            })).to.throw(/Invalid SQL identifier/);
+
+            expect(() => new PostgresStorageAdapter({
+                client: mockClient,
+                eventsTable: 'events" OR 1=1--'
+            })).to.throw(/Invalid SQL identifier/);
+        });
+
         it('initializes table schemas with ensureTables()', async () => {
             const adapter = new PostgresStorageAdapter({ client: mockClient });
             await adapter.ensureTables();
@@ -155,6 +167,13 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
     describe('PostgresIdempotencyStore', () => {
         it('throws if initialized without client', () => {
             expect(() => new PostgresIdempotencyStore(undefined as any)).to.throw();
+        });
+
+        it('validates custom table names and rejects SQL injection attempts', () => {
+            expect(() => new PostgresIdempotencyStore({
+                client: mockClient,
+                tableName: 'idemp; DROP TABLE accounts;--'
+            })).to.throw(/Invalid SQL identifier/);
         });
 
         it('creates schema with ensureTable()', async () => {

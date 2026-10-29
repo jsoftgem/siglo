@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { RedisClientInterface } from './types';
 
 export interface RedisLockResult {
@@ -5,16 +6,28 @@ export interface RedisLockResult {
     token: string;
 }
 
+export interface RedisLockOptions {
+    keyPrefix?: string;
+    strictAtomicity?: boolean;
+}
+
 export class RedisLock {
     private client: RedisClientInterface;
     private keyPrefix: string;
+    private strictAtomicity: boolean;
 
-    constructor(client: RedisClientInterface, keyPrefix: string = 'siglo:lock:') {
+    constructor(client: RedisClientInterface, optionsOrPrefix: string | RedisLockOptions = 'siglo:lock:') {
         if (!client) {
             throw new Error('RedisLock requires a valid Redis client instance.');
         }
         this.client = client;
-        this.keyPrefix = keyPrefix;
+        if (typeof optionsOrPrefix === 'string') {
+            this.keyPrefix = optionsOrPrefix;
+            this.strictAtomicity = false;
+        } else {
+            this.keyPrefix = optionsOrPrefix.keyPrefix || 'siglo:lock:';
+            this.strictAtomicity = optionsOrPrefix.strictAtomicity ?? false;
+        }
     }
 
     private fullKey(key: string): string {
@@ -26,7 +39,7 @@ export class RedisLock {
      */
     async acquire(lockKey: string, ttlMs: number = 10000, customToken?: string): Promise<RedisLockResult> {
         const key = this.fullKey(lockKey);
-        const token = customToken || `lock_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const token = customToken || `lock_${Date.now()}_${randomBytes(16).toString('hex')}`;
 
         const res = await this.client.set(key, token, 'PX', ttlMs, 'NX');
         const acquired = res === 'OK';
@@ -50,6 +63,10 @@ export class RedisLock {
             `;
             const res = await this.client.eval(lua, 1, key, token);
             return res === 1;
+        }
+
+        if (this.strictAtomicity) {
+            throw new Error('RedisLock: client.eval is required for atomic release to prevent TOCTOU race condition.');
         }
 
         const currentVal = await this.client.get(key);

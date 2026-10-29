@@ -5,6 +5,7 @@ import {
     waitForEvent,
     wait,
     parseDuration,
+    DurableManager,
     defaultDurableManager,
     resumeWorkflow,
     DuplicateEventException,
@@ -231,6 +232,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
             expect(res.displayName).to.equal('John Doe');
         });
+
         it("covers validateWorkflowVersion equality and function migrations", () => {
             const state = { a: 1 };
             expect(validateWorkflowVersion("1.0", "1.0", undefined, state)).to.equal(state);
@@ -238,6 +240,72 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const migrated = validateWorkflowVersion("2.0", "1.0", (_from, _to, s) => ({ ...s, migrated: true }), state);
             expect(migrated).to.deep.equal({ a: 1, migrated: true });
             expect(defaultDurableManager.size).to.be.a("number");
+        });
+
+        it("DurableManager enforces maxSize and evicts expired or oldest wait records", async () => {
+            const mgr = new DurableManager({ maxSize: 2 });
+            const now = Date.now();
+            mgr.registerWait({
+                correlationKey: "w1",
+                stackId: "stk1",
+                stepId: "step1",
+                continuationStepIndex: 1,
+                status: "waiting",
+                registeredAt: now,
+                expiresAt: now + 10,
+            } as any);
+            mgr.registerWait({
+                correlationKey: "w2",
+                stackId: "stk2",
+                stepId: "step2",
+                continuationStepIndex: 1,
+                status: "waiting",
+                registeredAt: now,
+                expiresAt: now + 50000,
+            } as any);
+            expect(mgr.size).to.equal(2);
+
+            await new Promise(r => setTimeout(r, 20));
+            // w1 expired; registering w3 triggers cleanExpired and clears w1
+            mgr.registerWait({
+                correlationKey: "w3",
+                stackId: "stk3",
+                stepId: "step3",
+                continuationStepIndex: 1,
+                status: "waiting",
+                registeredAt: now,
+                expiresAt: now + 50000,
+            } as any);
+            expect(mgr.size).to.equal(2);
+            expect(mgr.getWaiting("w1")).to.be.undefined;
+
+            // Both w2 and w3 unexpired; registering w4 evicts oldest (w2)
+            mgr.registerWait({
+                correlationKey: "w4",
+                stackId: "stk4",
+                stepId: "step4",
+                continuationStepIndex: 1,
+                status: "waiting",
+                registeredAt: now,
+                expiresAt: now + 50000,
+            } as any);
+            expect(mgr.size).to.equal(2);
+            expect(mgr.getWaiting("w2")).to.be.undefined;
+            expect(mgr.getWaitingByStack("stk2")).to.be.undefined;
+
+            // cleanExpired cleans expired entries
+            const mgrClean = new DurableManager({ maxSize: 10 });
+            mgrClean.registerWait({
+                correlationKey: "temp",
+                stackId: "temp-stk",
+                stepId: "step1",
+                continuationStepIndex: 1,
+                status: "waiting",
+                registeredAt: now,
+                expiresAt: now + 10,
+            } as any);
+            await new Promise(r => setTimeout(r, 20));
+            expect(mgrClean.cleanExpired()).to.equal(1);
         });
 
         it("resumeWorkflow supports flow containing only continuation step", async () => {
