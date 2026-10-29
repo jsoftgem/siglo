@@ -1,6 +1,6 @@
 # Storage & Checkpoint Contract
 
-This document outlines the persistence model, checkpoint schema, optimistic concurrency guarantees, and adapter error modes in `Rivulet` v1.0.0.
+This document outlines the persistence model, checkpoint schema, optimistic concurrency guarantees, and adapter error modes in `Siglo` v1.0.0.
 
 ---
 
@@ -106,7 +106,7 @@ export interface StorageAdapter {
 
 Registered globally via:
 ```ts
-import { useStorage } from 'rivulet';
+import { useStorage } from 'siglo';
 
 useStorage(myCustomAdapter);
 ```

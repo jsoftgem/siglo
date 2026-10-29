@@ -1,6 +1,6 @@
-import { Flow, ExecutionOptions } from 'rivulet';
+import { Flow, ExecutionOptions } from 'siglo';
 
-export interface RivuletHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> {
+export interface SigloHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (c: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, c: TReq) => Promise<any> | any;
     timeout?: number;
@@ -49,9 +49,9 @@ function unwrapContext(obj: any): any {
 /**
  * Creates a Hono-compatible middleware / route handler for executing a rivulet workflow.
  */
-export function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
+export function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletHonoMiddlewareOptions<TReq, TInput, TOutput> = {}
+    options: SigloHonoMiddlewareOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (c: any, next?: () => Promise<void>): Promise<any> => {
         try {
@@ -133,3 +133,6 @@ export function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
     };
 }
 
+
+export type RivuletHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> = SigloHonoMiddlewareOptions<TReq, TInput, TOutput>;
+export const rivuletMiddleware = sigloMiddleware;

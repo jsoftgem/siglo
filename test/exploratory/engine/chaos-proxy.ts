@@ -4,7 +4,7 @@ import {
     ContextChangeEvent,
     CacheEvent,
     CheckpointConflictException
-} from 'rivulet';
+} from 'siglo';
 
 export interface ChaosConfig {
     failureRate?: number; // 0.0 to 1.0 probability of injected fault

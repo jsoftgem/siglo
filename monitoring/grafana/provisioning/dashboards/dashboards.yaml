@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: 'rivulet-dashboards'
+  - name: 'siglo-dashboards'
     orgId: 1
-    folder: 'Rivulet APM'
+    folder: 'Siglo APM'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 5

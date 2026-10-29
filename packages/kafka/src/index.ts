@@ -1,6 +1,6 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
+import { Flow, ExecutionOptions, IdempotencyStore } from 'siglo';
 
-export interface RivuletKafkaMessage {
+export interface SigloKafkaMessage {
     key?: Buffer | string | null;
     value?: Buffer | string | null;
     partition: number;
@@ -9,13 +9,13 @@ export interface RivuletKafkaMessage {
     headers?: Record<string, Buffer | string | undefined>;
 }
 
-export interface RivuletKafkaOptions<TInput = any, TOutput = any> {
-    input?: (message: RivuletKafkaMessage) => Promise<TInput> | TInput;
-    output?: (result: any, message: RivuletKafkaMessage) => Promise<TOutput> | TOutput;
+export interface SigloKafkaOptions<TInput = any, TOutput = any> {
+    input?: (message: SigloKafkaMessage) => Promise<TInput> | TInput;
+    output?: (result: any, message: SigloKafkaMessage) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
     timeout?: number;
-    namespace?: string | ((message: RivuletKafkaMessage) => string | undefined);
+    namespace?: string | ((message: SigloKafkaMessage) => string | undefined);
 }
 
 function unwrapContext(obj: any): any {
@@ -38,9 +38,9 @@ function unwrapContext(obj: any): any {
  */
 export function createKafkaMessageHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletKafkaOptions<TInput, TOutput> = {}
+    options: SigloKafkaOptions<TInput, TOutput> = {}
 ) {
-    return async (payload: { topic: string; partition: number; message: RivuletKafkaMessage }): Promise<any> => {
+    return async (payload: { topic: string; partition: number; message: SigloKafkaMessage }): Promise<any> => {
         const { message, topic, partition } = payload;
         const msgKey = message.key ? String(message.key) : `${topic}:${partition}:${message.offset}`;
         const idempKey = `kafka:${topic}:${msgKey}`;
@@ -105,3 +105,6 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
     };
 }
 
+
+export type RivuletKafkaMessage = SigloKafkaMessage;
+export type RivuletKafkaOptions<TInput = any, TOutput = any> = SigloKafkaOptions<TInput, TOutput>;

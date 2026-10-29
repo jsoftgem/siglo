@@ -2,7 +2,7 @@
 
 Long-running workflows frequently need to pause execution for minutes, hours, or days awaiting an external event (such as human approval, webhook verification, or payment clearance) or a duration timer.
 
-`Rivulet` v1.0.0 supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.
+`Siglo` v1.0.0 supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.
 
 ---
 
@@ -11,7 +11,7 @@ Long-running workflows frequently need to pause execution for minutes, hours, or
 When a workflow runs with `{ durable: true }`, encounter of a wait node halts execution cleanly, creates a state checkpoint, records a waiting descriptor, and returns execution control:
 
 ```typescript
-import { Step, flow, waitForEvent, wait } from 'rivulet';
+import { Step, flow, waitForEvent, wait } from 'siglo';
 
 const userRegistrationFlow = flow(
   registerAccount,

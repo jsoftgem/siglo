@@ -1,4 +1,4 @@
-# Automated Exploratory Testing Plan for `Rivulet`
+# Automated Exploratory Testing Plan for `Siglo`
 
 > **Comprehensive Automated Exploratory Testing (AET) Architecture, Generative Fuzzing, Chaos Engineering, and Invariant Verification Across the Entire Monorepo Ecosystem**
 
@@ -6,7 +6,7 @@
 
 ## 1. Executive Summary & Vision
 
-`Rivulet` is a high-performance, in-process workflow orchestrator engineered for zero-daemon operational simplicity, sub-millisecond execution, and resilient enterprise semantics (Sagas, OCC checkpointing, bounded dynamic mapping, durable event waits, and distributed ecosystem adapters).
+`Siglo` is a high-performance, in-process workflow orchestrator engineered for zero-daemon operational simplicity, sub-millisecond execution, and resilient enterprise semantics (Sagas, OCC checkpointing, bounded dynamic mapping, durable event waits, and distributed ecosystem adapters).
 
 While the core runtime achieves 100% statement and line coverage under deterministic unit tests, **traditional scripted tests only verify known paths and predictable sequences**. Complex workflow runtimes fail in the "unknown unknowns":
 - High-concurrency race conditions during parallel branching and distributed lock claims.
@@ -43,7 +43,7 @@ flowchart TD
 
     subgraph Triaging["4. Triage & Shrinking Engine"]
         Shrinker["AST & Input Shrinker\n(Delta Debugging)"]
-        Replay["Deterministic Replay Harness\n(@rivulet/testing)"]
+        Replay["Deterministic Replay Harness\n(@siglo/testing)"]
         Alert["Issue Report & Diagram Generation\n(Mermaid AST + Trace Snapshot)"]
     end
 
@@ -61,20 +61,20 @@ flowchart TD
 
 ## 2. System Attack Surface & Component Decomposition
 
-The exploratory matrix targets all layers of the `Rivulet` monorepo:
+The exploratory matrix targets all layers of the `Siglo` monorepo:
 
 | Component | Package Path | Primary Attack Surface & Exploratory Focus |
 |---|---|---|
-| **Core Runtime** | [`packages/core`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/core) | Dynamic flow AST execution, accumulated context immutability, 5-phase step lifecycle, combinators (`parallel`, `allSettled`, `race`, `when`, `branch`, `map`), two-tier timeouts, cooperative `AbortSignal`, saga LIFO compensations, durable `wait`/`waitForEvent`, idempotency locks. |
-| **Testing Harness** | [`packages/testing`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/testing) | Virtual clock (`FakeClock`) drift, step spies, trace recording accuracy, mocking fidelity, deterministic replay of failure fixtures. |
-| **Developer CLI** | [`packages/cli`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/cli) | Scaffolding robustness, AST parsing of malformed user code, Mermaid/DOT/JSON visual export fidelity, fixture replay validation. |
-| **PostgreSQL Storage** | [`packages/postgres`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/postgres) | Connection pool exhaustion, transaction rollbacks during checkpoints, optimistic concurrency conflicts (OCC `version`), advisory lock collisions, JSONB state serialization limits. |
-| **Redis Storage** | [`packages/redis`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/redis) | Key eviction policies under OOM, Redis cluster failover, Redlock distributed lock expiration, pipeline batching desynchronization, pub/sub event drops. |
-| **BullMQ Worker** | [`packages/bullmq`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/bullmq) | Stalled job recovery, backpressure overflow, lock renewal timeouts during long-running workflows, worker graceful shutdown mid-step. |
-| **Kafka Streaming** | [`packages/kafka`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/kafka) | Partition rebalance during in-flight batch execution, out-of-order offsets, poison-pill isolation, commit semantics (`at-least-once` vs `at-most-once`). |
-| **AWS SQS Consumer** | [`packages/sqs`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/sqs) | Visibility timeout expiration mid-flow, `batchItemFailures` partial acknowledgement accuracy, message deduplication ID race conditions. |
-| **HTTP Frameworks** | [`packages/express`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/express), [`packages/fastify`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/fastify), [`packages/hono`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/hono) | Client disconnection (`req.on('close')`) triggering workflow cancellation, streaming backpressure, payload schema mismatch error codes, header injection attacks. |
-| **OpenTelemetry** | [`packages/opentelemetry`](file:///Users/jericodeguzman/IdeaProjects/Rivulet/packages/opentelemetry) | Span context leaks across concurrent branches, missing parent-child spans during parallel fan-out/fan-in, baggage propagation across durable resume boundaries. |
+| **Core Runtime** | [`packages/core`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/core) | Dynamic flow AST execution, accumulated context immutability, 5-phase step lifecycle, combinators (`parallel`, `allSettled`, `race`, `when`, `branch`, `map`), two-tier timeouts, cooperative `AbortSignal`, saga LIFO compensations, durable `wait`/`waitForEvent`, idempotency locks. |
+| **Testing Harness** | [`packages/testing`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/testing) | Virtual clock (`FakeClock`) drift, step spies, trace recording accuracy, mocking fidelity, deterministic replay of failure fixtures. |
+| **Developer CLI** | [`packages/cli`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/cli) | Scaffolding robustness, AST parsing of malformed user code, Mermaid/DOT/JSON visual export fidelity, fixture replay validation. |
+| **PostgreSQL Storage** | [`packages/postgres`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/postgres) | Connection pool exhaustion, transaction rollbacks during checkpoints, optimistic concurrency conflicts (OCC `version`), advisory lock collisions, JSONB state serialization limits. |
+| **Redis Storage** | [`packages/redis`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/redis) | Key eviction policies under OOM, Redis cluster failover, Redlock distributed lock expiration, pipeline batching desynchronization, pub/sub event drops. |
+| **BullMQ Worker** | [`packages/bullmq`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/bullmq) | Stalled job recovery, backpressure overflow, lock renewal timeouts during long-running workflows, worker graceful shutdown mid-step. |
+| **Kafka Streaming** | [`packages/kafka`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/kafka) | Partition rebalance during in-flight batch execution, out-of-order offsets, poison-pill isolation, commit semantics (`at-least-once` vs `at-most-once`). |
+| **AWS SQS Consumer** | [`packages/sqs`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/sqs) | Visibility timeout expiration mid-flow, `batchItemFailures` partial acknowledgement accuracy, message deduplication ID race conditions. |
+| **HTTP Frameworks** | [`packages/express`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/express), [`packages/fastify`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/fastify), [`packages/hono`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/hono) | Client disconnection (`req.on('close')`) triggering workflow cancellation, streaming backpressure, payload schema mismatch error codes, header injection attacks. |
+| **OpenTelemetry** | [`packages/opentelemetry`](file:///Users/jericodeguzman/IdeaProjects/Siglo/packages/opentelemetry) | Span context leaks across concurrent branches, missing parent-child spans during parallel fan-out/fan-in, baggage propagation across durable resume boundaries. |
 
 ---
 
@@ -123,7 +123,7 @@ classDiagram
    - *Axiom:* A step timeout ($T_{step}$) must fire if step duration exceeds $T_{step}$; a flow timeout ($T_{flow}$) must abort the entire flow if total cumulative duration exceeds $T_{flow}$, even across multiple retries.
    - *Check:* Virtual time verification with `FakeClock` ensuring correct timeout error class (`StepTimeoutException` vs `FlowTimeoutException`).
 9. **Oracle 9: Distributed Tracing & Span Hierarchy Continuity**
-   - *Axiom:* In `@rivulet/opentelemetry`, every step span must be a direct child of the workflow root span; parallel branches must have parallel sibling spans with valid W3C traceparent context. No orphaned spans.
+   - *Axiom:* In `@siglo/opentelemetry`, every step span must be a direct child of the workflow root span; parallel branches must have parallel sibling spans with valid W3C traceparent context. No orphaned spans.
    - *Check:* Span tree graph traversal ensuring single root and zero disconnected subgraphs.
 10. **Oracle 10: Zero Resource & Event Listener Leaks**
     - *Axiom:* Executing, aborting, pausing, or failing 10,000 continuous workflows must not leave lingering listeners on `EventEmitter`, unclosed database clients, or accumulating memory.
@@ -207,7 +207,7 @@ Explores durable workflow recovery resilience:
   - Verify Oracle 3: Exactly 1 worker transitions the state to running; the remaining 49 receive optimistic concurrency lock errors or idempotently yield the cached output.
 
 ### Charter 4: Idempotency Key Collisions & TTL Expiry
-- **Target:** `@rivulet/redis`, `@rivulet/postgres`, in-memory idempotency store.
+- **Target:** `@siglo/redis`, `@siglo/postgres`, in-memory idempotency store.
 - **Exploration Mission:** Bombard idempotent steps with simultaneous identical requests with jittered execution durations.
 - **Technique:**
   - Simulate an idempotent step taking 150ms.
@@ -215,7 +215,7 @@ Explores durable workflow recovery resilience:
   - Test TTL expiration boundary: Trigger a call at $T = TTL - 1\text{ms}$ and $T = TTL + 1\text{ms}$. Verify clean claim lock release and subsequent re-execution.
 
 ### Charter 5: Streaming & Message Queue Batch Processing
-- **Target:** `@rivulet/sqs`, `@rivulet/kafka`, `@rivulet/bullmq`.
+- **Target:** `@siglo/sqs`, `@siglo/kafka`, `@siglo/bullmq`.
 - **Exploration Mission:** Explore partial batch failures, out-of-order execution, and queue worker crashes.
 - **Technique:**
   - Feed SQS/Kafka adapters batches of 20 messages where messages at indices [3, 7, 18] trigger fatal workflow failures, [2, 11] trigger retryable timeouts, and the rest succeed.
@@ -223,7 +223,7 @@ Explores durable workflow recovery resilience:
   - Verify Oracle 7: `batchItemFailures` strictly reports [3, 7, 18]; no successful messages are re-processed upon redrive.
 
 ### Charter 6: Web / Edge Adapter Disconnects & Abort Propagation
-- **Target:** `@rivulet/express`, `@rivulet/fastify`, `@rivulet/hono`.
+- **Target:** `@siglo/express`, `@siglo/fastify`, `@siglo/hono`.
 - **Exploration Mission:** Abruptly drop client HTTP connections while long-running or durable workflows are executing.
 - **Technique:**
   - Start an HTTP request that launches a 5-step flow.
@@ -231,15 +231,15 @@ Explores durable workflow recovery resilience:
   - Verify: AbortSignal fires immediately; Step 2 and subsequent steps abort; active timers clear; no memory leaks or unhandled stream write errors occur on closed sockets.
 
 ### Charter 7: CLI Tooling, Diagram Export & Validation
-- **Target:** `@rivulet/cli`.
+- **Target:** `@siglo/cli`.
 - **Exploration Mission:** Fuzz the CLI with corrupted workflow files, circular references, invalid syntax, and extreme graph topologies.
 - **Technique:**
-  - Generate 500-node workflow ASTs and pass to `rivulet export --format=mermaid` and `--format=dot`.
+  - Generate 500-node workflow ASTs and pass to `siglo export --format=mermaid` and `--format=dot`.
   - Validate that exported Mermaid/DOT diagrams parse cleanly without syntax errors using Mermaid CLI / Graphviz validator.
-  - Feed malformed JSON ASTs to `rivulet validate` and assert structured error reporting with line/column references.
+  - Feed malformed JSON ASTs to `siglo validate` and assert structured error reporting with line/column references.
 
 ### Charter 8: Observability, W3C Trace Context & Metric Fidelity
-- **Target:** `@rivulet/opentelemetry`.
+- **Target:** `@siglo/opentelemetry`.
 - **Exploration Mission:** Validate span parenting, distributed context propagation across durable suspension, and baggage preservation.
 - **Technique:**
   - Suspend a workflow with an active OpenTelemetry trace. Persist to Postgres.
@@ -275,7 +275,7 @@ test/exploratory/
 
 ```typescript
 // test/exploratory/engine/ast-generator.ts
-import { flow, step, parallel, race, allSettled, when, branch, map } from 'rivulet';
+import { flow, step, parallel, race, allSettled, when, branch, map } from 'siglo';
 
 export interface FuzzedFlowConfig {
     maxDepth: number;
@@ -382,7 +382,7 @@ When an invariant violation is discovered by the exploratory fuzzer:
 1. **Delta Debugging / AST Shrinking:**
    - The engine automatically eliminates unused steps, collapses parallel branches, and simplifies inputs to find the **minimal failing sub-flow**.
 2. **Replay Fixture Generation:**
-   - The minimal failure is serialized into a `@rivulet/testing` JSON replay fixture (`test/fixtures/fuzzed-crash-<id>.json`).
+   - The minimal failure is serialized into a `@siglo/testing` JSON replay fixture (`test/fixtures/fuzzed-crash-<id>.json`).
 3. **Automated Reproduction Test:**
    - Generates an executable test file reproducing the bug with `flow.toMermaid()` visualization embedded into the report.
 
@@ -392,6 +392,6 @@ When an invariant violation is discovered by the exploratory fuzzer:
 
 - [ ] **Milestone 1:** Implement core Invariant Oracles (`ContextImmutability`, `SagaLIFO`, `BoundedConcurrency`) in `packages/testing`.
 - [ ] **Milestone 2:** Implement the AST Flow Topology Synthesizer & fast-check parameter fuzzer.
-- [ ] **Milestone 3:** Create dockerized chaos harnesses for `@rivulet/postgres` and `@rivulet/redis` verifying OCC and idempotency collisions.
-- [ ] **Milestone 4:** Add batch permutation fuzzing for `@rivulet/sqs` and `@rivulet/kafka`.
+- [ ] **Milestone 3:** Create dockerized chaos harnesses for `@siglo/postgres` and `@siglo/redis` verifying OCC and idempotency collisions.
+- [ ] **Milestone 4:** Add batch permutation fuzzing for `@siglo/sqs` and `@siglo/kafka`.
 - [ ] **Milestone 5:** Wire the PR smoke fuzz runner and nightly chaos job into `.github/workflows`.

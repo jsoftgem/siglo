@@ -13,7 +13,7 @@ export interface ExecutionErrorMetadata {
 }
 /* c8 ignore stop */
 
-export class RivuletError extends Error {
+export class SigloError extends Error {
     readonly stepName?: string;
     readonly phase?: string;
     readonly retryable: boolean;
@@ -25,7 +25,7 @@ export class RivuletError extends Error {
 
     constructor(message: string, metadata: ExecutionErrorMetadata = {}) {
         super(message);
-        this.name = 'RivuletError';
+        this.name = 'SigloError';
         this.stepName = metadata.stepName;
         this.phase = metadata.phase;
         this.retryable = metadata.retryable !== undefined ? metadata.retryable : true;
@@ -41,7 +41,7 @@ export class RivuletError extends Error {
             (this as any).stackId = metadata.stackId;
         }
 
-        Object.setPrototypeOf(this, RivuletError.prototype);
+        Object.setPrototypeOf(this, SigloError.prototype);
     }
 
     get isTimeout(): boolean {
@@ -96,7 +96,7 @@ export class RivuletError extends Error {
 /* c8 ignore next */
 }
 
-export class StepTimeoutException extends RivuletError {
+export class StepTimeoutException extends SigloError {
     readonly timeoutMs: number;
     readonly elapsedMs?: number;
 
@@ -117,7 +117,7 @@ export class StepTimeoutException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class FlowTimeoutException extends RivuletError {
+export class FlowTimeoutException extends SigloError {
     override readonly stackId: string;
     readonly timeoutMs: number;
     readonly completedSteps: number;
@@ -137,7 +137,7 @@ export class FlowTimeoutException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class CancellationException extends RivuletError {
+export class CancellationException extends SigloError {
     constructor(message: string = 'This operation was aborted', metadata: ExecutionErrorMetadata = {}) {
         super(message, {
             ...metadata,
@@ -156,7 +156,7 @@ export interface ValidationErrorDetail {
     [key: string]: any;
 }
 
-export class ValidationException extends RivuletError {
+export class ValidationException extends SigloError {
     readonly errors: ValidationErrorDetail[];
 
     constructor(errors: ValidationErrorDetail[], metadata: ExecutionErrorMetadata = {}) {
@@ -175,7 +175,7 @@ export class ValidationException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class StorageAdapterException extends RivuletError {
+export class StorageAdapterException extends SigloError {
     readonly operation: string;
     readonly adapterName?: string;
 
@@ -195,7 +195,7 @@ export class StorageAdapterException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class CheckpointConflictException extends RivuletError {
+export class CheckpointConflictException extends SigloError {
     readonly currentRevision: number;
     readonly attemptedRevision: number;
 
@@ -222,7 +222,7 @@ export class CheckpointConflictException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class NamespaceMismatchException extends RivuletError {
+export class NamespaceMismatchException extends SigloError {
     readonly expectedNamespace: string;
     readonly actualNamespace?: string;
 
@@ -241,7 +241,7 @@ export class NamespaceMismatchException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class CheckpointVersionException extends RivuletError {
+export class CheckpointVersionException extends SigloError {
     readonly version: any;
 
     constructor(version: any, metadata: ExecutionErrorMetadata = {}) {
@@ -263,7 +263,7 @@ export interface CollisionDetail {
     branchNames: string[];
 }
 
-export class FieldCollisionException extends RivuletError {
+export class FieldCollisionException extends SigloError {
     readonly collisions: CollisionDetail[];
 
     constructor(collisions: CollisionDetail[], metadata: ExecutionErrorMetadata = {}) {
@@ -280,7 +280,7 @@ export class FieldCollisionException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class IdempotencyConflictException extends RivuletError {
+export class IdempotencyConflictException extends SigloError {
     readonly idempotencyKey: string;
 
     constructor(idempotencyKey: string, metadata: ExecutionErrorMetadata = {}) {
@@ -301,7 +301,7 @@ export interface CompensationErrorDetail {
     error: unknown;
 }
 
-export class CompensationException extends RivuletError {
+export class CompensationException extends SigloError {
     readonly originalError: unknown;
     readonly compensationErrors: CompensationErrorDetail[];
     readonly completedCompensations: string[];
@@ -330,7 +330,7 @@ export class CompensationException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class WorkflowSuspendedException extends RivuletError {
+export class WorkflowSuspendedException extends SigloError {
     readonly correlationKey?: string;
     readonly eventName?: string;
     readonly continuationNodeId?: string;
@@ -359,7 +359,7 @@ export class WorkflowSuspendedException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class DuplicateEventException extends RivuletError {
+export class DuplicateEventException extends SigloError {
     readonly correlationKey: string;
     readonly eventName?: string;
 
@@ -377,7 +377,7 @@ export class DuplicateEventException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class ExpiredWaitException extends RivuletError {
+export class ExpiredWaitException extends SigloError {
     readonly correlationKey: string;
     readonly eventName?: string;
     readonly expiredAt: number;
@@ -397,7 +397,7 @@ export class ExpiredWaitException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class WorkflowVersionMismatchException extends RivuletError {
+export class WorkflowVersionMismatchException extends SigloError {
     readonly expectedVersion: any;
     readonly actualVersion: any;
 
@@ -415,7 +415,7 @@ export class WorkflowVersionMismatchException extends RivuletError {
 /* c8 ignore next */
 }
 
-export class GraphValidationException extends RivuletError {
+export class GraphValidationException extends SigloError {
     readonly errors: string[];
 
     constructor(errors: string[], metadata: ExecutionErrorMetadata = {}) {
@@ -431,8 +431,8 @@ export class GraphValidationException extends RivuletError {
 /* c8 ignore next */
 }
 
-export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): RivuletError {
-    if (error instanceof RivuletError) {
+export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): SigloError {
+    if (error instanceof SigloError) {
         if (!error.stackId && metadata.stackId) (error as any).stackId = metadata.stackId;
         if (!error.namespace && metadata.namespace) (error as any).namespace = metadata.namespace;
         if (!error.workflowId && metadata.workflowId) (error as any).workflowId = metadata.workflowId;
@@ -452,12 +452,14 @@ export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}
     const message = error instanceof Error
         ? error.message
         : (typeof error === 'string' ? error : 'Execution failed');
-    const rivuletError = new RivuletError(message, {
+    const sigloError = new SigloError(message, {
         ...metadata,
         cause: error instanceof Error ? error : undefined
     });
     // Legacy compatibility: maintain error property
-    (rivuletError as any).error = error;
-    return rivuletError;
+    (sigloError as any).error = error;
+    return sigloError;
 }
 
+
+export { SigloError as RivuletError };

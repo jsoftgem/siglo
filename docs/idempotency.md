@@ -1,6 +1,6 @@
 # Idempotency and Deduplication
 
-Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `Rivulet` v1.0.0 provides first-class idempotency guarantees at both the workflow level and individual step level.
+Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `Siglo` v1.0.0 provides first-class idempotency guarantees at both the workflow level and individual step level.
 
 ---
 
@@ -32,7 +32,7 @@ interface IdempotencyStore {
 To prevent key collisions across namespaces or versions, keys are automatically scoped:
 
 ```typescript
-import { buildIdempotencyKey } from 'rivulet';
+import { buildIdempotencyKey } from 'siglo';
 
 const key = buildIdempotencyKey('order-1234', {
   namespace: 'tenant-a',
@@ -48,7 +48,7 @@ const key = buildIdempotencyKey('order-1234', {
 Workflow-level deduplication wraps the entire flow execution. Subsequent requests with identical idempotency keys return the prior result:
 
 ```typescript
-import { flow, Step } from 'rivulet';
+import { flow, Step } from 'siglo';
 
 const checkoutFlow = flow(chargeCard, sendReceipt);
 
@@ -80,7 +80,7 @@ Dynamic keys can be specified as a context accessor:
 Fine-grained deduplication on individual steps prevents redundant side effects (e.g. charging a payment gateway twice):
 
 ```typescript
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 
 const chargePayment = Step.create('chargePayment', async ({ invoiceId, amount }) => {
     return await paymentGateway.charge({ invoiceId, amount });

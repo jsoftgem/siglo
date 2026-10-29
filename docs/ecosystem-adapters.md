@@ -1,8 +1,8 @@
-# Rivulet Ecosystem Adapters & Integrations Guide
+# Siglo Ecosystem Adapters & Integrations Guide
 
-The `Rivulet` ecosystem provides modular, production-ready integrations across observability, HTTP web frameworks, message brokers, persistent storage backends, and developer tooling.
+The `Siglo` ecosystem provides modular, production-ready integrations across observability, HTTP web frameworks, message brokers, persistent storage backends, and developer tooling.
 
-The core runtime (`Rivulet`) remains strictly **zero-dependency**; all ecosystem integrations are published as independent packages that depend only on standard interfaces (`StorageAdapter`, `IdempotencyStore`, `Flow`, `ExecutionOptions`).
+The core runtime (`Siglo`) remains strictly **zero-dependency**; all ecosystem integrations are published as independent packages that depend only on standard interfaces (`StorageAdapter`, `IdempotencyStore`, `Flow`, `ExecutionOptions`).
 
 ---
 
@@ -12,16 +12,16 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 
 | Package | Category | Documentation Guide | Key Features |
 | :--- | :--- | :--- | :--- |
-| **`@rivulet/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
-| **`@rivulet/redis`** | Storage & Caching | [Redis Adapter Guide](adapters/redis.md) | Distributed checkpoints, step caching, atomic idempotency, single-flight mutex |
-| **`@rivulet/postgres`** | Storage & Persistence | [PostgreSQL Adapter Guide](adapters/postgres.md) | ACID checkpoints, context mutation audit log, automatic DDL, retention cleanup |
-| **`@rivulet/bullmq`** | Queue & Job Worker | [BullMQ Adapter Guide](adapters/bullmq.md) | Redis job queue consumer, job ID deduplication, concurrency control |
-| **`@rivulet/kafka`** | Event Streaming | [Kafka Adapter Guide](adapters/kafka.md) | Partitioned consumer, composite idempotency keys, header namespace routing |
-| **`@rivulet/sqs`** | Cloud Message Queue | [AWS SQS Adapter Guide](adapters/sqs.md) | AWS Lambda SQS event processor, `ReportBatchItemFailures` partial responses |
-| **`@rivulet/hono`** | HTTP Ingress | [Hono Adapter Guide](adapters/hono.md) | Web Standards (`Request`/`Response`), Cloudflare Workers, Deno, Bun, Node.js |
-| **`@rivulet/fastify`** | HTTP Ingress | [Fastify Adapter Guide](adapters/fastify.md) | Low-overhead Node.js HTTP route handler, raw abort signals, schema support |
-| **`@rivulet/express`** | HTTP Ingress | [Express Adapter Guide](adapters/express.md) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
-| **`@rivulet/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`), AST visualizer (`visualize`), cycle validator (`validate`), fixture replay |
+| **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
+| **`@siglo/redis`** | Storage & Caching | [Redis Adapter Guide](adapters/redis.md) | Distributed checkpoints, step caching, atomic idempotency, single-flight mutex |
+| **`@siglo/postgres`** | Storage & Persistence | [PostgreSQL Adapter Guide](adapters/postgres.md) | ACID checkpoints, context mutation audit log, automatic DDL, retention cleanup |
+| **`@siglo/bullmq`** | Queue & Job Worker | [BullMQ Adapter Guide](adapters/bullmq.md) | Redis job queue consumer, job ID deduplication, concurrency control |
+| **`@siglo/kafka`** | Event Streaming | [Kafka Adapter Guide](adapters/kafka.md) | Partitioned consumer, composite idempotency keys, header namespace routing |
+| **`@siglo/sqs`** | Cloud Message Queue | [AWS SQS Adapter Guide](adapters/sqs.md) | AWS Lambda SQS event processor, `ReportBatchItemFailures` partial responses |
+| **`@siglo/hono`** | HTTP Ingress | [Hono Adapter Guide](adapters/hono.md) | Web Standards (`Request`/`Response`), Cloudflare Workers, Deno, Bun, Node.js |
+| **`@siglo/fastify`** | HTTP Ingress | [Fastify Adapter Guide](adapters/fastify.md) | Low-overhead Node.js HTTP route handler, raw abort signals, schema support |
+| **`@siglo/express`** | HTTP Ingress | [Express Adapter Guide](adapters/express.md) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
+| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`), AST visualizer (`visualize`), cycle validator (`validate`), fixture replay |
 
 ---
 
@@ -31,14 +31,14 @@ Detailed standalone guides are available for each plugin, adapter, and developer
                                       TRIGGER / INGRESS LAYER
            ┌───────────────────────────────┬───────────────────────────────┐
            │         HTTP Routers          │        Message Queues         │
-           │  @rivulet/hono             │  @rivulet/bullmq           │
-           │  @rivulet/fastify          │  @rivulet/kafka            │
-           │  @rivulet/express          │  @rivulet/sqs              │
+           │  @siglo/hono             │  @siglo/bullmq           │
+           │  @siglo/fastify          │  @siglo/kafka            │
+           │  @siglo/express          │  @siglo/sqs              │
            └───────────────┬───────────────┴───────────────┬───────────────┘
                            │                               │
                            ▼                               ▼
            ┌───────────────────────────────────────────────────────────────┐
-           │                          Rivulet                           │
+           │                          Siglo                           │
            │                     (Core Workflow Engine)                    │
            │  • Composable Steps & Flows    • Concurrency & Combinators    │
            │  • Two-Tier Timeouts           • Saga LIFO Compensations      │
@@ -48,14 +48,14 @@ Detailed standalone guides are available for each plugin, adapter, and developer
                            ▼                               ▼
            ┌───────────────────────────────┐ ┌─────────────────────────────┐
            │         Observability         │ │    Distributed Storage      │
-           │   @rivulet/opentelemetry   │ │   @rivulet/redis         │
+           │   @siglo/opentelemetry   │ │   @siglo/redis         │
            │   • Workflow & Step Spans     │ │   • Distributed Checkpoints │
            │   • Retry & Error Tracking    │ │   • Step Cache & Hash Stream│
            │   • W3C Trace Context         │ │   • RedisLock Single-Flight │
-           │   • PII Sanitization          │ │   @rivulet/postgres      │
+           │   • PII Sanitization          │ │   @siglo/postgres      │
            │                               │ │   • ACID Checkpoint Storage │
            │   DEVELOPER TOOLS             │ │   • Context Event Audit Log │
-           │   @rivulet/cli             │ │   • Automated Data Retention│
+           │   @siglo/cli             │ │   • Automated Data Retention│
            └───────────────────────────────┘ └─────────────────────────────┘
 ```
 
@@ -78,7 +78,7 @@ Every HTTP and queue adapter unwraps parameters, extracts correlation identifier
   - Strips internal engine state (keys prefixed with `$`) and evaluates getter functions, ensuring clean, JSON-serializable payloads for downstreams.
 
 ### 2. Error Status Code Normalization
-All HTTP adapters (`@rivulet/express`, `@rivulet/fastify`, `@rivulet/hono`) share an identical error categorization contract:
+All HTTP adapters (`@siglo/express`, `@siglo/fastify`, `@siglo/hono`) share an identical error categorization contract:
 
 | Workflow Exception | HTTP Status Code | Description |
 | :--- | :--- | :--- |
@@ -104,7 +104,7 @@ When clients disconnect or timeouts elapse, HTTP adapters propagate `AbortSignal
 
 ## Ingress Adapters Comparison Matrix
 
-| Feature | `@rivulet/hono` | `@rivulet/fastify` | `@rivulet/express` | `@rivulet/bullmq` | `@rivulet/kafka` | `@rivulet/sqs` |
+| Feature | `@siglo/hono` | `@siglo/fastify` | `@siglo/express` | `@siglo/bullmq` | `@siglo/kafka` | `@siglo/sqs` |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Runtime Target** | Cloudflare, Deno, Bun, Node | Node.js | Node.js | Node.js | Node.js | AWS Lambda, Node |
 | **Trigger Mechanism** | Web Standard HTTP | HTTP Request | HTTP Request | Redis Queue Job | Kafka Topic Record | AWS SQS Batch |
@@ -117,12 +117,12 @@ When clients disconnect or timeouts elapse, HTTP adapters propagate `AbortSignal
 
 ## Storage & Persistence Backends Comparison
 
-| Capability | `@rivulet/redis` | `@rivulet/postgres` |
+| Capability | `@siglo/redis` | `@siglo/postgres` |
 | :--- | :--- | :--- |
 | **Primary Use Case** | In-memory caching, sub-millisecond checkpoints, ephemeral locks | Durable relational persistence, compliance audit logs |
 | **Storage Mechanism** | Redis Strings (`SET PX`), Hashes (`HSET`) | Relational tables (`JSONB`, `BIGSERIAL`, `TIMESTAMPTZ`) |
 | **Checkpoint Retention** | Native Redis TTL expiration (`checkpointTtlMs`) | Automated cron cleanup (`cleanupOldCheckpoints(days)`) |
-| **Context Change Audit** | Real-time hash update (`HSET rivulet:context:...`) | Append-only event log (`rivulet_context_events`) |
+| **Context Change Audit** | Real-time hash update (`HSET siglo:context:...`) | Append-only event log (`siglo_context_events`) |
 | **Step Output Caching** | Yes (`getCachedStep` / `setCachedStep`) | Relies on application layer / Redis |
 | **Idempotency Locking** | Atomic Redis `SET ... PX ... NX` | PostgreSQL `INSERT ... ON CONFLICT DO NOTHING` |
 | **Single-Flight Mutex** | Yes (`RedisLock` with Lua token validation) | Advisory locks or custom transaction tables |
@@ -139,13 +139,13 @@ The following blueprint illustrates how to combine multiple adapters into an ent
        │
        ▼ (HTTP POST /checkout with x-request-id)
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ @rivulet/fastify Ingress Handler                                        │
+│ @siglo/fastify Ingress Handler                                        │
 │ • Extracts body, request.raw.signal, and correlation ID                    │
 └─────────────────────────────────────┬──────────────────────────────────────┘
                                       │
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ @rivulet/opentelemetry Monitored Workflow                               │
+│ @siglo/opentelemetry Monitored Workflow                               │
 │ • Creates root span 'workflow:CheckoutPipeline'                            │
 │ • Injects W3C traceparent headers                                          │
 │ • Filters context attributes via allowlist                                 │
@@ -153,17 +153,17 @@ The following blueprint illustrates how to combine multiple adapters into an ent
                                       │
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ Rivulet Engine Execution                                                │
-│ 1. Step: checkInventory (cached via @rivulet/redis: 5-min TTL)          │
+│ Siglo Engine Execution                                                │
+│ 1. Step: checkInventory (cached via @siglo/redis: 5-min TTL)          │
 │ 2. Step: chargeCustomer (protected by saga compensation)                   │
-│ 3. Step: publishFulfillmentEvent (sent to Kafka via @rivulet/kafka)    │
+│ 3. Step: publishFulfillmentEvent (sent to Kafka via @siglo/kafka)    │
 └─────────────────────────────────────┬──────────────────────────────────────┘
                                       │
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ @rivulet/postgres Storage Adapter                                       │
+│ @siglo/postgres Storage Adapter                                       │
 │ • Persists execution checkpoint JSONB                                      │
-│ • Records field mutations to rivulet_context_events                          │
+│ • Records field mutations to siglo_context_events                          │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -173,11 +173,11 @@ The following blueprint illustrates how to combine multiple adapters into an ent
 import Fastify from 'fastify';
 import { Pool } from 'pg';
 import { Redis } from 'ioredis';
-import { Step, flow } from 'rivulet';
-import { rivuletFastifyHandler } from '@rivulet/fastify';
-import { instrumentWorkflow, createTelemetryStorageAdapter } from '@rivulet/opentelemetry';
-import { PostgresStorageAdapter } from '@rivulet/postgres';
-import { RedisStorageAdapter } from '@rivulet/redis';
+import { Step, flow } from 'siglo';
+import { sigloFastifyHandler } from '@siglo/fastify';
+import { instrumentWorkflow, createTelemetryStorageAdapter } from '@siglo/opentelemetry';
+import { PostgresStorageAdapter } from '@siglo/postgres';
+import { RedisStorageAdapter } from '@siglo/redis';
 
 // 1. Establish Infrastructure Connections
 const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -217,7 +217,7 @@ const app = Fastify({ logger: true });
 
 app.post(
     '/api/checkout',
-    rivuletFastifyHandler(monitoredFlow, {
+    sigloFastifyHandler(monitoredFlow, {
         timeout: 10000,
         correlationIdHeader: 'x-request-id',
         namespace: (req) => req.headers['x-tenant-id'] as string,
@@ -256,5 +256,5 @@ Before deploying workflows and adapters to production, verify the following conf
 - [ ] **Idempotency TTL**: Align `idempotencyTtlMs` with queue retry policies. The idempotency claim TTL must exceed the maximum retry interval of your broker (BullMQ/Kafka/SQS).
 - [ ] **Cooperative Cancellation**: Verify that external HTTP requests, RPC calls, and database drivers consume `param.$signal?.()` so client disconnects do not leave lingering queries.
 - [ ] **Data Retention & Schema Cleanup**: Schedule periodic cron jobs to call `cleanupOldCheckpoints(days)` and `cleanupOldEvents(days)` in PostgreSQL.
-- [ ] **PII & Data Redaction**: Verify that sensitive credentials, authentication tokens, and user data are masked when using `@rivulet/cli inspect/checkpoint` or `@rivulet/opentelemetry allowContextFields`.
+- [ ] **PII & Data Redaction**: Verify that sensitive credentials, authentication tokens, and user data are masked when using `@siglo/cli inspect/checkpoint` or `@siglo/opentelemetry allowContextFields`.
 - [ ] **Graceful Process Shutdown**: Ensure `process.on('SIGTERM')` drains active message consumers (`worker.close()`, `consumer.disconnect()`) and terminates database pools before exiting.

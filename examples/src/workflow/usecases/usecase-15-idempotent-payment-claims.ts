@@ -1,4 +1,4 @@
-import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'rivulet';
+import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'siglo';
 
 export interface BankTransferInput {
     transactionId: string;

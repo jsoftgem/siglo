@@ -1,6 +1,6 @@
-# @rivulet/express Adapter Guide
+# @siglo/express Adapter Guide
 
-`@rivulet/express` provides an Express middleware adapter for executing `Rivulet` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
+`@siglo/express` provides an Express middleware adapter for executing `Siglo` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
 
 ---
 
@@ -13,7 +13,7 @@ The Express adapter acts as a route-level or path-level middleware:
              │
              ▼
     ┌─────────────────────────────────┐
-    │     rivuletExpressMiddleware      │
+    │     sigloExpressMiddleware      │
     │  • Extract Correlation ID       │ ──> Set X-Correlation-Id header
     │  • Extract Input (body / query) │
     │  • Extract Namespace Header     │
@@ -22,7 +22,7 @@ The Express adapter acts as a route-level or path-level middleware:
                      │
                      ▼
     ┌─────────────────────────────────┐
-    │       Rivulet Workflow       │
+    │       Siglo Workflow       │
     │  • Validations & Computations   │
     │  • Cooperative Cancellation     │
     │  • Distributed Steps & Sagas    │
@@ -46,35 +46,35 @@ The Express adapter acts as a route-level or path-level middleware:
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/express` and `Rivulet`:
+Install `@siglo/express` and `Siglo`:
 
 ```bash
-npm install Rivulet @rivulet/express express
+npm install Siglo @siglo/express express
 npm install --save-dev @types/express
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `express`: `^4.18.0 || ^5.0.0`
 
 ---
 
 ## 3. API Reference
 
-### `rivuletExpressMiddleware(workflow, options)`
+### `sigloExpressMiddleware(workflow, options)`
 
 Returns a standard Express middleware function `(req, res, next) => Promise<any>`.
 
 ```typescript
-function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
+function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletExpressOptions<TReq, TInput, TOutput>
+    options?: SigloExpressOptions<TReq, TInput, TOutput>
 ): (req: any, res: any, next: (err?: any) => void) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`RivuletExpressOptions`)
+## 4. Configuration Options (`SigloExpressOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -114,7 +114,7 @@ When an unhandled exception is thrown inside a workflow, the adapter's `getError
 
 When a client closes an HTTP connection early (e.g. user closes browser or upstream proxy aborts), Express exposes `req.signal` (in Express 5) or `req.raw?.signal`.
 
-`@rivulet/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
+`@siglo/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
 
 ```typescript
 const fetchExternalInventory = Step.create(async (param) => {
@@ -132,8 +132,8 @@ If the client terminates the connection while the fetch is pending, the HTTP req
 
 ```typescript
 import express, { Request, Response } from 'express';
-import { Step, flow } from 'rivulet';
-import { rivuletExpressMiddleware } from '@rivulet/express';
+import { Step, flow } from 'siglo';
+import { sigloExpressMiddleware } from '@siglo/express';
 
 const app = express();
 app.use(express.json());
@@ -165,10 +165,10 @@ const createOrderRecord = Step.create('createOrderRecord', async (param: any) =>
 
 const checkoutFlow = flow(validateCart, chargeCustomer, createOrderRecord);
 
-// 2. Mount Rivulet Route
+// 2. Mount Siglo Route
 app.post(
     '/api/v1/checkout',
-    rivuletExpressMiddleware(checkoutFlow, {
+    sigloExpressMiddleware(checkoutFlow, {
         timeout: 10000, // 10s execution SLA
         correlationIdHeader: 'x-request-id',
         input: (req: Request) => ({

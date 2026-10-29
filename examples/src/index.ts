@@ -33,7 +33,7 @@ import {
 
 async function main() {
     console.log('========================================================================');
-    console.log('   rivulet: Top 22 Production Event-Driven & Workflow Use Cases');
+    console.log('   siglo: Top 22 Production Event-Driven & Workflow Use Cases');
     console.log('========================================================================\n');
 
     // 1. Initialize Database Connectors & Register Storage Hooks
@@ -78,7 +78,7 @@ async function main() {
         documentId: 'DOC-RAG-882',
         sourceUri: 's3://company-docs/architecture-overview.pdf',
         mimeType: 'application/pdf',
-        rawText: 'Rivulet provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
+        rawText: 'Siglo provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
             'Combined with Apache Kafka, teams can build fault-tolerant, event-driven pipelines across distributed clusters.'
     });
     console.log(`  ✔ AI / RAG Pipeline -> Status: ${ragRes.ragPipelineStatus}, Vectors Indexed: ${ragRes.indexedVectors()}`);
@@ -318,7 +318,7 @@ async function main() {
     // ========================================================================
 
     // --- 18. HTTP Checkout & Order Processing Microservice ---
-    console.log('\n[Demo] 18. HTTP Checkout & Order Processing Microservice (@rivulet/fastify)...');
+    console.log('\n[Demo] 18. HTTP Checkout & Order Processing Microservice (@siglo/fastify)...');
     const fastifyHandler = createFastifyCheckoutHandler(createHttpCheckoutWorkflow());
     const mockReply = {
         statusCode: 200,
@@ -349,7 +349,7 @@ async function main() {
     console.log(`  ✔ HTTP Checkout -> Status: ${checkoutData.status}, Total: $${checkoutData.totalAmount}, Confirmation: ${checkoutData.confirmationCode}`);
 
     // --- 19. High-Volume Event-Driven Kafka Stream Enrichment ---
-    console.log('\n[Demo] 19. High-Volume Event-Driven Kafka Stream Enrichment (@rivulet/kafka)...');
+    console.log('\n[Demo] 19. High-Volume Event-Driven Kafka Stream Enrichment (@siglo/kafka)...');
     const kafkaConsumer = createKafkaTransactionConsumer();
     const kafkaRes: any = await kafkaConsumer({
         topic: 'payments.stream',
@@ -369,14 +369,14 @@ async function main() {
     console.log(`  ✔ Kafka Stream -> Status: ${kafkaRes.status}, Tier: ${kafkaRes.enriched.accountTier}, Flagged: ${kafkaRes.enriched.isFlagged}, Risk Score: ${kafkaRes.enriched.riskScore}`);
 
     // --- 20. Resilient Asynchronous Queue Worker & Dead-Letter Handling ---
-    console.log('\n[Demo] 20. Resilient Asynchronous Queue Worker (@rivulet/bullmq)...');
+    console.log('\n[Demo] 20. Resilient Asynchronous Queue Worker (@siglo/bullmq)...');
     const bullMqWorker = createBullMqImageProcessor();
     let currentProgress = 0;
     const bullRes: any = await bullMqWorker({
         id: 'job-image-transcode-42',
         data: {
             jobId: 'IMG-BANNER-4K',
-            imageUrl: 'https://cdn.rivulet.io/assets/raw-banner.png',
+            imageUrl: 'https://cdn.siglo.io/assets/raw-banner.png',
             targetWidth: 3840,
             targetHeight: 2160,
             format: 'webp',
@@ -389,7 +389,7 @@ async function main() {
     console.log(`  ✔ BullMQ Worker -> Job ID: ${bullRes.jobId}, Compression Ratio: ${bullRes.compressionRatio}, Progress: ${currentProgress}%`);
 
     // --- 21. Distributed Tracing & W3C Trace Context Propagation ---
-    console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@rivulet/opentelemetry)...');
+    console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@siglo/opentelemetry)...');
     const tracer = new MockTracer();
     const {instrumented} = setupInstrumentedWorkflow(tracer, {allowNamespace: true});
     const otelRes = await instrumented.run({
@@ -402,7 +402,7 @@ async function main() {
     console.log(`  ✔ OpenTelemetry -> Status: ${otelRes.dispatchStatus}, Spans Recorded: ${tracer.spans.length}, Tracking: ${otelRes.trackingNumber}`);
 
     // --- 22. Multi-Tenant SaaS Billing & Audit Ledger ---
-    console.log('\n[Demo] 22. Multi-Tenant SaaS Billing & Audit Ledger (@rivulet/postgres & @rivulet/redis)...');
+    console.log('\n[Demo] 22. Multi-Tenant SaaS Billing & Audit Ledger (@siglo/postgres & @siglo/redis)...');
     const pgClient = new MockPostgresClient();
     const redisClient = new MockRedisClient();
     const {workflow: billingWf} = setupSaaSBillingInfrastructure(pgClient, redisClient);
@@ -418,7 +418,7 @@ async function main() {
     // --- Verification of Redis & MongoDB State ---
     console.log("\n------------------------------------------------------------------------");
     console.log("[Verification] Checking Storage Adapter State:");
-    const mongoLogs = await mongo.collection("rivulet_execution_logs").find();
+    const mongoLogs = await mongo.collection("siglo_execution_logs").find();
     console.log(`  • MongoDB Execution Logs: ${mongoLogs.length} step context entries logged with stackId & namespace tracing`);
     console.log("\n[Demo] All 22 use cases executed and streamed to storage adapter successfully!");
     console.log('========================================================================\n');

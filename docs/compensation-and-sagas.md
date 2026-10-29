@@ -1,6 +1,6 @@
 # Compensation and Sagas
 
-Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `Rivulet` v1.0.0 provides first-class support for forward execution with automatic backward compensation.
+Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `Siglo` v1.0.0 provides first-class support for forward execution with automatic backward compensation.
 
 ---
 
@@ -9,7 +9,7 @@ Distributed workflows frequently require undoing partial side effects when a dow
 Compensations are attached directly to steps that produce external side effects:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 // Step 1: Reserve Inventory (with compensation)
 const reserveInventory = Step.create('reserveInventory', async ({ item, quantity }) => {
@@ -71,10 +71,10 @@ step.compensate(releaseInventory, {
 
 ## 4. Handling Compensation Failures (`CompensationException`)
 
-If one or more compensations fail and exhaust all retries, `Rivulet` throws a `CompensationException`:
+If one or more compensations fail and exhaust all retries, `Siglo` throws a `CompensationException`:
 
 ```typescript
-import { CompensationException } from 'rivulet';
+import { CompensationException } from 'siglo';
 
 try {
   await orderSaga.execute(payload);

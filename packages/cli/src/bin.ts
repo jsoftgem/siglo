@@ -16,13 +16,13 @@ import {
 
 function printHelp(): void {
     console.log(`
-rivulet CLI v1.0.0
+siglo CLI v1.0.0
 
 USAGE:
-    rivulet <command> [arguments] [options]
+    siglo <command> [arguments] [options]
 
 COMMANDS:
-    init [dir]                     Scaffold a starter rivulet project
+    init [dir]                     Scaffold a starter siglo project
     generate workflow <name>       Scaffold a new typed workflow with test
     generate step <name>           Scaffold a new typed step with test
     visualize <workflow-file>      Render workflow graph as Mermaid or text diagram
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
             case 'init': {
                 const targetDir = target || process.cwd();
                 const res = initProject(targetDir);
-                console.log(`\n✔ Initialized rivulet workflow project in ${targetDir}`);
+                console.log(`\n✔ Initialized siglo workflow project in ${targetDir}`);
                 for (const f of res.filesCreated) {
                     console.log(`  + ${f}`);
                 }
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
                 const subType = target;
                 const name = args[2];
                 if (!subType || !name) {
-                    console.error('Error: specify generator type and name (e.g. rivulet generate workflow order)');
+                    console.error('Error: specify generator type and name (e.g. siglo generate workflow order)');
                     process.exit(1);
                 }
                 if (subType === 'workflow') {
@@ -129,7 +129,7 @@ async function main(): Promise<void> {
 
             case 'visualize': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. rivulet visualize src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. siglo visualize src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
 
             case 'export': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. rivulet export src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. siglo export src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -156,7 +156,7 @@ async function main(): Promise<void> {
 
             case 'validate': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. rivulet validate src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. siglo validate src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
 
             case 'inspect': {
                 if (!target) {
-                    console.error('Error: specify workflow file path (e.g. rivulet inspect src/workflow.ts)');
+                    console.error('Error: specify workflow file path (e.g. siglo inspect src/workflow.ts)');
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
@@ -188,7 +188,7 @@ async function main(): Promise<void> {
 
             case 'checkpoint': {
                 if (!target) {
-                    console.error('Error: specify checkpoint JSON file (e.g. rivulet checkpoint stack-state.json)');
+                    console.error('Error: specify checkpoint JSON file (e.g. siglo checkpoint stack-state.json)');
                     process.exit(1);
                 }
                 const cpPath = path.resolve(process.cwd(), target);
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
 
             case 'replay': {
                 if (!target) {
-                    console.error('Error: specify fixture file (e.g. rivulet replay fixture.json [workflow.ts])');
+                    console.error('Error: specify fixture file (e.g. siglo replay fixture.json [workflow.ts])');
                     process.exit(1);
                 }
                 const wfPath = args[2] || 'src/workflow.ts';

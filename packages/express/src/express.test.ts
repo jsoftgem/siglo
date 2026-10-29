@@ -1,15 +1,15 @@
 import { expect } from 'chai';
-import { Step, flow } from 'rivulet';
-import { rivuletExpressMiddleware, getErrorStatusCode } from './index';
+import { Step, flow } from 'siglo';
+import { sigloExpressMiddleware, getErrorStatusCode } from './index';
 
-describe('@rivulet/express Adapter Suite', () => {
+describe('@siglo/express Adapter Suite', () => {
     it('executes workflow using express request and sends json response', async () => {
         const stepA = Step.create(async ({ a, b }: { a: number; b: number }) => ({
             sum: a + b,
         }));
         const calcFlow = flow(stepA);
 
-        const middleware = rivuletExpressMiddleware(calcFlow);
+        const middleware = sigloExpressMiddleware(calcFlow);
 
         const mockReq = {
             body: { a: 15, b: 25 },
@@ -40,7 +40,7 @@ describe('@rivulet/express Adapter Suite', () => {
         });
         const brokenFlow = flow(failStep);
 
-        const middleware = rivuletExpressMiddleware(brokenFlow);
+        const middleware = sigloExpressMiddleware(brokenFlow);
 
         let errorReceived: any;
         await middleware({}, {}, (err: any) => {
@@ -61,7 +61,7 @@ describe('@rivulet/express Adapter Suite', () => {
         const failStep = Step.create(async (): Promise<any> => {
             throw timeoutErr;
         });
-        const middleware = rivuletExpressMiddleware(flow(failStep));
+        const middleware = sigloExpressMiddleware(flow(failStep));
 
         let sentStatus = 0;
         let sentJson: any;

@@ -8,7 +8,7 @@ import {
     SpanContext,
     TraceFlags
 } from '@opentelemetry/api';
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 import {
     SemanticAttributes,
     instrumentWorkflow,
@@ -109,7 +109,7 @@ class MockTracer implements Partial<Tracer> {
     }
 }
 
-describe('@rivulet/opentelemetry Integration Suite', () => {
+describe('@siglo/opentelemetry Integration Suite', () => {
     let mockTracer: MockTracer;
 
     beforeEach(() => {
@@ -283,7 +283,7 @@ describe('@rivulet/opentelemetry Integration Suite', () => {
                 value: 'super-secret',
                 timestamp: Date.now(),
             });
-            expect(testSpan.attributes['rivulet.context.password']).to.be.undefined;
+            expect(testSpan.attributes['siglo.context.password']).to.be.undefined;
         });
     });
 });

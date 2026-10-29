@@ -1,4 +1,4 @@
-import {Step} from 'rivulet';
+import {Step} from 'siglo';
 
 /**
  * Convenience helper to create a modern Step instance for exploratory testing.

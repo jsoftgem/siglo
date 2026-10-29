@@ -1,6 +1,6 @@
-# API Reference: Deterministic Testing (`@rivulet/testing`)
+# API Reference: Deterministic Testing (`@siglo/testing`)
 
-The `@rivulet/testing` package provides a zero-flake, deterministic test harness for **Rivulet** workflows. It eliminates reliance on flaky timers, live databases, and manual mocking setups by providing virtual clocks (`FakeClock`), step spies, deterministic step mocking, event injection for durable waits, execution tracing, and replay tooling.
+The `@siglo/testing` package provides a zero-flake, deterministic test harness for **Siglo** workflows. It eliminates reliance on flaky timers, live databases, and manual mocking setups by providing virtual clocks (`FakeClock`), step spies, deterministic step mocking, event injection for durable waits, execution tracing, and replay tooling.
 
 ---
 
@@ -31,7 +31,7 @@ The `@rivulet/testing` package provides a zero-flake, deterministic test harness
 ## Overview & Installation
 
 ```bash
-npm install --save-dev @rivulet/testing
+npm install --save-dev @siglo/testing
 ```
 
 ---
@@ -61,7 +61,7 @@ export function createWorkflowHarness(
 #### Example
 
 ```typescript
-import { createWorkflowHarness, FakeClock } from '@rivulet/testing';
+import { createWorkflowHarness, FakeClock } from '@siglo/testing';
 import { orderWorkflow } from './order.workflow';
 
 const clock = new FakeClock();
@@ -311,7 +311,7 @@ export function replayExecution(
 #### Example
 
 ```typescript
-import { replayExecution } from '@rivulet/testing';
+import { replayExecution } from '@siglo/testing';
 import fixture from './fixtures/order-run.json';
 import { orderWorkflow } from './order.workflow';
 
@@ -325,8 +325,8 @@ expect(result.matched).to.be.true;
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness, FakeClock } from '@rivulet/testing';
-import { Step, flow } from 'rivulet';
+import { createWorkflowHarness, FakeClock } from '@siglo/testing';
+import { Step, flow } from 'siglo';
 
 const fetchUser = Step.create('fetchUser', async (ctx: { userId: string }) => ({
     name: 'Alice',
@@ -368,4 +368,4 @@ describe('Checkout Workflow Test Suite', () => {
 
 - [09. Testing and Replay](../09-testing-and-replay.md)
 - [02. Core Concepts](../02-core-concepts.md)
-- [CLI Developer Tooling](../ecosystem-adapters.md#cli-developer-tooling-rivuletcli)
+- [CLI Developer Tooling](../ecosystem-adapters.md#cli-developer-tooling-siglocli)

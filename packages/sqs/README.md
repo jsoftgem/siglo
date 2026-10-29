@@ -1,6 +1,6 @@
-# @rivulet/sqs Adapter Guide
+# @siglo/sqs Adapter Guide
 
-`@rivulet/sqs` provides an AWS SQS batch consumer adapter for executing `Rivulet` workflows. It is optimized for AWS Lambda event source mappings and standalone long-polling worker processes, implementing AWS partial batch failure protocols (`ReportBatchItemFailures`), message deduplication, and tenant namespace extraction.
+`@siglo/sqs` provides an AWS SQS batch consumer adapter for executing `Siglo` workflows. It is optimized for AWS Lambda event source mappings and standalone long-polling worker processes, implementing AWS partial batch failure protocols (`ReportBatchItemFailures`), message deduplication, and tenant namespace extraction.
 
 ---
 
@@ -8,7 +8,7 @@
 
 When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQSEvent`). If one message in the batch fails, returning an uncaught exception causes the entire batch to be retried by AWS, resulting in duplicate processing of previously successful messages.
 
-`@rivulet/sqs` solves this using AWS SQS Partial Batch Responses:
+`@siglo/sqs` solves this using AWS SQS Partial Batch Responses:
 
 ```
                   ┌───────────────────────────────┐
@@ -26,7 +26,7 @@ When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQS
                   │  • Iterates event.Records     │
                   │  • Checks IdempotencyStore    │
                   │  • Parses JSON Record Body    │
-                  │  • Executes Rivulet        │
+                  │  • Executes Siglo        │
                   └───────────────┬───────────────┘
                                   │
                     ┌─────────────┴─────────────┐
@@ -57,15 +57,15 @@ When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQS
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/sqs`:
+Install `@siglo/sqs`:
 
 ```bash
-npm install Rivulet @rivulet/sqs
+npm install Siglo @siglo/sqs
 npm install --save-dev @types/aws-lambda
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `@aws-sdk/client-sqs`: `^3.0.0` (optional if running in AWS Lambda runtime)
 
 ---
@@ -79,14 +79,14 @@ Creates an AWS Lambda-compliant batch processor function:
 ```typescript
 function createSqsBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletSqsOptions<TInput, TOutput>
-): (event: RivuletSqsEvent) => Promise<SqsBatchResponse>;
+    options?: SigloSqsOptions<TInput, TOutput>
+): (event: SigloSqsEvent) => Promise<SqsBatchResponse>;
 ```
 
 ### TypeScript Interfaces
 
 ```typescript
-export interface RivuletSqsRecord {
+export interface SigloSqsRecord {
     messageId: string;
     receiptHandle: string;
     body: string;
@@ -94,8 +94,8 @@ export interface RivuletSqsRecord {
     messageAttributes?: Record<string, any>;
 }
 
-export interface RivuletSqsEvent {
-    Records: RivuletSqsRecord[];
+export interface SigloSqsEvent {
+    Records: SigloSqsRecord[];
 }
 
 export interface SqsBatchResponse {
@@ -106,16 +106,16 @@ export interface SqsBatchResponse {
 
 ---
 
-## 4. Configuration Options (`RivuletSqsOptions`)
+## 4. Configuration Options (`SigloSqsOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `input` | `(record: RivuletSqsRecord) => Promise<TInput> \| TInput` | `JSON.parse(record.body)` | Custom mapper transforming an SQS record into workflow parameters. |
-| `output` | `(result: any, record: RivuletSqsRecord) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor for step result. |
+| `input` | `(record: SigloSqsRecord) => Promise<TInput> \| TInput` | `JSON.parse(record.body)` | Custom mapper transforming an SQS record into workflow parameters. |
+| `output` | `(result: any, record: SigloSqsRecord) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor for step result. |
 | `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store to deduplicate across re-deliveries. |
 | `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for idempotency lock. |
 | `timeout` | `number` | `undefined` | SLA execution timeout per record in milliseconds. |
-| `namespace` | `string \| ((record: RivuletSqsRecord) => string \| undefined)` | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation. |
+| `namespace` | `string \| ((record: SigloSqsRecord) => string \| undefined)` | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation. |
 
 ---
 
@@ -142,9 +142,9 @@ When this is enabled, returning `{ batchItemFailures: [{ itemIdentifier: 'msg-01
 
 ```typescript
 import { SQSEvent, SQSBatchResponse, Context } from 'aws-lambda';
-import { Step, flow } from 'rivulet';
-import { createSqsBatchHandler } from '@rivulet/sqs';
-import { PostgresIdempotencyStore } from '@rivulet/postgres';
+import { Step, flow } from 'siglo';
+import { createSqsBatchHandler } from '@siglo/sqs';
+import { PostgresIdempotencyStore } from '@siglo/postgres';
 import { Pool } from 'pg';
 
 // 1. Initialize PostgreSQL Connection Pool outside handler

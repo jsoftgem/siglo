@@ -1,6 +1,6 @@
 # Execution Semantics Contract
 
-This document provides a formal, binding contract for the runtime execution semantics of `Rivulet` v1.0.0.
+This document provides a formal, binding contract for the runtime execution semantics of `Siglo` v1.0.0.
 
 ---
 

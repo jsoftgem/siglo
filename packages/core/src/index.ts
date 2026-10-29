@@ -17,6 +17,7 @@ import {
     PipeItem,
     PipeArg,
     // Error model
+    SigloError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
@@ -293,7 +294,7 @@ export {
     isObject
 };
 
-// Compatibility for both CJS require('rivulet') and ESM import Rivulet from 'rivulet'
+// Compatibility for both CJS require('siglo') and ESM import Siglo from 'siglo'
 /* c8 ignore next 80 */
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Object.assign(Step, {
@@ -307,7 +308,8 @@ if (typeof module !== 'undefined' && module.exports) {
         Pipeline: flow,
         isPipeline,
         toPOJO,
-        RivuletError,
+        SigloError,
+        RivuletError: SigloError,
         StepTimeoutException,
         FlowTimeoutException,
         CancellationException,

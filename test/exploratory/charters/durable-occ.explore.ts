@@ -9,9 +9,9 @@ import {
     defaultStorageManager,
     DuplicateEventException,
     useStorage
-} from 'rivulet';
+} from 'siglo';
 import { step } from '../engine/step-helper';
-import { InMemoryStorageFake } from '@rivulet/testing';
+import { InMemoryStorageFake } from '@siglo/testing';
 import { CharterResult } from './combinators.explore';
 
 export async function runDurableOccCharter(

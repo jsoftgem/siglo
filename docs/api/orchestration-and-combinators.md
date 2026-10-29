@@ -1,6 +1,6 @@
 # API Reference: Orchestration & Combinators
 
-The Orchestration & Combinators API in **Rivulet** provides functional combinators and workflow orchestrators to compose modular, resilient, and type-safe async workflows. Rivulet combines sequential pipelines, parallel fan-out/fan-in, conditional branching, dynamic collections mapping, durable event suspension, and workflow AST inspection.
+The Orchestration & Combinators API in **Siglo** provides functional combinators and workflow orchestrators to compose modular, resilient, and type-safe async workflows. Siglo combines sequential pipelines, parallel fan-out/fan-in, conditional branching, dynamic collections mapping, durable event suspension, and workflow AST inspection.
 
 ---
 
@@ -75,7 +75,7 @@ As each step executes, its output is shallow-merged into the accumulated context
 #### Example
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
     return { name: 'Alice', role: 'admin' };
@@ -113,7 +113,7 @@ export function isFlow(item: any): item is Flow;
 #### Example
 
 ```typescript
-import { flow, isFlow, Step } from 'rivulet';
+import { flow, isFlow, Step } from 'siglo';
 
 const myStep = Step.create('noop', async () => ({}));
 const myFlow = flow(myStep);
@@ -137,7 +137,7 @@ export function toPOJO<T = any>(context: T): T;
 #### Example
 
 ```typescript
-import { toPOJO } from 'rivulet';
+import { toPOJO } from 'siglo';
 
 const cleanData = toPOJO(rawExecutionContext);
 console.log(JSON.stringify(cleanData));
@@ -187,7 +187,7 @@ Each branch receives a deep copy of the input context. Mutating context in one b
 #### Example
 
 ```typescript
-import { Step, flow, parallel } from 'rivulet';
+import { Step, flow, parallel } from 'siglo';
 
 const fetchOrders = Step.create('orders', async () => ({ orders: [1, 2, 3] }));
 const fetchInvoices = Step.create('invoices', async () => ({ invoices: ['inv_1'] }));
@@ -223,7 +223,7 @@ export function all(
 #### Example
 
 ```typescript
-import { all, Step, flow } from 'rivulet';
+import { all, Step, flow } from 'siglo';
 
 const step1 = Step.create('s1', async () => ({ a: 1 }));
 const step2 = Step.create('s2', async () => ({ b: 2 }));
@@ -255,7 +255,7 @@ export function allSettled(
 #### Example
 
 ```typescript
-import { Step, flow, allSettled } from 'rivulet';
+import { Step, flow, allSettled } from 'siglo';
 
 const notifySlack = Step.create('slack', async () => ({ slackSent: true }));
 const notifyPagerDuty = Step.create('pagerDuty', async () => {
@@ -289,7 +289,7 @@ export function race(
 #### Example
 
 ```typescript
-import { Step, flow, race } from 'rivulet';
+import { Step, flow, race } from 'siglo';
 
 const primaryDns = Step.create('primaryDns', async (_p, _c, _i) => {
     return { ip: '1.1.1.1', source: 'primary' };
@@ -339,7 +339,7 @@ The output context is enriched with:
 #### Example
 
 ```typescript
-import { Step, flow, when } from 'rivulet';
+import { Step, flow, when } from 'siglo';
 
 const applyDiscount = Step.create('applyDiscount', async (ctx: { total: number }) => ({
     discount: ctx.total * 0.1
@@ -392,7 +392,7 @@ export function branch(
 #### Example
 
 ```typescript
-import { Step, flow, branch } from 'rivulet';
+import { Step, flow, branch } from 'siglo';
 
 const enterpriseFlow = Step.create('enterprise', async () => ({ slaTier: '24/7 Phone' }));
 const standardFlow = Step.create('standard', async () => ({ slaTier: 'Email Only' }));
@@ -459,7 +459,7 @@ The map step outputs:
 #### Example
 
 ```typescript
-import { Step, flow, map } from 'rivulet';
+import { Step, flow, map } from 'siglo';
 
 const processOrder = Step.create('processOrder', async (ctx: { item: { id: string; amount: number } }) => {
     return { processedId: ctx.item.id, charged: ctx.item.amount };
@@ -517,7 +517,7 @@ export function waitForEvent(
 #### Example
 
 ```typescript
-import { Step, flow, waitForEvent } from 'rivulet';
+import { Step, flow, waitForEvent } from 'siglo';
 
 export const approvalWorkflow = flow(
     Step.create('createTicket', async (ctx: { ticketId: string }) => ({ status: 'pending' })),
@@ -551,7 +551,7 @@ export function wait(
 #### Example
 
 ```typescript
-import { Step, flow, wait } from 'rivulet';
+import { Step, flow, wait } from 'siglo';
 
 const delayedWorkflow = flow(
     Step.create('init', async () => ({ step: 1 })),
@@ -585,7 +585,7 @@ export function resumeWorkflow(
 #### Example
 
 ```typescript
-import { resumeWorkflow } from 'rivulet';
+import { resumeWorkflow } from 'siglo';
 import { approvalWorkflow } from './approval.workflow';
 
 // Resumes the workflow where it left off, passing event payload
@@ -643,7 +643,7 @@ export function inspectGraph(item: any): GraphInspectionResult;
 #### Example
 
 ```typescript
-import { inspectGraph } from 'rivulet';
+import { inspectGraph } from 'siglo';
 import { authFlow } from './auth';
 
 const metrics = inspectGraph(authFlow);
@@ -688,7 +688,7 @@ export function toMermaid(item: any, options?: MermaidExportOptions): string;
 #### Example
 
 ```typescript
-import { toMermaid } from 'rivulet';
+import { toMermaid } from 'siglo';
 import { myWorkflow } from './pipeline';
 
 const diagram = toMermaid(myWorkflow, { direction: 'TD' });

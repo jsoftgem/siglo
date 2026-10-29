@@ -1,19 +1,19 @@
-# @rivulet/hono Adapter Guide
+# @siglo/hono Adapter Guide
 
-`@rivulet/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `Rivulet` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
+`@siglo/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `Siglo` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
 
 ---
 
 ## 1. Overview & Architecture
 
-Because Hono is built on standard `Request` and `Response` Web APIs, `@rivulet/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
+Because Hono is built on standard `Request` and `Response` Web APIs, `@siglo/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
 
 ```
     Web Standards HTTP Request (Fetch Event / Edge Worker)
                           │
                           ▼
              ┌─────────────────────────┐
-             │     rivuletMiddleware     │
+             │     sigloMiddleware     │
              │  • Extract c.req.json() │
              │  • Extract raw.signal   │ (Web Standard AbortSignal)
              │  • Set X-Correlation-Id │
@@ -22,7 +22,7 @@ Because Hono is built on standard `Request` and `Response` Web APIs, `@rivulet/h
                           │
                           ▼
              ┌─────────────────────────┐
-             │   Rivulet Workflow   │
+             │   Siglo Workflow   │
              │  • In-Memory Sagas      │
              │  • Parallel Combinators │
              │  • Two-Tier Timeouts    │
@@ -46,34 +46,34 @@ Because Hono is built on standard `Request` and `Response` Web APIs, `@rivulet/h
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/hono` and Hono:
+Install `@siglo/hono` and Hono:
 
 ```bash
-npm install Rivulet @rivulet/hono hono
+npm install Siglo @siglo/hono hono
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `hono`: `^3.0.0 || ^4.0.0`
 
 ---
 
 ## 3. API Reference
 
-### `rivuletMiddleware(workflow, options)`
+### `sigloMiddleware(workflow, options)`
 
 Creates a Hono route handler or middleware `(c: Context, next?: Next) => Promise<any>`:
 
 ```typescript
-function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
+function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletHonoMiddlewareOptions<TReq, TInput, TOutput>
+    options?: SigloHonoMiddlewareOptions<TReq, TInput, TOutput>
 ): (c: any, next?: () => Promise<void>) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`RivuletHonoMiddlewareOptions`)
+## 4. Configuration Options (`SigloHonoMiddlewareOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -90,7 +90,7 @@ function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
 
 In modern edge runtimes (Cloudflare Workers, Bun, Deno), clients closing the connection abort the native Web Standard `c.req.raw.signal`.
 
-`@rivulet/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
+`@siglo/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
 
 ```typescript
 const fetchExchangeRates = Step.create(async (param) => {
@@ -108,8 +108,8 @@ const fetchExchangeRates = Step.create(async (param) => {
 
 ```typescript
 import { Hono } from 'hono';
-import { Step, flow } from 'rivulet';
-import { rivuletMiddleware } from '@rivulet/hono';
+import { Step, flow } from 'siglo';
+import { sigloMiddleware } from '@siglo/hono';
 
 const app = new Hono();
 
@@ -125,7 +125,7 @@ const edgeFlow = flow(geoLookup, rateCalculation);
 
 app.post(
     '/api/calculate-tax',
-    rivuletMiddleware(edgeFlow, {
+    sigloMiddleware(edgeFlow, {
         input: async (c) => {
             const body = await c.req.json();
             return {
@@ -147,8 +147,8 @@ export default app;
 ```typescript
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server'; // Or run directly with `bun run server.ts`
-import { Step, flow } from 'rivulet';
-import { rivuletMiddleware } from '@rivulet/hono';
+import { Step, flow } from 'siglo';
+import { sigloMiddleware } from '@siglo/hono';
 
 const app = new Hono();
 
@@ -159,7 +159,7 @@ const echoWorkflow = flow(
     }))
 );
 
-app.post('/api/echo', rivuletMiddleware(echoWorkflow));
+app.post('/api/echo', sigloMiddleware(echoWorkflow));
 
 // For Node.js:
 serve(app, (info) => {
@@ -171,12 +171,12 @@ serve(app, (info) => {
 
 ## 7. Error Handling & Status Code Mapping
 
-When a step fails, `@rivulet/hono` checks the error type using `getErrorStatusCode(err)`:
+When a step fails, `@siglo/hono` checks the error type using `getErrorStatusCode(err)`:
 
 ```typescript
 app.post(
     '/api/orders',
-    rivuletMiddleware(orderFlow, {
+    sigloMiddleware(orderFlow, {
         onError: (err, c) => {
             if (err.name === 'IdempotencyConflictException') {
                 return c.json({ error: 'Order is currently being processed by another request.' }, 409);

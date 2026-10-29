@@ -1,8 +1,8 @@
 {
-  "name": "rivulet-examples",
+  "name": "siglo-examples",
   "version": "1.0.0",
   "private": true,
-  "description": "Production-grade examples and use cases demonstrating Rivulet with ecosystem adapters and workflow power features",
+  "description": "Production-grade examples and use cases demonstrating Siglo with ecosystem adapters and workflow power features",
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
@@ -13,17 +13,17 @@
     "test:order": "tsx --test src/index.test.ts"
   },
   "dependencies": {
-    "@rivulet/bullmq": "^1.0.0",
-    "@rivulet/cli": "^1.0.0",
-    "@rivulet/express": "^1.0.0",
-    "@rivulet/fastify": "^1.0.0",
-    "@rivulet/hono": "^1.0.0",
-    "@rivulet/kafka": "^1.0.0",
-    "@rivulet/opentelemetry": "^1.0.0",
-    "@rivulet/postgres": "^1.0.0",
-    "@rivulet/redis": "^1.0.0",
-    "@rivulet/sqs": "^1.0.0",
-    "rivulet": "^1.0.0",
+    "@siglo/bullmq": "^1.0.0",
+    "@siglo/cli": "^1.0.0",
+    "@siglo/express": "^1.0.0",
+    "@siglo/fastify": "^1.0.0",
+    "@siglo/hono": "^1.0.0",
+    "@siglo/kafka": "^1.0.0",
+    "@siglo/opentelemetry": "^1.0.0",
+    "@siglo/postgres": "^1.0.0",
+    "@siglo/redis": "^1.0.0",
+    "@siglo/sqs": "^1.0.0",
+    "siglo": "^1.0.0",
     "ioredis": "^6.0.0",
     "mongodb": "^7.7.0"
   }

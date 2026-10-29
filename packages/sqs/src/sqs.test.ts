@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 import { createSqsBatchHandler } from './index';
 
-describe('@rivulet/sqs Adapter Suite', () => {
+describe('@siglo/sqs Adapter Suite', () => {
     it('processes SQS message records successfully', async () => {
         const step = Step.create('sqsStep', async (param: any) => {
             const orderId = typeof param.orderId === 'function' ? param.orderId() : param.orderId;

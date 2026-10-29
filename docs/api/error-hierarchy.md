@@ -1,13 +1,13 @@
-# API Reference: Error Hierarchy & Exceptions (`RivuletError`)
+# API Reference: Error Hierarchy & Exceptions (`SigloError`)
 
-**Rivulet** features a structured, strongly typed exception hierarchy rooted at `RivuletError`. Every exception carries rich execution metadata—including the executing step name, lifecycle phase, retryability flag, execution stack ID, tenant namespace, state snapshots, and underlying error cause.
+**Siglo** features a structured, strongly typed exception hierarchy rooted at `SigloError`. Every exception carries rich execution metadata—including the executing step name, lifecycle phase, retryability flag, execution stack ID, tenant namespace, state snapshots, and underlying error cause.
 
 ---
 
 ## Table of Contents
 
 - [Exception Hierarchy Diagram](#exception-hierarchy-diagram)
-- [Base Error: `RivuletError`](#base-error-rivuleterror)
+- [Base Error: `SigloError`](#base-error-sigloerror)
 - [Timeout & Cancellation Exceptions](#timeout--cancellation-exceptions)
   - [`StepTimeoutException`](#steptimeoutexception)
   - [`FlowTimeoutException`](#flowtimeoutexception)
@@ -38,7 +38,7 @@
 
 ```
 Error
-  └── RivuletError
+  └── SigloError
         ├── StepTimeoutException
         ├── FlowTimeoutException
         ├── CancellationException
@@ -59,9 +59,9 @@ Error
 
 ---
 
-## Base Error: `RivuletError`
+## Base Error: `SigloError`
 
-All runtime errors thrown by Rivulet extend `RivuletError`.
+All runtime errors thrown by Siglo extend `SigloError`.
 
 ### Definition
 
@@ -78,7 +78,7 @@ export interface ExecutionErrorMetadata {
     [key: string]: any;
 }
 
-export class RivuletError extends Error {
+export class SigloError extends Error {
     readonly stepName?: string;
     readonly phase?: string;
     readonly retryable: boolean;
@@ -116,7 +116,7 @@ export class RivuletError extends Error {
 Thrown when a step exceeds its configured `step.timeout(ms)` SLA deadline.
 
 ```typescript
-export class StepTimeoutException extends RivuletError {
+export class StepTimeoutException extends SigloError {
     readonly timeoutMs: number;
     readonly elapsedMs?: number;
 }
@@ -132,7 +132,7 @@ export class StepTimeoutException extends RivuletError {
 Thrown when the total execution time of the workflow exceeds `flow.timeout(ms)` or `options.timeout`.
 
 ```typescript
-export class FlowTimeoutException extends RivuletError {
+export class FlowTimeoutException extends SigloError {
     readonly timeoutMs: number;
     readonly completedSteps: number;
     override readonly stackId: string;
@@ -149,7 +149,7 @@ export class FlowTimeoutException extends RivuletError {
 Thrown when execution is aborted via an `AbortSignal`.
 
 ```typescript
-export class CancellationException extends RivuletError {
+export class CancellationException extends SigloError {
     constructor(message?: string, metadata?: ExecutionErrorMetadata);
 }
 ```
@@ -172,7 +172,7 @@ export interface ValidationErrorDetail {
     [key: string]: any;
 }
 
-export class ValidationException extends RivuletError {
+export class ValidationException extends SigloError {
     readonly errors: ValidationErrorDetail[];
 }
 ```
@@ -187,7 +187,7 @@ export class ValidationException extends RivuletError {
 Thrown by `assertValidGraph()` when a workflow AST contains cyclical dependencies, invalid branching configurations, or unreachable nodes.
 
 ```typescript
-export class GraphValidationException extends RivuletError {
+export class GraphValidationException extends SigloError {
     readonly errors: string[];
 }
 ```
@@ -206,7 +206,7 @@ export interface CompensationErrorDetail {
     error: unknown;
 }
 
-export class CompensationException extends RivuletError {
+export class CompensationException extends SigloError {
     readonly originalError: unknown;
     readonly compensationErrors: CompensationErrorDetail[];
     readonly completedCompensations: string[];
@@ -230,7 +230,7 @@ export interface CollisionDetail {
     branchNames: string[];
 }
 
-export class FieldCollisionException extends RivuletError {
+export class FieldCollisionException extends SigloError {
     readonly collisions: CollisionDetail[];
 }
 ```
@@ -242,7 +242,7 @@ export class FieldCollisionException extends RivuletError {
 Thrown when an execution attempts to claim an idempotency key that is already marked `IN_PROGRESS` by another concurrent execution.
 
 ```typescript
-export class IdempotencyConflictException extends RivuletError {
+export class IdempotencyConflictException extends SigloError {
     readonly idempotencyKey: string;
 }
 ```
@@ -256,7 +256,7 @@ export class IdempotencyConflictException extends RivuletError {
 Thrown internally when a workflow encounters `waitForEvent()` or `wait()` in durable mode. Indicates that execution has been cleanly checkpointed to storage and execution should pause.
 
 ```typescript
-export class WorkflowSuspendedException extends RivuletError {
+export class WorkflowSuspendedException extends SigloError {
     readonly correlationKey?: string;
     readonly eventName?: string;
     readonly continuationNodeId?: string;
@@ -272,7 +272,7 @@ export class WorkflowSuspendedException extends RivuletError {
 Thrown when `resumeWorkflow()` restores a checkpoint created under a code version different from the active workflow's declared version, and no transformation was provided in `options.migrations`.
 
 ```typescript
-export class WorkflowVersionMismatchException extends RivuletError {
+export class WorkflowVersionMismatchException extends SigloError {
     readonly expectedVersion: any;
     readonly actualVersion: any;
 }
@@ -285,7 +285,7 @@ export class WorkflowVersionMismatchException extends RivuletError {
 Thrown when an event is delivered to `resumeWorkflow()` for a workflow instance that is not currently waiting or has already been resumed.
 
 ```typescript
-export class DuplicateEventException extends RivuletError {
+export class DuplicateEventException extends SigloError {
     readonly correlationKey: string;
     readonly eventName?: string;
 }
@@ -298,7 +298,7 @@ export class DuplicateEventException extends RivuletError {
 Thrown when attempting to resume a workflow whose `waitForEvent` timeout window or durable timer duration has already expired.
 
 ```typescript
-export class ExpiredWaitException extends RivuletError {
+export class ExpiredWaitException extends SigloError {
     readonly correlationKey: string;
     readonly eventName?: string;
     readonly expiredAt: number;
@@ -314,7 +314,7 @@ export class ExpiredWaitException extends RivuletError {
 Thrown under `setErrorMode('strict')` when a storage adapter operation fails (e.g. database connection dropped).
 
 ```typescript
-export class StorageAdapterException extends RivuletError {
+export class StorageAdapterException extends SigloError {
     readonly operation: string;
     readonly adapterName?: string;
 }
@@ -327,7 +327,7 @@ export class StorageAdapterException extends RivuletError {
 Thrown when optimistic concurrency control detects a revision conflict during `saveCheckpoint()`.
 
 ```typescript
-export class CheckpointConflictException extends RivuletError {
+export class CheckpointConflictException extends SigloError {
     readonly currentRevision: number;
     readonly attemptedRevision: number;
 }
@@ -340,7 +340,7 @@ export class CheckpointConflictException extends RivuletError {
 Thrown when restoring a checkpoint into a mismatched tenant namespace.
 
 ```typescript
-export class NamespaceMismatchException extends RivuletError {
+export class NamespaceMismatchException extends SigloError {
     readonly expectedNamespace: string;
     readonly actualNamespace?: string;
 }
@@ -353,7 +353,7 @@ export class NamespaceMismatchException extends RivuletError {
 Thrown when attempting to restore a checkpoint with an unsupported major schema version.
 
 ```typescript
-export class CheckpointVersionException extends RivuletError {
+export class CheckpointVersionException extends SigloError {
     readonly version: any;
 }
 ```
@@ -364,7 +364,7 @@ export class CheckpointVersionException extends RivuletError {
 
 ### `normalizeError(error, metadata?)`
 
-Normalizes any thrown value (standard `Error`, string, object, or primitive) into a standard, typed `RivuletError`.
+Normalizes any thrown value (standard `Error`, string, object, or primitive) into a standard, typed `SigloError`.
 
 #### Signature
 
@@ -372,18 +372,18 @@ Normalizes any thrown value (standard `Error`, string, object, or primitive) int
 export function normalizeError(
     error: any,
     metadata?: ExecutionErrorMetadata
-): RivuletError;
+): SigloError;
 ```
 
 #### Example
 
 ```typescript
-import { normalizeError, RivuletError } from 'rivulet';
+import { normalizeError, SigloError } from 'siglo';
 
 try {
     throw 'Connection reset';
 } catch (rawErr) {
-    const err: RivuletError = normalizeError(rawErr, {
+    const err: SigloError = normalizeError(rawErr, {
         stepName: 'fetchExternal',
         phase: 'action'
     });
@@ -403,8 +403,8 @@ import {
     StepTimeoutException,
     ValidationException,
     CompensationException,
-    RivuletError
-} from 'rivulet';
+    SigloError
+} from 'siglo';
 
 try {
     await orderWorkflow.run(orderInput);
@@ -415,7 +415,7 @@ try {
         console.error(`Step '${err.stepName}' timed out after ${err.timeoutMs}ms`);
     } else if (err instanceof CompensationException) {
         console.error('Workflow failed and rolled back:', err.completedCompensations);
-    } else if (err instanceof RivuletError) {
+    } else if (err instanceof SigloError) {
         console.error(`General workflow error at step '${err.stepName}' (${err.phase}):`, err.message);
     }
 }

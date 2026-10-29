@@ -1,4 +1,4 @@
-import { Step, flow, branch, when } from 'rivulet';
+import { Step, flow, branch, when } from 'siglo';
 
 export interface LoanApplicationInput {
     applicationId: string;

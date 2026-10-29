@@ -1,5 +1,5 @@
 /**
- * Autonomous Invariant Oracles for rivulet.
+ * Autonomous Invariant Oracles for siglo.
  * These oracles enforce the core system axioms across all randomized, chaos-injected exploratory tests.
  */
 

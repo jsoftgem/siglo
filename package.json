@@ -1,8 +1,8 @@
 {
-  "name": "rivulet-monorepo",
+  "name": "siglo-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Monorepo for Rivulet workflow runtime and ecosystem integration packages",
+  "description": "Monorepo for Siglo workflow runtime and ecosystem integration packages",
   "workspaces": [
     "packages/core",
     "packages/*",
@@ -10,23 +10,23 @@
     "monitoring"
   ],
   "scripts": {
-    "build": "npm run build --workspace=rivulet && npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=siglo && npm run build --workspaces --if-present",
     "compile": "npm run build",
     "lint": "eslint packages/*/src examples/src test",
-    "test": "npm run build --workspace=rivulet && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
+    "test": "npm run build --workspace=siglo && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
     "test:packages": "mocha 'packages/*/src/**/*.test.ts'",
-    "test:examples": "npm run test --workspace=rivulet-examples",
+    "test:examples": "npm run test --workspace=siglo-examples",
     "test:all": "npm test && npm run test:packages && npm run test:examples",
     "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
     "explore": "tsx test/exploratory/runner.ts",
-    "publish:core": "npm publish --workspace=rivulet --registry https://registry.npmjs.org/"
+    "publish:core": "npm publish --workspace=siglo --registry https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jsoftgem/rivulet.git"
+    "url": "git+https://github.com/jsoftgem/siglo.git"
   },
   "keywords": [
-    "rivulet",
+    "siglo",
     "chain",
     "workflow",
     "asynchronous",
@@ -36,9 +36,9 @@
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jsoftgem/rivulet/issues"
+    "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/rivulet#readme",
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
   "devDependencies": {
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",

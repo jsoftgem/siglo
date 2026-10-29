@@ -70,7 +70,7 @@ class MockRedisClient implements RedisClientInterface {
     }
 }
 
-describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
+describe('@siglo/redis Storage & Idempotency Adapter Suite', () => {
     let mockClient: MockRedisClient;
 
     beforeEach(() => {
@@ -122,7 +122,7 @@ describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
                 timestamp: Date.now(),
             });
 
-            const hash = await mockClient.hgetall('rivulet:context:stack-202:processPayment');
+            const hash = await mockClient.hgetall('siglo:context:stack-202:processPayment');
             expect(hash.transactionId).to.equal('txn_999');
         });
     });

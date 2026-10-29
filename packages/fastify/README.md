@@ -1,19 +1,19 @@
-# @rivulet/fastify Adapter Guide
+# @siglo/fastify Adapter Guide
 
-`@rivulet/fastify` provides an idiomatic Fastify route handler adapter for executing `Rivulet` workflows. It is optimized for high-throughput, low-overhead microservices, taking advantage of Fastify's asynchronous request lifecycle, schema validation, and raw Node.js HTTP stream signals for cooperative cancellation.
+`@siglo/fastify` provides an idiomatic Fastify route handler adapter for executing `Siglo` workflows. It is optimized for high-throughput, low-overhead microservices, taking advantage of Fastify's asynchronous request lifecycle, schema validation, and raw Node.js HTTP stream signals for cooperative cancellation.
 
 ---
 
 ## 1. Overview & Architecture
 
-Fastify is designed for minimal overhead. The `@rivulet/fastify` handler adapter integrates as a standard Fastify route handler:
+Fastify is designed for minimal overhead. The `@siglo/fastify` handler adapter integrates as a standard Fastify route handler:
 
 ```
     Fastify HTTP Request
              │
              ▼
     ┌─────────────────────────────────┐
-    │       rivuletFastifyHandler       │
+    │       sigloFastifyHandler       │
     │  • Extract request.body / query │
     │  • Extract request.raw.signal   │ (Native AbortSignal)
     │  • Mirror X-Correlation-Id      │
@@ -22,7 +22,7 @@ Fastify is designed for minimal overhead. The `@rivulet/fastify` handler adapter
                      │
                      ▼
     ┌─────────────────────────────────┐
-    │       Rivulet Workflow       │
+    │       Siglo Workflow       │
     │  • Typed Input Parameters       │
     │  • Timeout Deadlines            │
     │  • Subgraph Step Execution      │
@@ -42,34 +42,34 @@ Fastify is designed for minimal overhead. The `@rivulet/fastify` handler adapter
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/fastify` alongside Fastify:
+Install `@siglo/fastify` alongside Fastify:
 
 ```bash
-npm install Rivulet @rivulet/fastify fastify
+npm install Siglo @siglo/fastify fastify
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `fastify`: `^4.0.0 || ^5.0.0`
 
 ---
 
 ## 3. API Reference
 
-### `rivuletFastifyHandler(workflow, options)`
+### `sigloFastifyHandler(workflow, options)`
 
 Creates a Fastify route handler `(request, reply) => Promise<any>`:
 
 ```typescript
-function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
+function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletFastifyOptions<TReq, TInput, TOutput>
+    options?: SigloFastifyOptions<TReq, TInput, TOutput>
 ): (request: any, reply: any) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`RivuletFastifyOptions`)
+## 4. Configuration Options (`SigloFastifyOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -123,8 +123,8 @@ const queryExternalAPI = Step.create(async (param) => {
 
 ```typescript
 import Fastify from 'fastify';
-import { Step, flow } from 'rivulet';
-import { rivuletFastifyHandler } from '@rivulet/fastify';
+import { Step, flow } from 'siglo';
+import { sigloFastifyHandler } from '@siglo/fastify';
 
 const fastify = Fastify({
     logger: true,
@@ -169,7 +169,7 @@ fastify.post(
             },
         },
     },
-    rivuletFastifyHandler(kycPipeline, {
+    sigloFastifyHandler(kycPipeline, {
         timeout: 8000, // 8-second timeout SLA
         correlationIdHeader: 'x-request-id',
         namespace: (req) => req.headers['x-tenant-id'] as string,

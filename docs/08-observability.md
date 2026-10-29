@@ -1,6 +1,6 @@
 # 08. Observability
 
-Observability is a first-class citizen in `Rivulet`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, and record granular execution traces.
+Observability is a first-class citizen in `Siglo`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, and record granular execution traces.
 
 ---
 
@@ -9,7 +9,7 @@ Observability is a first-class citizen in `Rivulet`. Workflows can export their 
 Every workflow can export its AST directly:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const s1 = Step.create('fetchUser', async () => ({ user: 'Alice' })).timeout(3000);
 const s2 = Step.create('charge', async () => ({ charged: true })).onFail({ maxRetries: 3, delay: 100 });
@@ -40,16 +40,16 @@ console.log(jsonAst);
 
 ## 2. OpenTelemetry Distributed Tracing
 
-Install `@rivulet/opentelemetry`:
+Install `@siglo/opentelemetry`:
 
 ```bash
-npm install @rivulet/opentelemetry @opentelemetry/api
+npm install @siglo/opentelemetry @opentelemetry/api
 ```
 
 Instrument workflows with a single call:
 
 ```typescript
-import { instrumentWorkflow } from '@rivulet/opentelemetry';
+import { instrumentWorkflow } from '@siglo/opentelemetry';
 import { myWorkflow } from './workflows';
 
 // Wraps workflow to emit root workflow spans and child step spans
@@ -69,7 +69,7 @@ const result = await tracedWorkflow.run({ orderId: '123' });
 Propagate trace headers (`traceparent`, `tracestate`) across distributed boundaries (HTTP, Kafka, SQS):
 
 ```typescript
-import { injectTraceContext, extractTraceContext } from '@rivulet/opentelemetry';
+import { injectTraceContext, extractTraceContext } from '@siglo/opentelemetry';
 
 // On the caller side (HTTP client or event producer):
 const headers: Record<string, string> = {};
@@ -86,7 +86,7 @@ const extractedSpanContext = extractTraceContext({ traceparent });
 ## Minimal Example
 
 ```typescript
-import { Step, flow, toMermaid } from 'rivulet';
+import { Step, flow, toMermaid } from 'siglo';
 
 const s1 = Step.create('start', () => ({ ok: true })).timeout(5000);
 const wf = flow(s1);
@@ -100,11 +100,11 @@ console.log(toMermaid(wf));
 
 ## Failure Example: OpenTelemetry Exception Recording
 
-When an error occurs, `@rivulet/opentelemetry` records the exception and marks the span status as `ERROR`:
+When an error occurs, `@siglo/opentelemetry` records the exception and marks the span status as `ERROR`:
 
 ```typescript
-import { Step, flow } from 'rivulet';
-import { instrumentWorkflow } from '@rivulet/opentelemetry';
+import { Step, flow } from 'siglo';
+import { instrumentWorkflow } from '@siglo/opentelemetry';
 
 const failingStep = Step.create('flakyCall', () => {
     throw new Error('Database connection failed');
@@ -118,7 +118,7 @@ try {
     // Span will have:
     // - status: SpanStatusCode.ERROR
     // - exception event with stack trace
-    // - attributes: rivulet.step.name = 'flakyCall', rivulet.step.phase = 'action'
+    // - attributes: siglo.step.name = 'flakyCall', siglo.step.phase = 'action'
 }
 ```
 
@@ -128,8 +128,8 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { Step, flow } from 'rivulet';
-import { instrumentWorkflow } from '@rivulet/opentelemetry';
+import { Step, flow } from 'siglo';
+import { instrumentWorkflow } from '@siglo/opentelemetry';
 
 describe('OpenTelemetry Integration Test', () => {
     it('instruments workflow and executes cleanly', async () => {

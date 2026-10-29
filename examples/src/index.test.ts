@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 import { createRedisClient } from "./database/redis";
 import { createMongoClient } from "./database/mongodb";
 import { registerRedisMongoStorage } from "./plugin/redis-mongo-storage";
@@ -39,7 +39,7 @@ test("Order pipeline executes correctly using Redis & MongoDB storage adapter", 
     assert.equal(result.amountCharged, 97.20);
 
     // 2. Verify MongoDB persistent storage of execution logs
-    const logsInDb = await mongo.collection("rivulet_execution_logs").find();
+    const logsInDb = await mongo.collection("siglo_execution_logs").find();
     assert.ok(logsInDb.length > 0, "Execution context logs should be recorded in MongoDB");
 
     // Verify 100% of execution logs have a valid, non-null stackId
@@ -49,8 +49,8 @@ test("Order pipeline executes correctly using Redis & MongoDB storage adapter", 
 
     // 3. Verify Redis context entries
     const firstStackId = logsInDb[0].stackId;
-    const stackHash = await redis.hgetall(`rivulet:stack:${firstStackId}`);
-    assert.ok(Object.keys(stackHash).length > 0, "Redis should have context keys grouped under rivulet:stack:{stackId}");
+    const stackHash = await redis.hgetall(`siglo:stack:${firstStackId}`);
+    assert.ok(Object.keys(stackHash).length > 0, "Redis should have context keys grouped under siglo:stack:{stackId}");
 
     // 4. Verify durable checkpoint retrieval from storage adapter
     const retrievedChk = await Step.getCheckpoint(firstStackId);

@@ -1,4 +1,4 @@
-import { flow, CancellationException } from 'rivulet';
+import { flow, CancellationException } from 'siglo';
 import { step } from '../engine/step-helper';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';

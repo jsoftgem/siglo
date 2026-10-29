@@ -1,6 +1,6 @@
-# Rivulet API Reference
+# Siglo API Reference
 
-Welcome to the comprehensive API Reference for **Rivulet** &mdash; zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
+Welcome to the comprehensive API Reference for **Siglo** &mdash; zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
 ---
 
@@ -13,8 +13,8 @@ Welcome to the comprehensive API Reference for **Rivulet** &mdash; zero-daemon, 
 | 🧱 **[Step Methods (`Step`)](step.md)** | Core execution unit construction (`Step.create`), Standard Schema validation (`schema`, `spec`, `strict`), lifecycle hooks (`onBefore`, `onSkip`, `onAfter`), retries (`onFail`), sagas (`compensate`), idempotency (`idempotent`), caching (`cache`), and DI (`withDependencies`). |
 | ⚙️ **[Execution Options (`ExecutionOptions`)](execution-options.md)** | Runtime configuration options passed to `.run()` and `.resume()`: POJO mode (`pojo`, `mode`), cooperative cancellation (`signal`), deadlines (`timeout`), dependency injection (`services`), durability (`durable`), multi-tenancy (`namespace`), and idempotency (`idempotencyKey`). |
 | 💾 **[Storage & Persistence Utilities](storage-and-persistence.md)** | Persistent checkpoint management (`useStorage`, `getStorageAdapter`), error modes (`setErrorMode`), optimistic concurrency control (OCC), serialized snapshot creation (`checkpoint`, `restoreCheckpoint`), and expiration cleanup (`cleanExpiredCheckpoints`). |
-| 🚨 **[Error Hierarchy & Exceptions (`RivuletError`)](error-hierarchy.md)** | Strongly typed runtime exception model rooted at `RivuletError`: step and flow timeouts, cancellations, schema validation failures, saga rollbacks (`CompensationException`), idempotency conflicts, version mismatches, and `normalizeError()`. |
-| 🧪 **[Deterministic Testing (`@rivulet/testing`)](testing.md)** | Deterministic test harness (`createWorkflowHarness`), virtual clocks (`FakeClock`), step spies (`spyStep`), step mocking (`mockStep`), event injection (`injectEvent`), test assertions, execution fixtures, and replay (`replayExecution`). |
+| 🚨 **[Error Hierarchy & Exceptions (`SigloError`)](error-hierarchy.md)** | Strongly typed runtime exception model rooted at `SigloError`: step and flow timeouts, cancellations, schema validation failures, saga rollbacks (`CompensationException`), idempotency conflicts, version mismatches, and `normalizeError()`. |
+| 🧪 **[Deterministic Testing (`@siglo/testing`)](testing.md)** | Deterministic test harness (`createWorkflowHarness`), virtual clocks (`FakeClock`), step spies (`spyStep`), step mocking (`mockStep`), event injection (`injectEvent`), test assertions, execution fixtures, and replay (`replayExecution`). |
 
 ---
 

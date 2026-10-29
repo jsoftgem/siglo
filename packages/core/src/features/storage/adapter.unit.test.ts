@@ -152,7 +152,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
     it('global getCheckpoint and Step.getCheckpoint query defaultStorageManager', async () => {
         const stackId = defaultStorageManager.createExecutionStack();
-        defaultStorageManager.putChainContext('s1', 'name', 'Rivulet', { stackId });
+        defaultStorageManager.putChainContext('s1', 'name', 'Siglo', { stackId });
 
         const res1 = await getCheckpoint(stackId);
         expect(res1?.stackId).to.equal(stackId);

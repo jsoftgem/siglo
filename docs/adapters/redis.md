@@ -1,6 +1,6 @@
-# @rivulet/redis Adapter Guide
+# @siglo/redis Adapter Guide
 
-`@rivulet/redis` provides an in-memory distributed persistence, step response caching, atomic idempotency deduplication, and distributed single-flight coordination layer for `Rivulet` workflows. It is powered by Redis and compatible with standalone Redis, Redis Sentinel, and Redis Cluster via `ioredis`.
+`@siglo/redis` provides an in-memory distributed persistence, step response caching, atomic idempotency deduplication, and distributed single-flight coordination layer for `Siglo` workflows. It is powered by Redis and compatible with standalone Redis, Redis Sentinel, and Redis Cluster via `ioredis`.
 
 ---
 
@@ -9,7 +9,7 @@
 The Redis adapter family encompasses three core modules:
 
 ```
-                            @rivulet/redis
+                            @siglo/redis
        ┌────────────────────────────┼────────────────────────────┐
        │                            │                            │
        ▼                            ▼                            ▼
@@ -24,8 +24,8 @@ The Redis adapter family encompasses three core modules:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                             Redis Server                                   │
 │                                                                            │
-│  rivulet:checkpoint:<id>      rivulet:idemp:<key>          rivulet:lock:<key>    │
-│  rivulet:cache:<key>          rivulet:context:<id>:<step>                      │
+│  siglo:checkpoint:<id>      siglo:idemp:<key>          siglo:lock:<key>    │
+│  siglo:cache:<key>          siglo:context:<id>:<step>                      │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -33,29 +33,29 @@ The Redis adapter family encompasses three core modules:
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/redis` alongside `ioredis`:
+Install `@siglo/redis` alongside `ioredis`:
 
 ```bash
-npm install Rivulet @rivulet/redis ioredis
+npm install Siglo @siglo/redis ioredis
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `ioredis`: `^5.0.0 || ^6.0.0`
 
 ---
 
 ## 3. Key Topology & Redis Data Structures
 
-`@rivulet/redis` uses structured key namespaces:
+`@siglo/redis` uses structured key namespaces:
 
 | Key Pattern | Redis Type | Default TTL | Description |
 | :--- | :--- | :--- | :--- |
-| `rivulet:checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. |
-| `rivulet:cache:<key>` | `string` (JSON) | 24 hours (`86400000ms`) | Cached step evaluation output. |
-| `rivulet:context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. |
-| `rivulet:idemp:<key>` | `string` | 24 hours (`86400000ms`) | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). |
-| `rivulet:lock:<key>` | `string` (UUID) | Caller specified (e.g. 10s) | Distributed mutex lock holding worker token. |
+| `siglo:checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. |
+| `siglo:cache:<key>` | `string` (JSON) | 24 hours (`86400000ms`) | Cached step evaluation output. |
+| `siglo:context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. |
+| `siglo:idemp:<key>` | `string` | 24 hours (`86400000ms`) | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). |
+| `siglo:lock:<key>` | `string` (UUID) | Caller specified (e.g. 10s) | Distributed mutex lock holding worker token. |
 
 ---
 
@@ -64,7 +64,7 @@ Peer dependency matrix:
 Implements the standard `StorageAdapter` interface for high-performance checkpointing and step caching.
 
 ```typescript
-import { RedisStorageAdapter } from '@rivulet/redis';
+import { RedisStorageAdapter } from '@siglo/redis';
 ```
 
 ### Options (`RedisStorageAdapterOptions`)
@@ -72,7 +72,7 @@ import { RedisStorageAdapter } from '@rivulet/redis';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `RedisClientInterface \| Redis` | *Required* | Active `ioredis` instance. |
-| `keyPrefix` | `string` | `'rivulet:'` | Root prefix for all Redis keys. |
+| `keyPrefix` | `string` | `'siglo:'` | Root prefix for all Redis keys. |
 | `checkpointTtlMs` | `number` | `604800000` (7 days) | Checkpoint expiration TTL. |
 | `cacheTtlMs` | `number` | `86400000` (24 hours) | Default step response cache expiration TTL. |
 | `recordContextChanges` | `boolean` | `true` | When `true`, streams field updates to Redis Hashes. |
@@ -83,7 +83,7 @@ import { RedisStorageAdapter } from '@rivulet/redis';
 - **`getCheckpoint(stackId)`**: Retrieves and parses serialized checkpoint. Returns `undefined` if not found.
 - **`getCachedStep(key)`**: Retrieves cached step response.
 - **`setCachedStep(key, value, ttlMs?)`**: Writes cached step response with specified TTL.
-- **`onContextChange(entry)`**: Executes `HSET` on `rivulet:context:<stackId>:<stepId>` and refreshes TTL with `PEXPIRE`.
+- **`onContextChange(entry)`**: Executes `HSET` on `siglo:context:<stackId>:<stepId>` and refreshes TTL with `PEXPIRE`.
 
 ---
 
@@ -92,7 +92,7 @@ import { RedisStorageAdapter } from '@rivulet/redis';
 Provides distributed, atomic idempotency guarantees across multi-instance clusters using Redis `SET key val PX ttl NX` semantics.
 
 ```typescript
-import { RedisIdempotencyStore } from '@rivulet/redis';
+import { RedisIdempotencyStore } from '@siglo/redis';
 ```
 
 ### Options (`RedisIdempotencyOptions`)
@@ -100,7 +100,7 @@ import { RedisIdempotencyStore } from '@rivulet/redis';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `RedisClientInterface \| Redis` | *Required* | Active `ioredis` instance. |
-| `keyPrefix` | `string` | `'rivulet:idemp:'` | Prefix for idempotency keys. |
+| `keyPrefix` | `string` | `'siglo:idemp:'` | Prefix for idempotency keys. |
 | `defaultTtlMs` | `number` | `86400000` (24 hours) | Default lock TTL. |
 
 ### Claim States & Transitions:
@@ -123,7 +123,7 @@ import { RedisIdempotencyStore } from '@rivulet/redis';
 `RedisLock` prevents duplicate parallel execution of sensitive workflows (e.g., end-of-month payroll, nightly data synchronization) across multiple server instances.
 
 ```typescript
-import { RedisLock } from '@rivulet/redis';
+import { RedisLock } from '@siglo/redis';
 ```
 
 ### Methods:
@@ -154,12 +154,12 @@ Executes an asynchronous function wrapped in single-flight protection:
 
 ```typescript
 import { Redis } from 'ioredis';
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 import {
     RedisStorageAdapter,
     RedisIdempotencyStore,
     RedisLock
-} from '@rivulet/redis';
+} from '@siglo/redis';
 
 // 1. Initialize Redis Client
 const redis = new Redis('redis://localhost:6379');

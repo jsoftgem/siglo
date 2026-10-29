@@ -1,6 +1,6 @@
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
-import { flow } from 'rivulet';
+import { flow } from 'siglo';
 import { step } from '../engine/step-helper';
 import { CharterResult } from './combinators.explore';
 

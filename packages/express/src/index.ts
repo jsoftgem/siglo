@@ -1,6 +1,6 @@
-import { Flow, ExecutionOptions } from 'rivulet';
+import { Flow, ExecutionOptions } from 'siglo';
 
-export interface RivuletExpressOptions<TReq = any, TInput = any, TOutput = any> {
+export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, res: any) => Promise<any> | any;
     timeout?: number;
@@ -49,9 +49,9 @@ function unwrapContext(obj: any): any {
 /**
  * Creates an Express middleware handler for executing a rivulet workflow.
  */
-export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
+export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletExpressOptions<TReq, TInput, TOutput> = {}
+    options: SigloExpressOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (req: any, res: any, next: (err?: any) => void): Promise<any> => {
         try {
@@ -121,3 +121,6 @@ export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any
     };
 }
 
+
+export type RivuletExpressOptions<TReq = any, TInput = any, TOutput = any> = SigloExpressOptions<TReq, TInput, TOutput>;
+export const rivuletExpressMiddleware = sigloExpressMiddleware;

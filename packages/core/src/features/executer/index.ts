@@ -12,6 +12,7 @@ import { cache } from '../cache';
 import { generateUUID } from '../../shared';
 
 export {
+    SigloError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,

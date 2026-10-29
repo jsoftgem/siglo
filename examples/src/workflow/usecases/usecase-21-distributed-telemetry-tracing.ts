@@ -1,4 +1,4 @@
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 import {
     instrumentWorkflow,
     SemanticAttributes,
@@ -6,7 +6,7 @@ import {
     extractTraceContext,
     getTraceHeaders,
     createTelemetryStorageAdapter
-} from '@rivulet/opentelemetry';
+} from '@siglo/opentelemetry';
 
 export interface TelemetryOrderInput {
     orderId: string;
@@ -72,10 +72,10 @@ export class MockTracer {
 
 /**
  * Use Case 21: Distributed Tracing & W3C Trace Context Propagation
- * Adapter demonstrated: @rivulet/opentelemetry
+ * Adapter demonstrated: @siglo/opentelemetry
  * Features demonstrated:
  * - instrumentWorkflow wrapping workflows with OpenTelemetry workflow & step spans
- * - Retry tracking via rivulet.step.attempt attributes
+ * - Retry tracking via siglo.step.attempt attributes
  * - W3C Trace Context propagation across distributed boundaries
  * - Telemetry Storage Adapter with field allowlists and namespace privacy redaction
  */

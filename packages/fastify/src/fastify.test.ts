@@ -1,15 +1,15 @@
 import { expect } from 'chai';
-import { Step, flow } from 'rivulet';
-import { rivuletFastifyHandler, getErrorStatusCode } from './index';
+import { Step, flow } from 'siglo';
+import { sigloFastifyHandler, getErrorStatusCode } from './index';
 
-describe('@rivulet/fastify Adapter Suite', () => {
+describe('@siglo/fastify Adapter Suite', () => {
     it('executes workflow using fastify request and returns clean response', async () => {
         const stepA = Step.create(async ({ price, qty }: { price: number; qty: number }) => ({
             subtotal: price * qty,
         }));
         const orderFlow = flow(stepA);
 
-        const handler = rivuletFastifyHandler(orderFlow);
+        const handler = sigloFastifyHandler(orderFlow);
 
         const mockReq = {
             body: { price: 20, qty: 3 },
@@ -47,7 +47,7 @@ describe('@rivulet/fastify Adapter Suite', () => {
             },
         };
 
-        const handler = rivuletFastifyHandler(failingFlow, {
+        const handler = sigloFastifyHandler(failingFlow, {
             onError: (err, reply) => reply.status(403).send({ message: err.message }),
         });
 
@@ -66,7 +66,7 @@ describe('@rivulet/fastify Adapter Suite', () => {
         const failingStep = Step.create(async (): Promise<any> => {
             throw timeoutErr;
         });
-        const handler = rivuletFastifyHandler(flow(failingStep));
+        const handler = sigloFastifyHandler(flow(failingStep));
 
         let sentStatus = 0;
         let sentBody: any;

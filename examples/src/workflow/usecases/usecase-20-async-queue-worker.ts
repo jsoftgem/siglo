@@ -1,6 +1,6 @@
-import { Step, flow } from 'rivulet';
-import { createBullMQProcessor } from '@rivulet/bullmq';
-import { createSqsBatchHandler } from '@rivulet/sqs';
+import { Step, flow } from 'siglo';
+import { createBullMQProcessor } from '@siglo/bullmq';
+import { createSqsBatchHandler } from '@siglo/sqs';
 
 export interface ImageResizeJobInput {
     jobId: string;
@@ -13,7 +13,7 @@ export interface ImageResizeJobInput {
 
 /**
  * Use Case 20: Resilient Asynchronous Queue Worker & Dead-Letter Handling
- * Adapters demonstrated: @rivulet/bullmq & @rivulet/sqs
+ * Adapters demonstrated: @siglo/bullmq & @siglo/sqs
  * Features demonstrated:
  * - BullMQ queue processor with automatic progress reporting and job completion
  * - SQS batch consumer with Partial Batch Failure handling (batchItemFailures)

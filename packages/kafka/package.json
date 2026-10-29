@@ -1,7 +1,7 @@
 {
-  "name": "@rivulet/kafka",
+  "name": "@siglo/kafka",
   "version": "1.0.0",
-  "description": "Kafka consumer message handler and event streaming adapter for Rivulet workflows",
+  "description": "Kafka consumer message handler and event streaming adapter for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -20,17 +20,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jsoftgem/rivulet.git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
     "directory": "packages/kafka"
   },
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jsoftgem/rivulet/issues"
+    "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/rivulet#readme",
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
   "dependencies": {
-    "rivulet": "^1.0.0"
+    "siglo": "^1.0.0"
   },
   "peerDependencies": {
     "kafkajs": "^2.0.0"

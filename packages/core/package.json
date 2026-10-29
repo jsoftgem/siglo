@@ -1,5 +1,5 @@
 {
-  "name": "rivulet",
+  "name": "siglo",
   "version": "1.0.0",
   "description": "Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.",
   "main": "dist/index.js",
@@ -26,11 +26,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jsoftgem/rivulet.git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
     "directory": "packages/core"
   },
   "keywords": [
-    "rivulet",
+    "siglo",
     "workflow",
     "orchestrator",
     "pipeline",
@@ -43,9 +43,9 @@
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jsoftgem/rivulet/issues"
+    "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/rivulet#readme",
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
   "devDependencies": {
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",

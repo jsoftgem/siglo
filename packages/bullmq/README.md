@@ -1,12 +1,12 @@
-# @rivulet/bullmq Adapter Guide
+# @siglo/bullmq Adapter Guide
 
-`@rivulet/bullmq` provides a high-throughput, Redis-backed job queue consumer and worker processor adapter for `Rivulet` workflows. It bridges BullMQ workers with the Rivulet execution engine, offering payload unwrapping, distributed idempotency deduplication, timeout enforcement, tenant namespace partitioning, and graceful failure handling.
+`@siglo/bullmq` provides a high-throughput, Redis-backed job queue consumer and worker processor adapter for `Siglo` workflows. It bridges BullMQ workers with the Siglo execution engine, offering payload unwrapping, distributed idempotency deduplication, timeout enforcement, tenant namespace partitioning, and graceful failure handling.
 
 ---
 
 ## 1. Overview & Architecture
 
-When executing distributed workflows across worker clusters, BullMQ distributes asynchronous jobs backed by Redis. The `@rivulet/bullmq` adapter wraps workflow execution within a standard BullMQ worker processor function (`(job: Job) => Promise<any>`).
+When executing distributed workflows across worker clusters, BullMQ distributes asynchronous jobs backed by Redis. The `@siglo/bullmq` adapter wraps workflow execution within a standard BullMQ worker processor function (`(job: Job) => Promise<any>`).
 
 ```
                     ┌────────────────────────────┐
@@ -29,7 +29,7 @@ When executing distributed workflows across worker clusters, BullMQ distributes 
                                   │
                                   ▼
                     ┌────────────────────────────┐
-                    │   Rivulet Workflow      │
+                    │   Siglo Workflow      │
                     │   (Flow<TInput, TOutput>)  │
                     └─────────────┬──────────────┘
                                   │
@@ -51,14 +51,14 @@ When executing distributed workflows across worker clusters, BullMQ distributes 
 
 ### Package Dependencies
 
-Install `@rivulet/bullmq` alongside `Rivulet`. BullMQ and ioredis are declared as optional peer dependencies so you control the exact version:
+Install `@siglo/bullmq` alongside `Siglo`. BullMQ and ioredis are declared as optional peer dependencies so you control the exact version:
 
 ```bash
-npm install Rivulet @rivulet/bullmq bullmq ioredis
+npm install Siglo @siglo/bullmq bullmq ioredis
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `bullmq`: `^5.0.0`
 - `ioredis`: `^5.0.0 || ^6.0.0`
 
@@ -73,17 +73,17 @@ Creates a BullMQ-compliant worker processor function:
 ```typescript
 function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletBullMQOptions<TJob, TInput, TOutput>
+    options?: SigloBullMQOptions<TJob, TInput, TOutput>
 ): (job: any) => Promise<any>;
 ```
 
 #### Parameters:
-- `workflow` (`Flow<TInput, TOutput>`): The compiled `Rivulet` workflow instance to execute.
-- `options` (`RivuletBullMQOptions<TJob, TInput, TOutput>`): Optional configuration dictionary.
+- `workflow` (`Flow<TInput, TOutput>`): The compiled `Siglo` workflow instance to execute.
+- `options` (`SigloBullMQOptions<TJob, TInput, TOutput>`): Optional configuration dictionary.
 
 ---
 
-## 4. Configuration Options (`RivuletBullMQOptions`)
+## 4. Configuration Options (`SigloBullMQOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -130,8 +130,8 @@ function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
 
 ```typescript
 import { Worker, Job } from 'bullmq';
-import { Step, flow } from 'rivulet';
-import { createBullMQProcessor } from '@rivulet/bullmq';
+import { Step, flow } from 'siglo';
+import { createBullMQProcessor } from '@siglo/bullmq';
 import { Redis } from 'ioredis';
 
 const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -199,15 +199,15 @@ worker.on('failed', (job, err) => {
 
 ---
 
-### Distributed Idempotent Worker with `@rivulet/redis`
+### Distributed Idempotent Worker with `@siglo/redis`
 
 In high-concurrency environments with Redis clusters, duplicate job events or worker restarts should never cause duplicate processing:
 
 ```typescript
 import { Worker } from 'bullmq';
-import { Step, flow } from 'rivulet';
-import { createBullMQProcessor } from '@rivulet/bullmq';
-import { RedisIdempotencyStore, RedisStorageAdapter } from '@rivulet/redis';
+import { Step, flow } from 'siglo';
+import { createBullMQProcessor } from '@siglo/bullmq';
+import { RedisIdempotencyStore, RedisStorageAdapter } from '@siglo/redis';
 import { Redis } from 'ioredis';
 
 const redis = new Redis('redis://localhost:6379');
@@ -218,7 +218,7 @@ Step.useStorage(new RedisStorageAdapter({ client: redis }));
 // Configure distributed idempotency store
 const idempotencyStore = new RedisIdempotencyStore({
     client: redis,
-    keyPrefix: 'rivulet:idemp:bullmq:',
+    keyPrefix: 'siglo:idemp:bullmq:',
     defaultTtlMs: 3600000, // 1 hour
 });
 

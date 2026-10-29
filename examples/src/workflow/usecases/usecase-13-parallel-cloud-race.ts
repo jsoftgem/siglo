@@ -1,4 +1,4 @@
-import { Step, flow, parallel, race, allSettled } from 'rivulet';
+import { Step, flow, parallel, race, allSettled } from 'siglo';
 
 export interface CloudAssetInput {
     assetId: string;

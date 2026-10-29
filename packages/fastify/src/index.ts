@@ -1,6 +1,6 @@
-import { Flow, ExecutionOptions } from 'rivulet';
+import { Flow, ExecutionOptions } from 'siglo';
 
-export interface RivuletFastifyOptions<TReq = any, TInput = any, TOutput = any> {
+export interface SigloFastifyOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, reply: any) => Promise<any> | any;
     timeout?: number;
@@ -49,9 +49,9 @@ function unwrapContext(obj: any): any {
 /**
  * Creates a Fastify route handler for executing a rivulet workflow.
  */
-export function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
+export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletFastifyOptions<TReq, TInput, TOutput> = {}
+    options: SigloFastifyOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (request: any, reply: any): Promise<any> => {
         try {
@@ -114,3 +114,6 @@ export function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     };
 }
 
+
+export type RivuletFastifyOptions<TReq = any, TInput = any, TOutput = any> = SigloFastifyOptions<TReq, TInput, TOutput>;
+export const rivuletFastifyHandler = sigloFastifyHandler;

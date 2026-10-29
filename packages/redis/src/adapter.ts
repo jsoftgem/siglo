@@ -1,4 +1,4 @@
-import { StorageAdapter, SerializedExecutionStack } from 'rivulet';
+import { StorageAdapter, SerializedExecutionStack } from 'siglo';
 import { RedisStorageAdapterOptions, RedisClientInterface } from './types';
 
 export class RedisStorageAdapter implements StorageAdapter {
@@ -14,7 +14,7 @@ export class RedisStorageAdapter implements StorageAdapter {
             throw new Error('RedisStorageAdapter requires a valid Redis client instance.');
         }
         this.client = options.client;
-        this.keyPrefix = options.keyPrefix || 'rivulet:';
+        this.keyPrefix = options.keyPrefix || 'siglo:';
         this.cacheTtlMs = options.cacheTtlMs || 86400000; // 24 hours
         this.checkpointTtlMs = options.checkpointTtlMs || 604800000; // 7 days
         this.recordContextChanges = options.recordContextChanges ?? true;

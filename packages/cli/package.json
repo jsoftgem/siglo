@@ -1,11 +1,11 @@
 {
-  "name": "@rivulet/cli",
+  "name": "@siglo/cli",
   "version": "1.0.0",
-  "description": "Developer CLI and workflow visualizer/inspector for Rivulet workflows",
+  "description": "Developer CLI and workflow visualizer/inspector for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "rivulet": "./dist/bin.js"
+    "siglo": "./dist/bin.js"
   },
   "files": [
     "dist",
@@ -23,17 +23,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jsoftgem/rivulet.git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
     "directory": "packages/cli"
   },
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jsoftgem/rivulet/issues"
+    "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/rivulet#readme",
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
   "dependencies": {
-    "rivulet": "^1.0.0"
+    "siglo": "^1.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

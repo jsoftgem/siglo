@@ -1,14 +1,14 @@
 export const SemanticAttributes = {
-    WORKFLOW_NAME: 'rivulet.workflow.name',
-    WORKFLOW_VERSION: 'rivulet.workflow.version',
-    WORKFLOW_ID: 'rivulet.workflow.id',
-    STACK_ID: 'rivulet.stack.id',
-    STEP_NAME: 'rivulet.step.name',
-    STEP_ID: 'rivulet.step.id',
-    STEP_ATTEMPT: 'rivulet.step.attempt',
-    NAMESPACE: 'rivulet.namespace',
-    CACHE_HIT: 'rivulet.cache.hit',
-    TIMEOUT: 'rivulet.timeout',
+    WORKFLOW_NAME: 'siglo.workflow.name',
+    WORKFLOW_VERSION: 'siglo.workflow.version',
+    WORKFLOW_ID: 'siglo.workflow.id',
+    STACK_ID: 'siglo.stack.id',
+    STEP_NAME: 'siglo.step.name',
+    STEP_ID: 'siglo.step.id',
+    STEP_ATTEMPT: 'siglo.step.attempt',
+    NAMESPACE: 'siglo.namespace',
+    CACHE_HIT: 'siglo.cache.hit',
+    TIMEOUT: 'siglo.timeout',
 } as const;
 
 export type SemanticAttributeKey = (typeof SemanticAttributes)[keyof typeof SemanticAttributes];

@@ -1,6 +1,6 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
+import { Flow, ExecutionOptions, IdempotencyStore } from 'siglo';
 
-export interface RivuletSqsRecord {
+export interface SigloSqsRecord {
     messageId: string;
     receiptHandle: string;
     body: string;
@@ -8,17 +8,17 @@ export interface RivuletSqsRecord {
     messageAttributes?: Record<string, any>;
 }
 
-export interface RivuletSqsEvent {
-    Records: RivuletSqsRecord[];
+export interface SigloSqsEvent {
+    Records: SigloSqsRecord[];
 }
 
-export interface RivuletSqsOptions<TInput = any, TOutput = any> {
-    input?: (record: RivuletSqsRecord) => Promise<TInput> | TInput;
-    output?: (result: any, record: RivuletSqsRecord) => Promise<TOutput> | TOutput;
+export interface SigloSqsOptions<TInput = any, TOutput = any> {
+    input?: (record: SigloSqsRecord) => Promise<TInput> | TInput;
+    output?: (result: any, record: SigloSqsRecord) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
     timeout?: number;
-    namespace?: string | ((record: RivuletSqsRecord) => string | undefined);
+    namespace?: string | ((record: SigloSqsRecord) => string | undefined);
 }
 
 function unwrapContext(obj: any): any {
@@ -46,9 +46,9 @@ export interface SqsBatchResponse {
  */
 export function createSqsBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletSqsOptions<TInput, TOutput> = {}
+    options: SigloSqsOptions<TInput, TOutput> = {}
 ) {
-    return async (event: RivuletSqsEvent): Promise<SqsBatchResponse> => {
+    return async (event: SigloSqsEvent): Promise<SqsBatchResponse> => {
         const batchItemFailures: Array<{ itemIdentifier: string }> = [];
         let processedCount = 0;
 
@@ -109,3 +109,7 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
     };
 }
 
+
+export type RivuletSqsRecord = SigloSqsRecord;
+export type RivuletSqsEvent = SigloSqsEvent;
+export type RivuletSqsOptions<TInput = any, TOutput = any> = SigloSqsOptions<TInput, TOutput>;

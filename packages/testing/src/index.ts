@@ -5,7 +5,7 @@ import {
     useStorage,
     toPOJO,
     resumeWorkflow
-} from 'rivulet';
+} from 'siglo';
 
 export interface StepTraceRecord {
     stepName: string;

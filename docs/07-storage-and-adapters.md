@@ -1,6 +1,6 @@
 # 07. Storage and Adapters
 
-`Rivulet` features a decoupled storage architecture: the workflow runtime operates cleanly in memory, while state persistence, distributed caching, audit trails, and idempotency claims are delegated to pluggable `StorageAdapter` implementations.
+`Siglo` features a decoupled storage architecture: the workflow runtime operates cleanly in memory, while state persistence, distributed caching, audit trails, and idempotency claims are delegated to pluggable `StorageAdapter` implementations.
 
 ---
 
@@ -30,8 +30,8 @@ export interface StorageAdapter {
 Register an adapter globally using `useStorage(adapter)`:
 
 ```typescript
-import { useStorage } from 'rivulet';
-import { PostgresStorageAdapter } from '@rivulet/postgres';
+import { useStorage } from 'siglo';
+import { PostgresStorageAdapter } from '@siglo/postgres';
 
 const adapter = new PostgresStorageAdapter(pgPool);
 useStorage(adapter);
@@ -41,12 +41,12 @@ useStorage(adapter);
 
 ## 2. Production Ecosystem Adapters
 
-### `@rivulet/postgres`
+### `@siglo/postgres`
 ACID-compliant state persistence, durable checkpoint storage, audit event log tables, and transactional idempotency locking.
 
 ```typescript
 import { Pool } from 'pg';
-import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@rivulet/postgres';
+import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@siglo/postgres';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const storage = new PostgresStorageAdapter(pool);
@@ -54,12 +54,12 @@ await storage.ensureTables();
 useStorage(storage);
 ```
 
-### `@rivulet/redis`
+### `@siglo/redis`
 Low-latency state caching, distributed TTL step caching, atomic idempotency claim sets, and distributed redlock mutexes.
 
 ```typescript
 import { Redis } from 'ioredis';
-import { RedisStorageAdapter, RedisLock } from '@rivulet/redis';
+import { RedisStorageAdapter, RedisLock } from '@siglo/redis';
 
 const redis = new Redis(process.env.REDIS_URL);
 const storage = new RedisStorageAdapter(redis, { ttlMs: 86400000 });
@@ -67,12 +67,12 @@ useStorage(storage);
 ```
 
 ### Event & Transport Adapters
-- `@rivulet/express`: HTTP route handler adapter.
-- `@rivulet/fastify`: High-performance Fastify route handler adapter.
-- `@rivulet/hono`: Edge-ready Web Standards (Cloudflare Workers, Deno, Node) adapter.
-- `@rivulet/kafka`: High-throughput Kafka consumer partition batch processor.
-- `@rivulet/bullmq`: Resilient Redis background queue job runner.
-- `@rivulet/sqs`: AWS SQS batch consumer with partial failure reporting.
+- `@siglo/express`: HTTP route handler adapter.
+- `@siglo/fastify`: High-performance Fastify route handler adapter.
+- `@siglo/hono`: Edge-ready Web Standards (Cloudflare Workers, Deno, Node) adapter.
+- `@siglo/kafka`: High-throughput Kafka consumer partition batch processor.
+- `@siglo/bullmq`: Resilient Redis background queue job runner.
+- `@siglo/sqs`: AWS SQS batch consumer with partial failure reporting.
 
 See [Ecosystem & Adapters Guide](./ecosystem-adapters.md) for full details on each adapter.
 
@@ -96,7 +96,7 @@ Adapters partition data by namespace, preventing cross-tenant leakage.
 ## Minimal Example
 
 ```typescript
-import { Step, flow, useStorage, StorageAdapter } from 'rivulet';
+import { Step, flow, useStorage, StorageAdapter } from 'siglo';
 
 const customAuditAdapter: StorageAdapter = {
     name: 'console-audit',
@@ -119,7 +119,7 @@ await wf.run();
 Configure `setErrorMode()` to define behavior when storage adapters encounter network errors:
 
 ```typescript
-import { setErrorMode, StorageErrorMode } from 'rivulet';
+import { setErrorMode, StorageErrorMode } from 'siglo';
 
 // In mission-critical environments: FAIL_CLOSED aborts workflow if audit storage fails
 setErrorMode(StorageErrorMode.FAIL_CLOSED);
@@ -132,12 +132,12 @@ setErrorMode(StorageErrorMode.FAIL_OPEN);
 
 ## Testing Example
 
-Using `InMemoryStorageFake` from `@rivulet/testing`:
+Using `InMemoryStorageFake` from `@siglo/testing`:
 
 ```typescript
 import { expect } from 'chai';
-import { InMemoryStorageFake, createWorkflowHarness } from '@rivulet/testing';
-import { Step, flow } from 'rivulet';
+import { InMemoryStorageFake, createWorkflowHarness } from '@siglo/testing';
+import { Step, flow } from 'siglo';
 
 const wf = flow(Step.create('test', () => ({ ok: true })));
 
@@ -156,7 +156,7 @@ describe('Storage Adapter Testing', () => {
 
 ## Operational Caveats
 
-1. **Table Schema Migration**: When deploying `@rivulet/postgres`, execute `ensureTables()` during database migrations, not on individual application instance boot.
+1. **Table Schema Migration**: When deploying `@siglo/postgres`, execute `ensureTables()` during database migrations, not on individual application instance boot.
 2. **TTL Cleanups**: Configure a cron job to call `cleanExpiredCheckpoints()` daily to maintain optimal database query speeds.
 
 ---

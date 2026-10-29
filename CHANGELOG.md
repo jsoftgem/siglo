@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `Rivulet` will be documented in this file.
+All notable changes to `Siglo` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -11,13 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### General Availability Release
 
-This is the initial production release of **`Rivulet`** (v1.0.0), marking the transition from pre-v1 (`0.6.1`) to a fully stabilized, enterprise-grade workflow orchestration ecosystem.
+This is the initial production release of **`Siglo`** (v1.0.0), marking the transition from pre-v1 (`0.6.1`) to a fully stabilized, enterprise-grade workflow orchestration ecosystem.
 
-`Rivulet` is a lightweight, zero-dependency in-process workflow orchestrator for TypeScript and Node.js. It combines functional composition with end-to-end accumulated context inference, deterministic test tooling, distributed ecosystem adapters, durable event-driven execution, and architecture visualization.
+`Siglo` is a lightweight, zero-dependency in-process workflow orchestrator for TypeScript and Node.js. It combines functional composition with end-to-end accumulated context inference, deterministic test tooling, distributed ecosystem adapters, durable event-driven execution, and architecture visualization.
 
 ---
 
-### Core Workflow Engine (`Rivulet`)
+### Core Workflow Engine (`Siglo`)
 
 #### Pipeline Composition & Execution
 - **Functional Composition (`flow` / `Step`)**: Construct linear and branched workflows without global registries. Steps are pure, reusable execution units.
@@ -44,7 +44,7 @@ This is the initial production release of **`Rivulet`** (v1.0.0), marking the tr
   - `step.timeout(ms)`: Per-step SLA enforcement.
   - `flow.timeout(ms)`: Cumulative workflow deadline enforcement.
 - **Structured Retries**: Exponential, linear, or fixed backoff with jitter and retry callbacks.
-- **Standardized Error Hierarchy**: Rooted at `RivuletError`, with typed exceptions for timeouts, cancellation, validation, saga compensation, and idempotency conflicts.
+- **Standardized Error Hierarchy**: Rooted at `SigloError`, with typed exceptions for timeouts, cancellation, validation, saga compensation, and idempotency conflicts.
 - **Cooperative Cancellation**: Automatic `AbortSignal` propagation to HTTP clients, database queries, and async timers.
 
 #### Durable Execution & Storage
@@ -67,50 +67,50 @@ This is the initial production release of **`Rivulet`** (v1.0.0), marking the tr
 
 ### Ecosystem Packages
 
-#### Developer Tools & CLI (`@rivulet/cli`)
-- Terminal executable (`Rivulet`) and programmatic API:
-  - `rivulet init [dir]`: Scaffolds a complete TypeScript starter workflow project with test suite.
-  - `rivulet generate workflow <name>`: Scaffolds strongly-typed workflows with companion tests.
-  - `rivulet generate step <name>`: Scaffolds strongly-typed steps with unit tests.
-  - `rivulet export <file>`: Exports workflow diagrams to Mermaid, Graphviz DOT, or JSON with `--direction` and `--out`.
-  - `rivulet visualize <file>`: Renders interactive Mermaid or text diagrams in terminal.
-  - `rivulet validate <file>`: Statically validates workflow ASTs for cyclic dependencies.
-  - `rivulet inspect <file>`: Inspects AST topology and complexity metrics with field redaction.
-  - `rivulet checkpoint <file>`: Inspects serialized checkpoint state JSON files.
-  - `rivulet replay <fixture>`: Replays recorded test fixtures and reports output discrepancies.
+#### Developer Tools & CLI (`@siglo/cli`)
+- Terminal executable (`Siglo`) and programmatic API:
+  - `siglo init [dir]`: Scaffolds a complete TypeScript starter workflow project with test suite.
+  - `siglo generate workflow <name>`: Scaffolds strongly-typed workflows with companion tests.
+  - `siglo generate step <name>`: Scaffolds strongly-typed steps with unit tests.
+  - `siglo export <file>`: Exports workflow diagrams to Mermaid, Graphviz DOT, or JSON with `--direction` and `--out`.
+  - `siglo visualize <file>`: Renders interactive Mermaid or text diagrams in terminal.
+  - `siglo validate <file>`: Statically validates workflow ASTs for cyclic dependencies.
+  - `siglo inspect <file>`: Inspects AST topology and complexity metrics with field redaction.
+  - `siglo checkpoint <file>`: Inspects serialized checkpoint state JSON files.
+  - `siglo replay <fixture>`: Replays recorded test fixtures and reports output discrepancies.
 
-#### Deterministic Testing Harness (`@rivulet/testing`)
+#### Deterministic Testing Harness (`@siglo/testing`)
 - **Virtual Clock (`FakeClock`)**: Deterministically advance time and timers without real-time delays.
 - **`WorkflowHarness`**: Complete testing harness with step spies, mock implementations, trace history, and event injection.
 - **Assertions**: Specialized assertions (`assertStepExecuted`, `assertStepRetried`, `assertStepFailed`).
 - **`InMemoryStorageFake`**: In-memory storage adapter for zero-infrastructure checkpoint and cache testing.
 - **Execution Replay (`replayExecution`)**: Replay execution records against workflow definitions with golden parity assertions.
 
-#### Observability & Distributed Tracing (`@rivulet/opentelemetry`)
+#### Observability & Distributed Tracing (`@siglo/opentelemetry`)
 - Automatic root workflow span and child step spans with retry attempt counters.
-- Standardized semantic attributes (`rivulet.workflow.name`, `rivulet.step.name`, `rivulet.step.attempt`, `rivulet.stack.id`, `rivulet.namespace`).
+- Standardized semantic attributes (`siglo.workflow.name`, `siglo.step.name`, `siglo.step.attempt`, `siglo.stack.id`, `siglo.namespace`).
 - W3C Trace Context propagation helpers (`injectTraceContext`, `extractTraceContext`, `getTraceHeaders`).
 - Telemetry storage adapter streaming sanitized context attributes with configurable redaction.
 
 #### Distributed Storage Adapters
-- **PostgreSQL (`@rivulet/postgres`)**:
+- **PostgreSQL (`@siglo/postgres`)**:
   - ACID transactional checkpoint persistence (`ensureTables`, `saveCheckpoint`, `getCheckpoint`).
   - Audit event logging and automated retention cleanup policies.
   - Transactional idempotency store with claim locking.
-- **Redis (`@rivulet/redis`)**:
+- **Redis (`@siglo/redis`)**:
   - High-performance checkpointing and distributed step output caching.
   - Redis-backed idempotency store with automatic TTL expiration.
   - Distributed lock (`RedisLock`) for single-flight coordination.
 
 #### Event Brokers & Queue Adapters
-- **Kafka (`@rivulet/kafka`)**: Consumer batch processor with header correlation and W3C trace context extraction.
-- **BullMQ (`@rivulet/bullmq`)**: Job processor with job progress tracking and idempotency deduplication.
-- **AWS SQS (`@rivulet/sqs`)**: Batch message consumer with partial batch item failure reporting (`batchItemFailures`).
+- **Kafka (`@siglo/kafka`)**: Consumer batch processor with header correlation and W3C trace context extraction.
+- **BullMQ (`@siglo/bullmq`)**: Job processor with job progress tracking and idempotency deduplication.
+- **AWS SQS (`@siglo/sqs`)**: Batch message consumer with partial batch item failure reporting (`batchItemFailures`).
 
 #### HTTP Middleware & Route Handlers
-- **Express (`@rivulet/express`)**: Middleware and route handlers with status code mapping and error propagation.
-- **Fastify (`@rivulet/fastify`)**: Native Fastify route handler integration with header correlation.
-- **Hono (`@rivulet/hono`)**: Route handler supporting edge runtimes and Web Standards `Request`/`Response`.
+- **Express (`@siglo/express`)**: Middleware and route handlers with status code mapping and error propagation.
+- **Fastify (`@siglo/fastify`)**: Native Fastify route handler integration with header correlation.
+- **Hono (`@siglo/hono`)**: Route handler supporting edge runtimes and Web Standards `Request`/`Response`.
 
 ---
 

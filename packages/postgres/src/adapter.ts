@@ -1,4 +1,4 @@
-import { StorageAdapter, SerializedExecutionStack } from 'rivulet';
+import { StorageAdapter, SerializedExecutionStack } from 'siglo';
 import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
 
 export class PostgresStorageAdapter implements StorageAdapter {
@@ -13,8 +13,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
             throw new Error('PostgresStorageAdapter requires a valid Postgres client or pool instance.');
         }
         this.client = options.client;
-        this.checkpointsTable = options.checkpointsTable || 'rivulet_checkpoints';
-        this.eventsTable = options.eventsTable || 'rivulet_context_events';
+        this.checkpointsTable = options.checkpointsTable || 'siglo_checkpoints';
+        this.eventsTable = options.eventsTable || 'siglo_context_events';
         this.recordContextChanges = options.recordContextChanges ?? true;
     }
 

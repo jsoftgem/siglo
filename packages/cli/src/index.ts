@@ -7,7 +7,7 @@ import {
     validateGraph,
     GraphValidationResult,
     GraphInspectionResult
-} from 'rivulet';
+} from 'siglo';
 
 export interface WorkflowVisualizationResult {
     mermaid: string;
@@ -64,7 +64,7 @@ export function toTextGraph(inspection: GraphInspectionResult): string {
 }
 
 /**
- * Visualizes a rivulet workflow graph as Mermaid and text flowchart representations.
+ * Visualizes a siglo workflow graph as Mermaid and text flowchart representations.
  */
 export function visualizeWorkflow(workflow: Flow): WorkflowVisualizationResult {
     const graph = toGraph(workflow);
@@ -187,7 +187,7 @@ export function inspectCheckpoint(
 }
 
 /**
- * Scaffolds a new starter rivulet project directory.
+ * Scaffolds a new starter siglo project directory.
  */
 export function initProject(targetDir: string = process.cwd()): { filesCreated: string[] } {
     const srcDir = path.join(targetDir, 'src');
@@ -201,15 +201,15 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
 
     if (!fs.existsSync(packageJsonPath)) {
         const pkg = {
-            name: 'my-rivulet-workflow',
+            name: 'my-siglo-workflow',
             version: '1.0.0',
-            description: 'Starter project built with rivulet workflow runtime',
+            description: 'Starter project built with siglo workflow runtime',
             scripts: {
                 test: 'tsx --test src/**/*.test.ts',
                 start: 'tsx src/workflow.ts',
             },
             dependencies: {
-                'rivulet': '^1.0.0',
+                'siglo': '^1.0.0',
             },
             devDependencies: {
                 tsx: '^4.0.0',
@@ -221,7 +221,7 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
     }
 
     if (!fs.existsSync(workflowPath)) {
-        const code = `import { Step, flow } from 'rivulet';\n\nexport interface OrderInput {\n    orderId: string;\n    amount: number;\n}\n\nexport function createOrderWorkflow() {\n    const validateOrder = Step.create('validateOrder', async ({ orderId, amount }: any) => {\n        if (!orderId) throw new Error('Missing orderId');\n        return { validated: true, orderId, amount };\n    });\n\n    const processPayment = Step.create('processPayment', async ({ amount }: any) => {\n        return { paymentStatus: 'CHARGED', amountCharged: amount };\n    });\n\n    return flow(validateOrder, processPayment);\n}\n`;
+        const code = `import { Step, flow } from 'siglo';\n\nexport interface OrderInput {\n    orderId: string;\n    amount: number;\n}\n\nexport function createOrderWorkflow() {\n    const validateOrder = Step.create('validateOrder', async ({ orderId, amount }: any) => {\n        if (!orderId) throw new Error('Missing orderId');\n        return { validated: true, orderId, amount };\n    });\n\n    const processPayment = Step.create('processPayment', async ({ amount }: any) => {\n        return { paymentStatus: 'CHARGED', amountCharged: amount };\n    });\n\n    return flow(validateOrder, processPayment);\n}\n`;
         fs.writeFileSync(workflowPath, code);
         filesCreated.push(workflowPath);
     }
@@ -249,9 +249,9 @@ export function generateWorkflow(name: string, targetDir: string = process.cwd()
     const filePath = path.join(srcDir, `${kebabName}.workflow.ts`);
     const testPath = path.join(srcDir, `${kebabName}.workflow.test.ts`);
 
-    const workflowContent = `import { Step, flow } from 'rivulet';\n\nexport interface ${pascalName}Input {\n    id: string;\n}\n\nexport interface ${pascalName}Output {\n    id: string;\n    status: string;\n}\n\nexport const step1 = Step.create("validate", async (param: ${pascalName}Input) => {\n    if (!param.id) throw new Error("Missing required field: id");\n    return { validated: true };\n});\n\nexport const step2 = Step.create("process", async (param: ${pascalName}Input & { validated: boolean }) => {\n    return { status: "COMPLETED" };\n});\n\nexport const ${camelName}Workflow = flow(step1, step2);\nexport default ${camelName}Workflow;\n`;
+    const workflowContent = `import { Step, flow } from 'siglo';\n\nexport interface ${pascalName}Input {\n    id: string;\n}\n\nexport interface ${pascalName}Output {\n    id: string;\n    status: string;\n}\n\nexport const step1 = Step.create("validate", async (param: ${pascalName}Input) => {\n    if (!param.id) throw new Error("Missing required field: id");\n    return { validated: true };\n});\n\nexport const step2 = Step.create("process", async (param: ${pascalName}Input & { validated: boolean }) => {\n    return { status: "COMPLETED" };\n});\n\nexport const ${camelName}Workflow = flow(step1, step2);\nexport default ${camelName}Workflow;\n`;
 
-    const testContent = `import { expect } from "chai";\nimport { createWorkflowHarness } from "@rivulet/testing";\nimport { ${camelName}Workflow } from "./${kebabName}.workflow";\n\ndescribe("${pascalName}Workflow", () => {\n    it("executes successfully", async () => {\n        const harness = createWorkflowHarness(${camelName}Workflow);\n        const result = await harness.run({ id: "test-123" });\n        expect(result.status).to.equal("COMPLETED");\n        harness.assertStepExecuted("validate");\n        harness.assertStepExecuted("process");\n    });\n});\n`;
+    const testContent = `import { expect } from "chai";\nimport { createWorkflowHarness } from "@siglo/testing";\nimport { ${camelName}Workflow } from "./${kebabName}.workflow";\n\ndescribe("${pascalName}Workflow", () => {\n    it("executes successfully", async () => {\n        const harness = createWorkflowHarness(${camelName}Workflow);\n        const result = await harness.run({ id: "test-123" });\n        expect(result.status).to.equal("COMPLETED");\n        harness.assertStepExecuted("validate");\n        harness.assertStepExecuted("process");\n    });\n});\n`;
 
     fs.writeFileSync(filePath, workflowContent, "utf-8");
     fs.writeFileSync(testPath, testContent, "utf-8");
@@ -273,7 +273,7 @@ export function generateStep(name: string, targetDir: string = process.cwd()): {
     const filePath = path.join(srcDir, `${kebabName}.step.ts`);
     const testPath = path.join(srcDir, `${kebabName}.step.test.ts`);
 
-    const stepContent = `import { Step } from 'rivulet';\n\nexport interface ${pascalName}Input {\n    [key: string]: any;\n}\n\nexport interface ${pascalName}Output {\n    success: boolean;\n}\n\nexport const ${camelName}Step = Step.create("${kebabName}", async (param: ${pascalName}Input): Promise<${pascalName}Output> => {\n    return { success: true };\n});\n\nexport default ${camelName}Step;\n`;
+    const stepContent = `import { Step } from 'siglo';\n\nexport interface ${pascalName}Input {\n    [key: string]: any;\n}\n\nexport interface ${pascalName}Output {\n    success: boolean;\n}\n\nexport const ${camelName}Step = Step.create("${kebabName}", async (param: ${pascalName}Input): Promise<${pascalName}Output> => {\n    return { success: true };\n});\n\nexport default ${camelName}Step;\n`;
 
     const testContent = `import { expect } from "chai";\nimport { ${camelName}Step } from "./${kebabName}.step";\n\ndescribe("${pascalName}Step", () => {\n    it("executes successfully", async () => {\n        const result = await ${camelName}Step.execute({});\n        expect(result.success).to.be.true;\n    });\n});\n`;
 

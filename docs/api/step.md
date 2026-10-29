@@ -1,6 +1,6 @@
 # API Reference: Step Methods (`Step`)
 
-The `Step` class is the fundamental execution unit in **Rivulet**. A step encapsulates an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
+The `Step` class is the fundamental execution unit in **Siglo**. A step encapsulates an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
 
 ---
 
@@ -88,7 +88,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 #### Example
 
 ```typescript
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 
 interface UserInput {
     userId: string;
@@ -121,7 +121,7 @@ step.schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput, TName>;
 #### Example with Zod
 
 ```typescript
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 import { z } from 'zod';
 
 const OrderInputSchema = z.object({
@@ -294,7 +294,7 @@ step.timeout(ms: number): Step<TInput, TOutput, TName>;
 #### Example
 
 ```typescript
-import { Step, StepTimeoutException } from 'rivulet';
+import { Step, StepTimeoutException } from 'siglo';
 
 const callExternalVendor = Step.create('vendorApi', async (param, _curr, _idx) => {
     const res = await fetch('https://api.vendor.com/data');

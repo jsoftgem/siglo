@@ -1,7 +1,7 @@
 {
-  "name": "@rivulet/fastify",
+  "name": "@siglo/fastify",
   "version": "1.0.0",
-  "description": "Fastify route handler adapter for executing Rivulet workflows",
+  "description": "Fastify route handler adapter for executing Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -20,17 +20,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jsoftgem/rivulet.git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
     "directory": "packages/fastify"
   },
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jsoftgem/rivulet/issues"
+    "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/rivulet#readme",
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
   "dependencies": {
-    "rivulet": "^1.0.0"
+    "siglo": "^1.0.0"
   },
   "peerDependencies": {
     "fastify": "^4.0.0 || ^5.0.0"

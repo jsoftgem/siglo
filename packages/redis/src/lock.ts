@@ -9,7 +9,7 @@ export class RedisLock {
     private client: RedisClientInterface;
     private keyPrefix: string;
 
-    constructor(client: RedisClientInterface, keyPrefix: string = 'rivulet:lock:') {
+    constructor(client: RedisClientInterface, keyPrefix: string = 'siglo:lock:') {
         if (!client) {
             throw new Error('RedisLock requires a valid Redis client instance.');
         }

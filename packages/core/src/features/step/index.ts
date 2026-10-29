@@ -93,6 +93,7 @@ import {
 } from '../durable';
 
 export {
+    SigloError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,

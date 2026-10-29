@@ -1,5 +1,5 @@
-import { Step, flow, parallel, toPOJO } from 'rivulet';
-import { instrumentWorkflow, instrumentStep } from '@rivulet/opentelemetry';
+import { Step, flow, parallel, toPOJO } from 'siglo';
+import { instrumentWorkflow, instrumentStep } from '@siglo/opentelemetry';
 import { initTelemetry, getRecordedSpans, clearRecordedSpans, printTraceWaterfall } from '../tracer';
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

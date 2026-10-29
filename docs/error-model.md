@@ -1,6 +1,6 @@
 # Error Model & Exception Hierarchy
 
-Rivulet v1.0.0 introduces a structured, predictable error hierarchy rooted at `RivuletError`.
+Siglo v1.0.0 introduces a structured, predictable error hierarchy rooted at `SigloError`.
 
 ---
 
@@ -8,7 +8,7 @@ Rivulet v1.0.0 introduces a structured, predictable error hierarchy rooted at `R
 
 ```
 Error
- └── RivuletError (base class with metadata and serialization)
+ └── SigloError (base class with metadata and serialization)
       ├── StepTimeoutException
       ├── FlowTimeoutException
       ├── CancellationException
@@ -25,7 +25,7 @@ All errors inherit standard `Error` properties (`name`, `message`, `stack`) whil
 
 ## 2. Common Metadata Fields (`ExecutionErrorMetadata`)
 
-Every `RivuletError` includes the following metadata fields:
+Every `SigloError` includes the following metadata fields:
 
 | Field | Type | Description |
 |---|---|---|
@@ -83,9 +83,9 @@ Thrown when restoring a checkpoint produced by an incompatible future schema ver
 
 ## 4. Normalization & Cause Preservation
 
-Any non-`RivuletError` (e.g. built-in `TypeError`, third-party network error, or string literal rejection) is normalized via `normalizeError(err, metadata)`:
-- If `err` is already a `RivuletError`, the point-of-failure metadata is enriched without overwriting.
-- If `err` is a standard `Error`, it is wrapped into a `RivuletError`, setting `err.cause = originalError`.
+Any non-`SigloError` (e.g. built-in `TypeError`, third-party network error, or string literal rejection) is normalized via `normalizeError(err, metadata)`:
+- If `err` is already a `SigloError`, the point-of-failure metadata is enriched without overwriting.
+- If `err` is a standard `Error`, it is wrapped into a `SigloError`, setting `err.cause = originalError`.
 - If `err` is a string or primitive, the string is used as the message.
 - For backward compatibility with v1.x, `err.stackId` and `err.error` reference the error cause.
 
@@ -93,13 +93,13 @@ Any non-`RivuletError` (e.g. built-in `TypeError`, third-party network error, or
 
 ## 5. JSON Serialization (`toJSON()`)
 
-Every `RivuletError` instance implements `toJSON()` for safe logging and transmission across networks:
+Every `SigloError` instance implements `toJSON()` for safe logging and transmission across networks:
 
 ```ts
 try {
   await flow(myStep).execute();
 } catch (err) {
-  if (err instanceof RivuletError) {
+  if (err instanceof SigloError) {
     console.error(JSON.stringify(err.toJSON(), null, 2));
   }
 }
@@ -108,7 +108,7 @@ try {
 Produces:
 ```json
 {
-  "name": "RivuletError",
+  "name": "SigloError",
   "message": "Payment gateway timeout",
   "phase": "action",
   "stepName": "processPayment",

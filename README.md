@@ -1,23 +1,23 @@
 <p align="center">
-  <img src="docs/assets/rivulet-logo.jpg" alt="Rivulet Logo" width="220" style="border-radius: 16px;" />
+  <img src="docs/assets/siglo-logo.jpg" alt="Siglo Logo" width="220" style="border-radius: 16px;" />
 </p>
 
-# Rivulet
+# Siglo
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/rivulet)
+[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)]()
 
-**Rivulet** allows you to break complex business logic into clean, reusable, and resilient steps. It combines functional composition with parameter contracts, deterministic caching, lifecycle hooks, structured retry strategies, isolated storage, parallel combinators, sagas with LIFO compensations, scoped idempotency, durable event-driven waits, end-to-end TypeScript context inference, visualization exports, live monitoring DevTools, and deterministic test harnesses.
+**Siglo** allows you to break complex business logic into clean, reusable, and resilient steps. It combines functional composition with parameter contracts, deterministic caching, lifecycle hooks, structured retry strategies, isolated storage, parallel combinators, sagas with LIFO compensations, scoped idempotency, durable event-driven waits, end-to-end TypeScript context inference, visualization exports, live monitoring DevTools, and deterministic test harnesses.
 
 ---
 
 ## Positioning: In-Process Orchestration vs Distributed Engines
 
-| Dimension | `Rivulet` | Distributed Engines (Temporal, Inngest) |
+| Dimension | `Siglo` | Distributed Engines (Temporal, Inngest) |
 |---|---|---|
 | **Architecture** | Lightweight, zero-infrastructure in-process library | Heavy multi-cluster / external orchestrator daemon |
 | **Latency** | Microsecond direct async function invocation | Millisecond-to-second RPC / polling overhead |
@@ -38,7 +38,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 6. ⏳ [06. Durable Workflows](docs/06-durable-workflows.md) &mdash; Long-running human-in-the-loop waits (`waitForEvent`, `wait`), checkpoint resumption, and state migrations.
 7. 💾 [07. Storage and Adapters](docs/07-storage-and-adapters.md) &mdash; Distributed persistence contracts, PostgreSQL & Redis adapters, and multi-tenant namespaces.
 8. 🔭 [08. Observability](docs/08-observability.md) &mdash; Graph exports (Mermaid, DOT, JSON), OpenTelemetry distributed tracing, and W3C trace propagation.
-9. 🧪 [09. Testing and Replay](docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@rivulet/testing`), fake clocks, step spies, mocks, and failure replay.
+9. 🧪 [09. Testing and Replay](docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@siglo/testing`), fake clocks, step spies, mocks, and failure replay.
 10. 🏷️ [10. TypeScript Reference](docs/10-typescript-reference.md) &mdash; End-to-end accumulated context inference, typed step history (`$steps`), and Standard Schema integration.
 11. 🔄 [11. Migration and Compatibility](docs/11-migration-and-compatibility.md) &mdash; Upgrading from 0.x (`Chain`, `pipe`) to 1.0 (`Step`, `flow`), backwards compatibility, and modern POJO mode.
 12. 🏭 [12. Production Operations](docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
@@ -46,7 +46,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 ### Architectural Contracts & Adapter Guides
 - 🔌 [Ecosystem Adapters Overview](docs/ecosystem-adapters.md) &mdash; Master guide for all official adapters and CLI tooling.
 - 📜 [Execution Semantics Contract](docs/execution-semantics.md) &mdash; Formal semantics answering all 9 runtime execution contract questions.
-- 🚨 [Error Model & Exception Hierarchy](docs/error-model.md) &mdash; Complete exception hierarchy (`RivuletError`), metadata fields, and cause preservation.
+- 🚨 [Error Model & Exception Hierarchy](docs/error-model.md) &mdash; Complete exception hierarchy (`SigloError`), metadata fields, and cause preservation.
 - 💾 [Storage & Checkpoint Contract](docs/storage-contract.md) &mdash; Checkpoint schema v2.0.0, optimistic concurrency, and namespace isolation.
 - 🔄 [Compensation & Sagas](docs/compensation-and-sagas.md) &mdash; Sagas with LIFO compensation rollbacks and retry policies.
 - 🔑 [Idempotency & Deduplication](docs/idempotency.md) &mdash; Scoped idempotency keys, claim locking, and TTL stores.
@@ -61,7 +61,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 📜 **Typed Step History (`$steps`)** &mdash; Statically typed access to any step's output using string literal names (`context.$steps.loadUser.user`).
 - 🗺️ **Workflow Graph Visualization** &mdash; Export workflow graphs directly to Mermaid diagrams (`flow.toMermaid()`), Graphviz DOT (`flow.toDot()`), and JSON AST (`flow.toJSON()`) with policy badges.
 - 🖥️ **Live DevTools & Monitoring** &mdash; Real-time step inspection, timeline waterfalls, active DAG node highlighting, and failure replay.
-- 🧪 **Deterministic Test Harness (`@rivulet/testing`)** &mdash; Zero-flake test harness with virtual clocks (`FakeClock`), step spies, mocking, trace snapshots, and failure replay.
+- 🧪 **Deterministic Test Harness (`@siglo/testing`)** &mdash; Zero-flake test harness with virtual clocks (`FakeClock`), step spies, mocking, trace snapshots, and failure replay.
 - 💉 **Runtime Dependency Injection** &mdash; Inject services and repositories explicitly via `options.services` or step-level `step.withDependencies()`.
 - 🔀 **Parallel Execution Combinators** &mdash; Run branches concurrently with `parallel`, `all`, `allSettled`, and `race`, equipped with branch context isolation and configurable merge strategies.
 - 🌿 **Conditional Branching & Routing** &mdash; Dynamic decision routing via `when(predicate, thenStep).otherwise(elseStep)` and multi-branch selectors via `branch({...})`.
@@ -82,35 +82,35 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 
 ```bash
 # Core workflow runtime
-npm install rivulet
+npm install siglo
 
 # Optional testing harness & CLI developer tooling
-npm install --save-dev @rivulet/testing @rivulet/cli
+npm install --save-dev @siglo/testing @siglo/cli
 ```
 
 ### Ecosystem Packages
 
 | Package | Description |
 |---|---|
-| [`rivulet`](packages/core) | Core workflow engine and runtime |
-| [`@rivulet/testing`](packages/testing) | Deterministic test harness, fake clocks, step spies, mocks, and replay tooling |
-| [`@rivulet/cli`](packages/cli) | Developer CLI for scaffolding, diagram export, validation, and fixture replay |
-| [`@rivulet/postgres`](packages/postgres) | PostgreSQL durable storage adapter and transactional idempotency store |
-| [`@rivulet/redis`](packages/redis) | Redis caching, durable storage, idempotency store, and distributed locks |
-| [`@rivulet/opentelemetry`](packages/opentelemetry) | OpenTelemetry distributed tracing and W3C trace context propagation |
-| [`@rivulet/bullmq`](packages/bullmq) | BullMQ background worker adapter |
-| [`@rivulet/kafka`](packages/kafka) | Kafka consumer batch processor adapter |
-| [`@rivulet/sqs`](packages/sqs) | AWS SQS batch consumer with partial failure reporting |
-| [`@rivulet/fastify`](packages/fastify) | Fastify HTTP route handler adapter |
-| [`@rivulet/hono`](packages/hono) | Hono edge and Web Standards route handler adapter |
-| [`@rivulet/express`](packages/express) | Express HTTP route handler adapter |
+| [`siglo`](packages/core) | Core workflow engine and runtime |
+| [`@siglo/testing`](packages/testing) | Deterministic test harness, fake clocks, step spies, mocks, and replay tooling |
+| [`@siglo/cli`](packages/cli) | Developer CLI for scaffolding, diagram export, validation, and fixture replay |
+| [`@siglo/postgres`](packages/postgres) | PostgreSQL durable storage adapter and transactional idempotency store |
+| [`@siglo/redis`](packages/redis) | Redis caching, durable storage, idempotency store, and distributed locks |
+| [`@siglo/opentelemetry`](packages/opentelemetry) | OpenTelemetry distributed tracing and W3C trace context propagation |
+| [`@siglo/bullmq`](packages/bullmq) | BullMQ background worker adapter |
+| [`@siglo/kafka`](packages/kafka) | Kafka consumer batch processor adapter |
+| [`@siglo/sqs`](packages/sqs) | AWS SQS batch consumer with partial failure reporting |
+| [`@siglo/fastify`](packages/fastify) | Fastify HTTP route handler adapter |
+| [`@siglo/hono`](packages/hono) | Hono edge and Web Standards route handler adapter |
+| [`@siglo/express`](packages/express) | Express HTTP route handler adapter |
 
 ---
 
 ## Quickstart: Type-Safe Composable Flows
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 // 1. Define modular steps with input/output contracts
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
@@ -143,7 +143,7 @@ main();
 Export any workflow directly to Mermaid diagrams, Graphviz DOT, or JSON AST:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const s1 = Step.create('loadData', async () => ({ data: [1, 2, 3] })).timeout(3000);
 const s2 = Step.create('process', async () => ({ done: true }))
@@ -174,13 +174,13 @@ flowchart TD
 
 ---
 
-## Deterministic Testing with `@rivulet/testing`
+## Deterministic Testing with `@siglo/testing`
 
 Test workflows deterministically without flaky timers or complex mock infrastructure:
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness, FakeClock } from '@rivulet/testing';
+import { createWorkflowHarness, FakeClock } from '@siglo/testing';
 import { orderWorkflow } from './order.workflow';
 
 describe('Order Workflow Suite', () => {
@@ -211,28 +211,28 @@ describe('Order Workflow Suite', () => {
 
 ## Scaffolding & Replay CLI
 
-`@rivulet/cli` provides terminal commands for project creation, code generation, diagram export, and failure replay:
+`@siglo/cli` provides terminal commands for project creation, code generation, diagram export, and failure replay:
 
 ```bash
 # Initialize a new TypeScript workflow project
-npx rivulet init
+npx siglo init
 
 # Scaffold a typed workflow and harness test
-npx rivulet generate workflow checkout
+npx siglo generate workflow checkout
 
 # Scaffold a typed step and unit test
-npx rivulet generate step charge-card
+npx siglo generate step charge-card
 
 # Export workflow diagrams from the command line
-npx rivulet export src/workflow.ts --format=mermaid
-npx rivulet export src/workflow.ts --format=dot
-npx rivulet export src/workflow.ts --format=json
+npx siglo export src/workflow.ts --format=mermaid
+npx siglo export src/workflow.ts --format=dot
+npx siglo export src/workflow.ts --format=json
 
 # Statically validate workflow definitions for cycles
-npx rivulet validate src/workflow.ts
+npx siglo validate src/workflow.ts
 
 # Replay an execution against a recorded test fixture
-npx rivulet replay fixtures/failed-order.json src/workflow.ts
+npx siglo replay fixtures/failed-order.json src/workflow.ts
 ```
 
 ---
@@ -240,7 +240,7 @@ npx rivulet replay fixtures/failed-order.json src/workflow.ts
 ## Concurrency & Parallel Execution (`parallel`, `all`, `allSettled`, `race`)
 
 ```typescript
-import { Step, flow, parallel, allSettled, race } from 'rivulet';
+import { Step, flow, parallel, allSettled, race } from 'siglo';
 
 const checkInventory = Step.create('inventory', async () => ({ inStock: true }));
 const checkFraud = Step.create('fraud', async () => ({ fraudScore: 0.02 }));
@@ -267,7 +267,7 @@ const fastestResult = flow(
 ## Dynamic Branching & Routing (`when`, `branch`)
 
 ```typescript
-import { Step, flow, when, branch } from 'rivulet';
+import { Step, flow, when, branch } from 'siglo';
 
 // Conditional If-Then-Else
 const discountFlow = flow(
@@ -293,7 +293,7 @@ const routingFlow = flow(
 ## Sagas & LIFO Compensations (`step.compensate`)
 
 ```typescript
-import { Step, flow, CompensationException } from 'rivulet';
+import { Step, flow, CompensationException } from 'siglo';
 
 const reserveHotel = Step.create('reserveHotel', async () => {
     const booking = await hotelApi.book();
@@ -316,7 +316,7 @@ const bookingFlow = flow(reserveHotel, chargeCard);
 ## Durable Waits & External Event Resumption
 
 ```typescript
-import { Step, flow, waitForEvent, wait, resumeWorkflow } from 'rivulet';
+import { Step, flow, waitForEvent, wait, resumeWorkflow } from 'siglo';
 
 const orderWorkflow = flow(
     createOrderStep,
@@ -345,8 +345,8 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 > - 🧱 [Step Methods (`Step`)](docs/api/step.md)
 > - ⚙️ [Execution Options (`ExecutionOptions`)](docs/api/execution-options.md)
 > - 💾 [Storage & Persistence Utilities](docs/api/storage-and-persistence.md)
-> - 🚨 [Error Hierarchy & Exceptions (`RivuletError`)](docs/api/error-hierarchy.md)
-> - 🧪 [Deterministic Testing (`@rivulet/testing`)](docs/api/testing.md)
+> - 🚨 [Error Hierarchy & Exceptions (`SigloError`)](docs/api/error-hierarchy.md)
+> - 🧪 [Deterministic Testing (`@siglo/testing`)](docs/api/testing.md)
 
 ### ⛓️ [Orchestration & Combinators](docs/api/orchestration-and-combinators.md)
 
@@ -448,11 +448,11 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 | `serializeState(stackId?)` | Serializes complete storage state or a specific stack into a portable JSON string. |
 | `hydrateState(serialized, options?)` | Hydrates a serialized state string into the active storage manager. |
 
-### 🚨 [Error Hierarchy & Exceptions (`RivuletError`)](docs/api/error-hierarchy.md)
+### 🚨 [Error Hierarchy & Exceptions (`SigloError`)](docs/api/error-hierarchy.md)
 
 | Exception | Phase | Description |
 |---|---|---|
-| `RivuletError` | &mdash; | Base error class with `stepName`, `phase`, `retryable`, `stackId`, `namespace`, `cause`, and `stateSnapshot`. |
+| `SigloError` | &mdash; | Base error class with `stepName`, `phase`, `retryable`, `stackId`, `namespace`, `cause`, and `stateSnapshot`. |
 | `StepTimeoutException` | `action` | Thrown when a step exceeds its configured `step.timeout(ms)` SLA deadline. |
 | `FlowTimeoutException` | `action` | Thrown when workflow total execution duration exceeds `flow.timeout(ms)`. |
 | `CancellationException` | &mdash; | Thrown when execution is aborted via an `AbortSignal`. |
@@ -468,9 +468,9 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 | `NamespaceMismatchException` | `checkpoint` | Thrown when restoring a checkpoint into a mismatched namespace. |
 | `FieldCollisionException` | `action` | Thrown under `mergeStrategy: 'error'` when concurrent parallel branches write conflicting values to the same key. |
 | `GraphValidationException` | `validation` | Thrown when static graph validation detects cycles or unreachable nodes. |
-| `normalizeError(error, meta?)` | &mdash; | Normalizes any thrown error or primitive into a standard typed `RivuletError`. |
+| `normalizeError(error, meta?)` | &mdash; | Normalizes any thrown error or primitive into a standard typed `SigloError`. |
 
-### 🧪 [Deterministic Testing (`@rivulet/testing`)](docs/api/testing.md)
+### 🧪 [Deterministic Testing (`@siglo/testing`)](docs/api/testing.md)
 
 | Function / Class | Description |
 |---|---|

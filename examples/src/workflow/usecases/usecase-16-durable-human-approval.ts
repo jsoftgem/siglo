@@ -1,4 +1,4 @@
-import { Step, flow, waitForEvent } from 'rivulet';
+import { Step, flow, waitForEvent } from 'siglo';
 
 export interface ExpenseReportInput {
     reportId: string;

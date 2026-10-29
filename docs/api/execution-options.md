@@ -159,7 +159,7 @@ await myFlow.run({ amount: 50 }, {
 ### `durable`
 
 When set to `true`, enables durable workflow state management:
-- When a workflow encounters `waitForEvent()` or `wait()`, Rivulet suspends the workflow, serializes the current context into a checkpoint, persists it to the configured `StorageAdapter`, and throws a `WorkflowSuspendedException`.
+- When a workflow encounters `waitForEvent()` or `wait()`, Siglo suspends the workflow, serializes the current context into a checkpoint, persists it to the configured `StorageAdapter`, and throws a `WorkflowSuspendedException`.
 - Allows workflows to pause for hours, days, or months and resume safely upon external event delivery via `resumeWorkflow()`.
 
 ```typescript
@@ -239,16 +239,16 @@ await orderFlow.run(payload, {
 ### `workflowId` and `stackId`
 
 - `workflowId`: Human-readable workflow identifier attached to telemetry, logs, and checkpoints.
-- `stackId`: Explicit caller-provided execution stack ID. If omitted, Rivulet automatically generates a unique UUID.
+- `stackId`: Explicit caller-provided execution stack ID. If omitted, Siglo automatically generates a unique UUID.
 
 ---
 
 ## Comprehensive Production Example
 
 ```typescript
-import { Step, flow } from 'rivulet';
-import { RedisStorageAdapter } from '@rivulet/redis';
-import { PostgresIdempotencyStore } from '@rivulet/postgres';
+import { Step, flow } from 'siglo';
+import { RedisStorageAdapter } from '@siglo/redis';
+import { PostgresIdempotencyStore } from '@siglo/postgres';
 
 const checkoutFlow = flow(
     Step.create('reserveInventory', async (ctx: { sku: string; qty: number }) => {

@@ -1,5 +1,5 @@
-import { InMemoryIdempotencyStore } from 'rivulet';
-import { flow } from 'rivulet';
+import { InMemoryIdempotencyStore } from 'siglo';
+import { flow } from 'siglo';
 import { step } from '../engine/step-helper';
 import { RandomSource } from '../engine/property-generators';
 import { CharterResult } from './combinators.explore';

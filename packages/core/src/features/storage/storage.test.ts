@@ -224,7 +224,7 @@ describe('storage.unit.test', () => {
                 chains: ['step_a'],
                 contexts: {
                     step_a: {
-                        name: 'Rivulet',
+                        name: 'Siglo',
                         age: 5
                     }
                 },
@@ -232,12 +232,12 @@ describe('storage.unit.test', () => {
             };
 
             isolated.restoreCheckpoint(chk);
-            expect(isolated.getChainContext('step_a', 'name')()).to.equal('Rivulet');
+            expect(isolated.getChainContext('step_a', 'name')()).to.equal('Siglo');
             expect(isolated.getChainContext('step_a', 'age')()).to.equal(5);
 
             clearStorage();
             restoreCheckpoint(chk);
-            expect(getChainContext('step_a', 'name')()).to.equal('Rivulet');
+            expect(getChainContext('step_a', 'name')()).to.equal('Siglo');
             clearStorage();
         });
 
