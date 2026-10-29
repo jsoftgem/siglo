@@ -1,22 +1,14 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "lib": ["ES2022"],
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "rootDir": "./src"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }
