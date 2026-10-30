@@ -24,11 +24,11 @@ Live monitoring is not only possible for `Siglo`, but the framework is architect
 
 | Component | Codebase Reference | Live Monitoring Capability |
 |---|---|---|
-| **Deterministic Graph AST** | [`packages/core/src/features/graph`](packages/core/src/features/graph) | `workflow.toJSON()`, `workflow.toMermaid()`, `workflow.toDot()`, and `inspectGraph()` provide static DAG structure ahead-of-time so the UI can render node topologies before execution starts. |
-| **OpenTelemetry Distributed Tracing** | [`packages/opentelemetry`](packages/opentelemetry) | Span emission, step execution durations, attempt counts, retry metadata, W3C trace propagation, and automated exception capture. |
-| **Storage Event Streaming** | [`StorageAdapter`](packages/core/src/features/storage/adapter.ts) | `onContextChange` streams context mutations (`stackId`, `stepId`, `field`, `value`, `timestamp`); `onCacheEvent` streams cache hits/misses. |
-| **Durable Execution & Checkpoints** | [`packages/core/src/features/durable`](packages/core/src/features/durable) | Checkpoints capture lifecycle status (`RUNNING`, `SUSPENDED`, `COMPLETED`, `FAILED`), pending event wait states, and serialized execution stacks. |
-| **Developer CLI Tooling** | [`packages/cli`](packages/cli) | CLI scaffolding and commands (`visualize`, `inspect`, `checkpoint`, `replay`) provide the foundation for adding `siglo monitor` or `siglo dev`. |
+| **Deterministic Graph AST** | [`../packages/core/src/features/graph`](../packages/core/src/features/graph) | `workflow.toJSON()`, `workflow.toMermaid()`, `workflow.toDot()`, and `inspectGraph()` provide static DAG structure ahead-of-time so the UI can render node topologies before execution starts. |
+| **OpenTelemetry Distributed Tracing** | [`../packages/opentelemetry`](../packages/opentelemetry) | Span emission, step execution durations, attempt counts, retry metadata, W3C trace propagation, and automated exception capture. |
+| **Storage Event Streaming** | [`StorageAdapter`](../packages/core/src/features/storage/adapter.ts) | `onContextChange` streams context mutations (`stackId`, `stepId`, `field`, `value`, `timestamp`); `onCacheEvent` streams cache hits/misses. |
+| **Durable Execution & Checkpoints** | [`../packages/core/src/features/durable`](../packages/core/src/features/durable) | Checkpoints capture lifecycle status (`RUNNING`, `SUSPENDED`, `COMPLETED`, `FAILED`), pending event wait states, and serialized execution stacks. |
+| **Developer CLI Tooling** | [`../packages/cli`](../packages/cli) | CLI scaffolding and commands (`visualize`, `inspect`, `checkpoint`, `replay`) provide the foundation for adding `siglo monitor` or `siglo dev`. |
 
 ---
 

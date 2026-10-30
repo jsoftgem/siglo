@@ -14,6 +14,7 @@ The `Flow` interface represents an executable, composable workflow pipeline in *
 - [Configuration Methods](#configuration-methods)
   - [`flow.timeout(ms)`](#flowtimeoutms)
   - [`flow.version(version)`](#flowversionversion)
+  - [`flow.networkPolicy(policy)`](#flownetworkpolicypolicy)
 - [Lifecycle & Resumption Methods](#lifecycle--resumption-methods)
   - [`flow.resume(correlationKeyOrStackId, payload?, options?)`](#flowresumecorrelationkeyorstackid-payload-options)
   - [`flow.compensate(stackId, options?)`](#flowcompensatestackid-options)
@@ -44,6 +45,7 @@ export interface Flow<TInput = any, TOutput = any> {
     timeoutMs?: number;
     workflowVersion?: string | number;
     version: (v: string | number) => Flow<TInput, TOutput>;
+    networkPolicy?: (policy: NetworkPolicyConfig) => Flow<TInput, TOutput>;
     toGraph: () => WorkflowNode;
     inspect: () => GraphInspectionResult;
     toMermaid: (options?: MermaidExportOptions) => string;
@@ -177,6 +179,56 @@ import { Step, flow } from 'siglo';
 export const userOnboarding = flow(
     Step.create('step1', async () => ({ v: 2 }))
 ).version('v2.1');
+```
+
+---
+
+### `flow.networkPolicy(policy)`
+
+Configures the workflow-level network egress policy perimeter. The flow policy supersedes all individual step policies: steps can only narrow permissions within what the flow permits. Outbound requests are intercepted across `globalThis.fetch`, `node:http`/`node:https`, and raw `node:net.Socket`. Loopback addresses and local Unix sockets are permitted by default.
+
+#### Signature
+
+```typescript
+flow.networkPolicy(policy: NetworkPolicyConfig): Flow<TInput, TOutput>;
+```
+
+#### Chainable
+
+Returns the `flow` instance for fluent chaining.
+
+#### Parameters
+
+- `policy`: `NetworkPolicyConfig`
+  - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Outer permissible hosts or wildcard patterns.
+  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Outer perimeter default policy.
+  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback and Unix socket exemption.
+
+#### Precedence & Narrowing Rules
+
+1. **Outer Envelope**: The flow's `allowedHosts` defines the outer boundary. If a flow only allows `['api.stripe.com']`, a step cannot allow `api.github.com`.
+2. **Step Narrowing**: A step can choose to permit only a subset of the flow's allowed hosts or call `.denyNetwork()`.
+3. **Execution Options Override**: Network policy can also be supplied dynamically per execution run via `flow.run(payload, { networkPolicy: { ... } })`.
+
+#### Example
+
+```typescript
+import { Step, flow } from 'siglo';
+
+const chargeCustomer = Step.create('charge', async () => {
+    return await fetch('https://api.stripe.com/v1/charges');
+}).allowNetwork(['api.stripe.com']);
+
+const sendEmail = Step.create('email', async () => {
+    return await fetch('https://api.sendgrid.com/v3/mail/send');
+}).allowNetwork(['api.sendgrid.com']);
+
+// Flow allows both, but individual steps only have access to their designated service
+export const paymentFlow = flow(chargeCustomer, sendEmail)
+    .networkPolicy({
+        defaultPolicy: 'deny',
+        allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
+    });
 ```
 
 ---

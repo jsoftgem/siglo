@@ -92,6 +92,21 @@ import {
     resumeWorkflow
 } from '../durable';
 
+import {
+    NetworkPolicyConfig,
+    EffectiveNetworkPolicy,
+    HostPattern,
+    ActiveNetworkPolicyContext,
+    resolveEffectiveNetworkPolicy,
+    networkPolicyStorage,
+    installNetworkInterceptors,
+    uninstallNetworkInterceptors,
+    isNetworkInterceptorsInstalled,
+    ensureNetworkInterceptorsInstalled,
+    isHostAllowed,
+    isLocalhost
+} from '../network';
+
 export {
     SigloError,
     RivuletError,
@@ -115,6 +130,7 @@ export {
     ExpiredWaitException,
     WorkflowVersionMismatchException,
     GraphValidationException,
+    NetworkPolicyViolationException,
     normalizeError,
     RetryConfig,
     RetryPredicate
@@ -208,6 +224,21 @@ export {
     resumeWorkflow
 };
 
+export {
+    NetworkPolicyConfig,
+    EffectiveNetworkPolicy,
+    HostPattern,
+    ActiveNetworkPolicyContext,
+    resolveEffectiveNetworkPolicy,
+    networkPolicyStorage,
+    installNetworkInterceptors,
+    uninstallNetworkInterceptors,
+    isNetworkInterceptorsInstalled,
+    ensureNetworkInterceptorsInstalled,
+    isHostAllowed,
+    isLocalhost
+};
+
 export interface ExecutionOptions {
     signal?: AbortSignal;
     pojo?: boolean;
@@ -228,6 +259,8 @@ export interface ExecutionOptions {
     // Phase 4 Dependency Injection
     services?: Record<string, any>;
     dependencies?: Record<string, any>;
+    // Network Policy
+    networkPolicy?: NetworkPolicyConfig;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
@@ -253,6 +286,8 @@ export interface Flow<TInput = any, TOutput = any> {
     toDot: (options?: DotExportOptions) => string;
     resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
     compensate: (stackId: string, options?: any) => Promise<any>;
+    networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
+    networkPolicyConfig?: NetworkPolicyConfig;
 }
 
 export type FlowItem<TIn = any, TOut = any> =
@@ -368,12 +403,20 @@ export function flow<TInput = any, TOutput = any>(
     const flatSteps = flattenSteps(steps);
     let defaultTimeoutMs: number | undefined;
     let declaredVersion: string | number | undefined;
+    let flowPolicyConfig: NetworkPolicyConfig | undefined;
 
     const runFn = (param: any = {}, options?: ExecutionOptions) => {
+        let resolvedNetworkPolicy = options?.networkPolicy;
+        if (flowPolicyConfig) {
+            resolvedNetworkPolicy = options?.networkPolicy
+                ? resolveEffectiveNetworkPolicy(options.networkPolicy, flowPolicyConfig)
+                : flowPolicyConfig;
+        }
         const effectiveOptions: ExecutionOptions = {
             ...(defaultTimeoutMs !== undefined ? { timeout: defaultTimeoutMs } : {}),
             ...(declaredVersion !== undefined ? { workflowVersion: declaredVersion } : {}),
-            ...options
+            ...options,
+            ...(resolvedNetworkPolicy !== undefined ? { networkPolicy: resolvedNetworkPolicy } : {})
         };
         return Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>;
     };
@@ -416,7 +459,18 @@ export function flow<TInput = any, TOutput = any>(
         },
         compensate(stackId: string, options?: any) {
             return defaultCompensationManager.runCompensations(stackId, undefined, options);
-        }
+        },
+        networkPolicy(policy?: NetworkPolicyConfig) {
+            flowPolicyConfig = {
+                enabled: policy?.enabled ?? true,
+                defaultPolicy: policy?.defaultPolicy ?? 'deny',
+                allowedHosts: policy?.allowedHosts ? [...policy.allowedHosts] : [],
+                allowLocalhost: policy?.allowLocalhost ?? true
+            };
+            flowObj.networkPolicyConfig = flowPolicyConfig;
+            return flowObj;
+        },
+        networkPolicyConfig: undefined
     };
     return flowObj;
 }
@@ -446,6 +500,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     workflowNode?: WorkflowNode;
     // Phase 4
     dependencies?: Record<string, any>;
+    networkPolicyConfig?: NetworkPolicyConfig;
 
     constructor(
         nameOrAction?: TName | StepAction<TInput, TOutput> | Flow<TInput, TOutput>,
@@ -557,6 +612,40 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static toMermaid = toMermaid;
     static toJSON = toJSON;
     static toDot = toDot;
+
+    // Network Interceptor Helpers
+    static installNetworkInterceptors = installNetworkInterceptors;
+    static uninstallNetworkInterceptors = uninstallNetworkInterceptors;
+
+    allowNetwork(hosts: HostPattern | HostPattern[]): this {
+        const list = Array.isArray(hosts) ? hosts : [hosts];
+        this.networkPolicyConfig = {
+            enabled: true,
+            defaultPolicy: 'deny',
+            allowedHosts: list,
+            allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? true
+        };
+        return this;
+    }
+
+    denyNetwork(): this {
+        return this.allowNetwork([]);
+    }
+
+    networkPolicy(): NetworkPolicyConfig | undefined;
+    networkPolicy(policy: NetworkPolicyConfig): this;
+    networkPolicy(policy?: NetworkPolicyConfig): this | NetworkPolicyConfig | undefined {
+        if (policy === undefined) {
+            return this.networkPolicyConfig;
+        }
+        this.networkPolicyConfig = {
+            enabled: policy.enabled ?? true,
+            defaultPolicy: policy.defaultPolicy ?? 'deny',
+            allowedHosts: policy.allowedHosts ? [...policy.allowedHosts] : [],
+            allowLocalhost: policy.allowLocalhost ?? true
+        };
+        return this;
+    }
 
     timeout(ms: number): Step<TInput, TOutput, TName> {
         this.timeoutMs = ms;

@@ -50,7 +50,8 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 💾 [Storage & Checkpoint Contract](docs/storage-contract.md) &mdash; Checkpoint schema v2.0.0, optimistic concurrency, and namespace isolation.
 - 🔄 [Compensation & Sagas](docs/compensation-and-sagas.md) &mdash; Sagas with LIFO compensation rollbacks and retry policies.
 - 🔑 [Idempotency & Deduplication](docs/idempotency.md) &mdash; Scoped idempotency keys, claim locking, and TTL stores.
-- 📊 [Live Monitoring Roadmap](live-monitoring.roadmap.md) &mdash; Real-time DevTools, SSE/WebSocket streaming, and interactive DAG visualization.
+- 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md) &mdash; Declarative least-privilege network policies via AsyncLocalStorage, multi-layer interceptors, and perimeter narrowing.
+- 📊 [Live Monitoring Roadmap](roadmap/live-monitoring.roadmap.md) &mdash; Real-time DevTools, SSE/WebSocket streaming, and interactive DAG visualization.
 
 ---
 
@@ -74,6 +75,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 🔁 **Structured Retry Strategies** &mdash; Automatic retries with exponential, linear, or fixed backoff, jitter, and `onRetry` hooks right in `onFail`.
 - 📦 **Standard Schema Integration (`spec` / `schema`)** &mdash; Native Standard Schema, Zod, Valibot, and ArkType contract enforcement.
 - 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.
+- 🌐 **Network Egress Policy & Guardrails via ASL** &mdash; Declarative network egress policies via `AsyncLocalStorage` (`.allowNetwork()`, `.denyNetwork()`, `.networkPolicy()`), multi-layer interception (`fetch`, `http/https`, `net.Socket`), flow perimeter narrowing, and localhost exemptions.
 - 🔌 **Ecosystem Integration Packages** &mdash; Ready-to-use adapters for PostgreSQL, Redis, BullMQ, Kafka, SQS, OpenTelemetry, Express, Fastify, Hono, and CLI developer tooling.
 
 ---
@@ -337,6 +339,43 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 
 ---
 
+## Network Egress Policy & Guardrails via AsyncLocalStorage
+
+> 📘 **Dedicated Topic Guide**: For in-depth architectural details, pattern matching rules, and concurrency isolation semantics, consult the [Network Egress Policy & Guardrails Guide](docs/network-egress-policy.md).
+
+Enforce least-privilege network access per step or flow. Siglo intercepts outbound requests across `globalThis.fetch`, `node:http`/`node:https`, and raw `node:net.Socket` using `AsyncLocalStorage`, preventing cross-talk between concurrent steps.
+
+```typescript
+import { Step, flow } from 'siglo';
+
+// 1. Whitelist specific domains on a step
+const chargeCustomer = Step.create('charge', async ({ amount }) => {
+    return await fetch('https://api.stripe.com/v1/charges', { /* ... */ });
+}).allowNetwork(['api.stripe.com', '*.stripe.network']);
+
+// 2. Pure computation step: strictly disallow any external network egress
+const calculateDiscounts = Step.create('discount', ({ cart }) => {
+    return { discountedTotal: applyCoupons(cart) };
+}).denyNetwork();
+
+// 3. Flow-level perimeter: Flow supersedes Step (steps can only narrow within flow allowance)
+const orderFlow = flow(calculateDiscounts, chargeCustomer)
+    .networkPolicy({
+        defaultPolicy: 'deny',
+        allowedHosts: ['api.stripe.com'],
+        allowLocalhost: true // Default: true (localhost, 127.0.0.1, ::1, 0.0.0.0, Unix sockets)
+    });
+
+// 4. Per-run policy override:
+await orderFlow.run(payload, {
+    networkPolicy: {
+        allowedHosts: ['api.stripe.com']
+    }
+});
+```
+
+---
+
 ## API Reference Summary
 
 > 📘 **Comprehensive Reference Pages**: For complete TypeScript signatures, option tables, and in-depth code examples, consult each dedicated reference guide:
@@ -347,6 +386,7 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 > - 💾 [Storage & Persistence Utilities](docs/api/storage-and-persistence.md)
 > - 🚨 [Error Hierarchy & Exceptions (`SigloError`)](docs/api/error-hierarchy.md)
 > - 🧪 [Deterministic Testing (`@siglo/testing`)](docs/api/testing.md)
+> - 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md)
 
 ### ⛓️ [Orchestration & Combinators](docs/api/orchestration-and-combinators.md)
 
@@ -380,6 +420,7 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 | `flow.run(param?, options?)` | Executes the workflow with input parameters and runtime options, returning final accumulated context. |
 | `flow.execute(param?, options?)` | Alias for `flow.run()`. |
 | `flow.start(param?, options?)` | Alias for `flow.run()`. |
+| `flow.networkPolicy(policy)` | Configures workflow-level network egress policy perimeter (flow supersedes step). |
 | `flow.timeout(ms)` | Configures workflow-level SLA deadline; throws `FlowTimeoutException` if overall duration exceeds `ms`. |
 | `flow.version(version)` | Declares workflow schema version (e.g. `'v2'`) for durable state validation and schema migrations. |
 | `flow.resume(key, payload?, options?)` | Resumes a suspended instance of this flow by correlation key or stack ID. |
@@ -396,6 +437,9 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 | Method | Description |
 |---|---|
 | `Step.create<TIn, TOut, TName>(name?, action)` | Instantiates a new typed `Step` execution unit with input/output contracts. |
+| `step.allowNetwork(hosts, allowLocalhost?)` | Configures allowed outbound network hosts/patterns for this step. |
+| `step.denyNetwork()` | Shorthand for strictly disallowing all external network egress. |
+| `step.networkPolicy(policy)` | Configures full step-level network egress policy. |
 | `step.withDependencies(deps)` | Attaches explicit runtime dependencies/services to the step. |
 | `step.requireDependency<T>(key)` | Retrieves a required injected dependency or throws a descriptive error if missing. |
 | `step.compensate(handler, options?)` | Registers a compensation rollback handler to execute in reverse order if downstream steps fail. |
@@ -421,6 +465,7 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 |---|---|---|
 | `pojo` | `boolean` | When `true`, strips internal proxy wrappers and returns clean plain JavaScript objects (default in v1.0). |
 | `mode` | `'pojo' \| 'wrapped'` | Specifies return mode (`'pojo'` recommended for modern workflows). |
+| `networkPolicy` | `NetworkPolicyConfig` | Overrides or specifies flow-level network policy for a specific execution run. |
 | `signal` | `AbortSignal` | Cooperative cancellation signal that aborts in-flight async steps and retry delay timers. |
 | `timeout` / `timeoutMs` | `number` | Workflow-level SLA deadline in milliseconds. |
 | `services` / `dependencies` | `Record<string, any>` | Dependency injection container accessible inside steps via `param.$services`. |

@@ -34,6 +34,7 @@ export {
     ExpiredWaitException,
     WorkflowVersionMismatchException,
     GraphValidationException,
+    NetworkPolicyViolationException,
     normalizeError
 } from './exceptions';
 export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';

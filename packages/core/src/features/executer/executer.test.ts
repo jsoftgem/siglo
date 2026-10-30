@@ -567,6 +567,28 @@ describe('executer.unit.test', () => {
             });
     });
 
+    it('StartChain executes reducer with active network policy', done => {
+        const step = {
+            func: 'reducerNetworkTest',
+            reducer: 'myList',
+            networkPolicyConfig: { enabled: true, defaultPolicy: 'deny', allowedHosts: ['api.stripe.com'], allowLocalhost: true },
+            specs: [],
+            onbefore: () => true,
+            action: (acc: any, item: any) => {
+                return { ...acc, [item]: true };
+            }
+        };
+
+        const exec = new Executer();
+        exec.start({ myList: ['a', 'b'] }, step)!
+            .then((res: any) => {
+                expect(res.a).to.be.true;
+                expect(res.b).to.be.true;
+                done();
+            })
+            .catch(done);
+    });
+
     it('StartChain executes action returning undefined', done => {
         const step = {
             func: 'voidChainTest',

@@ -1,5 +1,6 @@
 import { WorkflowNode, StepNode } from './types';
 import { generateUUID, isFunction, isObject, WorkflowNodeType } from '../../shared';
+import { isFlow } from '../step';
 
 export function isWorkflowNode(item: any): item is WorkflowNode {
     return (
@@ -44,11 +45,13 @@ export function toGraph(item: any): WorkflowNode {
         if (steps.length === 1) {
             return toGraph(steps[0]);
         }
+        const flowPolicy = item.networkPolicyConfig || (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
         return {
             id: item.workflowId || generateUUID(),
             name: item.name || 'flow',
             type: WorkflowNodeType.SEQUENCE,
-            children: steps.map(toGraph)
+            children: steps.map(toGraph),
+            metadata: flowPolicy ? { networkPolicy: flowPolicy } : undefined
         };
     }
 
@@ -64,6 +67,7 @@ export function toGraph(item: any): WorkflowNode {
         }
         const stepId = item.$stepId || item.$chainId || generateUUID();
         const stepName = item.name || item.func || 'step';
+        const stepPolicy = item.networkPolicyConfig || (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
         const node: StepNode = {
             id: stepId,
             name: stepName,
@@ -76,7 +80,8 @@ export function toGraph(item: any): WorkflowNode {
                 timeoutMs: item.timeoutMs,
                 cacheOptions: item.cacheOptions,
                 hasCompensation: Boolean(item.compensationHandler),
-                retryConfig: item.onfail && typeof item.onfail === 'object' ? item.onfail : undefined
+                retryConfig: item.onfail && typeof item.onfail === 'object' ? item.onfail : undefined,
+                networkPolicy: stepPolicy
             }
         };
         return node;

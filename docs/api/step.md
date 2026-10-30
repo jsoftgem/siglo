@@ -29,6 +29,10 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
   - [`step.requireDependency(key)`](#steprequiredependencykey)
 - [Context Transformation](#context-transformation)
   - [`step.reduce(field)`](#stepreducefield)
+- [Network Egress Guardrails](#network-egress-guardrails)
+  - [`step.allowNetwork(hosts, allowLocalhost?)`](#stepallownetworkhosts-allowlocalhost)
+  - [`step.denyNetwork()`](#stepdenynetwork)
+  - [`step.networkPolicy(policy)`](#stepnetworkpolicypolicy)
 - [Execution & Inspection](#execution--inspection)
   - [`step.run(param?, options?)` / `step.execute()`](#steprunparam-options--stepexecute)
   - [`step.toGraph()`, `step.inspect()`, `step.toMermaid()`](#graph-and-export-methods)
@@ -515,6 +519,85 @@ const countItems = Step.create('count', async () => 42)
     .reduce('itemCount');
 
 // Output context: { itemCount: 42 } rather than { value: 42 }
+```
+
+---
+
+## Network Egress Guardrails
+
+Steps can declare granular network egress permissions enforced via Node's `AsyncLocalStorage`. In flows with an outer network policy, the flow supersedes the step; steps can only narrow permissions within what the flow permits. By default, loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are allowed.
+
+### `step.allowNetwork(hosts, allowLocalhost?)`
+
+Declares an allowlist of target hosts, wildcard subdomains, ports, or regular expressions permitted for network calls during this step.
+
+#### Signatures
+
+```typescript
+step.allowNetwork(hosts: (string | RegExp)[], allowLocalhost?: boolean): this;
+```
+
+#### Parameters
+
+- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\.internal$/`).
+- `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Whether loopback addresses and Unix sockets are permitted.
+
+#### Example
+
+```typescript
+const chargeStep = Step.create('charge', async ({ amount }) => {
+    return await fetch('https://api.stripe.com/v1/charges', { /* ... */ });
+}).allowNetwork(['api.stripe.com', '*.stripe.network']);
+```
+
+---
+
+### `step.denyNetwork()`
+
+Shorthand for `.allowNetwork([])`. Strictly denies all external outbound network access from the step's action.
+
+#### Signature
+
+```typescript
+step.denyNetwork(): this;
+```
+
+#### Example
+
+```typescript
+const computeTax = Step.create('computeTax', ({ subtotal }) => {
+    return { tax: subtotal * 0.08 };
+}).denyNetwork(); // Disallows external network egress entirely
+```
+
+---
+
+### `step.networkPolicy(policy)`
+
+Configures the complete network egress policy object for the step.
+
+#### Signature
+
+```typescript
+step.networkPolicy(policy: NetworkPolicyConfig): this;
+```
+
+#### Parameters
+
+- `policy`: `NetworkPolicyConfig`
+  - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Allowed target host patterns.
+  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Default fallback rule.
+  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback and Unix socket exemption.
+
+#### Example
+
+```typescript
+const syncStep = Step.create('sync', async () => { /* ... */ })
+    .networkPolicy({
+        allowedHosts: ['api.github.com'],
+        defaultPolicy: 'deny',
+        allowLocalhost: true
+    });
 ```
 
 ---

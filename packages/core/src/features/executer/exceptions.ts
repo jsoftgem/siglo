@@ -431,6 +431,36 @@ export class GraphValidationException extends SigloError {
 /* c8 ignore next */
 }
 
+export class NetworkPolicyViolationException extends SigloError {
+    readonly requestedUrl: string;
+    readonly requestedHost: string;
+    readonly allowedHosts: (string | RegExp)[];
+
+    constructor(
+        stepName: string,
+        requestedUrl: string,
+        requestedHost: string,
+        allowedHosts: (string | RegExp)[],
+        metadata: ExecutionErrorMetadata = {}
+    ) {
+        super(
+            `Step '${stepName}' attempted unauthorized network call to '${requestedHost}' (${requestedUrl}). Allowed hosts: [${allowedHosts.map(String).join(', ')}]`,
+            {
+                ...metadata,
+                stepName,
+                phase: 'action',
+                retryable: false // Security/policy violations should not retry blindly
+            }
+        );
+        this.name = 'NetworkPolicyViolationException';
+        this.requestedUrl = requestedUrl;
+        this.requestedHost = requestedHost;
+        this.allowedHosts = allowedHosts;
+        Object.setPrototypeOf(this, NetworkPolicyViolationException.prototype);
+    }
+/* c8 ignore next */
+}
+
 export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): SigloError {
     if (error instanceof SigloError) {
         if (!error.stackId && metadata.stackId) (error as any).stackId = metadata.stackId;

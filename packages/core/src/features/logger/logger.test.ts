@@ -3,6 +3,9 @@ import Step from '../../index';
 import { expect } from 'chai';
 
 describe('logger.unit.test', () => {
+    afterEach(() => {
+        Step.config({ logMonitor: () => false });
+    });
     it('should log info', () => {
         let called = false;
         Step.config({

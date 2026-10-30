@@ -85,3 +85,17 @@ Any hook failure bypasses the remaining step logic and routes the error into `on
 - Upstream steps that have already succeeded are never re-executed.
 - Downstream steps continue sequentially once the retried step successfully completes.
 - Each retry attempt receives incremented `$attempt` and `$retryDelay` context metadata.
+
+---
+
+### 10. How does network egress policy enforcement behave across steps, concurrent branches, and asynchronous operations?
+
+- **Propagation via `AsyncLocalStorage` (ASL)**: When a step action begins, its effective network policy is bound to Node's `AsyncLocalStorage` (`networkPolicyStorage.run(...)`). All nested async calls&mdash;promises, timeouts, microtasks, or third-party libraries (e.g. `axios`, `got`, `undici`, AWS SDK)&mdash;automatically inherit the enclosing step's policy store across asynchronous context transitions.
+- **Concurrent Execution Isolation**: In concurrent execution constructs (`parallel`, `allSettled`, `map`), each parallel step executes within its own isolated ASL store on the single Node event loop. A network restriction or allowlist in one branch never leaks into or interferes with concurrent sibling branches. Operations running outside step execution (e.g. host server healthchecks, database connection pools, background log flushers) encounter no active policy store and proceed unrestricted.
+- **Outer Perimeter Enforcement ("Flow Supersedes Step")**: The flow's network policy defines the outer permissible envelope. An individual step can only narrow permissions within what the flow permits (by specifying a subset of hosts or calling `.denyNetwork()`). Any attempt by a step to permit a host outside the flow's allowlist is rejected.
+- **Localhost and Loopback Exemption**: By default (`allowLocalhost: true`), loopback hosts (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC bypass network policy blocks, preserving local inter-process communication, local mock services, and container-local sidecars.
+- **Multi-Layer Egress Interception**: Outbound traffic is governed across three runtime interception points:
+  1. `globalThis.fetch`: Validates input URLs prior to request initiation.
+  2. `node:http` and `node:https`: Patches `request` and `get` methods (covering legacy Node clients and libraries).
+  3. `node:net.Socket.prototype.connect`: Enforces policy at the raw TCP/TLS socket layer.
+- **Security Violation Classification**: When an unauthorized egress attempt is detected, execution aborts immediately with a `NetworkPolicyViolationException`. This error is tagged with `phase: 'action'` and `retryable: false`, ensuring security/policy violations fail fast without blind automated retries.

@@ -32,6 +32,7 @@ import { StepTimeoutException, IdempotencyConflictException } from '../exception
 import { combineAbortSignals } from '../signals';
 import { defaultCompensationManager } from '../../compensation';
 import { defaultIdempotencyStore, buildIdempotencyKey } from '../../idempotency';
+import { resolveEffectiveNetworkPolicy, networkPolicyStorage, ensureNetworkInterceptorsInstalled } from '../../network';
 
 export default class StartChain {
     start: (initialParam: any, chains: any, options?: any) => Promise<any>;
@@ -242,6 +243,14 @@ export default class StartChain {
                                             }
                                         }
 
+                                        const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(
+                                            chain.networkPolicy || chain.networkPolicyConfig,
+                                            options?.networkPolicy
+                                        );
+                                        if (effectiveNetworkPolicy?.enabled) {
+                                            ensureNetworkInterceptorsInstalled();
+                                        }
+
                                         const executeOnAfterAndResolve = (output: any, ctx: any) => {
                                             if (stepIdempKey) {
                                                 stepIdempStore.complete(stepIdempKey, output).catch(() => {});
@@ -273,34 +282,45 @@ export default class StartChain {
 
                                         if (chain.reducer && param[chain.reducer]) {
                                             const array = typeof param[chain.reducer] === 'function' ? param[chain.reducer]() : param[chain.reducer];
-                                            new Reducer(array, toPOJO(param), chain, Context, propertyToContext, undefined, stackId)
-                                                .reduce((err: any, result: any) => {
-                                                    clearStepTimeout();
-                                                    if (err) {
-                                                        if (stepIdempKey) {
-                                                            stepIdempStore.fail(stepIdempKey, err).catch(() => {});
-                                                        }
-                                                        tagErrorPhase(err, ExecutionPhase.ACTION, chainName);
-                                                        new OnFail(chain, err, (context: any) => {
-                                                            new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                                        }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
-                                                    } else {
-                                                        let enrichedResult = Object.assign({}, result);
-                                                        new OnAfter(chain, enrichedResult, param, enrichedResult, (_ctx: any, enrichProps: any) => {
-                                                            for (const k in enrichProps) {
-                                                                const v = enrichProps[k];
-                                                                enrichedResult[k] = v;
+                                            const runReducerAction = () => {
+                                                new Reducer(array, toPOJO(param), chain, Context, propertyToContext, undefined, stackId)
+                                                    .reduce((err: any, result: any) => {
+                                                        clearStepTimeout();
+                                                        if (err) {
+                                                            if (stepIdempKey) {
+                                                                stepIdempStore.fail(stepIdempKey, err).catch(() => {});
                                                             }
-                                                        }, () => {
-                                                            new ResolveChain(safeResolve, enrichedResult, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                                        }, (afterErr: any) => {
-                                                            tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
-                                                            new OnFail(chain, afterErr, (context: any) => {
+                                                            tagErrorPhase(err, ExecutionPhase.ACTION, chainName);
+                                                            new OnFail(chain, err, (context: any) => {
                                                                 new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                             }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
-                                                        });
-                                                    }
-                                                });
+                                                        } else {
+                                                            let enrichedResult = Object.assign({}, result);
+                                                            new OnAfter(chain, enrichedResult, param, enrichedResult, (_ctx: any, enrichProps: any) => {
+                                                                for (const k in enrichProps) {
+                                                                    const v = enrichProps[k];
+                                                                    enrichedResult[k] = v;
+                                                                }
+                                                            }, () => {
+                                                                new ResolveChain(safeResolve, enrichedResult, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                            }, (afterErr: any) => {
+                                                                tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
+                                                                new OnFail(chain, afterErr, (context: any) => {
+                                                                    new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                                }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
+                                                            });
+                                                        }
+                                                    });
+                                            };
+
+                                            if (effectiveNetworkPolicy?.enabled) {
+                                                networkPolicyStorage.run(
+                                                    { ...effectiveNetworkPolicy, stepName: chainName },
+                                                    runReducerAction
+                                                );
+                                            } else {
+                                                runReducerAction();
+                                            }
                                         } else {
                                             let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
                                             let actionParam = Object.assign({}, toPOJO(param));
@@ -346,9 +366,18 @@ export default class StartChain {
                                             }
                                             let rawAction: any;
                                             try {
-                                                rawAction = chain.cachedLast
+                                                const runAction = () => chain.cachedLast
                                                     ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.namespace, chain.cacheOptions)
                                                     : chain.action(actionParam);
+
+                                                if (effectiveNetworkPolicy?.enabled) {
+                                                    rawAction = networkPolicyStorage.run(
+                                                        { ...effectiveNetworkPolicy, stepName: chainName },
+                                                        runAction
+                                                    );
+                                                } else {
+                                                    rawAction = runAction();
+                                                }
                                             } catch (actionErr: any) {
                                                 if (stepIdempKey) {
                                                     stepIdempStore.fail(stepIdempKey, actionErr).catch(() => {});
