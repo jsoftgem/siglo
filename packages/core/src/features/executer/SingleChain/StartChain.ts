@@ -203,245 +203,243 @@ export default class StartChain {
                                     if (initialParam?.[IS_DURABLE]) {
                                         param[IS_DURABLE] = initialParam[IS_DURABLE];
                                     }
-                                    new OnBefore(chain, param, (val) => {
-                                        clearStepTimeout();
-                                        safeResolve(val);
-                                    }, (err: any) => {
-                                        clearStepTimeout();
-                                        tagErrorPhase(err, ExecutionPhase.BEFORE, chainName);
-                                        new OnFail(chain, err, context => {
-                                            new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                        }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
-                                    }, Context, async () => {
-                                        let stepIdempKey: string | undefined;
-                                        const stepIdempStore = chain.idempotencyOptions?.store || defaultIdempotencyStore;
 
-                                        if (chain.idempotencyKey) {
-                                            try {
-                                                const rawKey = isFunction(chain.idempotencyKey)
-                                                    ? chain.idempotencyKey(toPOJO(param))
-                                                    : chain.idempotencyKey;
-                                                stepIdempKey = buildIdempotencyKey(rawKey, {
-                                                    namespace: options?.namespace
-                                                });
-                                                const claim = await stepIdempStore.claim(stepIdempKey, chain.idempotencyOptions?.ttlMs);
-                                                if (claim === Status.COMPLETED) {
-                                                    const cachedRes = await stepIdempStore.get(stepIdempKey);
-                                                    clearStepTimeout();
-                                                    new ResolveChain(safeResolve, cachedRes, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                                    return;
-                                                }
-                                                if (claim === Status.IN_PROGRESS) {
-                                                    clearStepTimeout();
-                                                    safeReject(new IdempotencyConflictException(stepIdempKey, { stackId, stepName: chainName, namespace: options?.namespace }));
-                                                    return;
-                                                }
-                                            } catch (idempErr) {
-                                                clearStepTimeout();
-                                                safeReject(idempErr);
-                                                return;
-                                            }
-                                        }
+                                    const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(
+                                        chain.networkPolicy || chain.networkPolicyConfig,
+                                        options?.networkPolicy
+                                    );
+                                    if (effectiveNetworkPolicy?.enabled) {
+                                        ensureNetworkInterceptorsInstalled();
+                                    }
 
-                                        const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(
-                                            chain.networkPolicy || chain.networkPolicyConfig,
-                                            options?.networkPolicy
-                                        );
-                                        if (effectiveNetworkPolicy?.enabled) {
-                                            ensureNetworkInterceptorsInstalled();
-                                        }
+                                    const executeStepLifecycle = () => {
+                                        new OnBefore(chain, param, (val) => {
+                                            clearStepTimeout();
+                                            safeResolve(val);
+                                        }, (err: any) => {
+                                            clearStepTimeout();
+                                            tagErrorPhase(err, ExecutionPhase.BEFORE, chainName);
+                                            new OnFail(chain, err, context => {
+                                                new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                            }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
+                                        }, Context, async () => {
+                                            let stepIdempKey: string | undefined;
+                                            const stepIdempStore = chain.idempotencyOptions?.store || defaultIdempotencyStore;
 
-                                        const executeOnAfterAndResolve = (output: any, ctx: any) => {
-                                            if (stepIdempKey) {
-                                                stepIdempStore.complete(stepIdempKey, output).catch(() => {});
-                                            }
-                                            if (chain.compensationHandler) {
-                                                defaultCompensationManager.registerCompensation(stackId, {
-                                                    stepId: chain.$stepId || chain.$chainId,
-                                                    stepName: chainName,
-                                                    output,
-                                                    input: toPOJO(param),
-                                                    handler: chain.compensationHandler,
-                                                    options: chain.compensationOptions
-                                                });
-                                            }
-                                            new OnAfter(chain, output, param, ctx, propertyToContext, () => {
-                                                clearStepTimeout();
-                                                new ResolveChain(safeResolve, ctx.getData(), chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                            }, (afterErr: any) => {
-                                                if (stepIdempKey) {
-                                                    stepIdempStore.fail(stepIdempKey, afterErr).catch(() => {});
-                                                }
-                                                clearStepTimeout();
-                                                tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
-                                                new OnFail(chain, afterErr, (resolvedCtx: any) => {
-                                                    new ResolveChain(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
-                                                }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
-                                            });
-                                        };
-
-                                        if (chain.reducer && param[chain.reducer]) {
-                                            const array = typeof param[chain.reducer] === 'function' ? param[chain.reducer]() : param[chain.reducer];
-                                            const runReducerAction = () => {
-                                                new Reducer(array, toPOJO(param), chain, Context, propertyToContext, undefined, stackId)
-                                                    .reduce((err: any, result: any) => {
+                                            if (chain.idempotencyKey) {
+                                                try {
+                                                    const rawKey = isFunction(chain.idempotencyKey)
+                                                        ? chain.idempotencyKey(toPOJO(param))
+                                                        : chain.idempotencyKey;
+                                                    stepIdempKey = buildIdempotencyKey(rawKey, {
+                                                        namespace: options?.namespace
+                                                    });
+                                                    const claim = await stepIdempStore.claim(stepIdempKey, chain.idempotencyOptions?.ttlMs);
+                                                    if (claim === Status.COMPLETED) {
+                                                        const cachedRes = await stepIdempStore.get(stepIdempKey);
                                                         clearStepTimeout();
-                                                        if (err) {
+                                                        new ResolveChain(safeResolve, cachedRes, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                        return;
+                                                    }
+                                                    if (claim === Status.IN_PROGRESS) {
+                                                        clearStepTimeout();
+                                                        safeReject(new IdempotencyConflictException(stepIdempKey, { stackId, stepName: chainName, namespace: options?.namespace }));
+                                                        return;
+                                                    }
+                                                } catch (idempErr) {
+                                                    clearStepTimeout();
+                                                    safeReject(idempErr);
+                                                    return;
+                                                }
+                                            }
+
+                                            const executeOnAfterAndResolve = (output: any, ctx: any) => {
+                                                if (stepIdempKey) {
+                                                    stepIdempStore.complete(stepIdempKey, output).catch(() => {});
+                                                }
+                                                if (chain.compensationHandler) {
+                                                    defaultCompensationManager.registerCompensation(stackId, {
+                                                        stepId: chain.$stepId || chain.$chainId,
+                                                        stepName: chainName,
+                                                        output,
+                                                        input: toPOJO(param),
+                                                        handler: chain.compensationHandler,
+                                                        options: chain.compensationOptions
+                                                    });
+                                                }
+                                                new OnAfter(chain, output, param, ctx, propertyToContext, () => {
+                                                    clearStepTimeout();
+                                                    new ResolveChain(safeResolve, ctx.getData(), chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                }, (afterErr: any) => {
+                                                    if (stepIdempKey) {
+                                                        stepIdempStore.fail(stepIdempKey, afterErr).catch(() => {});
+                                                    }
+                                                    clearStepTimeout();
+                                                    tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
+                                                    new OnFail(chain, afterErr, (resolvedCtx: any) => {
+                                                        new ResolveChain(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
+                                                    }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
+                                                });
+                                            };
+
+                                            if (chain.reducer && param[chain.reducer]) {
+                                                const array = typeof param[chain.reducer] === 'function' ? param[chain.reducer]() : param[chain.reducer];
+                                                const runReducerAction = () => {
+                                                    new Reducer(array, toPOJO(param), chain, Context, propertyToContext, undefined, stackId)
+                                                        .reduce((err: any, result: any) => {
+                                                            clearStepTimeout();
+                                                            if (err) {
+                                                                if (stepIdempKey) {
+                                                                    stepIdempStore.fail(stepIdempKey, err).catch(() => {});
+                                                                }
+                                                                tagErrorPhase(err, ExecutionPhase.ACTION, chainName);
+                                                                new OnFail(chain, err, (context: any) => {
+                                                                    new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                                }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
+                                                            } else {
+                                                                let enrichedResult = Object.assign({}, result);
+                                                                new OnAfter(chain, enrichedResult, param, enrichedResult, (_ctx: any, enrichProps: any) => {
+                                                                    for (const k in enrichProps) {
+                                                                        const v = enrichProps[k];
+                                                                        enrichedResult[k] = v;
+                                                                    }
+                                                                }, () => {
+                                                                    new ResolveChain(safeResolve, enrichedResult, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                                }, (afterErr: any) => {
+                                                                    tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
+                                                                    new OnFail(chain, afterErr, (context: any) => {
+                                                                        new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
+                                                                    }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
+                                                                });
+                                                            }
+                                                        });
+                                                };
+
+                                                runReducerAction();
+                                            } else {
+                                                let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
+                                                let actionParam = Object.assign({}, toPOJO(param));
+                                                (actionParam as any)[SERVICES] = mergedServices;
+                                                (actionParam as any)[DEPENDENCIES] = mergedServices;
+                                                (actionParam as any)[DEPS] = mergedServices;
+                                                if (stackId) {
+                                                    const stackFn: any = () => stackId;
+                                                    stackFn.val = stackId;
+                                                    (actionParam as any)[STACK_ID] = stackFn;
+                                                    (actionParam as any)[STACK_ID_KEY] = stackFn;
+                                                    (actionParam as any).$stackId = stackFn;
+                                                    (actionParam as any).stackId = stackId;
+                                                }
+                                                if (options?.namespace) {
+                                                    const nsFn: any = () => options.namespace;
+                                                    nsFn.val = options.namespace;
+                                                    (actionParam as any)[NAMESPACE] = nsFn;
+                                                    (actionParam as any)[NAMESPACE_KEY] = nsFn;
+                                                    (actionParam as any).$namespace = nsFn;
+                                                    (actionParam as any).namespace = options.namespace;
+                                                }
+                                                if (stepEffectiveSignal) {
+                                                    const sigFn: any = () => stepEffectiveSignal;
+                                                    sigFn.val = stepEffectiveSignal;
+                                                    sigFn.aborted = stepEffectiveSignal.aborted;
+                                                    sigFn.addEventListener = stepEffectiveSignal.addEventListener.bind(stepEffectiveSignal);
+                                                    sigFn.removeEventListener = stepEffectiveSignal.removeEventListener.bind(stepEffectiveSignal);
+                                                    (actionParam as any)[SIGNAL] = sigFn;
+                                                    (actionParam as any)[SIGNAL_KEY] = sigFn;
+                                                    (actionParam as any).signal = stepEffectiveSignal;
+                                                    (actionParam as any).$signal = sigFn;
+                                                }
+                                                if (initialParam?.[ATTEMPT] || param[ATTEMPT]) {
+                                                    const attVal = param[ATTEMPT] || initialParam[ATTEMPT];
+                                                    (actionParam as any)[ATTEMPT] = attVal;
+                                                    (actionParam as any).$attempt = attVal;
+                                                }
+                                                if (initialParam?.[RETRY_DELAY] || param[RETRY_DELAY]) {
+                                                    const delVal = param[RETRY_DELAY] || initialParam[RETRY_DELAY];
+                                                    (actionParam as any)[RETRY_DELAY] = delVal;
+                                                    (actionParam as any).$retryDelay = delVal;
+                                                }
+                                                let rawAction: any;
+                                                try {
+                                                    const runAction = () => chain.cachedLast
+                                                        ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.namespace, chain.cacheOptions)
+                                                        : chain.action(actionParam);
+
+                                                    rawAction = runAction();
+                                                } catch (actionErr: any) {
+                                                    if (stepIdempKey) {
+                                                        stepIdempStore.fail(stepIdempKey, actionErr).catch(() => {});
+                                                    }
+                                                    clearStepTimeout();
+                                                    tagErrorPhase(actionErr, ExecutionPhase.ACTION, chainName);
+                                                    new OnFail(chain, actionErr, (resolvedCtx: any) => {
+                                                        new ResolveChain(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
+                                                    }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
+                                                    return;
+                                                }
+                                                const context = Context.createContext(chain.$chainId, stackId, options?.namespace);
+                                                logInfo('SingleChain', {
+                                                    chain: chains,
+                                                    message: 'Starting action',
+                                                    param
+                                                });
+
+                                                let action: any;
+                                                if (stepTimeoutMs && stepTimeoutMs > 0 && stepController) {
+                                                    const timeoutPromise = new Promise((_, rejectTimeout) => {
+                                                        /* c8 ignore next 2 */
+                                                        if (stepController!.signal.aborted) {
+                                                            rejectTimeout(stepController!.signal.reason);
+                                                        } else {
+                                                            stepController!.signal.addEventListener('abort', () => {
+                                                                rejectTimeout(stepController!.signal.reason);
+                                                            }, { once: true });
+                                                        }
+                                                    });
+                                                    action = rawAction instanceof Promise
+                                                        ? Promise.race([rawAction, timeoutPromise])
+                                                        : Promise.race([Promise.resolve(rawAction), timeoutPromise]);
+                                                } else {
+                                                    action = rawAction;
+                                                }
+
+                                                if (action !== undefined) {
+                                                    if (action instanceof Promise) {
+                                                        action.then(props => {
+                                                            clearStepTimeout();
+                                                            propertyToContext(context, props);
+                                                            executeOnAfterAndResolve(props, context);
+                                                        }).catch(err => {
                                                             if (stepIdempKey) {
                                                                 stepIdempStore.fail(stepIdempKey, err).catch(() => {});
                                                             }
+                                                            clearStepTimeout();
                                                             tagErrorPhase(err, ExecutionPhase.ACTION, chainName);
-                                                            new OnFail(chain, err, (context: any) => {
-                                                                new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                                            }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
-                                                        } else {
-                                                            let enrichedResult = Object.assign({}, result);
-                                                            new OnAfter(chain, enrichedResult, param, enrichedResult, (_ctx: any, enrichProps: any) => {
-                                                                for (const k in enrichProps) {
-                                                                    const v = enrichProps[k];
-                                                                    enrichedResult[k] = v;
-                                                                }
-                                                            }, () => {
-                                                                new ResolveChain(safeResolve, enrichedResult, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                                            }, (afterErr: any) => {
-                                                                tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
-                                                                new OnFail(chain, afterErr, (context: any) => {
-                                                                    new ResolveChain(safeResolve, context, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
-                                                                }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, undefined, undefined, options);
-                                                            });
-                                                        }
-                                                    });
-                                            };
-
-                                            if (effectiveNetworkPolicy?.enabled) {
-                                                networkPolicyStorage.run(
-                                                    { ...effectiveNetworkPolicy, stepName: chainName },
-                                                    runReducerAction
-                                                );
-                                            } else {
-                                                runReducerAction();
-                                            }
-                                        } else {
-                                            let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
-                                            let actionParam = Object.assign({}, toPOJO(param));
-                                            (actionParam as any)[SERVICES] = mergedServices;
-                                            (actionParam as any)[DEPENDENCIES] = mergedServices;
-                                            (actionParam as any)[DEPS] = mergedServices;
-                                            if (stackId) {
-                                                const stackFn: any = () => stackId;
-                                                stackFn.val = stackId;
-                                                (actionParam as any)[STACK_ID] = stackFn;
-                                                (actionParam as any)[STACK_ID_KEY] = stackFn;
-                                                (actionParam as any).$stackId = stackFn;
-                                                (actionParam as any).stackId = stackId;
-                                            }
-                                            if (options?.namespace) {
-                                                const nsFn: any = () => options.namespace;
-                                                nsFn.val = options.namespace;
-                                                (actionParam as any)[NAMESPACE] = nsFn;
-                                                (actionParam as any)[NAMESPACE_KEY] = nsFn;
-                                                (actionParam as any).$namespace = nsFn;
-                                                (actionParam as any).namespace = options.namespace;
-                                            }
-                                            if (stepEffectiveSignal) {
-                                                const sigFn: any = () => stepEffectiveSignal;
-                                                sigFn.val = stepEffectiveSignal;
-                                                sigFn.aborted = stepEffectiveSignal.aborted;
-                                                sigFn.addEventListener = stepEffectiveSignal.addEventListener.bind(stepEffectiveSignal);
-                                                sigFn.removeEventListener = stepEffectiveSignal.removeEventListener.bind(stepEffectiveSignal);
-                                                (actionParam as any)[SIGNAL] = sigFn;
-                                                (actionParam as any)[SIGNAL_KEY] = sigFn;
-                                                (actionParam as any).signal = stepEffectiveSignal;
-                                                (actionParam as any).$signal = sigFn;
-                                            }
-                                            if (initialParam?.[ATTEMPT] || param[ATTEMPT]) {
-                                                const attVal = param[ATTEMPT] || initialParam[ATTEMPT];
-                                                (actionParam as any)[ATTEMPT] = attVal;
-                                                (actionParam as any).$attempt = attVal;
-                                            }
-                                            if (initialParam?.[RETRY_DELAY] || param[RETRY_DELAY]) {
-                                                const delVal = param[RETRY_DELAY] || initialParam[RETRY_DELAY];
-                                                (actionParam as any)[RETRY_DELAY] = delVal;
-                                                (actionParam as any).$retryDelay = delVal;
-                                            }
-                                            let rawAction: any;
-                                            try {
-                                                const runAction = () => chain.cachedLast
-                                                    ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.namespace, chain.cacheOptions)
-                                                    : chain.action(actionParam);
-
-                                                if (effectiveNetworkPolicy?.enabled) {
-                                                    rawAction = networkPolicyStorage.run(
-                                                        { ...effectiveNetworkPolicy, stepName: chainName },
-                                                        runAction
-                                                    );
-                                                } else {
-                                                    rawAction = runAction();
-                                                }
-                                            } catch (actionErr: any) {
-                                                if (stepIdempKey) {
-                                                    stepIdempStore.fail(stepIdempKey, actionErr).catch(() => {});
-                                                }
-                                                clearStepTimeout();
-                                                tagErrorPhase(actionErr, ExecutionPhase.ACTION, chainName);
-                                                new OnFail(chain, actionErr, (resolvedCtx: any) => {
-                                                    new ResolveChain(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
-                                                }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
-                                                return;
-                                            }
-                                            const context = Context.createContext(chain.$chainId, stackId, options?.namespace);
-                                            logInfo('SingleChain', {
-                                                chain: chains,
-                                                message: 'Starting action',
-                                                param
-                                            });
-
-                                            let action: any;
-                                            if (stepTimeoutMs && stepTimeoutMs > 0 && stepController) {
-                                                const timeoutPromise = new Promise((_, rejectTimeout) => {
-                                                    /* c8 ignore next 2 */
-                                                    if (stepController!.signal.aborted) {
-                                                        rejectTimeout(stepController!.signal.reason);
+                                                            new OnFail(chain, err, (resolvedCtx) => {
+                                                                new ResolveChain(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
+                                                            }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
+                                                        });
                                                     } else {
-                                                        stepController!.signal.addEventListener('abort', () => {
-                                                            rejectTimeout(stepController!.signal.reason);
-                                                        }, { once: true });
+                                                        clearStepTimeout();
+                                                        propertyToContext(context, action);
+                                                        executeOnAfterAndResolve(action, context);
                                                     }
-                                                });
-                                                action = rawAction instanceof Promise
-                                                    ? Promise.race([rawAction, timeoutPromise])
-                                                    : Promise.race([Promise.resolve(rawAction), timeoutPromise]);
-                                            } else {
-                                                action = rawAction;
-                                            }
-
-                                            if (action !== undefined) {
-                                                if (action instanceof Promise) {
-                                                    action.then(props => {
-                                                        clearStepTimeout();
-                                                        propertyToContext(context, props);
-                                                        executeOnAfterAndResolve(props, context);
-                                                    }).catch(err => {
-                                                        if (stepIdempKey) {
-                                                            stepIdempStore.fail(stepIdempKey, err).catch(() => {});
-                                                        }
-                                                        clearStepTimeout();
-                                                        tagErrorPhase(err, ExecutionPhase.ACTION, chainName);
-                                                        new OnFail(chain, err, (resolvedCtx) => {
-                                                            new ResolveChain(safeResolve, resolvedCtx, chainName, logInfo, undefined, undefined, safeReject, stepOptions);
-                                                        }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
-                                                    });
                                                 } else {
                                                     clearStepTimeout();
-                                                    propertyToContext(context, action);
-                                                    executeOnAfterAndResolve(action, context);
+                                                    executeOnAfterAndResolve(undefined, context);
                                                 }
-                                            } else {
-                                                clearStepTimeout();
-                                                executeOnAfterAndResolve(undefined, context);
                                             }
-                                        }
-                                    }, propertyToContext, stackId);
+                                        }, propertyToContext, stackId);
+                                    };
+
+                                    if (effectiveNetworkPolicy?.enabled) {
+                                        networkPolicyStorage.run(
+                                            { ...effectiveNetworkPolicy, stepName: chainName },
+                                            executeStepLifecycle
+                                        );
+                                    } else {
+                                        executeStepLifecycle();
+                                    }
                                 }).catch((err: any) => {
                                     clearStepTimeout();
                                     tagErrorPhase(err, ExecutionPhase.BEFORE, chainName);

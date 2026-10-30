@@ -448,7 +448,7 @@ export class NetworkPolicyViolationException extends SigloError {
             {
                 ...metadata,
                 stepName,
-                phase: 'action',
+                phase: metadata.phase || 'action',
                 retryable: false // Security/policy violations should not retry blindly
             }
         );

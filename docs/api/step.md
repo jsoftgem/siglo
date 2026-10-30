@@ -68,6 +68,9 @@ flowchart TD
 4. **Post-Execution Transform (`onAfter`)**: Modifies or enriches the raw output before merging.
 5. **Context Merge**: Merges step output into the accumulated workflow context (or assigns it to a target property if `.reduce()` was configured).
 
+> [!NOTE]
+> **Network Guardrails Across Lifecycle Phases**: When `.allowNetwork()`, `.denyNetwork()`, or `.networkPolicy()` is declared, the network egress policy governs phases 2 (`onBefore`/`onSkip`), 3 (`action`), 4 (`onAfter`), and `onFail` through Node's `AsyncLocalStorage`. Any unauthorized outbound call triggers a `NetworkPolicyViolationException` tagged with the active phase (`before`, `action`, or `after`).
+
 ---
 
 ## Instantiating Steps
@@ -416,12 +419,7 @@ step.idempotent(
 
 #### Semantics
 
-1. **Claiming**: Before execution, attempts to claim the key in the configured `IdempotencyStore`.
-2. **Conflict**: If already in-progress, throws `IdempotencyConflictException`.
-3. **Cache Hit**: If previously completed and within TTL, returns cached output without re-executing.
-4. **Completion**: Upon successful execution, records output and marks status `COMPLETED`.
-
-#### Example
+1. **Claiming**: Before execution, attempts to claim the key in the configured `IdempotencyStore`.\n2. **Conflict**: If already in-progress, throws `IdempotencyConflictException`.\n3. **Cache Hit**: If previously completed and within TTL, returns cached output without re-executing.\n4. **Completion**: Upon successful execution, records output and marks status `COMPLETED`.\n\n#### Example
 
 ```typescript
 const chargeCard = Step.create('chargeCard', async (ctx: { idempotencyToken: string; amount: number }) => {
@@ -525,7 +523,17 @@ const countItems = Step.create('count', async () => 42)
 
 ## Network Egress Guardrails
 
-Steps can declare granular network egress permissions enforced via Node's `AsyncLocalStorage`. In flows with an outer network policy, the flow supersedes the step; steps can only narrow permissions within what the flow permits. By default, loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are allowed.
+Steps can declare granular network egress permissions enforced via Node's `AsyncLocalStorage` (ASL). In flows with an outer network policy, the flow supersedes the step; steps can only narrow permissions within what the flow permits. By default, loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are allowed.
+
+### Lifecycle Hook Governance & Plugin Isolation
+
+The network policy boundary wraps the **entire step execution lifecycle** via `AsyncLocalStorage`. This ensures comprehensive perimeter enforcement:
+- **`onBefore` & `onSkip`**: Pre-execution guards and fallback computations are governed by the step's allowlist, preventing data exfiltration or unauthorized calls during pre-checks. Outbound violations during pre-checks fail with `phase: 'before'`.
+- **`action` & `reduce`**: The core step execution runs within the policy context (violations tagged with `phase: 'action'`).
+- **`onAfter`**: Context enrichment and post-processing cannot bypass step network restrictions (violations tagged with `phase: 'after'`).
+- **`onFail`**: Step-level retries and fallback error handlers adhere to the policy perimeter.
+- **Global Plugins (`executeBefore`, `executeAfter`)**: Engine-level plugins execute **outside** this boundary to ensure system observability, tracing, and metric reporting (e.g., OpenTelemetry, Datadog) remain unaffected.
+- **Compensations (`step.compensate`)**: Sagas rollback in an independent scope with their own execution perimeter.
 
 ### `step.allowNetwork(hosts, allowLocalhost?)`
 
@@ -539,7 +547,7 @@ step.allowNetwork(hosts: (string | RegExp)[], allowLocalhost?: boolean): this;
 
 #### Parameters
 
-- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\.internal$/`).
+- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\\.internal$/`).
 - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Whether loopback addresses and Unix sockets are permitted.
 
 #### Example
@@ -554,7 +562,7 @@ const chargeStep = Step.create('charge', async ({ amount }) => {
 
 ### `step.denyNetwork()`
 
-Shorthand for `.allowNetwork([])`. Strictly denies all external outbound network access from the step's action.
+Shorthand for `.allowNetwork([])`. Strictly denies all external outbound network access from the step's lifecycle hooks and action.
 
 #### Signature
 
