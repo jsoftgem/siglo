@@ -1,6 +1,6 @@
 # 08. Observability
 
-Observability is a first-class citizen in `Siglo`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, and record granular execution traces.
+Observability is a first-class citizen in `Siglo`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, record granular execution traces, and stream real-time events to an interactive React DevTools dashboard.
 
 ---
 
@@ -83,7 +83,53 @@ const extractedSpanContext = extractTraceContext({ traceparent });
 
 ---
 
-## Minimal Example
+## 4. Real-Time Live Monitoring & DevTools
+
+In addition to OpenTelemetry distributed tracing, Siglo provides a real-time monitoring engine with a built-in **React 18 + Vite + Tailwind CSS** web dashboard, SSE/WebSocket streaming, and Prometheus metrics via `@siglo/monitor`:
+
+```typescript
+import { Step, flow } from 'siglo';
+import { createMonitorServer, attachToMonitorServer } from '@siglo/monitor';
+
+// 1. Launch monitor server (or attach to an existing one via CLI `siglo monitor`)
+const monitor = await createMonitorServer({ port: 4000 });
+
+// 2. Attach workflows
+const myFlow = flow(
+    Step.create('stepA', async () => ({ a: 1 })),
+    Step.create('stepB', async () => ({ b: 2 }))
+).monitor(attachToMonitorServer(4000)); // or: .monitor(monitor.emitter)
+
+await myFlow.run({});
+```
+
+- **React DevTools Dashboard**: Interactive DAG graph topology visualizer, step latency waterfalls, context mutation diff inspector, and live event log at `http://localhost:4000`.
+- **Flexible Attachment**: Connect workflows to a local or remote monitor server via `attachToMonitorServer(urlOrPort)`, or use `createMonitorClient` for buffered high-throughput worker fleets.
+- **Interactive Resumption & Replay**: Unblock suspended workflows (`waitForEvent`) directly from the browser UI or trigger instant replays.
+- **Prometheus Metrics**: Live metrics exported on `/metrics` for active workflows, execution duration, and retry counts.
+- **Framework Middleware**: Built-in support for Express, Fastify, and Hono.
+
+See the complete [Live Monitoring Guide](./live-monitoring.md) and [Monitor Adapter Guide](./adapters/monitor.md) for full details.
+
+### Runnable Sample Project
+
+A turnkey sample application showcasing `@siglo/monitor` is available at [`examples/live-monitoring`](../examples/live-monitoring):
+
+```bash
+# Run the live monitoring sample
+npm start --workspace=siglo-live-monitoring-sample
+```
+
+This demo:
+- Launches the live monitoring DevTools server at `http://localhost:4000/`.
+- Simulates an e-commerce order fulfillment pipeline with transient errors, retry backoff (`onFail`), conditional step skips (`onBefore`), and credential masking.
+- Demonstrates durable workflow suspension (`waitForEvent('order.approved')`) and automated resumption.
+- Streams live events over Server-Sent Events (`/events`) and WebSockets (`/ws`).
+- Exposes Prometheus metrics at `/metrics`.
+
+---
+
+## 5. Minimal Example
 
 ```typescript
 import { Step, flow, toMermaid } from 'siglo';
@@ -98,7 +144,7 @@ console.log(toMermaid(wf));
 
 ---
 
-## Failure Example: OpenTelemetry Exception Recording
+## 6. Failure Example: OpenTelemetry Exception Recording
 
 When an error occurs, `@siglo/opentelemetry` records the exception and marks the span status as `ERROR`:
 
@@ -124,7 +170,7 @@ try {
 
 ---
 
-## Testing Example
+## 7. Testing Example
 
 ```typescript
 import { expect } from 'chai';
@@ -144,15 +190,17 @@ describe('OpenTelemetry Integration Test', () => {
 
 ---
 
-## Operational Caveats
+## 8. Operational Caveats
 
-1. **Context Redaction in Telemetry**: Always specify `redactContextKeys` when capturing span attributes to ensure PII, tokens, and secrets are excluded from logs and tracing dashboards.
+1. **Context Redaction in Telemetry**: Always specify `redactContextKeys` when capturing span attributes or monitoring streams to ensure PII, tokens, and secrets are excluded from logs and tracing dashboards.
 2. **Span Limiters**: In loops or deep recursive pipelines, avoid creating unbounded spans. Use bounded batching with `map(items, step, { concurrency })`.
 
 ---
 
 ## API Reference Links
 
+- [Live Monitoring & DevTools Guide](./live-monitoring.md)
+- [Monitor Adapter Guide](./adapters/monitor.md)
 - [OpenTelemetry Adapter Guide](./adapters/opentelemetry.md)
 - [Workflow Graph Architecture](./workflow-graph.md)
 - [Testing & Replay Reference](./09-testing-and-replay.md)

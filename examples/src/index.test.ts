@@ -44,7 +44,8 @@ import {
     MockPostgresClient,
     MockRedisClient,
     createSaaSBillingWorkflow,
-    setupSaaSBillingInfrastructure
+    setupSaaSBillingInfrastructure,
+    runLiveMonitoringSample
 } from './workflow/usecases';
 import {FlowContextResult} from "siglo/src/features/step";
 
@@ -583,5 +584,11 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
         assert.equal(res.status, 'INVOICED');
         assert.ok(res.invoiceId);
         assert.ok(res.totalAmount > 0);
+    });
+    await t.test('Use Case 23: Live Workflow Monitoring & DevTools Server', async () => {
+        const { monitor, metricsText } = await runLiveMonitoringSample();
+        assert.ok(monitor.port > 0);
+        assert.ok(metricsText.includes('siglo_active_flows'));
+        await monitor.close();
     });
 });

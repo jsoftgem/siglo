@@ -12,6 +12,7 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 
 | Package | Category | Documentation Guide | Key Features |
 | :--- | :--- | :--- | :--- |
+| **`@siglo/monitor`** | Observability & DevTools | [Live Monitoring Guide](live-monitoring.md) / [Monitor Adapter Guide](adapters/monitor.md) | React 18 DevTools SPA, dynamic DAG, latency waterfall, state diffs, SSE/WebSocket, Prometheus `/metrics` |
 | **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
 | **`@siglo/http`** | HTTP Client Egress | [HTTP Client Guide](adapters/http.md) | Resilient client steps, ASL egress perimeter, W3C tracing, Retry-After backoff, sagas |
 | **`@siglo/redis`** | Storage & Caching | [Redis Adapter Guide](adapters/redis.md) | Distributed checkpoints, step caching, atomic idempotency, single-flight mutex |
@@ -22,7 +23,7 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 | **`@siglo/hono`** | HTTP Ingress | [Hono Adapter Guide](adapters/hono.md) | Web Standards (`Request`/`Response`), Cloudflare Workers, Deno, Bun, Node.js |
 | **`@siglo/fastify`** | HTTP Ingress | [Fastify Adapter Guide](adapters/fastify.md) | Low-overhead Node.js HTTP route handler, raw abort signals, schema support |
 | **`@siglo/express`** | HTTP Ingress | [Express Adapter Guide](adapters/express.md) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
-| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`), AST visualizer (`visualize`), cycle validator (`validate`), fixture replay |
+| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`), AST visualizer (`visualize`), live monitor dev server (`monitor`), cycle validator (`validate`), fixture replay |
 
 ---
 
@@ -53,8 +54,9 @@ flowchart TD
     end
 
     subgraph OBS["Observability & Developer Tools"]
+        Monitor["@siglo/monitor<br/>• React DevTools Web SPA<br/>• Dynamic DAG & Latency Waterfall<br/>• State Diff & Event Stream<br/>• Prometheus /metrics Exporter"]
         OTel["@siglo/opentelemetry<br/>• Workflow & Step Spans<br/>• Retry & Error Tracking<br/>• W3C Trace Context<br/>• PII Sanitization"]
-        CLI["@siglo/cli<br/>• Scaffolding & Validation<br/>• AST Visualizer & Replay"]
+        CLI["@siglo/cli<br/>• Scaffolding & Validation<br/>• AST Visualizer & Replay<br/>• Live Monitor CLI Server"]
     end
 
     subgraph STORAGE["Distributed Storage"]
@@ -145,6 +147,7 @@ import { sigloFastifyHandler } from '@siglo/fastify';
 import { httpStep } from '@siglo/http';
 import { RedisStorageAdapter } from '@siglo/redis';
 import { instrumentWorkflow } from '@siglo/opentelemetry';
+import { attachToMonitorServer } from '@siglo/monitor';
 import { trace } from '@opentelemetry/api';
 
 // 1. Initialize Fastify & Storage
@@ -165,7 +168,7 @@ const chargePayment = httpStep('chargePayment', {
 const checkoutPipeline = flow(
   chargePayment,
   Step.create('fulfillOrder', async (ctx) => ({ orderId: ctx.orderId, status: 'FULFILLED' }))
-);
+).monitor(attachToMonitorServer(4000)); // Attach to live DevTools monitor
 
 // 3. Instrument Workflow with OpenTelemetry
 const tracer = trace.getTracer('checkout-service');

@@ -38,13 +38,14 @@ import {
     StorageErrorMode
 } from "./state";
 import { generateUUID, Status, VALIDATORS } from "../../shared";
-import { StorageAdapter, CacheEvent } from "./adapter";
+import { StorageAdapter, CacheEvent, ContextChangeEvent } from "./adapter";
 import {
     CheckpointConflictException,
     NamespaceMismatchException,
     CheckpointVersionException,
     StorageAdapterException
 } from "../executer";
+import { emitMonitoringEvent } from "../events/emitter";
 
 export { GetChainTypeException } from "./get";
 export { PutChainTypeException } from "./put";
@@ -150,38 +151,47 @@ export class StorageManager {
     putChainContext(stepId: string, field: string, value: any, meta?: PutChainContextMeta | string): void {
         pcc(this.state, stepId, field, value, meta);
 
+        let namespace: string | undefined;
+        let stackId: string | undefined;
+        let stackObj: any;
+        if (typeof meta === "string") {
+            stackId = meta;
+        } else if (meta) {
+            stackId = meta.stackId;
+            namespace = meta.namespace;
+        }
+        if (!stackId) {
+            for (const [sId, stack] of this.state.stacks.entries()) {
+                if (stack.chains && stack.chains.includes(stepId)) {
+                    stackId = sId;
+                    namespace = namespace || stack.namespace;
+                    stackObj = stack;
+                    break;
+                }
+            }
+        } else {
+            stackObj = this.state.stacks.get(stackId);
+            if (stackObj?.namespace && !namespace) {
+                namespace = stackObj.namespace;
+            }
+        }
+
+        const changeEvent: ContextChangeEvent = {
+            namespace,
+            stackId: stackId || "",
+            stepId,
+            field,
+            value,
+            timestamp: Date.now()
+        };
+        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
+            type: 'context:change',
+            ...changeEvent
+        });
+
         if (this.adapter?.onContextChange) {
-            let namespace: string | undefined;
-            let stackId: string | undefined;
-            if (typeof meta === "string") {
-                stackId = meta;
-            } else if (meta) {
-                stackId = meta.stackId;
-                namespace = meta.namespace;
-            }
-            if (!stackId) {
-                for (const [sId, stack] of this.state.stacks.entries()) {
-                    if (stack.chains && stack.chains.includes(stepId)) {
-                        stackId = sId;
-                        namespace = namespace || stack.namespace;
-                        break;
-                    }
-                }
-            } else if (!namespace) {
-                const stack = this.state.stacks.get(stackId);
-                if (stack?.namespace) {
-                    namespace = stack.namespace;
-                }
-            }
             try {
-                const res = this.adapter.onContextChange({
-                    namespace,
-                    stackId: stackId || "",
-                    stepId,
-                    field,
-                    value,
-                    timestamp: Date.now()
-                });
+                const res = this.adapter.onContextChange(changeEvent);
                 if (res && typeof (res as any).catch === "function") {
                     (res as any).catch((err: any) => {
                         this.handleAdapterError('onContextChange', err);
@@ -194,6 +204,16 @@ export class StorageManager {
     }
 
     emitCacheEvent(event: CacheEvent): void {
+        const stackObj = event.stackId ? this.state.stacks.get(event.stackId) : undefined;
+        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
+            type: event.type === 'hit' ? 'cache:hit' : 'cache:miss',
+            stackId: event.stackId,
+            stepId: event.stepId,
+            key: event.key,
+            timestamp: event.timestamp || Date.now(),
+            namespace: event.namespace
+        });
+
         if (this.adapter?.onCacheEvent) {
             try {
                 const res = this.adapter.onCacheEvent(event);
@@ -212,20 +232,21 @@ export class StorageManager {
         return gcdbi(this.state, stepId);
     }
 
-    createExecutionStack(namespace?: string): string {
+    createExecutionStack(namespace?: string, monitor?: any): string {
         const stackId = generateUUID();
         this.state.stacks.set(stackId, {
             type: "execution",
             chains: [],
             namespace,
             status: Status.RUNNING,
-            revision: 0
+            revision: 0,
+            monitor
         });
         this.revisions.set(stackId, 0);
         return stackId;
     }
 
-    createStack(stackIdOrNamespace?: string, namespace?: string): string {
+    createStack(stackIdOrNamespace?: string, namespace?: string, monitor?: any): string {
         let stackId: string;
         let effectiveNamespace: string | undefined;
         if (namespace !== undefined) {
@@ -239,7 +260,8 @@ export class StorageManager {
             chains: [],
             namespace: effectiveNamespace,
             status: Status.RUNNING,
-            revision: 0
+            revision: 0,
+            monitor
         });
         this.revisions.set(stackId, 0);
         return stackId;
@@ -466,6 +488,15 @@ export class StorageManager {
             metadata: options?.metadata || stack.metadata
         };
 
+        const stackObj = this.state.stacks.get(stackId);
+        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
+            type: 'checkpoint:save',
+            stackId,
+            status: snapshot.status,
+            timestamp: Date.now(),
+            namespace: snapshot.namespace
+        });
+
         if (this.adapter?.saveCheckpoint) {
             try {
                 const res = this.adapter.saveCheckpoint(snapshot);
@@ -496,6 +527,15 @@ export class StorageManager {
         }
 
         this.revisions.set(checkpointData.stackId, checkpointData.revision || currentRev + 1);
+
+        const stackObj = this.state.stacks.get(checkpointData.stackId);
+        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
+            type: 'checkpoint:save',
+            stackId: checkpointData.stackId,
+            status: checkpointData.status,
+            timestamp: checkpointData.timestamp || Date.now(),
+            namespace: checkpointData.namespace
+        });
 
         if (this.adapter?.saveCheckpoint) {
             try {
@@ -700,8 +740,8 @@ export function getChainDataById(stepId: string): any {
     return defaultStorageManager.getChainDataById(stepId);
 }
 
-export function createExecutionStack(namespace?: string): string {
-    return defaultStorageManager.createExecutionStack(namespace);
+export function createExecutionStack(namespace?: string, monitor?: any): string {
+    return defaultStorageManager.createExecutionStack(namespace, monitor);
 }
 
 export function addChainToStack(stackId: string, stepId: string): void {

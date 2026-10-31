@@ -4,6 +4,7 @@ import { validateWorkflowVersion } from './versioning';
 import { flow, Flow } from '../step';
 import { toPOJO } from '../context';
 import { ExecutionOptions } from '../step';
+import { emitMonitoringEvent } from '../events/emitter';
 
 export interface ResumeOptions extends ExecutionOptions {
     migrations?: any;
@@ -20,6 +21,14 @@ export async function resumeWorkflow(
     const correlationKey = isByStack ? isByStack.correlationKey : correlationKeyOrStackId;
 
     const waitRecord = defaultDurableManager.resumeWait(correlationKey);
+    emitMonitoringEvent(options, {
+        type: 'flow:resumed',
+        stackId: waitRecord.stackId,
+        correlationKey: waitRecord.correlationKey,
+        eventName: waitRecord.eventName,
+        timestamp: Date.now(),
+        namespace: options?.namespace
+    });
     const cp = await defaultStorageManager.getCheckpoint(waitRecord.stackId);
 
     const targetVersion = options?.targetVersion ?? (flowInstance as any)?.workflowVersion ?? waitRecord.version;

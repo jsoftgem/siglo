@@ -51,7 +51,8 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 🔄 [Compensation & Sagas](docs/compensation-and-sagas.md) &mdash; Sagas with LIFO compensation rollbacks and retry policies.
 - 🔑 [Idempotency & Deduplication](docs/idempotency.md) &mdash; Scoped idempotency keys, claim locking, and TTL stores.
 - 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md) &mdash; Declarative least-privilege network policies via AsyncLocalStorage, multi-layer interceptors, and perimeter narrowing.
-- 📊 [Live Monitoring Roadmap](roadmap/live-monitoring.roadmap.md) &mdash; Real-time DevTools, SSE/WebSocket streaming, and interactive DAG visualization.
+- 📊 [Live Monitoring & DevTools](docs/live-monitoring.md) &mdash; Real-time DevTools web dashboard, SSE/WebSocket streaming, latency waterfalls, and interactive resumption.
+- 🗺️ [Live Monitoring Roadmap](roadmap/live-monitoring.roadmap.md) &mdash; Implementation specifications and delivery phases.
 
 ---
 
@@ -106,6 +107,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 | [`@siglo/fastify`](packages/fastify) | Fastify HTTP route handler adapter |
 | [`@siglo/hono`](packages/hono) | Hono edge and Web Standards route handler adapter |
 | [`@siglo/express`](packages/express) | Express HTTP route handler adapter |
+| [`@siglo/monitor`](packages/monitor) | Live workflow monitoring server, SSE/WebSocket transports, DevTools Web UI, and Prometheus metrics |
 
 ---
 
@@ -376,6 +378,30 @@ await orderFlow.run(payload, {
 
 ---
 
+## Real-Time DevTools & Live Monitoring (@siglo/monitor)
+
+> 📘 **Dedicated Topic Guide**: For in-depth architectural details, transports, and React UI layout, consult the [Live Monitoring Guide](docs/live-monitoring.md) and [Monitor Adapter Guide](docs/adapters/monitor.md).
+
+Stream workflow execution events in real time to a modern React 18 + Vite + Tailwind CSS DevTools dashboard, SSE clients, WebSockets, or Prometheus metrics:
+
+```typescript
+import { Step, flow } from "siglo";
+import { createMonitorServer, attachToMonitorServer } from "@siglo/monitor";
+
+// 1. Launch standalone monitor server (or CLI: npx siglo monitor)
+const monitor = await createMonitorServer({ port: 4000 });
+
+// 2. Attach workflows to monitor
+const orderPipeline = flow(stepA, stepB)
+    .monitor(attachToMonitorServer(4000)); // Remote or in-process attachment
+
+await orderPipeline.run({ orderId: "ord_123" });
+```
+
+Open `http://localhost:4000` to inspect the dynamic DAG topology, step latency waterfalls, state mutation diffs, and resume suspended workflows interactively.
+
+---
+
 ## API Reference Summary
 
 > 📘 **Comprehensive Reference Pages**: For complete TypeScript signatures, option tables, and in-depth code examples, consult each dedicated reference guide:
@@ -430,6 +456,7 @@ await orderFlow.run(payload, {
 | `flow.toMermaid(options?)` | Exports workflow graph as a Mermaid flowchart diagram string. |
 | `flow.toDot(options?)` | Exports workflow graph as a Graphviz DOT diagram string. |
 | `flow.toJSON()` | Serializes workflow AST to a formatted JSON string. |
+| `flow.monitor(monitor)` | Attaches a workflow event emitter or monitor client for live telemetry streaming. |
 | `flow.steps` | Returns the flattened array of underlying `Step` execution units. |
 
 ### 🧱 [Step Methods (`Step`)](docs/api/step.md)
@@ -437,6 +464,8 @@ await orderFlow.run(payload, {
 | Method | Description |
 |---|---|
 | `Step.create<TIn, TOut, TName>(name?, action)` | Instantiates a new typed `Step` execution unit with input/output contracts. |
+| `Step.setDefaultMonitor(monitor)` | Sets global default event emitter for all workflow runs in the process. |
+| `Step.getDefaultMonitor()` | Returns the active default workflow event emitter. |
 | `step.allowNetwork(hosts, allowLocalhost?)` | Configures allowed outbound network hosts/patterns for this step. |
 | `step.denyNetwork()` | Shorthand for strictly disallowing all external network egress. |
 | `step.networkPolicy(policy)` | Configures full step-level network egress policy. |

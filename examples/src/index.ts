@@ -31,12 +31,13 @@ import {
     setupInstrumentedWorkflow,
     MockPostgresClient,
     MockRedisClient,
-    setupSaaSBillingInfrastructure
+    setupSaaSBillingInfrastructure,
+    runLiveMonitoringSample
 } from './workflow/usecases';
-
+import { attachToMonitorServer } from '@siglo/monitor';
 async function main() {
     console.log('========================================================================');
-    console.log('   siglo: Top 22 Production Event-Driven & Workflow Use Cases');
+    console.log('   siglo: Top 23 Production Event-Driven & Workflow Use Cases');
     console.log('========================================================================\n');
 
     // 1. Initialize Database Connectors & Register Storage Hooks
@@ -56,7 +57,10 @@ async function main() {
         ],
         couponCode: 'SAVE10'
     };
-    const orderResult = await orderPipeline.run(orderInput);
+
+    const orderResult = await orderPipeline
+        .monitor(attachToMonitorServer(4000))
+        .run(orderInput);
     console.log(`  ✔ Base Order Pipeline -> Invoice ID: ${orderResult.invoiceId}, Total: $${orderResult.amountCharged}`);
 
     // --- 1. E-Commerce Saga ---
@@ -458,12 +462,20 @@ async function main() {
     }, {namespace: 'enterprise-acme', stackId: 'stack-acme-q1'});
     console.log(`  ✔ SaaS Billing -> Invoice: ${billingRes.invoiceId}, Total: $${billingRes.totalAmount}, Discount: $${billingRes.discount}, Status: ${billingRes.status}`);
 
+
+    // --- 23. Live Workflow Monitoring & DevTools Server ---
+    console.log('\n[Demo] 23. Live Workflow Monitoring & DevTools Server (@siglo/monitor)...');
+    const { monitor: sampleMonitor, metricsText } = await runLiveMonitoringSample();
+    console.log(`  ✔ Live Monitor Server running on port: ${sampleMonitor.port}`);
+    console.log(`  ✔ Prometheus Metrics extracted successfully: ${metricsText.split("\n")[2]}`);
+    await sampleMonitor.close();
+
     // --- Verification of Redis & MongoDB State ---
     console.log("\n------------------------------------------------------------------------");
     console.log("[Verification] Checking Storage Adapter State:");
     const mongoLogs = await mongo.collection("siglo_execution_logs").find();
     console.log(`  • MongoDB Execution Logs: ${mongoLogs.length} step context entries logged with stackId & namespace tracing`);
-    console.log("\n[Demo] All 22 use cases executed and streamed to storage adapter successfully!");
+    console.log("\n[Demo] All 23 use cases executed and streamed to storage adapter successfully!");
     console.log('========================================================================\n');
 }
 

@@ -312,3 +312,25 @@ export function exportWorkflow(
         ? workflow.toMermaid({ direction: options.direction, includeBadges: options.includeBadges })
         : toMermaid(inspectGraph(workflow));
 }
+
+export interface MonitorOptions {
+    port?: number;
+    host?: string;
+    open?: boolean;
+    namespace?: string;
+    flow?: any;
+}
+
+/**
+ * Starts the live workflow monitoring dev server and web dashboard.
+ */
+export async function startMonitor(options: MonitorOptions = {}): Promise<any> {
+    const { createMonitorServer } = await import("@siglo/monitor");
+    return createMonitorServer({
+        port: options.port,
+        host: options.host,
+        namespaceFilter: options.namespace,
+        flow: options.flow,
+        open: options.open
+    });
+}

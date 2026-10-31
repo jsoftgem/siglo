@@ -14,11 +14,11 @@ flowchart TD
     CLI --> CLI_API["Programmatic Node.js API"]
 
     subgraph TerminalCommands["CLI Commands"]
-        C1["siglo init<br/>siglo generate workflow<br/>siglo generate step<br/>siglo visualize<br/>siglo export<br/>siglo validate<br/>siglo inspect<br/>siglo checkpoint<br/>siglo replay"]
+        C1["siglo init<br/>siglo generate workflow<br/>siglo generate step<br/>siglo visualize<br/>siglo export<br/>siglo validate<br/>siglo inspect<br/>siglo checkpoint<br/>siglo replay<br/>siglo monitor"]
     end
 
     subgraph ProgrammaticAPI["Node.js API"]
-        A1["initProject()<br/>generateWorkflow()<br/>generateStep()<br/>visualizeWorkflow()<br/>exportWorkflow()<br/>validateWorkflow()<br/>inspectWorkflow()<br/>inspectCheckpoint()<br/>replayFixture()"]
+        A1["initProject()<br/>generateWorkflow()<br/>generateStep()<br/>visualizeWorkflow()<br/>exportWorkflow()<br/>validateWorkflow()<br/>inspectWorkflow()<br/>inspectCheckpoint()<br/>replayFixture()<br/>startMonitor()"]
     end
 
     CLI_Term --> TerminalCommands
@@ -56,6 +56,9 @@ Siglo <command> [arguments] [options]
 - `--direction=TD|LR|TB`: Graph layout direction for Mermaid or DOT diagrams (default: `TD`).
 - `--out=<file>`: Write output directly to a file instead of `stdout`.
 - `--redact=key1,key2`: Comma-delimited list of sensitive context keys or node names to mask with `[REDACTED]`.
+- `--port=<port>`: Port number for the live monitor server (default: `4000`).
+- `--host=<host>`: Host interface binding for the live monitor server (default: `0.0.0.0`).
+- `--namespace=<ns>`: Filter telemetry events to a specific tenant namespace.
 - `--help`, `-h`: Show CLI usage guide.
 - `--version`, `-v`: Display CLI version.
 
@@ -266,6 +269,37 @@ siglo replay fixtures/order-regression.json src/workflows/order.workflow.ts
 
 ---
 
+### Command 10: `siglo monitor [workflow-file]`
+
+Launches the real-time DevTools live monitoring HTTP server and web dashboard:
+
+```bash
+# Launch monitor on default port 4000
+siglo monitor
+
+# Launch with custom port and host
+siglo monitor --port=8080 --host=127.0.0.1
+
+# Launch with a specific workflow preloaded and namespace filter
+siglo monitor src/workflows/checkout.ts --port=4000 --namespace=tenant-alpha
+```
+
+*Output:*
+```text
+🚀 Siglo Live Monitor running at http://localhost:4000
+   - Dashboard: http://localhost:4000/
+   - SSE Stream: http://localhost:4000/events
+   - WebSocket: ws://localhost:4000/ws
+   - Prometheus Metrics: http://localhost:4000/metrics
+```
+
+Workflows in other processes or terminals can attach immediately via:
+```typescript
+flow(...).monitor(attachToMonitorServer(4000));
+```
+
+---
+
 ## 4. Programmatic API Reference
 
 Import programmatic utilities directly in your tests, scripts, and build pipelines:
@@ -281,13 +315,31 @@ import {
     inspectCheckpoint,
     replayFixture,
     exportWorkflow,
+    startMonitor,
     toMermaid,
     toTextGraph,
     ReplayFixture,
     ReplayResult,
     WorkflowVisualizationResult,
-    ExportWorkflowOptions
+    ExportWorkflowOptions,
+    MonitorOptions
 } from '@siglo/cli';
+```
+
+---
+
+### `startMonitor(options?: MonitorOptions)`
+
+Starts the live workflow monitoring dev server and React DevTools web dashboard programmatically:
+
+```typescript
+const monitor = await startMonitor({
+    port: 4000,
+    host: '0.0.0.0',
+    namespace: 'eu-west'
+});
+
+console.log(`Live DevTools available at: http://localhost:${monitor.port}`);
 ```
 
 ---

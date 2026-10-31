@@ -11,7 +11,8 @@ import {
     generateWorkflow,
     generateStep,
     replayFixture,
-    exportWorkflow
+    exportWorkflow,
+    startMonitor
 } from './index';
 
 function printHelp(): void {
@@ -31,6 +32,7 @@ COMMANDS:
     inspect <workflow-file>        Display workflow AST metrics and step summary
     checkpoint <file>              Inspect a serialized checkpoint state JSON
     replay <fixture> [workflow]    Replay execution against a recorded test fixture
+    monitor [workflow-file]        Launch live workflow monitoring dashboard
 
 OPTIONS:
     --format=mermaid|text|dot|json Output format (default: mermaid)
@@ -215,6 +217,28 @@ async function main(): Promise<void> {
                     console.error('✖ Replay failed with discrepancies:', JSON.stringify(result.diff, null, 2));
                     process.exit(1);
                 }
+                break;
+            }
+
+            case 'monitor': {
+                const portStr = getOption(args, '--port=');
+                const port = portStr ? parseInt(portStr, 10) : 4000;
+                const host = getOption(args, '--host=') || '0.0.0.0';
+                const ns = getOption(args, '--namespace=');
+                let wf: any;
+                if (target && !target.startsWith('--')) {
+                    try {
+                        wf = await loadWorkflowFromFile(target);
+                    } catch (e: any) {
+                        console.warn(`Warning: Could not load workflow ${target}: ${e.message}`);
+                    }
+                }
+                const monitor = await startMonitor({ port, host, namespace: ns, flow: wf });
+                console.log(`🚀 Siglo Live Monitor running at http://${host === "0.0.0.0" ? "localhost" : host}:${monitor.port}`);
+                console.log(`   - Dashboard: http://localhost:${monitor.port}/`);
+                console.log(`   - SSE Stream: http://localhost:${monitor.port}/events`);
+                console.log(`   - WebSocket: ws://localhost:${monitor.port}/ws`);
+                console.log(`   - Prometheus Metrics: http://localhost:${monitor.port}/metrics`);
                 break;
             }
 

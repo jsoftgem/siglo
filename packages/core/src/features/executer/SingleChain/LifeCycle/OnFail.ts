@@ -1,5 +1,6 @@
 import { FlowTimeoutException } from '../../exceptions';
 import { CHAIN_ID, ATTEMPT, RETRY_DELAY } from '../../../../shared';
+import { emitMonitoringEvent } from '../../../events/emitter';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
 
@@ -39,6 +40,30 @@ export default class OnFail {
             params: initialParam
         });
         const outerSignal = options?.outerSignal || options?.signal;
+
+        let currentAttemptNumber = 1;
+        const rawReject = reject;
+        const emitStepError = (err: any) => {
+            emitMonitoringEvent(options, {
+                type: 'step:error',
+                stackId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
+                stepId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
+                stepName: chain.func || chain.name || 'chain',
+                attempt: currentAttemptNumber,
+                error: {
+                    message: err?.message || String(err),
+                    code: err?.code,
+                    stack: err?.stack
+                },
+                timestamp: Date.now(),
+                namespace: options?.namespace
+            });
+        };
+        const safeRejectWithEvent = (err: any) => {
+            emitStepError(err);
+            rawReject(err);
+        };
+        reject = safeRejectWithEvent;
 
         if (outerSignal?.aborted) {
             reject(outerSignal.reason || new Error('This operation was aborted'));
@@ -101,7 +126,7 @@ export default class OnFail {
                 }
             } else if (typeof chain.onfail === 'object') {
                 const config: RetryConfig = chain.onfail;
-                const maxRetries = config.maxRetries !== undefined ? config.maxRetries : 3;
+                const maxRetries = config.maxRetries !== undefined ? config.maxRetries : ((config as any).maxAttempts !== undefined ? (config as any).maxAttempts : 3);
                 const baseDelay = config.delay !== undefined ? config.delay : 100;
                 const maxDelay = config.maxDelay !== undefined ? config.maxDelay : 10000;
                 const backoff = config.backoff || 'fixed';
@@ -117,6 +142,7 @@ export default class OnFail {
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
                 retryMap[stepKey] = currentAttempt;
+                currentAttemptNumber = currentAttempt;
 
                 if (config.retryIf && !config.retryIf(error, currentAttempt)) {
                     reject(error);
@@ -146,6 +172,23 @@ export default class OnFail {
                     if (config.onRetry) {
                         config.onRetry(error, currentAttempt, delayMs);
                     }
+
+                    emitMonitoringEvent(options, {
+                        type: 'step:retry',
+                        stackId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
+                        stepId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
+                        stepName: chain.func || chain.name || 'chain',
+                        attempt: currentAttempt,
+                        maxAttempts: maxRetries,
+                        error: {
+                            message: error?.message || String(error),
+                            code: error?.code,
+                            stack: error?.stack
+                        },
+                        delayMs,
+                        timestamp: Date.now(),
+                        namespace: options?.namespace
+                    });
 
                     if (initialParam && typeof initialParam === 'object') {
                         const attFn = () => currentAttempt;

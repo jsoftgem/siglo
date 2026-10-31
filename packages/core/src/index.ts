@@ -163,6 +163,18 @@ import {
     clearStorage
 } from './features/storage';
 
+import {
+    WorkflowEventEmitter,
+    defaultWorkflowEventEmitter,
+    setDefaultMonitor,
+    getDefaultMonitor,
+    emitMonitoringEvent,
+    redactEvent,
+    redactValue
+} from './features/events';
+
+export * from './features/events';
+
 export default Step;
 export {
     Step,
@@ -418,6 +430,14 @@ if (typeof module !== 'undefined' && module.exports) {
         ensureNetworkInterceptorsInstalled,
         isHostAllowed,
         isLocalhost,
+        // Live Monitoring
+        WorkflowEventEmitter,
+        defaultWorkflowEventEmitter,
+        setDefaultMonitor,
+        getDefaultMonitor,
+        emitMonitoringEvent,
+        redactEvent,
+        redactValue,
         Status,
         ExecutionPhase,
         tagErrorPhase,

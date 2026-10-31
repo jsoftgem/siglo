@@ -15,6 +15,7 @@ import { combineAbortSignals } from './signals';
 import { defaultStorageManager } from '../storage';
 import { defaultCompensationManager } from '../compensation';
 import { defaultIdempotencyStore, buildIdempotencyKey } from '../idempotency';
+import { emitMonitoringEvent } from '../events/emitter';
 
 export class Runner {
     private getChain: any;
@@ -71,7 +72,8 @@ export class Runner {
         if (chains) {
             const namespace = rawOptions?.namespace;
             const isSubStack = Boolean(rawOptions?.stackId);
-            const stackId = rawOptions?.stackId || this.createExecutionStack(namespace);
+            const stackId = rawOptions?.stackId || this.createExecutionStack(namespace, rawOptions?.monitor);
+            const flowStartTime = Date.now();
             if (!isSubStack) {
                 this.logInfo('Runner', `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`);
             }
@@ -117,6 +119,38 @@ export class Runner {
                     workflowId: rawOptions?.workflowId
                 });
                 (normalized as any).stackId = stackId;
+                emitMonitoringEvent(rawOptions, {
+                    type: 'flow:start',
+                    stackId,
+                    flowName: rawOptions?.workflowId,
+                    version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
+                    ast: rawOptions?.ast,
+                    timestamp: flowStartTime,
+                    namespace
+                });
+                emitMonitoringEvent(rawOptions, {
+                    type: 'flow:error',
+                    stackId,
+                    error: {
+                        message: normalized.message,
+                        stack: normalized.stack,
+                        code: (normalized as any).code
+                    },
+                    timestamp: Date.now(),
+                    namespace
+                });
+                emitMonitoringEvent(rawOptions, {
+                    type: 'flow:complete',
+                    stackId,
+                    durationMs: Math.max(0, Date.now() - flowStartTime),
+                    status: 'FAILED',
+                    error: {
+                        message: normalized.message,
+                        stack: normalized.stack
+                    },
+                    timestamp: Date.now(),
+                    namespace
+                });
                 return Promise.reject(normalized);
             }
 
@@ -209,6 +243,16 @@ export class Runner {
                     }
                 }
 
+                emitMonitoringEvent(rawOptions, {
+                    type: 'flow:start',
+                    stackId,
+                    flowName: rawOptions?.workflowId,
+                    version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
+                    ast: rawOptions?.ast,
+                    timestamp: flowStartTime,
+                    namespace
+                });
+
                 const executionPromise = (chains instanceof Array)
                     ? new this.ArrayChain(
                         this.getChain,
@@ -224,6 +268,16 @@ export class Runner {
 
                     if (result && result.status === Status.WAITING) {
                         this.logInfo('Runner', `Suspended stack#${stackId} (waiting for event)`);
+                        emitMonitoringEvent(rawOptions, {
+                            type: 'flow:suspended',
+                            stackId,
+                            waitingForEvent: result.eventName || 'wait',
+                            timeoutMs: result.expiresAt ? Math.max(0, result.expiresAt - Date.now()) : undefined,
+                            expiresAt: result.expiresAt,
+                            correlationKey: result.correlationKey,
+                            timestamp: Date.now(),
+                            namespace
+                        });
                         return result;
                     }
 
@@ -255,6 +309,15 @@ export class Runner {
                             // ignore
                         }
                     }
+
+                    emitMonitoringEvent(rawOptions, {
+                        type: 'flow:complete',
+                        stackId,
+                        durationMs: Math.max(0, Date.now() - flowStartTime),
+                        status: 'COMPLETED',
+                        timestamp: Date.now(),
+                        namespace
+                    });
 
                     return finalResult;
                 } catch (error: any) {
@@ -305,6 +368,32 @@ export class Runner {
                         phase: (effectiveError as any)?.phase || 'action'
                     });
                     (normalized as any).stackId = stackId;
+
+                    emitMonitoringEvent(rawOptions, {
+                        type: 'flow:error',
+                        stackId,
+                        error: {
+                            message: normalized.message,
+                            stack: normalized.stack,
+                            code: (normalized as any).code
+                        },
+                        timestamp: Date.now(),
+                        namespace
+                    });
+
+                    emitMonitoringEvent(rawOptions, {
+                        type: 'flow:complete',
+                        stackId,
+                        durationMs: Math.max(0, Date.now() - flowStartTime),
+                        status: 'FAILED',
+                        error: {
+                            message: normalized.message,
+                            stack: normalized.stack
+                        },
+                        timestamp: Date.now(),
+                        namespace
+                    });
+
                     throw normalized;
                 }
             };

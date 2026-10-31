@@ -25,6 +25,7 @@ export interface StackRecord {
     expiresAt?: number;
     revision?: number;
     metadata?: Record<string, any>;
+    monitor?: any;
 }
 
 export interface StorageState {

@@ -94,6 +94,20 @@ import {
 } from '../durable';
 
 import {
+    WorkflowExecutionEvent,
+    WorkflowExecutionEventType,
+    WorkflowExecutionEventMap,
+    WorkflowEventEmitter,
+    defaultWorkflowEventEmitter,
+    setDefaultMonitor,
+    getDefaultMonitor,
+    emitMonitoringEvent,
+    redactEvent,
+    redactValue,
+    RedactionOptions
+} from '../events';
+
+import {
     NetworkPolicyConfig,
     EffectiveNetworkPolicy,
     HostPattern,
@@ -227,6 +241,20 @@ export {
 };
 
 export {
+    WorkflowExecutionEvent,
+    WorkflowExecutionEventType,
+    WorkflowExecutionEventMap,
+    WorkflowEventEmitter,
+    defaultWorkflowEventEmitter,
+    setDefaultMonitor,
+    getDefaultMonitor,
+    emitMonitoringEvent,
+    redactEvent,
+    redactValue,
+    RedactionOptions
+};
+
+export {
     NetworkPolicyConfig,
     EffectiveNetworkPolicy,
     HostPattern,
@@ -263,6 +291,9 @@ export interface ExecutionOptions {
     dependencies?: Record<string, any>;
     // Network Policy
     networkPolicy?: NetworkPolicyConfig;
+    // Live Monitoring
+    monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
+    ast?: WorkflowNode;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
@@ -290,6 +321,7 @@ export interface Flow<TInput = any, TOutput = any> {
     compensate: (stackId: string, options?: any) => Promise<any>;
     networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
     networkPolicyConfig?: NetworkPolicyConfig;
+    monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
 }
 
 export type FlowItem<TIn = any, TOut = any> =
@@ -406,6 +438,7 @@ export function flow<TInput = any, TOutput = any>(
     let defaultTimeoutMs: number | undefined;
     let declaredVersion: string | number | undefined;
     let flowPolicyConfig: NetworkPolicyConfig | undefined;
+    let flowMonitor: any;
 
     const runFn = (param: any = {}, options?: ExecutionOptions) => {
         let resolvedNetworkPolicy = options?.networkPolicy;
@@ -417,6 +450,8 @@ export function flow<TInput = any, TOutput = any>(
         const effectiveOptions: ExecutionOptions = {
             ...(defaultTimeoutMs !== undefined ? { timeout: defaultTimeoutMs } : {}),
             ...(declaredVersion !== undefined ? { workflowVersion: declaredVersion } : {}),
+            ...(flowMonitor !== undefined ? { monitor: flowMonitor } : {}),
+            ast: flowObj.toGraph(),
             ...options,
             ...(resolvedNetworkPolicy !== undefined ? { networkPolicy: resolvedNetworkPolicy } : {})
         };
@@ -472,7 +507,11 @@ export function flow<TInput = any, TOutput = any>(
             flowObj.networkPolicyConfig = flowPolicyConfig;
             return flowObj;
         },
-        networkPolicyConfig: undefined
+        networkPolicyConfig: undefined,
+        monitor(emitter: any) {
+            flowMonitor = emitter;
+            return flowObj;
+        }
     };
     return flowObj;
 }
@@ -557,6 +596,9 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             : Array.isArray(steps)
                 ? flattenSteps(steps)
                 : steps;
+        if (effOptions && !effOptions.ast) {
+            effOptions = Object.assign({}, effOptions, { ast: toGraph(normalizedSteps) });
+        }
         return new Executer().start(effParam, normalizedSteps, effOptions);
     }
 
@@ -618,6 +660,10 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     // Network Interceptor Helpers
     static installNetworkInterceptors = installNetworkInterceptors;
     static uninstallNetworkInterceptors = uninstallNetworkInterceptors;
+
+    // Live Monitoring Helpers
+    static setDefaultMonitor = setDefaultMonitor;
+    static getDefaultMonitor = getDefaultMonitor;
 
     allowNetwork(hosts: HostPattern | HostPattern[]): this {
         const list = Array.isArray(hosts) ? hosts : [hosts];

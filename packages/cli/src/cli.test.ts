@@ -13,7 +13,8 @@ import {
     inspectCheckpoint,
     generateWorkflow,
     generateStep,
-    exportWorkflow
+    exportWorkflow,
+    startMonitor
 } from './index';
 
 describe('@siglo/cli Developer Tools Suite', () => {
@@ -166,5 +167,11 @@ describe('@siglo/cli Developer Tools Suite', () => {
 
         const json = exportWorkflow(wf, { format: "json" });
         expect(JSON.parse(json)).to.have.property("name", "s1");
+    });
+    it('starts live monitoring server via startMonitor', async () => {
+        const monitor = await startMonitor({ port: 0 });
+        expect(monitor.port).to.be.a('number');
+        expect(monitor.server).to.not.be.undefined;
+        await monitor.close();
     });
 });

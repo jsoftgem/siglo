@@ -33,6 +33,7 @@ import { combineAbortSignals } from '../signals';
 import { defaultCompensationManager } from '../../compensation';
 import { defaultIdempotencyStore, buildIdempotencyKey } from '../../idempotency';
 import { resolveEffectiveNetworkPolicy, networkPolicyStorage, ensureNetworkInterceptorsInstalled } from '../../network';
+import { emitMonitoringEvent } from '../../events/emitter';
 
 export default class StartChain {
     start: (initialParam: any, chains: any, options?: any) => Promise<any>;
@@ -213,6 +214,20 @@ export default class StartChain {
                                     }
 
                                     const executeStepLifecycle = () => {
+                                        const stepAttempt = (initialParam?.[ATTEMPT] ? (typeof initialParam[ATTEMPT] === 'function' ? initialParam[ATTEMPT]() : initialParam[ATTEMPT]) : 0) + 1;
+                                        const stepId = chain.$stepId || chain.$chainId || chainName;
+                                        const stepStartTime = Date.now();
+
+                                        emitMonitoringEvent(options, {
+                                            type: 'step:start',
+                                            stackId,
+                                            stepId,
+                                            stepName: chainName,
+                                            attempt: stepAttempt,
+                                            timestamp: stepStartTime,
+                                            namespace: options?.namespace
+                                        });
+
                                         new OnBefore(chain, param, (val) => {
                                             clearStepTimeout();
                                             safeResolve(val);
@@ -238,6 +253,16 @@ export default class StartChain {
                                                     if (claim === Status.COMPLETED) {
                                                         const cachedRes = await stepIdempStore.get(stepIdempKey);
                                                         clearStepTimeout();
+                                                        emitMonitoringEvent(options, {
+                                                            type: 'step:complete',
+                                                            stackId,
+                                                            stepId,
+                                                            stepName: chainName,
+                                                            durationMs: Math.max(0, Date.now() - stepStartTime),
+                                                            outputSummary: cachedRes,
+                                                            timestamp: Date.now(),
+                                                            namespace: options?.namespace
+                                                        });
                                                         new ResolveChain(safeResolve, cachedRes, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                         return;
                                                     }
@@ -254,6 +279,16 @@ export default class StartChain {
                                             }
 
                                             const executeOnAfterAndResolve = (output: any, ctx: any) => {
+                                                emitMonitoringEvent(options, {
+                                                    type: 'step:complete',
+                                                    stackId,
+                                                    stepId,
+                                                    stepName: chainName,
+                                                    durationMs: Math.max(0, Date.now() - stepStartTime),
+                                                    outputSummary: output,
+                                                    timestamp: Date.now(),
+                                                    namespace: options?.namespace
+                                                });
                                                 if (stepIdempKey) {
                                                     stepIdempStore.complete(stepIdempKey, output).catch(() => {});
                                                 }
@@ -304,6 +339,16 @@ export default class StartChain {
                                                                         enrichedResult[k] = v;
                                                                     }
                                                                 }, () => {
+                                                                    emitMonitoringEvent(options, {
+                                                                        type: 'step:complete',
+                                                                        stackId,
+                                                                        stepId,
+                                                                        stepName: chainName,
+                                                                        durationMs: Math.max(0, Date.now() - stepStartTime),
+                                                                        outputSummary: enrichedResult,
+                                                                        timestamp: Date.now(),
+                                                                        namespace: options?.namespace
+                                                                    });
                                                                     new ResolveChain(safeResolve, enrichedResult, chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                                 }, (afterErr: any) => {
                                                                     tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
@@ -429,7 +474,7 @@ export default class StartChain {
                                                     executeOnAfterAndResolve(undefined, context);
                                                 }
                                             }
-                                        }, propertyToContext, stackId);
+                                        }, propertyToContext, stackId, options);
                                     };
 
                                     if (effectiveNetworkPolicy?.enabled) {

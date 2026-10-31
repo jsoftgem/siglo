@@ -21,6 +21,7 @@
     "@siglo/sqs": "^1.0.0",
     "siglo": "^1.0.0",
     "ioredis": "^6.0.0",
-    "mongodb": "^7.7.0"
+    "mongodb": "^7.7.0",
+    "@siglo/monitor": "^1.0.0"
   }
 }

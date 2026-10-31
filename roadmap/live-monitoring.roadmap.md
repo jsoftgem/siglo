@@ -93,36 +93,36 @@ flowchart LR
 ```
 
 ### Phase 1: Event Bus & Runtime Hooks
-- [ ] Define standardized, typed execution events in core:
+- [x] Define standardized, typed execution events in core:
   - `flow:start`, `flow:complete`, `flow:error`, `flow:suspended`, `flow:resumed`
   - `step:start`, `step:complete`, `step:retry`, `step:error`, `step:skipped`
   - `context:change`, `cache:hit`, `cache:miss`, `checkpoint:save`
-- [ ] Implement an in-memory `WorkflowEventEmitter` in `@siglo/core` or through an enhanced `StorageAdapter` / middleware lifecycle.
-- [ ] Add event subscription hooks to `flow.run(input, { monitor: eventEmitter })`.
+- [x] Implement an in-memory `WorkflowEventEmitter` in `@siglo/core` or through an enhanced `StorageAdapter` / middleware lifecycle.
+- [x] Add event subscription hooks to `flow.run(input, { monitor: eventEmitter })`.
 
 ### Phase 2: Monitoring Adapter & Transport
-- [ ] Create `@siglo/monitor` package.
-- [ ] Implement event broadcasting transports:
+- [x] Create `@siglo/monitor` package.
+- [x] Implement event broadcasting transports:
   - **Server-Sent Events (SSE)** for lightweight one-way browser streaming.
   - **WebSocket server** for bi-directional streaming and interactive controls.
   - **Redis Pub/Sub adapter** for multi-process / distributed worker monitoring.
-- [ ] Add context redaction hooks to prevent leaking sensitive credentials in monitoring feeds.
+- [x] Add context redaction hooks to prevent leaking sensitive credentials in monitoring feeds.
 
 ### Phase 3: Web Dashboard & CLI Integration
-- [ ] Implement static single-page web UI:
+- [x] Implement static single-page web UI:
   - Workflow DAG visualization based on `flow.toJSON()`.
   - Node status badges: ⏱️ timeout, 🔁 retry count, ⏪ sagas, ⏳ wait state.
   - Timeline waterfall view showing step-by-step latency.
   - Context inspector with JSON diff viewer between step execution phases.
-- [ ] Add CLI integration:
+- [x] Add CLI integration:
   - `siglo monitor [options]` to serve the dashboard locally.
   - Built-in HTTP middleware for Express, Fastify, and Hono apps (`app.use('/_siglo', sigloMonitorMiddleware())`).
 
 ### Phase 4: Interactive Controls & Production Telemetry
-- [ ] **Interactive Resumption**: Allow sending events directly from the dashboard to unblock suspended flows (`resumeWorkflow(stackId, payload)`).
-- [ ] **Step Replay**: Ability to replay individual failed steps using recorded context fixtures (`@siglo/testing`).
-- [ ] **Prometheus Metrics Exporter**: Emit Prometheus metrics (`siglo_flow_duration_seconds`, `siglo_step_retries_total`, `siglo_active_flows`).
-- [ ] **Grafana Dashboard Templates**: Provide ready-to-import Grafana JSON dashboards.
+- [x] **Interactive Resumption**: Allow sending events directly from the dashboard to unblock suspended flows (`resumeWorkflow(stackId, payload)`).
+- [x] **Step Replay**: Ability to replay individual failed steps using recorded context fixtures (`@siglo/testing`).
+- [x] **Prometheus Metrics Exporter**: Emit Prometheus metrics (`siglo_flow_duration_seconds`, `siglo_step_retries_total`, `siglo_active_flows`).
+- [x] **Grafana Dashboard Templates**: Provide ready-to-import Grafana JSON dashboards.
 
 ---
 
