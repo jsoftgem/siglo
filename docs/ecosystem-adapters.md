@@ -13,6 +13,7 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 | Package | Category | Documentation Guide | Key Features |
 | :--- | :--- | :--- | :--- |
 | **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
+| **`@siglo/http`** | HTTP Client Egress | [HTTP Client Guide](adapters/http.md) | Resilient client steps, ASL egress perimeter, W3C tracing, Retry-After backoff, sagas |
 | **`@siglo/redis`** | Storage & Caching | [Redis Adapter Guide](adapters/redis.md) | Distributed checkpoints, step caching, atomic idempotency, single-flight mutex |
 | **`@siglo/postgres`** | Storage & Persistence | [PostgreSQL Adapter Guide](adapters/postgres.md) | ACID checkpoints, context mutation audit log, automatic DDL, retention cleanup |
 | **`@siglo/bullmq`** | Queue & Job Worker | [BullMQ Adapter Guide](adapters/bullmq.md) | Redis job queue consumer, job ID deduplication, concurrency control |
@@ -47,6 +48,10 @@ flowchart TD
         Core["• Composable Steps & Flows<br/>• Concurrency & Combinators<br/>• Two-Tier Timeouts<br/>• Saga LIFO Compensations<br/>• Cooperative Cancellation<br/>• Graph AST & Introspection"]
     end
 
+    subgraph EGRESS["OUTBOUND CLIENT EGRESS"]
+        HttpClient["@siglo/http<br/>• Resilient httpStep()<br/>• ASL Egress Perimeter<br/>• W3C Distributed Tracing<br/>• Declarative Sagas"]
+    end
+
     subgraph OBS["Observability & Developer Tools"]
         OTel["@siglo/opentelemetry<br/>• Workflow & Step Spans<br/>• Retry & Error Tracking<br/>• W3C Trace Context<br/>• PII Sanitization"]
         CLI["@siglo/cli<br/>• Scaffolding & Validation<br/>• AST Visualizer & Replay"]
@@ -59,6 +64,7 @@ flowchart TD
 
     HTTP --> ENGINE
     QUEUES --> ENGINE
+    ENGINE --> EGRESS
     ENGINE --> OBS
     ENGINE --> STORAGE
 ```
@@ -98,15 +104,9 @@ Queue and event adapters (`bullmq`, `kafka`, `sqs`) enforce exactly-once executi
 
 $$\text{Incoming Record} \longrightarrow \text{claim}(\text{key}, \text{ttl}) \longrightarrow \begin{cases} \text{'completed'} & \implies \text{Return cached result (ACK)} \\ \text{'in-progress'} & \implies \text{Throw conflict (Avoid parallel runs)} \\ \text{'claimed'} & \implies \text{Run workflow} \end{cases}$$
 
-- On workflow success: `store.complete(key, result)` is called.
-- On workflow error: `store.fail(key, error)` is called to clear the in-flight claim, allowing retry mechanisms to reprocess.
-
-### 4. Cooperative Cancellation
-When clients disconnect or timeouts elapse, HTTP adapters propagate `AbortSignal` into `ExecutionOptions.signal`. Steps inspect `param.$signal?.()` to cooperatively cancel pending outbound requests or database queries, eliminating orphaned server resources.
-
 ---
 
-## Ingress Adapters Comparison Matrix
+## Trigger Adapters Comparison Matrix
 
 | Feature | `@siglo/hono` | `@siglo/fastify` | `@siglo/express` | `@siglo/bullmq` | `@siglo/kafka` | `@siglo/sqs` |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -138,102 +138,44 @@ When clients disconnect or timeouts elapse, HTTP adapters propagate `AbortSignal
 
 The following blueprint illustrates how to combine multiple adapters into an enterprise microservice:
 
-```mermaid
-flowchart TD
-    Client["Client Request<br/>(HTTP POST /checkout with x-request-id)"] --> Fastify["@siglo/fastify Ingress Handler<br/>• Extracts body, request.raw.signal, and correlation ID"]
-    Fastify --> OTel["@siglo/opentelemetry Monitored Workflow<br/>• Creates root span 'workflow:CheckoutPipeline'<br/>• Injects W3C traceparent headers<br/>• Filters context attributes via allowlist"]
-    OTel --> Engine["Siglo Engine Execution<br/>1. Step: checkInventory (cached via @siglo/redis: 5-min TTL)<br/>2. Step: chargeCustomer (protected by saga compensation)<br/>3. Step: publishFulfillmentEvent (sent to Kafka via @siglo/kafka)"]
-    Engine --> Postgres["@siglo/postgres Storage Adapter<br/>• Persists execution checkpoint JSONB<br/>• Records field mutations to siglo_context_events"]
-```
-
-### Complete Code Blueprint:
-
 ```typescript
 import Fastify from 'fastify';
-import { Pool } from 'pg';
-import { Redis } from 'ioredis';
-import { Step, flow } from 'siglo';
+import { flow, Step } from 'siglo';
 import { sigloFastifyHandler } from '@siglo/fastify';
-import { instrumentWorkflow, createTelemetryStorageAdapter } from '@siglo/opentelemetry';
-import { PostgresStorageAdapter } from '@siglo/postgres';
+import { httpStep } from '@siglo/http';
 import { RedisStorageAdapter } from '@siglo/redis';
+import { instrumentWorkflow } from '@siglo/opentelemetry';
+import { trace } from '@opentelemetry/api';
 
-// 1. Establish Infrastructure Connections
-const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+// 1. Initialize Fastify & Storage
+const server = Fastify();
+Step.useStorage(new RedisStorageAdapter({ url: process.env.REDIS_URL }));
 
-// 2. Setup Persistent Storage and Auditing
-const postgresStorage = new PostgresStorageAdapter({ client: pgPool });
-await postgresStorage.ensureTables();
-Step.useStorage(postgresStorage);
-
-// 3. Define Business Logic Steps
-const validateOrder = Step.create('validateOrder', async ({ orderId, amount }: any) => {
-    if (!orderId || amount <= 0) {
-        const err = new Error('Invalid order payload');
-        err.name = 'ValidationException';
-        throw err;
-    }
-    return { orderId, amount, status: 'VALIDATED' };
+// 2. Define Workflows using @siglo/http for external calls
+const chargePayment = httpStep('chargePayment', {
+  url: 'https://api.stripe.com/v1/charges',
+  method: 'POST',
+  body: (ctx) => ({ amount: ctx.amount, customer: ctx.customerId }),
+  compensate: {
+    url: (_ctx, res) => `https://api.stripe.com/v1/refunds/${res.id}`,
+    method: 'DELETE'
+  }
 });
 
-const chargeCard = Step.create('chargeCard', async (param: any) => {
-    // Payment provider charge
-    return { transactionId: `txn_${param.orderId}`, charged: true };
-});
-
-const checkoutFlow = flow(validateOrder, chargeCard);
-
-// 4. Wrap with OpenTelemetry Tracing
-const monitoredFlow = instrumentWorkflow(checkoutFlow, {
-    workflowName: 'CheckoutService',
-    workflowVersion: '2.0.0',
-    allowNamespace: true,
-});
-
-// 5. Mount Ingress Fastify Handler
-const app = Fastify({ logger: true });
-
-app.post(
-    '/api/checkout',
-    sigloFastifyHandler(monitoredFlow, {
-        timeout: 10000,
-        correlationIdHeader: 'x-request-id',
-        namespace: (req) => req.headers['x-tenant-id'] as string,
-        output: (result, reply) => {
-            reply.status(200).send({
-                success: true,
-                orderId: result.orderId,
-                transactionId: result.transactionId,
-            });
-        },
-    })
+const checkoutPipeline = flow(
+  chargePayment,
+  Step.create('fulfillOrder', async (ctx) => ({ orderId: ctx.orderId, status: 'FULFILLED' }))
 );
 
-// 6. Graceful Shutdown Routine
-const shutdown = async () => {
-    app.log.info('Shutting down service...');
-    await app.close();
-    await redis.quit();
-    await pgPool.end();
-    process.exit(0);
-};
+// 3. Instrument Workflow with OpenTelemetry
+const tracer = trace.getTracer('checkout-service');
+const { instrumented } = instrumentWorkflow(checkoutPipeline, tracer);
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+// 4. Mount with Fastify Adapter
+server.post('/api/checkout', sigloFastifyHandler(instrumented, {
+  correlationIdHeader: 'x-correlation-id',
+  allowHeaderNamespace: true
+}));
 
-await app.listen({ port: 3000, host: '0.0.0.0' });
+await server.listen({ port: 3000 });
 ```
-
----
-
-## Production Readiness Checklist
-
-Before deploying workflows and adapters to production, verify the following configuration points:
-
-- [ ] **Connection Pooling**: Configure database connection pool sizes (`pg.Pool`, `ioredis`) to prevent resource exhaustion during traffic spikes.
-- [ ] **Idempotency TTL**: Align `idempotencyTtlMs` with queue retry policies. The idempotency claim TTL must exceed the maximum retry interval of your broker (BullMQ/Kafka/SQS).
-- [ ] **Cooperative Cancellation**: Verify that external HTTP requests, RPC calls, and database drivers consume `param.$signal?.()` so client disconnects do not leave lingering queries.
-- [ ] **Data Retention & Schema Cleanup**: Schedule periodic cron jobs to call `cleanupOldCheckpoints(days)` and `cleanupOldEvents(days)` in PostgreSQL.
-- [ ] **PII & Data Redaction**: Verify that sensitive credentials, authentication tokens, and user data are masked when using `@siglo/cli inspect/checkpoint` or `@siglo/opentelemetry allowContextFields`.
-- [ ] **Graceful Process Shutdown**: Ensure `process.on('SIGTERM')` drains active message consumers (`worker.close()`, `consumer.disconnect()`) and terminates database pools before exiting.
