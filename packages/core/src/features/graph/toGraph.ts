@@ -1,6 +1,5 @@
 import { WorkflowNode, StepNode } from './types';
 import { generateUUID, isFunction, isObject, WorkflowNodeType } from '../../shared';
-import { isFlow } from '../step';
 
 export function isWorkflowNode(item: any): item is WorkflowNode {
     return (
@@ -56,7 +55,7 @@ export function toGraph(item: any): WorkflowNode {
     }
 
     // Step instance
-    if (item && typeof item === 'object' && (item.action || item.func || item.$chainId)) {
+    if (item && typeof item === 'object' && (item.action || item.func || item.$chainId || item.$stepId)) {
         if (Array.isArray(item.sequence) && item.sequence.length > 1) {
             return {
                 id: item.$chainId || generateUUID(),

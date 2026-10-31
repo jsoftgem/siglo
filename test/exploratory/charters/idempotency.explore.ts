@@ -38,6 +38,9 @@ export async function runIdempotencyCharter(
         }
 
         const results = await Promise.allSettled(promises);
+        if (results.length !== stampedeSize) {
+            errors.push(`Iteration ${i}: Stampede promises length mismatch.`);
+        }
 
         // 2. Validate that execution body ran AT MOST once for the duration of the claim
         if (actualExecutionCount > 1) {

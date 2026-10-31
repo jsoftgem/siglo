@@ -130,7 +130,7 @@ export function createMultiCloudReplicationPipeline() {
         }),
 
         // 3. Non-blocking allSettled background hooks
-        allSettled(logReplicationAnalytics, pushReplicationAudit),
+        allSettled([logReplicationAnalytics, pushReplicationAudit]),
 
         // 4. Final verification and receipt
         assembleReceipt

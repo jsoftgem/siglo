@@ -19,6 +19,9 @@ export interface ExecutionLogRecord {
 
 export interface CheckpointRecord {
     _id?: string;
+    version?: number;
+    revision?: number;
+    timestamp?: number;
     stackId: string;
     namespace?: string;
     type: string;
@@ -110,6 +113,9 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         const doc = await this.checkpointsCollection.findOne({ stackId }).catch(() => null);
         if (doc) {
             return {
+                version: doc.version ?? 1,
+                revision: doc.revision ?? 0,
+                timestamp: doc.timestamp ?? Date.now(),
                 stackId: doc.stackId,
                 namespace: doc.namespace,
                 type: doc.type,

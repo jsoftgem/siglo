@@ -87,7 +87,7 @@ export function createKafkaEnrichmentWorkflow() {
  * Creates Kafka message consumer handler.
  */
 export function createKafkaTransactionConsumer(workflow = createKafkaEnrichmentWorkflow()) {
-    const handler = createKafkaMessageHandler(workflow, {
+    const handler = createKafkaMessageHandler<any, any>(workflow, {
         output: (result: any, message: any) => ({
             status: 'COMMITTED',
             key: message.key ? message.key.toString() : null,

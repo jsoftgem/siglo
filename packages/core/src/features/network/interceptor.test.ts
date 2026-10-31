@@ -223,7 +223,6 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 stepName: 'authorizedStep'
             };
 
-            const orig = (globalThis as any).fetch;
             let capturedInValidatedScope = false;
 
             uninstallNetworkInterceptors();
@@ -254,7 +253,6 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 stepName: 'invalidUrlStep'
             };
 
-            const orig = (globalThis as any).fetch;
             uninstallNetworkInterceptors();
             let origCalled = false;
             const mockOrig = async () => {
