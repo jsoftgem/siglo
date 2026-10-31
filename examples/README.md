@@ -107,10 +107,7 @@ examples/
     │       ├── index.ts
     │       └── usecase-1..22-*.ts
     ├── index.ts                    # Executable demo script running all 22 use cases
-    ├── index.test.ts               # Storage plugin & base order pipeline test suite
-    ├── usecases.test.ts            # Integration test suite for Phase 1 use cases
-    ├── phase2-usecases.test.ts     # Integration test suite for Phase 2 use cases
-    └── phase3-usecases.test.ts     # Integration test suite for Phase 3 use cases
+    └── index.test.ts               # Complete integration test suite covering storage plugins & all 22 use cases
 ```
 
 ---
@@ -121,19 +118,10 @@ examples/
 
 ```bash
 # Run the demo showcasing all 22 use cases and ecosystem integrations
-npm start --workspace=Siglo-examples
+npm start --workspace=siglo-examples
 
 # Run all test suites
-npm test --workspace=Siglo-examples
-
-# Run Phase 1 event-driven use cases specifically
-npm run test:usecases --workspace=Siglo-examples
-
-# Run Phase 2 workflow power use cases specifically
-npm run test:phase2 --workspace=Siglo-examples
-
-# Run Phase 3 ecosystem & adapter use cases specifically
-npm run test:phase3 --workspace=Siglo-examples
+npm test --workspace=siglo-examples
 ```
 
 ### Live Docker Services Mode (Optional)
@@ -149,5 +137,5 @@ REDIS_URL="redis://:redispassword@localhost:6379" \
 MONGODB_URI="mongodb://admin:mongopassword@localhost:27017/siglo_db?authSource=admin" \
 POSTGRES_URL="postgres://postgres:postgrespassword@localhost:5432/siglo_db" \
 KAFKA_BROKERS="localhost:9092" \
-npm start --workspace=Siglo-examples
+npm start --workspace=siglo-examples
 ```

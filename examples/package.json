@@ -6,11 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "tsx --test \"src/**/*.test.ts\"",
-    "test:usecases": "tsx --test src/usecases.test.ts",
-    "test:phase2": "tsx --test src/phase2-usecases.test.ts",
-    "test:phase3": "tsx --test src/phase3-usecases.test.ts",
-    "test:order": "tsx --test src/index.test.ts"
+    "test": "tsx --test src/index.test.ts"
   },
   "dependencies": {
     "@siglo/bullmq": "^1.0.0",
