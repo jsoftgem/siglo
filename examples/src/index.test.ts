@@ -46,6 +46,7 @@ import {
     createSaaSBillingWorkflow,
     setupSaaSBillingInfrastructure
 } from './workflow/usecases';
+import {FlowContextResult} from "siglo/src/features/step";
 
 // ============================================================================
 //   Base Storage Plugin & Order Pipeline Test
@@ -177,7 +178,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
 
     await t.test('Use Case 6: CDC Lakehouse ETL', async () => {
         const pipeline = createCdcLakehousePipeline();
-        const res = await pipeline.run({
+        const res:FlowContextResult<any> = await pipeline.run({
             op: 'c',
             source: { db: 'db1', table: 'tbl_users', lsn: 100, ts_ms: Date.now() },
             before: null,
@@ -410,12 +411,13 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
 
             // Validation Error Branch
             const errReply = {
+                payload: undefined,
                 statusCode: 200,
                 status(code: number) { this.statusCode = code; return this; },
                 header() { return this; },
                 send(data: any) { this.payload = data; return this; }
             };
-            const errRes: any = await fastifyHandler({
+            const errRes: FlowContextResult<any> = await fastifyHandler({
                 body: { orderId: 'BAD', items: [] }
             } as any, errReply as any);
             assert.equal((errRes || errReply).status, 400);
@@ -444,6 +446,7 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
             // Validation Error Branch
             let errorStatus = 0;
             const errRes = {
+                payload: undefined,
                 status(code: number) { errorStatus = code; return this; },
                 json(d: any) { this.payload = d; return this; }
             };
