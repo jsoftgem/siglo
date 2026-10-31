@@ -11,7 +11,7 @@ export interface ExecutionLogRecord {
     _id?: string;
     namespace?: string;
     stackId: string;
-    chainId: string;
+    stepId: string;
     field: string;
     value: any;
     timestamp: number;
@@ -65,7 +65,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         await this.logsCollection.insertOne({
             namespace,
             stackId,
-            chainId: stepId,
+            stepId,
             field,
             value,
             timestamp

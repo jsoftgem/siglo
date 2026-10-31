@@ -1182,12 +1182,12 @@ describe("Step unit test", () => {
             const stackLedger = new Map<string, string[]>();
 
             const origAddChain = defaultStorageManager.addChainToStack.bind(defaultStorageManager);
-            defaultStorageManager.addChainToStack = (stackId: string, chainId: string) => {
+            defaultStorageManager.addChainToStack = (stackId: string, stepId: string) => {
                 if (!stackLedger.has(stackId)) {
                     stackLedger.set(stackId, []);
                 }
-                stackLedger.get(stackId)!.push(chainId);
-                origAddChain(stackId, chainId);
+                stackLedger.get(stackId)!.push(stepId);
+                origAddChain(stackId, stepId);
             };
 
             try {
@@ -1198,10 +1198,10 @@ describe("Step unit test", () => {
 
                 expect(stackLedger.size).to.be.greaterThan(0);
                 const recordedStacks = Array.from(stackLedger.entries());
-                const [stackId, chainIds] = recordedStacks[recordedStacks.length - 1];
+                const [stackId, stepIds] = recordedStacks[recordedStacks.length - 1];
                 expect(stackId).to.be.a("string");
-                expect(chainIds.length).to.equal(3);
-                chainIds.forEach(id => expect(id).to.be.a("string"));
+                expect(stepIds.length).to.equal(3);
+                stepIds.forEach(id => expect(id).to.be.a("string"));
             } finally {
                 defaultStorageManager.addChainToStack = origAddChain;
             }
@@ -1209,21 +1209,21 @@ describe("Step unit test", () => {
 
 
         it("passes stackId to setPutChainContextPlugin during pipeline execution", async () => {
-            const contextEntries: Array<{ chainId: string; field: string; val: any; stackId?: string }> = [];
+            const contextEntries: Array<{ stepId: string; field: string; val: any; stackId?: string }> = [];
             const state = defaultStorageManager.getState();
 
-            setPutChainContextPlugin((chainId: string, field: string, getter: () => any, meta?: any) => {
+            setPutChainContextPlugin((stepId: string, field: string, getter: () => any, meta?: any) => {
                 const val = getter();
                 contextEntries.push({
-                    chainId,
+                    stepId,
                     field,
                     val,
                     stackId: meta?.stackId
                 });
-                let ctx = state.contexts.get(chainId);
+                let ctx = state.contexts.get(stepId);
                 if (!ctx) {
                     ctx = {};
-                    state.contexts.set(chainId, ctx);
+                    state.contexts.set(stepId, ctx);
                 }
                 ctx[field] = () => val;
             });

@@ -24,7 +24,7 @@ Context **accumulates** across sequential steps within the same execution flow:
 
 ### 3. How do multiple steps with the same name behave?
 
-- Every step instance is assigned an internal, immutable UUID (`$chainId` / `$stepId`).
+- Every step instance is assigned an internal, immutable UUID (`$stepId`).
 - Steps sharing the same descriptive name (e.g. two steps named `'processChunk'`) execute independently according to their sequence position.
 - In `$steps` / `$history`, named lookups return the output of the most recent step with that name.
 - Cache keys incorporate the step's unique identifier and hashed inputs, preventing name collisions unless explicitly shared via custom `cacheOptions.keySerializer`.

@@ -8,6 +8,7 @@ describe('context.unit.test', () => {
     it('should create new context', () => {
         const context = new Context('0001');
         expect(context).to.be.not.undefined;
+        expect(context.$stepId).to.equal('0001');
     });
 
 
@@ -27,7 +28,8 @@ describe('context.unit.test', () => {
     it('should create context via static method', () => {
         const context = Context.createContext('0001_static');
         expect(context).to.be.not.undefined;
-        expect(context.getData().$chainId()).to.equal('0001_static');
+        expect(context.$stepId).to.equal('0001_static');
+        expect(context.getData().$stepId()).to.equal('0001_static');
     });
 
     it('should set context value', () => {

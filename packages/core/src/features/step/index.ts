@@ -530,7 +530,6 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     cachedLast?: number;
     cacheOptions?: CacheOptions;
     timeoutMs?: number;
-    $chainId?: string;
     $stepId?: string;
     func?: string;
     // Phase 2
@@ -565,8 +564,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             this.action = action;
         }
         this.func = (this.name as string);
-        this.$chainId = generateUUID();
-        this.$stepId = this.$chainId;
+        this.$stepId = generateUUID();
         this.specs = [];
         this.onbefore = () => true;
         this.sequence = sequence || [];

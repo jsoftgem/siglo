@@ -1,28 +1,28 @@
 import { VALIDATORS } from '../../shared';
 
 export class Validators {
-    private readonly chainId: string;
-    private readonly getChainContext: (chainId: string, field: string) => any;
+    private readonly stepId: string;
+    private readonly getChainContext: (stepId: string, field: string) => any;
     private CollectPromiseResult: any;
 
     constructor(
-        chainId: string,
-        getChainContext: (chainId: string, field: string) => any,
+        stepId: string,
+        getChainContext: (stepId: string, field: string) => any,
         CollectPromiseResult?: any
     ) {
-        this.chainId = chainId;
+        this.stepId = stepId;
         this.getChainContext = getChainContext;
         this.CollectPromiseResult = CollectPromiseResult;
     }
 
     addSpec(fieldSpec: any, setChainContextValue: (name: string, value: any) => void): void {
-        const oldValidators = this.getChainContext(this.chainId, VALIDATORS);
+        const oldValidators = this.getChainContext(this.stepId, VALIDATORS);
         const validators = Object.assign([], [...(oldValidators ? oldValidators() : []), fieldSpec]);
         setChainContextValue(VALIDATORS, validators);
     }
 
     runValidations(context: any): Promise<void> {
-        const rawValidators = this.getChainContext(this.chainId, VALIDATORS);
+        const rawValidators = this.getChainContext(this.stepId, VALIDATORS);
         const _validators = rawValidators ? rawValidators() : [];
         const validators = _validators.map((validator: any) => {
             if (validator.actions && validator.actions.includes('schema')) {
@@ -42,7 +42,7 @@ export class Validators {
     }
 
     runSpecs(context: any): Promise<void> {
-        const rawValidators = this.getChainContext(this.chainId, VALIDATORS);
+        const rawValidators = this.getChainContext(this.stepId, VALIDATORS);
         const _validators = rawValidators ? rawValidators() : [];
         const validators = _validators.map((validator: any) => {
             const promises = validator.actions.map((action: string) => {
@@ -59,6 +59,7 @@ export class Validators {
                         return validator.runTranslate(context);
                     case 'schema':
                         return validator.runSchema(context);
+                    /* c8 ignore next 2 */
                     default:
                         return Promise.resolve();
                 }

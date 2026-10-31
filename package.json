@@ -14,7 +14,7 @@
     "compile": "npm run build",
     "lint": "eslint packages/*/src examples/src test",
     "test": "npm run build --workspace=siglo && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
-    "test:packages": "mocha 'packages/*/src/**/*.test.ts'",
+    "test:packages": "mocha 'packages/*/src/**/*.test.ts' --exit",
     "test:examples": "npm run test --workspace=siglo-examples",
     "test:all": "npm test && npm run test:packages && npm run test:examples",
     "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",

@@ -1,6 +1,6 @@
 export function setContextValue(
-    setChainContext: (chainId: string, name: string, value: any, meta?: any) => void,
-    chainId: string,
+    setChainContext: (stepId: string, name: string, value: any, meta?: any) => void,
+    stepId: string,
     name: string,
     value: any,
     meta?: any
@@ -8,7 +8,7 @@ export function setContextValue(
     if (value instanceof Function) {
         throw new FunctionAsValueException();
     }
-    setChainContext(chainId, name, value, meta);
+    setChainContext(stepId, name, value, meta);
 }
 
 export class FunctionAsValueException extends Error {

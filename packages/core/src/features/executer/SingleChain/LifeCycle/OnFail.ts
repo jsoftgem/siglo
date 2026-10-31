@@ -1,5 +1,5 @@
 import { FlowTimeoutException } from '../../exceptions';
-import { CHAIN_ID, ATTEMPT, RETRY_DELAY } from '../../../../shared';
+import { STEP_ID, ATTEMPT, RETRY_DELAY } from '../../../../shared';
 import { emitMonitoringEvent } from '../../../events/emitter';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
@@ -46,8 +46,8 @@ export default class OnFail {
         const emitStepError = (err: any) => {
             emitMonitoringEvent(options, {
                 type: 'step:error',
-                stackId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
-                stepId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
+                stackId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
+                stepId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
                 stepName: chain.func || chain.name || 'chain',
                 attempt: currentAttemptNumber,
                 error: {
@@ -136,8 +136,8 @@ export default class OnFail {
                         initialParam[RETRY_MAP] = {};
                     }
                 }
-                const stepKey = (chains && typeof chains === 'object' && chains[CHAIN_ID])
-                    ? chains[CHAIN_ID]
+                const stepKey = (chains && typeof chains === 'object' && chains[STEP_ID])
+                    ? chains[STEP_ID]
                     : (chain.func || chain.name || (typeof chains === 'string' ? chains : 'chain'));
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
@@ -175,8 +175,8 @@ export default class OnFail {
 
                     emitMonitoringEvent(options, {
                         type: 'step:retry',
-                        stackId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
-                        stepId: (chains && chains.$chainId) || chain.$stepId || chain.$chainId || chain.name || '',
+                        stackId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
+                        stepId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
                         stepName: chain.func || chain.name || 'chain',
                         attempt: currentAttempt,
                         maxAttempts: maxRetries,

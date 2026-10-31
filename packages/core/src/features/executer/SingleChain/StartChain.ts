@@ -43,7 +43,7 @@ export default class StartChain {
         Context: any,
         propertyToContext: (context: any, chainReturn: any) => void,
         Reducer: any,
-        addChainToStack: (stackId: string, chainId: string) => void,
+        addChainToStack: (stackId: string, stepId: string) => void,
         stackId: string,
         cache: any,
         logInfo: (source: string, message: any) => void,
@@ -88,7 +88,7 @@ export default class StartChain {
                 setTimeout(() => {
                     const chain = (chains && typeof chains === 'object')
                         ? Object.assign({}, chains, {
-                            $chainId: generateUUID(),
+                            $stepId: chains.$stepId || generateUUID(),
                             func: chains.func || chains.name || ''
                         })
                         : getChain(chains);
@@ -125,12 +125,12 @@ export default class StartChain {
                     };
 
                     try {
-                        addChainToStack(stackId, chain.$chainId);
+                        addChainToStack(stackId, chain.$stepId);
                         /* c8 ignore next 3 */
-                        const contextChainId = typeof initialParam?.$chainId === 'function'
-                            ? initialParam.$chainId()
-                            : (initialParam?.$chainId || chain.$chainId);
-                        const paramAsContext = new Context(contextChainId, stackId, options?.namespace);
+                        const contextStepId = typeof initialParam?.$stepId === 'function'
+                            ? initialParam.$stepId()
+                            : (initialParam?.$stepId || chain.$stepId);
+                        const paramAsContext = new Context(contextStepId, stackId, options?.namespace);
                         new AddSpecToContext(chain.specs, paramAsContext);
                         new AddInitialParam(initialParam, paramAsContext);
                         paramAsContext.runSpecs().then(() => {
@@ -215,7 +215,7 @@ export default class StartChain {
 
                                     const executeStepLifecycle = () => {
                                         const stepAttempt = (initialParam?.[ATTEMPT] ? (typeof initialParam[ATTEMPT] === 'function' ? initialParam[ATTEMPT]() : initialParam[ATTEMPT]) : 0) + 1;
-                                        const stepId = chain.$stepId || chain.$chainId || chainName;
+                                        const stepId = chain.$stepId || chainName;
                                         const stepStartTime = Date.now();
 
                                         emitMonitoringEvent(options, {
@@ -294,7 +294,7 @@ export default class StartChain {
                                                 }
                                                 if (chain.compensationHandler) {
                                                     defaultCompensationManager.registerCompensation(stackId, {
-                                                        stepId: chain.$stepId || chain.$chainId,
+                                                        stepId: chain.$stepId,
                                                         stepName: chainName,
                                                         output,
                                                         input: toPOJO(param),
@@ -362,7 +362,7 @@ export default class StartChain {
 
                                                 runReducerAction();
                                             } else {
-                                                let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$chainId) || chain.$chainId);
+                                                let cacheKey = typeof chains === 'string' ? chains : (chain.name || (chains && chains.$stepId) || chain.$stepId);
                                                 let actionParam = Object.assign({}, toPOJO(param));
                                                 (actionParam as any)[SERVICES] = mergedServices;
                                                 (actionParam as any)[DEPENDENCIES] = mergedServices;
@@ -422,7 +422,7 @@ export default class StartChain {
                                                     }, safeReject.bind(this), this, initialParam, chains, logInfo, logError, executeAfter, Context, options);
                                                     return;
                                                 }
-                                                const context = Context.createContext(chain.$chainId, stackId, options?.namespace);
+                                                const context = Context.createContext(chain.$stepId, stackId, options?.namespace);
                                                 logInfo('SingleChain', {
                                                     chain: chains,
                                                     message: 'Starting action',

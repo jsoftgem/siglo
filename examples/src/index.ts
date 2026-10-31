@@ -93,7 +93,9 @@ async function main() {
     // --- 3. Financial Transaction Processing & Fraud Detection ---
     console.log('\n[Demo] 3. Financial Transaction Processing & Fraud Detection...');
     const finPipeline = createFinancialFraudPipeline();
-    const finRes = await finPipeline.run({
+    const finRes = await finPipeline
+        .monitor(attachToMonitorServer(4000))
+        .run({
         transactionId: 'TXN-FIN-501',
         sourceAccountId: 'ACCT-USER-100',
         destinationAccountId: 'ACCT-USER-200',

@@ -168,7 +168,7 @@ export class Runner {
             });
 
             const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, namespace);
-            this.addChainToStack(stackId, newParam.$chainId());
+            this.addChainToStack(stackId, newParam.$stepId());
             if (effectiveSignal) {
                 const sigFn = () => effectiveSignal;
                 (sigFn as any).val = effectiveSignal;

@@ -28,7 +28,7 @@ export default class OnBefore {
             emitMonitoringEvent(options, {
                 type: 'step:skipped',
                 stackId: actualStackId || '',
-                stepId: chain.$stepId || chain.$chainId || chain.name || '',
+                stepId: chain.$stepId || chain.name || '',
                 stepName: chain.func || chain.name || '',
                 timestamp: Date.now(),
                 namespace: options?.namespace

@@ -1,4 +1,4 @@
-import { CHAIN_ID, STACK_ID, VALIDATORS, SIGNAL, SIGNAL_KEY, NAMESPACE, SERVICES, DEPENDENCIES, DEPS, STEPS, HISTORY } from '../../shared';
+import { STEP_ID, STACK_ID, VALIDATORS, SIGNAL, SIGNAL_KEY, NAMESPACE, SERVICES, DEPENDENCIES, DEPS, STEPS, HISTORY } from '../../shared';
 
 export function toPOJO<T = Record<string, any>>(data: any): T {
     if (!data || typeof data !== 'object') {
@@ -10,7 +10,7 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
     const result: Record<string, any> = {};
     const keys = Object.keys(data);
     for (const key of keys) {
-        if (key === VALIDATORS || key === CHAIN_ID || key === STACK_ID || key === SERVICES || key === DEPENDENCIES || key === DEPS) {
+        if (key === VALIDATORS || key === STEP_ID || key === STACK_ID || key === SERVICES || key === DEPENDENCIES || key === DEPS) {
             continue;
         }
         if (key === SIGNAL || key === SIGNAL_KEY || key === NAMESPACE || key === STEPS || key === HISTORY) {

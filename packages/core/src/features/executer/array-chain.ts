@@ -168,7 +168,7 @@ const executeArrayChain = (
                         eventName: err.eventName || 'wait',
                         status: Status.WAITING,
                         continuationStepIndex: stepIndex + 1,
-                        stepId: chain?.$stepId || chain?.$chainId || `$step_${stepIndex}`,
+                        stepId: chain?.$stepId || `$step_${stepIndex}`,
                         expiresAt: err.expiresAt,
                         createdAt: Date.now(),
                         version: options.workflowVersion

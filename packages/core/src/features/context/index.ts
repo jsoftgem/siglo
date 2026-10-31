@@ -1,18 +1,18 @@
 import { getChainContext, getChainDataById, putChainContext } from '../storage';
 
-import { CollectPromiseResult, CHAIN_ID, STACK_ID, NAMESPACE } from '../../shared';
+import { CollectPromiseResult, STEP_ID, STACK_ID, NAMESPACE } from '../../shared';
 import { GetContext } from './get';
 import { Validators } from './validators';
 import { setContextValue } from './set';
 import { toPOJO } from './proxy';
 
 export default class Context {
-    $chainId: string;
+    $stepId: string;
     $stackId?: string;
     $namespace?: string;
 
-    constructor($chainId: string, $stackId?: string, $namespace?: string) {
-        this.$chainId = $chainId;
+    constructor($stepId: string, $stackId?: string, $namespace?: string) {
+        this.$stepId = $stepId;
         this.$stackId = $stackId;
         this.$namespace = $namespace;
     }
@@ -25,7 +25,7 @@ export default class Context {
         if (this.$namespace) {
             meta.namespace = this.$namespace;
         }
-        setContextValue(putChainContext, this.$chainId, name, value, Object.keys(meta).length ? meta : undefined);
+        setContextValue(putChainContext, this.$stepId, name, value, Object.keys(meta).length ? meta : undefined);
     }
 
     setStackId(stackId: string): void {
@@ -39,25 +39,25 @@ export default class Context {
     }
 
     addSpec(fieldSpec: any): void {
-        new Validators(this.$chainId, getChainContext.bind(this))
+        new Validators(this.$stepId, getChainContext.bind(this))
             .addSpec(fieldSpec, this.set.bind(this));
     }
 
     getData(): Record<string, any> {
-        return new GetContext(this.$chainId, getChainDataById.bind(this)).getContext();
+        return new GetContext(this.$stepId, getChainDataById.bind(this)).getContext();
     }
 
     validate(): Promise<void> {
-        return new Validators(this.$chainId, getChainContext.bind(this), CollectPromiseResult).runValidations(this);
+        return new Validators(this.$stepId, getChainContext.bind(this), CollectPromiseResult).runValidations(this);
     }
 
     runSpecs(): Promise<void> {
-        return new Validators(this.$chainId, getChainContext.bind(this), CollectPromiseResult).runSpecs(this);
+        return new Validators(this.$stepId, getChainContext.bind(this), CollectPromiseResult).runSpecs(this);
     }
 
-    static createContext(chainId: string, stackId?: string, namespace?: string): Context {
-        const context = new Context(chainId, stackId, namespace);
-        context.set(CHAIN_ID, chainId);
+    static createContext(stepId: string, stackId?: string, namespace?: string): Context {
+        const context = new Context(stepId, stackId, namespace);
+        context.set(STEP_ID, stepId);
         if (stackId) {
             context.set(STACK_ID, stackId);
         }

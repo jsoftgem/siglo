@@ -55,16 +55,16 @@ export function toGraph(item: any): WorkflowNode {
     }
 
     // Step instance
-    if (item && typeof item === 'object' && (item.action || item.func || item.$chainId || item.$stepId)) {
+    if (item && typeof item === 'object' && (item.action || item.func || item.$stepId)) {
         if (Array.isArray(item.sequence) && item.sequence.length > 1) {
             return {
-                id: item.$chainId || generateUUID(),
+                id: item.$stepId || generateUUID(),
                 name: item.name || item.func || 'sequence',
                 type: WorkflowNodeType.SEQUENCE,
                 children: item.sequence.map(toGraph)
             };
         }
-        const stepId = item.$stepId || item.$chainId || generateUUID();
+        const stepId = item.$stepId || generateUUID();
         const stepName = item.name || item.func || 'step';
         const stepPolicy = item.networkPolicyConfig || (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
         const node: StepNode = {

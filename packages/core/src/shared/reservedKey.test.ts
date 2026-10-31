@@ -5,6 +5,7 @@ import {
     STEPS,
     HISTORY,
     SIGNAL,
+    STEP_ID,
     CHAIN_ID,
     STACK_ID,
     NAMESPACE,
@@ -12,7 +13,7 @@ import {
     STACK_ID_KEY,
     SIGNAL_KEY,
     NAMESPACE_KEY,
-    STEP_ID,
+    STEP_ID_KEY,
     ATTEMPT,
     RETRY_DELAY,
     IS_DURABLE,
@@ -31,14 +32,14 @@ describe('shared.reservedKey.unit.test', () => {
         expect(isReservedKey('$steps')).to.be.true;
         expect(isReservedKey('$history')).to.be.true;
         expect(isReservedKey('$signal')).to.be.true;
-        expect(isReservedKey('$chainId')).to.be.true;
+        expect(isReservedKey('$stepId')).to.be.true;
         expect(isReservedKey('$stackId')).to.be.true;
         expect(isReservedKey('$namespace')).to.be.true;
         expect(isReservedKey('$$$validators')).to.be.true;
         expect(isReservedKey('stackId')).to.be.true;
         expect(isReservedKey('signal')).to.be.true;
         expect(isReservedKey('namespace')).to.be.true;
-        expect(isReservedKey('$stepId')).to.be.true;
+        expect(isReservedKey('stepId')).to.be.true;
 
         expect(isReservedKey('customField')).to.be.false;
         expect(isReservedKey('item')).to.be.false;
@@ -49,7 +50,8 @@ describe('shared.reservedKey.unit.test', () => {
         expect(STEPS).to.equal('$steps');
         expect(HISTORY).to.equal('$history');
         expect(SIGNAL).to.equal('$signal');
-        expect(CHAIN_ID).to.equal('$chainId');
+        expect(STEP_ID).to.equal('$stepId');
+        expect(CHAIN_ID).to.equal('$stepId');
         expect(STACK_ID).to.equal('$stackId');
         expect(NAMESPACE).to.equal('$namespace');
         expect(VALIDATORS).to.equal('$$$validators');
@@ -57,8 +59,8 @@ describe('shared.reservedKey.unit.test', () => {
         expect(STACK_ID_KEY).to.equal('stackId');
         expect(SIGNAL_KEY).to.equal('signal');
         expect(NAMESPACE_KEY).to.equal('namespace');
+        expect(STEP_ID_KEY).to.equal('stepId');
 
-        expect(STEP_ID).to.equal('$stepId');
         expect(ATTEMPT).to.equal('$attempt');
         expect(RETRY_DELAY).to.equal('$retryDelay');
         expect(IS_DURABLE).to.equal('$isDurable');
@@ -75,6 +77,7 @@ describe('shared.reservedKey.unit.test', () => {
     it('ReservedKey object exposes properties matching constants', () => {
         expect(ReservedKey.STEPS).to.equal(STEPS);
         expect(ReservedKey.SIGNAL).to.equal(SIGNAL);
+        expect(ReservedKey.STEP_ID).to.equal(STEP_ID);
         expect(ReservedKey.CHAIN_ID).to.equal(CHAIN_ID);
         expect(ReservedKey.VALUE).to.equal(VALUE);
     });

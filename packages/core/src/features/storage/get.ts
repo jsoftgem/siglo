@@ -1,14 +1,14 @@
 import { StorageState } from './state';
 
-export function getChainDataById(state: StorageState, chainId: string): any {
-    return state.contexts.get(chainId);
+export function getChainDataById(state: StorageState, stepId: string): any {
+    return state.contexts.get(stepId);
 }
 
-export function getChainContext(state: StorageState, chainId: string, field: string): any {
+export function getChainContext(state: StorageState, stepId: string, field: string): any {
     if (state.plugins.getChainContext) {
-        return state.plugins.getChainContext(chainId, field);
+        return state.plugins.getChainContext(stepId, field);
     }
-    const ctx = state.contexts.get(chainId);
+    const ctx = state.contexts.get(stepId);
     if (ctx) {
         return ctx[field];
     }
@@ -38,5 +38,5 @@ export const getLogMonitor = (state: StorageState): any => {
 export const getPlugins = (state: StorageState): any => {
     return state.config && state.config.plugins
         ? state.config.plugins
-        : undefined;
+        : () => false;
 };
