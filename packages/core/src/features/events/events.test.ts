@@ -422,8 +422,10 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
 
             await Step.start([skippedStep], {}, { monitor: emitter });
 
-            const skippedEv = events.find(e => e.type === 'step:skipped');
+            const skippedEv: any = events.find(e => e.type === 'step:skipped');
             expect(skippedEv).to.not.be.undefined;
+            expect(skippedEv.stackId).to.be.a('string');
+            expect(skippedEv.stackId.length).to.be.greaterThan(0);
         });
 
         it('emits step:retry, step:error, and flow:error on step failure', async () => {
@@ -448,12 +450,52 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             expect(types).to.include('step:error');
             expect(types).to.include('flow:error');
 
+            const flowStartEv = events.find(e => e.type === 'flow:start');
             const retryEv: any = events.find(e => e.type === 'step:retry');
             expect(retryEv.attempt).to.equal(1);
             expect(retryEv.maxAttempts).to.equal(2);
+            expect(retryEv.stackId).to.equal(flowStartEv?.stackId);
+            expect(retryEv.stepId).to.equal(failingStep.$stepId);
+
+            const stepErrorEv: any = events.find(e => e.type === 'step:error');
+            expect(stepErrorEv.stackId).to.equal(flowStartEv?.stackId);
+            expect(stepErrorEv.stepId).to.equal(failingStep.$stepId);
 
             const errEv: any = events.find(e => e.type === 'flow:error');
             expect(errEv.error.message).to.include('Attempt');
+        });
+
+        it('emits step:retry with parent stackId and completes without creating phantom workflows', async () => {
+            const emitter = new WorkflowEventEmitter();
+            const events: WorkflowExecutionEvent[] = [];
+            emitter.on('*', (ev) => events.push(ev));
+
+            let attempts = 0;
+            const retryingStep = Step.create('retryingStep', async () => {
+                attempts++;
+                if (attempts === 1) {
+                    throw new Error('transient failure on attempt 1');
+                }
+                return { success: true };
+            }).onFail({ maxRetries: 2, delay: 10 });
+
+            const result = await flow(retryingStep).run({}, { monitor: emitter });
+            expect(result.success).to.be.true;
+
+            const flowStart = events.find(e => e.type === 'flow:start');
+            const flowComplete = events.find(e => e.type === 'flow:complete');
+            const retryEv: any = events.find(e => e.type === 'step:retry');
+
+            expect(flowStart).to.not.be.undefined;
+            expect(flowComplete).to.not.be.undefined;
+            expect(retryEv).to.not.be.undefined;
+
+            // stackId must match the workflow execution stackId across all events
+            const allStackIds = new Set(events.map(e => e.stackId));
+            expect(allStackIds.size).to.equal(1);
+            expect(Array.from(allStackIds)[0]).to.equal(flowStart?.stackId);
+            expect(retryEv.stackId).to.equal(flowStart?.stackId);
+            expect(retryEv.stepId).to.equal(retryingStep.$stepId);
         });
 
         it('emits checkpoint:save and storage events', async () => {

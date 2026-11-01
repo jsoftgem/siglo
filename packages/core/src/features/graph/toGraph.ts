@@ -71,7 +71,6 @@ export function toGraph(item: any): WorkflowNode {
             id: stepId,
             name: stepName,
             type: WorkflowNodeType.STEP,
-            step: item,
             metadata: {
                 reducer: item.reducer,
                 isStrict: item.isStrict,

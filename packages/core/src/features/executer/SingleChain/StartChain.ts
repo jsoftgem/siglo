@@ -37,6 +37,7 @@ import { emitMonitoringEvent } from '../../events/emitter';
 
 export default class StartChain {
     start: (initialParam: any, chains: any, options?: any) => Promise<any>;
+    stackId: string;
 
     constructor(
         getChain: (name: any) => any,
@@ -51,7 +52,9 @@ export default class StartChain {
         executeAfter: (chain: string, context: any) => Promise<any>,
         executeBefore: (chain: string, context: any) => Promise<any>
     ) {
+        this.stackId = stackId;
         this.start = (initialParam: any, chains: any, options?: any) => {
+            options = Object.assign({ stackId }, options);
             logInfo('SingleChain', {
                 chain: chains,
                 message: 'Starting',

@@ -1,5 +1,5 @@
 import { FlowTimeoutException } from '../../exceptions';
-import { STEP_ID, ATTEMPT, RETRY_DELAY } from '../../../../shared';
+import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY } from '../../../../shared';
 import { emitMonitoringEvent } from '../../../events/emitter';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
@@ -41,14 +41,23 @@ export default class OnFail {
         });
         const outerSignal = options?.outerSignal || options?.signal;
 
+        const resolvedStackId = options?.stackId ||
+            singleChain?.stackId ||
+            (typeof initialParam?.$stackId === 'function' ? initialParam.$stackId() : initialParam?.$stackId) ||
+            (initialParam && typeof initialParam[STACK_ID] === 'function' ? initialParam[STACK_ID]() : initialParam?.[STACK_ID]) ||
+            initialParam?.[STACK_ID_KEY] ||
+            '';
+        const stepId = (chains && chains.$stepId) || chain.$stepId || chain.name || '';
+        const stepName = chain.func || chain.name || 'chain';
+
         let currentAttemptNumber = 1;
         const rawReject = reject;
         const emitStepError = (err: any) => {
             emitMonitoringEvent(options, {
                 type: 'step:error',
-                stackId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
-                stepId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
-                stepName: chain.func || chain.name || 'chain',
+                stackId: resolvedStackId,
+                stepId,
+                stepName,
                 attempt: currentAttemptNumber,
                 error: {
                     message: err?.message || String(err),
@@ -175,9 +184,9 @@ export default class OnFail {
 
                     emitMonitoringEvent(options, {
                         type: 'step:retry',
-                        stackId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
-                        stepId: (chains && chains.$stepId) || chain.$stepId || chain.name || '',
-                        stepName: chain.func || chain.name || 'chain',
+                        stackId: resolvedStackId,
+                        stepId,
+                        stepName,
                         attempt: currentAttempt,
                         maxAttempts: maxRetries,
                         error: {
