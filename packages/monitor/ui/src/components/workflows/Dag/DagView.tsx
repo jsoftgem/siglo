@@ -23,7 +23,7 @@ export const DagView: React.FC<DagViewProps> = ({ steps }) => {
     );
   }
 
-  const selectedStep = selectedStepId ? steps[selectedStepId] : null;
+  const selectedStep = selectedStepId && steps ? steps[selectedStepId] : null;
 
   return (
     <div className="space-y-4">

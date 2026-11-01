@@ -6,13 +6,17 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "test": "tsx --test src/index.test.ts"
   },
   "dependencies": {
+    "@siglo/express": "^1.0.0",
     "@siglo/monitor": "^1.0.0",
+    "express": "^4.19.2",
     "siglo": "^1.0.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"

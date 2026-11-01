@@ -1,5 +1,5 @@
 export type WorkflowStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SUSPENDED' | 'SKIPPED';
-export type StepStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING';
+export type StepStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING' | 'SUSPENDED' | 'RETRYING' | 'PENDING';
 
 export interface StepRun {
   stepId: string;
@@ -8,7 +8,7 @@ export interface StepRun {
   attempts?: number;
   startTime?: number;
   durationMs?: number;
-  error?: string;
+  error?: string | { message?: string; code?: string; stack?: string } | any;
 }
 
 export interface ContextDiff {

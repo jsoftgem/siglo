@@ -9,6 +9,15 @@ interface StepDetailCardProps {
 }
 
 export const StepDetailCard: React.FC<StepDetailCardProps> = ({ step, onClose }) => {
+  const formatError = (error: any): string => {
+    if (!error) return '';
+    if (typeof error === 'string') return error;
+    if (typeof error === 'object') {
+      return error.stack || error.message || JSON.stringify(error, null, 2);
+    }
+    return String(error);
+  };
+
   return (
     <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs animate-in fade-in duration-200">
       <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
@@ -50,7 +59,7 @@ export const StepDetailCard: React.FC<StepDetailCardProps> = ({ step, onClose })
           <div className="flex items-center gap-1.5 font-semibold text-rose-400 mb-1">
             <AlertTriangle className="w-3.5 h-3.5" /> Error Encountered
           </div>
-          <pre className="whitespace-pre-wrap">{step.error}</pre>
+          <pre className="whitespace-pre-wrap">{formatError(step.error)}</pre>
         </div>
       )}
     </div>

@@ -34,7 +34,7 @@ import {
     setupSaaSBillingInfrastructure,
     runLiveMonitoringSample
 } from './workflow/usecases';
-import { attachToMonitorServer } from '@siglo/monitor';
+
 async function main() {
     console.log('========================================================================');
     console.log('   siglo: Top 23 Production Event-Driven & Workflow Use Cases');
@@ -59,7 +59,6 @@ async function main() {
     };
 
     const orderResult = await orderPipeline
-        .monitor(attachToMonitorServer(4000))
         .run(orderInput);
     console.log(`  ✔ Base Order Pipeline -> Invoice ID: ${orderResult.invoiceId}, Total: $${orderResult.amountCharged}`);
 
@@ -94,16 +93,15 @@ async function main() {
     console.log('\n[Demo] 3. Financial Transaction Processing & Fraud Detection...');
     const finPipeline = createFinancialFraudPipeline();
     const finRes = await finPipeline
-        .monitor(attachToMonitorServer(4000))
         .run({
-        transactionId: 'TXN-FIN-501',
-        sourceAccountId: 'ACCT-USER-100',
-        destinationAccountId: 'ACCT-USER-200',
-        amount: 2500,
-        currency: 'USD',
-        clientIp: '192.168.1.50',
-        timestamp: Date.now()
-    });
+            transactionId: 'TXN-FIN-501',
+            sourceAccountId: 'ACCT-USER-100',
+            destinationAccountId: 'ACCT-USER-200',
+            amount: 2500,
+            currency: 'USD',
+            clientIp: '192.168.1.50',
+            timestamp: Date.now()
+        });
     console.log(`  ✔ Financial Pipeline -> Status: ${finRes.finStatus}, Journal: ${finRes.journalId}, Risk Score: ${finRes.riskScore}`);
 
     // --- 4. Asynchronous Media Transcoding ---
@@ -361,25 +359,42 @@ async function main() {
         statusCode: 200,
         headers: {} as Record<string, string>,
         payload: null as any,
-        status(code: number) { this.statusCode = code; return this; },
-        setHeader(k: string, v: string) { this.headers[k] = v; return this; },
-        json(data: any) { this.payload = data; return this; }
+        status(code: number) {
+            this.statusCode = code;
+            return this;
+        },
+        setHeader(k: string, v: string) {
+            this.headers[k] = v;
+            return this;
+        },
+        json(data: any) {
+            this.payload = data;
+            return this;
+        }
     };
     const exprRes: any = await expressHandler({
-        body: { orderId: 'ORD-EXPR-3002', items: [{ sku: 'MONITOR-4K', price: 600, quantity: 1 }], currency: 'USD' },
-        headers: { 'x-namespace': 'ecom-us-west' }
-    } as any, mockExpressRes as any, () => {});
+        body: {orderId: 'ORD-EXPR-3002', items: [{sku: 'MONITOR-4K', price: 600, quantity: 1}], currency: 'USD'},
+        headers: {'x-namespace': 'ecom-us-west'}
+    } as any, mockExpressRes as any, () => {
+    });
     const exprData = exprRes || mockExpressRes.payload;
     console.log(`  ✔ Express Checkout -> Status: ${exprData.status}, Total: ${exprData.totalAmount}, Confirmation: ${exprData.confirmationCode}`);
 
     const honoHandler = createHonoCheckoutHandler(createHttpCheckoutWorkflow());
     const mockHonoContext = {
         req: {
-            json: async () => ({ orderId: 'ORD-HONO-3003', items: [{ sku: 'KEYBOARD-PRO', price: 150, quantity: 2 }], currency: 'USD' }),
+            json: async () => ({
+                orderId: 'ORD-HONO-3003',
+                items: [{sku: 'KEYBOARD-PRO', price: 150, quantity: 2}],
+                currency: 'USD'
+            }),
             header: (k: string) => k === 'x-namespace' ? 'ecom-eu-central' : undefined
         },
-        header(_k: string, _v: string) {},
-        json(data: any) { return data; }
+        header(_k: string, _v: string) {
+        },
+        json(data: any) {
+            return data;
+        }
     };
     const honoData: any = await honoHandler(mockHonoContext as any);
     console.log(`  ✔ Hono Checkout -> Status: ${honoData.status}, Total: ${honoData.totalAmount}, Confirmation: ${honoData.confirmationCode}`);
@@ -430,7 +445,12 @@ async function main() {
             {
                 messageId: 'sqs-msg-img-1',
                 receiptHandle: 'rcpt-sqs-1',
-                body: JSON.stringify({ jobId: 'IMG-SQS-01', imageUrl: 'https://cdn.siglo.io/sqs.png', targetWidth: 1280, targetHeight: 720 })
+                body: JSON.stringify({
+                    jobId: 'IMG-SQS-01',
+                    imageUrl: 'https://cdn.siglo.io/sqs.png',
+                    targetWidth: 1280,
+                    targetHeight: 720
+                })
             }
         ]
     });
@@ -441,13 +461,14 @@ async function main() {
     console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@siglo/opentelemetry)...');
     const tracer = new MockTracer();
     const {instrumented} = setupInstrumentedWorkflow(tracer, {allowNamespace: true});
-    const otelRes = await instrumented.run({
-        orderId: 'ORD-OTEL-8899',
-        itemsCount: 2,
-        customerTier: 'ENTERPRISE',
-        apiKeySecret: 'secret_live_token',
-        billingAddress: 'Silicon Valley Blvd'
-    }, {namespace: 'enterprise-tenant-alpha'});
+    const otelRes = await instrumented
+        .run({
+            orderId: 'ORD-OTEL-8899',
+            itemsCount: 2,
+            customerTier: 'ENTERPRISE',
+            apiKeySecret: 'secret_live_token',
+            billingAddress: 'Silicon Valley Blvd'
+        }, {namespace: 'enterprise-tenant-alpha'});
     console.log(`  ✔ OpenTelemetry -> Status: ${otelRes.dispatchStatus}, Spans Recorded: ${tracer.spans.length}, Tracking: ${otelRes.trackingNumber}`);
 
     // --- 22. Multi-Tenant SaaS Billing & Audit Ledger ---
@@ -467,7 +488,7 @@ async function main() {
 
     // --- 23. Live Workflow Monitoring & DevTools Server ---
     console.log('\n[Demo] 23. Live Workflow Monitoring & DevTools Server (@siglo/monitor)...');
-    const { monitor: sampleMonitor, metricsText } = await runLiveMonitoringSample();
+    const {monitor: sampleMonitor, metricsText} = await runLiveMonitoringSample();
     console.log(`  ✔ Live Monitor Server running on port: ${sampleMonitor.port}`);
     console.log(`  ✔ Prometheus Metrics extracted successfully: ${metricsText.split("\n")[2]}`);
     await sampleMonitor.close();

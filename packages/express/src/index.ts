@@ -4,6 +4,7 @@ export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, res: any) => Promise<any> | any;
     timeout?: number;
+    durable?: boolean | ((req: TReq) => boolean);
     namespace?: string | ((req: TReq) => string | undefined);
     onError?: (err: any, req: TReq, res: any, next: (err?: any) => void) => Promise<any> | any;
     correlationIdHeader?: string;
@@ -18,6 +19,9 @@ export function getErrorStatusCode(err: any): number {
     const name = err.name || '';
     const causeName = err.cause?.name || (err.error?.name) || '';
 
+    if (name.includes('Suspended') || causeName.includes('Suspended')) {
+        return 202;
+    }
     if (err.isTimeout || name.includes('Timeout') || causeName.includes('Timeout')) {
         return 504;
     }
@@ -82,12 +86,22 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
                 namespace = req.headers['x-namespace'];
             }
 
+            let durable: boolean | undefined;
+            if (typeof options.durable === 'function') {
+                durable = options.durable(req);
+            } else if (options.durable !== undefined) {
+                durable = options.durable;
+            } else if (req.headers?.['x-durable'] === 'true' || req.query?.durable === 'true' || req.body?.durable === true) {
+                durable = true;
+            }
+
             const abortSignal = req.signal || req.raw?.signal;
 
             const execOptions: ExecutionOptions = {
                 signal: abortSignal,
                 timeout: options.timeout,
                 namespace,
+                durable,
             };
 
             const rawResult: any = await workflow.run(inputData, execOptions);

@@ -17,6 +17,7 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, isSelected, onSelect }) 
 
     switch (status) {
       case 'RUNNING':
+      case 'RETRYING':
         return base + 'bg-sky-950/40 border-sky-500 shadow-lg shadow-sky-500/20';
       case 'COMPLETED':
         return base + 'bg-emerald-950/20 border-emerald-500/50 hover:border-emerald-400';
@@ -32,6 +33,7 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, isSelected, onSelect }) 
   const getStatusIcon = (status: StepStatus) => {
     switch (status) {
       case 'RUNNING':
+      case 'RETRYING':
         return <RotateCw className="w-4 h-4 text-sky-400 animate-spin" />;
       case 'COMPLETED':
         return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;

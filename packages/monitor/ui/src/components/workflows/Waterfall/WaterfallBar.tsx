@@ -25,6 +25,7 @@ export const WaterfallBar: React.FC<WaterfallBarProps> = ({
         return 'bg-emerald-500';
       case 'RUNNING':
         return 'bg-sky-500 animate-pulse';
+      case 'WAITING':
       case 'SUSPENDED':
         return 'bg-amber-400';
       default:

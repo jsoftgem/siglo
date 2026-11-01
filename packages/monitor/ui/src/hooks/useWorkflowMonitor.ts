@@ -71,11 +71,13 @@ export function useWorkflowMonitor({
           break;
         case 'step:start':
           if (ev.stepId) {
+            const step = updated.steps[ev.stepId] || {};
             updated.steps = {
               ...updated.steps,
               [ev.stepId]: {
+                ...step,
                 stepId: ev.stepId,
-                stepName: ev.stepName,
+                stepName: ev.stepName || step.stepName,
                 status: 'RUNNING',
                 attempts: ev.attempt || 1,
                 startTime: ev.timestamp
@@ -92,6 +94,20 @@ export function useWorkflowMonitor({
                 ...step,
                 status: 'COMPLETED',
                 durationMs: ev.durationMs
+              }
+            };
+          }
+          break;
+        case 'step:retry':
+          if (ev.stepId) {
+            const step = updated.steps[ev.stepId] || { stepId: ev.stepId, stepName: ev.stepName };
+            updated.steps = {
+              ...updated.steps,
+              [ev.stepId]: {
+                ...step,
+                status: 'RETRYING' as any,
+                attempts: ev.attempt || step.attempts,
+                error: ev.error
               }
             };
           }

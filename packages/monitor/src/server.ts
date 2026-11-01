@@ -22,6 +22,22 @@ export interface MonitorServerInstance {
 
 const activeServers = new Map<number, MonitorServerInstance>();
 
+function safeJsonStringify(obj: any): string {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+        if (key === 'step' && value && typeof value === 'object' && value.sequence) {
+            return undefined;
+        }
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+                return undefined;
+            }
+            seen.add(value);
+        }
+        return value;
+    });
+}
+
 /**
  * Returns an active monitor server instance running in the current process.
  * If a port is specified, returns the server on that port, otherwise returns the first active server.
@@ -198,16 +214,10 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             req.on('end', () => {
                 if (aborted) return;
                 try {
-                    const data = body ? JSON.parse(body) : null;
-                    if (!data) {
-                        res.writeHead(400, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: 'Missing event payload' }));
-                        return;
-                    }
-
-                    const events = Array.isArray(data) ? data : [data];
+                    const parsed = JSON.parse(body);
+                    const events = Array.isArray(parsed) ? parsed : [parsed];
                     for (const ev of events) {
-                        if (ev && typeof ev === 'object' && ev.type) {
+                        if (ev && ev.type && ev.stackId) {
                             store.addEvent(ev);
                             sse.broadcast(ev);
                             ws.broadcast(ev);
@@ -215,10 +225,9 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                             emitter.emit(ev);
                         }
                     }
-
                     res.writeHead(202, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true, count: events.length }));
-                } catch (err: any) {
+                } catch {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Invalid JSON payload' }));
                 }
@@ -226,7 +235,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             return;
         }
 
-        if (pathname === '/metrics') {
+        if (pathname === '/metrics' && req.method === 'GET') {
             if (!checkAuth(req, url, 'read')) {
                 res.writeHead(401, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -247,7 +256,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             const status = url.searchParams.get('status') || undefined;
             const runs = store.listRuns({ namespace: ns, status });
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(runs));
+            res.end(safeJsonStringify(runs));
             return;
         }
 
@@ -265,7 +274,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 return;
             }
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(run));
+            res.end(safeJsonStringify(run));
             return;
         }
 
@@ -358,10 +367,14 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
         res.end(JSON.stringify({ error: 'Not found' }));
     });
 
-    ws.attach(server, '/ws');
+    // Attach websocket transport
+    ws.attach(server);
 
     return new Promise((resolve, reject) => {
-        server.on('error', reject);
+        server.on('error', (err) => {
+            reject(err);
+        });
+
         server.listen(port, host, () => {
             const actualPort = (server.address() as any)?.port || port;
             const instance: MonitorServerInstance = {
