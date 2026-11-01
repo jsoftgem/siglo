@@ -1,14 +1,29 @@
-import React from 'react';
-import { RefreshCw, BarChart3, Wifi, WifiOff } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { RefreshCw, BarChart3, Wifi, WifiOff, ChevronDown } from 'lucide-react';
 import sigloLogo from '../../assets/siglo-logo-128.jpg';
 
-interface HeaderProps {
+export interface AutoRefreshOption {
+  label: string;
+  value: number; // Interval in milliseconds, 0 represents Off
+}
+
+export const AUTO_REFRESH_OPTIONS: AutoRefreshOption[] = [
+  { label: 'Off', value: 0 },
+  { label: '5s', value: 5000 },
+  { label: '30s', value: 30000 },
+  { label: '1m', value: 60000 },
+  { label: '5m', value: 300000 }
+];
+
+export interface HeaderProps {
   namespaces: string[];
   selectedNamespace: string;
   onSelectNamespace: (ns: string) => void;
   isConnected: boolean;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   totalRuns: number;
+  autoRefreshInterval?: number;
+  onAutoRefreshChange?: (interval: number) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,8 +32,63 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectNamespace,
   isConnected,
   onRefresh,
-  totalRuns
+  totalRuns,
+  autoRefreshInterval,
+  onAutoRefreshChange
 }) => {
+  const [internalInterval, setInternalInterval] = useState<number>(0);
+  const [isSpinning, setIsSpinning] = useState<boolean>(false);
+  const spinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectedInterval =
+    autoRefreshInterval !== undefined ? autoRefreshInterval : internalInterval;
+
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  useEffect(() => {
+    return () => {
+      if (spinTimeoutRef.current) {
+        clearTimeout(spinTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerRefresh = useCallback(async () => {
+    setIsSpinning(true);
+    try {
+      await Promise.resolve(onRefreshRef.current());
+    } catch (err) {
+      console.error('Failed to refresh workflows:', err);
+    } finally {
+      if (spinTimeoutRef.current) {
+        clearTimeout(spinTimeoutRef.current);
+      }
+      spinTimeoutRef.current = setTimeout(() => {
+        setIsSpinning(false);
+      }, 500);
+    }
+  }, []);
+
+  const handleIntervalChange = (newInterval: number) => {
+    if (autoRefreshInterval === undefined) {
+      setInternalInterval(newInterval);
+    }
+    onAutoRefreshChange?.(newInterval);
+  };
+
+  useEffect(() => {
+    if (selectedInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      triggerRefresh();
+    }, selectedInterval);
+
+    return () => clearInterval(timer);
+  }, [selectedInterval, triggerRefresh]);
+
   return (
     <header className="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-5 flex items-center justify-between z-20 shrink-0">
       <div className="flex items-center gap-3">
@@ -41,18 +111,21 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Namespace Filter */}
         <div className="flex items-center gap-2">
           <label className="text-xs text-slate-400 font-medium hidden sm:inline">Namespace:</label>
-          <select
-            value={selectedNamespace}
-            onChange={(e) => onSelectNamespace(e.target.value)}
-            className="bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 transition-colors"
-          >
-            <option value="">All Namespaces</option>
-            {namespaces.map((ns) => (
-              <option key={ns} value={ns}>
-                {ns}
-              </option>
-            ))}
-          </select>
+          <div className="relative flex items-center">
+            <select
+              value={selectedNamespace}
+              onChange={(e) => onSelectNamespace(e.target.value)}
+              className="appearance-none bg-slate-950 border border-slate-700/80 rounded-lg pl-2.5 pr-8 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 transition-colors cursor-pointer"
+            >
+              <option value="">All Namespaces</option>
+              {namespaces.map((ns) => (
+                <option key={ns} value={ns}>
+                  {ns}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 pointer-events-none" />
+          </div>
         </div>
 
         {/* SSE Connection Status */}
@@ -89,13 +162,43 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden md:inline">Metrics</span>
         </a>
 
+        {/* Auto Refresh Interval */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-slate-400 font-medium hidden sm:inline">Auto Refresh:</label>
+          <div className="relative flex items-center">
+            <select
+              value={selectedInterval}
+              onChange={(e) => handleIntervalChange(Number(e.target.value))}
+              aria-label="Auto refresh interval"
+              title="Auto refresh interval"
+              className={`appearance-none bg-slate-950 border rounded-lg pl-2.5 pr-8 py-1 text-xs transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500 ${
+                selectedInterval > 0
+                  ? 'border-sky-500/60 text-sky-400 font-medium'
+                  : 'border-slate-700/80 text-slate-200'
+              }`}
+            >
+              {AUTO_REFRESH_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-slate-950 text-slate-200">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none transition-colors ${
+                selectedInterval > 0 ? 'text-sky-400' : 'text-slate-400'
+              }`}
+            />
+          </div>
+        </div>
+
         {/* Manual Refresh */}
         <button
-          onClick={onRefresh}
+          onClick={triggerRefresh}
           className="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
           title="Refresh Workflows"
+          aria-label="Refresh workflows"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 ${isSpinning ? 'animate-spin text-sky-400' : ''}`} />
         </button>
       </div>
     </header>
