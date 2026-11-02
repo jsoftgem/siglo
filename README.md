@@ -108,6 +108,8 @@ npm install --save-dev @siglo/testing @siglo/cli
 | [`@siglo/bullmq`](packages/bullmq) | BullMQ background worker adapter |
 | [`@siglo/kafka`](packages/kafka) | Kafka consumer batch processor adapter |
 | [`@siglo/sqs`](packages/sqs) | AWS SQS batch consumer with partial failure reporting |
+| [`@siglo/http`](packages/http) | Resilient HTTP client steps, egress perimeter guardrails, and distributed tracing |
+| [`@siglo/scheduler`](packages/scheduler) | PostgreSQL row-level poller daemon (`FOR UPDATE SKIP LOCKED`), memory poller, and cloud webhook dispatchers |
 | [`@siglo/fastify`](packages/fastify) | Fastify HTTP route handler adapter |
 | [`@siglo/hono`](packages/hono) | Hono edge and Web Standards route handler adapter |
 | [`@siglo/express`](packages/express) | Express HTTP route handler adapter |

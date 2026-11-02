@@ -165,3 +165,6 @@ describe('Sequential Workflows Suite', () => {
 - [Branching and Parallelism](./04-branching-and-parallelism.md)
 - [Retries, Timeouts, and Cancellation](./05-retries-timeouts-and-cancellation.md)
 - [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Scheduler Adapter Guide](./adapters/scheduler.md)
+- [Ecosystem Adapters Overview](./ecosystem-adapters.md)
+- [Production Best Practices](./production-best-practices.md)
