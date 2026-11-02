@@ -202,6 +202,16 @@ export class WebSocketBroadcaster {
         }
     }
 
+    send(client: WSClient, message: any): void {
+        const text = typeof message === "string" ? message : JSON.stringify(message);
+        const frame = this.encodeTextFrame(text);
+        try {
+            client.socket.write(frame);
+        } catch {
+            this.removeClient(client);
+        }
+    }
+
     private encodeTextFrame(text: string): Buffer {
         const payload = Buffer.from(text, 'utf8');
         const length = payload.length;

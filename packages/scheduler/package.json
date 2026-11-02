@@ -1,0 +1,53 @@
+{
+  "name": "@siglo/scheduler",
+  "version": "1.0.0",
+  "description": "Background durable timer poller and cloud scheduler dispatcher for Siglo workflows",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && mocha -r tsx --exit 'src/**/*.test.ts'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
+    "directory": "packages/scheduler"
+  },
+  "author": "Jerico de Guzman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jsoftgem/siglo/issues"
+  },
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "dependencies": {
+    "siglo": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "chai": "^3.5.0",
+    "mocha": "^5.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.0"
+  }
+}

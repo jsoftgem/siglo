@@ -761,4 +761,157 @@ describe('@siglo/monitor Suite', () => {
             expect(run.flowName).to.equal('SecuredWorkflow');
         });
     });
+
+    describe("Phase 5: DevTools Control Plane Hardening & Redaction", () => {
+        let p5Server: any;
+
+        afterEach(async () => {
+            if (p5Server) {
+                await p5Server.close();
+                p5Server = null;
+            }
+        });
+
+        it("strictly rejects resume requests with 404 when workflow is not registered (no default fallback)", async () => {
+            p5Server = await createMonitorServer({ port: 4095 });
+
+            const res = await fetch("http://127.0.0.1:4095/api/workflows/unknown-stack-xyz/resume", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ payload: { token: "abc" } })
+            });
+
+            expect(res.status).to.equal(404);
+            const body = await res.json() as any;
+            expect(body.error).to.include("not registered");
+        });
+
+        it("enforces schema validation on resume payload with 422 when resumeSchema is defined", async () => {
+            // Create flow with Zod-like / function resumeSchema
+            const mockFlowWithSchema: any = {
+                name: "ValidatedFlow",
+                resumeSchema: {
+                    safeParse: (payload: any) => {
+                        if (!payload || !payload.approvedBy) {
+                            return { success: false, error: "Missing approvedBy field" };
+                        }
+                        return { success: true, data: payload };
+                    }
+                }
+            };
+
+            const workflowsMap = new Map();
+            workflowsMap.set("val-flow", mockFlowWithSchema);
+
+            p5Server = await createMonitorServer({
+                port: 4096,
+                workflows: workflowsMap
+            });
+
+            // Add run record to store so it resolves to this workflow
+            p5Server.store.addEvent({
+                type: "flow:start",
+                stackId: "stk-validated-1",
+                flowName: "val-flow",
+                timestamp: Date.now()
+            });
+
+            // 1. Invalid payload -> 422
+            const invalidRes = await fetch("http://127.0.0.1:4096/api/workflows/stk-validated-1/resume", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ payload: { comment: "looks good" } })
+            });
+
+            expect(invalidRes.status).to.equal(422);
+            const errBody = await invalidRes.json() as any;
+            expect(errBody.error).to.include("Unprocessable Entity");
+            expect(errBody.details).to.include("Missing approvedBy");
+
+            // 2. Function validator support
+            const fnFlow: any = {
+                name: "FnFlow",
+                resumeSchema: (payload: any) => {
+                    if (!payload?.amount || payload.amount < 0) {
+                        throw new Error("Amount must be positive");
+                    }
+                    return true;
+                }
+            };
+            workflowsMap.set("fn-flow", fnFlow);
+            p5Server.store.addEvent({
+                type: "flow:start",
+                stackId: "stk-fn-1",
+                flowName: "fn-flow",
+                timestamp: Date.now()
+            });
+
+            const fnInvalidRes = await fetch("http://127.0.0.1:4096/api/workflows/stk-fn-1/resume", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ payload: { amount: -50 } })
+            });
+            expect(fnInvalidRes.status).to.equal(422);
+            const fnErrBody = await fnInvalidRes.json() as any;
+            expect(fnErrBody.details).to.include("Amount must be positive");
+        });
+
+        it("redacts sensitive fields in /api/workflows and /api/workflows/:id using MonitorSecurityOptions", async () => {
+            p5Server = await createMonitorServer({
+                port: 4097,
+                security: {
+                    redactedKeys: ["userPassword", "taxId"],
+                    maskFn: (key, val) => (key === "taxId" ? "XXX-XX-XXXX" : undefined)
+                }
+            });
+
+            p5Server.emitter.emit({
+                type: "flow:start",
+                stackId: "stk-redact-test",
+                flowName: "SecretFlow",
+                timestamp: Date.now()
+            });
+
+            p5Server.emitter.emit({
+                type: "context:change",
+                stackId: "stk-redact-test",
+                stepId: "step-1",
+                field: "userPassword",
+                value: "SuperSecretPassword123!"
+            });
+
+            p5Server.emitter.emit({
+                type: "context:change",
+                stackId: "stk-redact-test",
+                stepId: "step-1",
+                field: "taxId",
+                value: "123-45-6789"
+            });
+
+            p5Server.emitter.emit({
+                type: "context:change",
+                stackId: "stk-redact-test",
+                stepId: "step-1",
+                field: "publicField",
+                value: "safeValue"
+            });
+
+            // GET single workflow run
+            const runRes = await fetch("http://127.0.0.1:4097/api/workflows/stk-redact-test");
+            expect(runRes.status).to.equal(200);
+            const run = await runRes.json() as any;
+
+            expect(run.context.publicField).to.equal("safeValue");
+            expect(run.context.userPassword).to.equal("[REDACTED]");
+            expect(run.context.taxId).to.equal("XXX-XX-XXXX");
+
+            // GET workflow list
+            const listRes = await fetch("http://127.0.0.1:4097/api/workflows");
+            expect(listRes.status).to.equal(200);
+            const list = await listRes.json() as any;
+            const target = list.find((w: any) => w.stackId === "stk-redact-test");
+            expect(target.context.userPassword).to.equal("[REDACTED]");
+            expect(target.context.taxId).to.equal("XXX-XX-XXXX");
+        });
+    });
 });

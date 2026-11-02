@@ -29,6 +29,12 @@ export class DurableManager {
     }
 
     registerWait(record: WaitingWorkflowRecord): void {
+        if (!record.status) {
+            (record as any).status = Status.WAITING;
+        }
+        if (!record.createdAt) {
+            (record as any).createdAt = Date.now();
+        }
         if (this.waitingRecords.size >= this.maxSize) {
             this.cleanExpired();
             if (this.waitingRecords.size >= this.maxSize) {
@@ -55,13 +61,17 @@ export class DurableManager {
         return key ? this.waitingRecords.get(key) : undefined;
     }
 
-    resumeWait(correlationKey: string): WaitingWorkflowRecord {
+    getAllWaiting(): WaitingWorkflowRecord[] {
+        return Array.from(this.waitingRecords.values());
+    }
+
+    resumeWait(correlationKey: string, allowExpired: boolean = false): WaitingWorkflowRecord {
         const record = this.waitingRecords.get(correlationKey);
         if (!record || record.status !== Status.WAITING) {
             throw new DuplicateEventException(correlationKey, record?.eventName);
         }
 
-        if (record.expiresAt !== undefined && Date.now() > record.expiresAt) {
+        if (!allowExpired && record.expiresAt !== undefined && Date.now() > record.expiresAt) {
             record.status = Status.EXPIRED;
             throw new ExpiredWaitException(correlationKey, record.expiresAt, record.eventName);
         }

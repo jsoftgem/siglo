@@ -60,6 +60,13 @@ export interface MonitorServerCorsOptions {
     credentials?: boolean;
 }
 
+export interface MonitorSecurityOptions {
+    /** List of field names to redact in context diffs and telemetry events (e.g. ['password', 'secret', 'token']) */
+    redactedKeys?: string[];
+    /** Custom masking function for sensitive values */
+    maskFn?: (key: string, value: any) => any;
+}
+
 export interface MonitorServerOptions {
     port?: number;
     host?: string;
@@ -77,6 +84,8 @@ export interface MonitorServerOptions {
     cors?: MonitorServerCorsOptions;
     /** Maximum allowed JSON payload size in bytes (default: 1MB = 1048576) */
     maxPayloadBytes?: number;
+    /** Fine-grained security and telemetry redaction settings */
+    security?: MonitorSecurityOptions;
     /** Whether to allow interactive workflow resumption and replay via HTTP/WS (default: true) */
     allowRemoteResume?: boolean;
 }

@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { WorkflowEventEmitter, resumeWorkflow, flow } from 'siglo';
+import { WorkflowEventEmitter, resumeWorkflow, flow, redactValue, redactEvent, RedactionOptions } from 'siglo';
 import { MonitorServerOptions, MonitorServerAuthOptions, MonitorServerCorsOptions } from './types';
 import { WorkflowExecutionStore } from './store';
 import { SSEBroadcaster } from './transports/sse';
@@ -38,6 +38,69 @@ function safeJsonStringify(obj: any): string {
     });
 }
 
+function sanitizeRunRecord(run: any, redaction?: RedactionOptions): any {
+    if (!run) return run;
+    return {
+        ...run,
+        context: redactValue(run.context, redaction),
+        contextDiffs: Array.isArray(run.contextDiffs)
+            ? run.contextDiffs.map((d: any) => ({ ...d, value: redactValue(d.value, redaction) }))
+            : run.contextDiffs,
+        events: Array.isArray(run.events)
+            ? run.events.map((ev: any) => redactEvent(ev, redaction))
+            : run.events
+    };
+}
+
+function validateResumePayload(flowCandidate: any, payload: any): { valid: boolean; error?: any } {
+    if (!flowCandidate || !flowCandidate.resumeSchema) {
+        return { valid: true };
+    }
+    const schema = flowCandidate.resumeSchema;
+    if (typeof schema.safeParse === 'function') {
+        const res = schema.safeParse(payload);
+        if (!res.success) {
+            return { valid: false, error: res.error };
+        }
+    } else if (typeof schema.validate === 'function') {
+        const res = schema.validate(payload);
+        if (res && res.error) {
+            return { valid: false, error: res.error };
+        }
+    } else if (typeof schema === 'function') {
+        try {
+            const resValidation = schema(payload);
+            if (resValidation === false) {
+                return { valid: false, error: 'Validation failed' };
+            }
+        } catch (e: any) {
+            return { valid: false, error: e?.message || String(e) };
+        }
+    }
+    return { valid: true };
+}
+
+function resolveTargetFlow(stackId: string, run: any, options: MonitorServerOptions, workflows: Map<string, any>): any | undefined {
+    if (options.flow && !options.workflows) {
+        return options.flow;
+    }
+    const candidates = [
+        run?.flowName,
+        run?.workflowId,
+        stackId
+    ].filter(Boolean);
+
+    for (const key of candidates) {
+        if (workflows.has(key)) {
+            return workflows.get(key);
+        }
+    }
+    if (workflows.size === 1 && !options.workflows) {
+        return workflows.values().next().value;
+    }
+    return undefined;
+}
+
 /**
  * Returns an active monitor server instance running in the current process.
  * If a port is specified, returns the server on that port, otherwise returns the first active server.
@@ -72,7 +135,10 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     const store = options.store || new WorkflowExecutionStore();
     const workflows = options.workflows instanceof Map ? options.workflows : new Map();
     if (options.flow) {
-        workflows.set("default", options.flow);
+        const flowId = options.flow.id || options.flow.name || options.flow.workflowId;
+        if (flowId) {
+            workflows.set(flowId, options.flow);
+        }
     }
     const emitter = options.emitter || new WorkflowEventEmitter(options.namespaceFilter);
 
@@ -128,15 +194,23 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                        (authConfig.ingestionKey && token === authConfig.ingestionKey));
     };
 
-    const sse = new SSEBroadcaster({ redaction: options.redaction });
+    const effectiveRedaction: RedactionOptions = {
+        redactKeys: [
+            ...(options.redaction?.redactKeys || []),
+            ...(options.security?.redactedKeys || [])
+        ],
+        redactHook: options.security?.maskFn || options.redaction?.redactHook
+    };
+
+    const sse = new SSEBroadcaster({ redaction: effectiveRedaction });
     const ws = new WebSocketBroadcaster({
-        redaction: options.redaction,
+        redaction: effectiveRedaction,
         allowRemoteResume,
         authenticate: (req) => {
             const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
             return checkAuth(req, url, 'read');
         },
-        onClientMessage: (message) => {
+        onClientMessage: (message, client) => {
             if (message.action === 'event' && message.event) {
                 store.addEvent(message.event);
                 sse.broadcast(message.event);
@@ -144,8 +218,20 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 metrics.handleEvent(message.event);
                 emitter.emit(message.event);
             } else if (message.action === 'resume' && message.stackId && allowRemoteResume) {
-                const targetFlow = options.flow || workflows.get(message.stackId) || workflows.get('default') || flow();
-                resumeWorkflow(targetFlow, message.stackId, message.payload, { monitor: emitter }).catch(() => {});
+                const run = store.getRun(message.stackId);
+                const targetFlow = resolveTargetFlow(message.stackId, run, options, workflows);
+                if (!targetFlow) {
+                    ws.send(client, { action: 'error', error: `Workflow definition not registered for '${message.stackId}'` });
+                    return;
+                }
+                const validation = validateResumePayload(targetFlow, message.payload);
+                if (!validation.valid) {
+                    ws.send(client, { action: 'error', error: 'Unprocessable Entity: Invalid resume payload', details: validation.error });
+                    return;
+                }
+                resumeWorkflow(targetFlow, message.stackId, message.payload, { monitor: emitter }).catch((err) => {
+                    ws.send(client, { action: 'error', error: err?.message || String(err) });
+                });
             }
         }
     });
@@ -257,7 +343,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             }
             const ns = url.searchParams.get('namespace') || undefined;
             const status = url.searchParams.get('status') || undefined;
-            const runs = store.listRuns({ namespace: ns, status });
+            const runs = store.listRuns({ namespace: ns, status }).map((r: any) => sanitizeRunRecord(r, effectiveRedaction));
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(safeJsonStringify(runs));
             return;
@@ -277,7 +363,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 return;
             }
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(safeJsonStringify(run));
+            res.end(safeJsonStringify(sanitizeRunRecord(run, effectiveRedaction)));
             return;
         }
 
@@ -323,12 +409,21 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 if (aborted) return;
                 try {
                     const parsed = body ? JSON.parse(body) : {};
-                    const targetFlow = options.flow || workflows.get(stackId) || workflows.get("default");
+                    const run = store.getRun(stackId);
+                    const targetFlow = resolveTargetFlow(stackId, run, options, workflows);
                     if (!targetFlow) {
-                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.writeHead(404, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: `Cannot resume workflow '${stackId}': workflow definition not registered on monitor server.` }));
                         return;
                     }
+
+                    const validation = validateResumePayload(targetFlow, parsed.payload);
+                    if (!validation.valid) {
+                        res.writeHead(422, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Unprocessable Entity: Invalid resume payload', details: validation.error }));
+                        return;
+                    }
+
                     await resumeWorkflow(targetFlow, stackId, parsed.payload, { monitor: emitter });
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true, stackId }));

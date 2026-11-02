@@ -10,6 +10,7 @@ import { STEPS, HISTORY, safeClone } from '../../shared';
 export interface ResumeOptions extends ExecutionOptions {
     migrations?: any;
     targetVersion?: string | number;
+    allowExpired?: boolean;
 }
 
 export async function resumeWorkflow(
@@ -51,6 +52,7 @@ export async function resumeWorkflow(
         }
     }
 
+    const isTimerExpired = eventPayload?.event?.type === 'timer:expired' || options?.allowExpired === true;
     const adapter = defaultStorageManager.getAdapter();
     let waitRecord: any;
 
@@ -59,13 +61,13 @@ export async function resumeWorkflow(
         if (waitRecord) {
             defaultDurableManager.registerWait(waitRecord);
             try {
-                defaultDurableManager.resumeWait(correlationKey);
+                defaultDurableManager.resumeWait(correlationKey, isTimerExpired);
             } catch {
                 // already marked resumed
             }
         }
     } else {
-        waitRecord = defaultDurableManager.resumeWait(correlationKey);
+        waitRecord = defaultDurableManager.resumeWait(correlationKey, isTimerExpired);
     }
     if (adapter && typeof (adapter as any).saveWaitRecord === 'function') {
         try {

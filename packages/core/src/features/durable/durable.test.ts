@@ -534,6 +534,42 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(() => manager.resumeWait('corr-expired-test')).to.throw(ExpiredWaitException);
         });
 
+        it('returns all waiting records via getAllWaiting()', () => {
+            const manager = new DurableManager();
+            manager.registerWait({
+                stackId: "stack-all-test",
+                correlationKey: "corr-all-test",
+                status: "waiting" as any,
+                continuationStepIndex: 0,
+                stepId: "step-1",
+                createdAt: Date.now()
+            });
+            const all = manager.getAllWaiting();
+            expect(all).to.be.an("array");
+            expect(all).to.have.length(1);
+            expect(all[0].correlationKey).to.equal("corr-all-test");
+        });
+
+        it('defaults status and createdAt when omitted and allows resuming expired record when allowExpired is true', () => {
+            const manager = new DurableManager();
+            manager.registerWait({
+                stackId: "stack-default-test",
+                correlationKey: "corr-default-test",
+                eventName: "timer",
+                continuationStepIndex: 0,
+                stepId: "step-default",
+                expiresAt: Date.now() - 5000
+            } as any);
+
+            const rec = manager.getWaiting("corr-default-test");
+            expect(rec?.status).to.equal("waiting");
+            expect(rec?.createdAt).to.be.a("number");
+
+            const resumed = manager.resumeWait("corr-default-test", true);
+            expect(resumed.status).to.equal("resumed");
+            expect(resumed.resumedAt).to.be.a("number");
+        });
+
         it('clears all records and indexed stack mapping', () => {
             const manager = new DurableManager();
             manager.registerWait({
