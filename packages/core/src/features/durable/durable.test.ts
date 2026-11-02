@@ -413,4 +413,87 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(res.sent).to.be.true;
         });
     });
+
+    describe('DurableManager Isolated Suite', () => {
+        it('initializes with default options and tracks size correctly', () => {
+            const manager = new DurableManager();
+            expect(manager.size).to.equal(0);
+        });
+
+        it('registers and retrieves waiting records by correlationKey and stackId', () => {
+            const manager = new DurableManager();
+            const record = {
+                stackId: 'stack-isolated-1',
+                workflowId: 'wf-1',
+                correlationKey: 'corr-isolated-1',
+                eventName: 'order.completed',
+                status: 'waiting' as any,
+                continuationStepIndex: 1,
+                stepId: 'step-isolated-1',
+                createdAt: Date.now()
+            };
+
+            manager.registerWait(record);
+            expect(manager.size).to.equal(1);
+            expect(manager.getWaiting('corr-isolated-1')).to.deep.equal(record);
+            expect(manager.getWaitingByStack('stack-isolated-1')).to.deep.equal(record);
+            expect(manager.getWaitingByStack('missing-stack')).to.be.undefined;
+            expect(manager.getWaiting('missing-corr')).to.be.undefined;
+        });
+
+        it('resumes waiting record and marks status as resumed', () => {
+            const manager = new DurableManager();
+            manager.registerWait({
+                stackId: 'stack-resume-test',
+                correlationKey: 'corr-resume-test',
+                eventName: 'approval.given',
+                status: 'waiting' as any,
+                continuationStepIndex: 2,
+                stepId: 'step-wait',
+                createdAt: Date.now()
+            });
+
+            const resumed = manager.resumeWait('corr-resume-test');
+            expect(resumed.status).to.equal('resumed');
+            expect(resumed.resumedAt).to.be.a('number');
+
+            // Second attempt throws DuplicateEventException
+            expect(() => manager.resumeWait('corr-resume-test')).to.throw(DuplicateEventException);
+        });
+
+        it('throws ExpiredWaitException when resuming an expired wait record', () => {
+            const manager = new DurableManager();
+            manager.registerWait({
+                stackId: 'stack-expired-test',
+                correlationKey: 'corr-expired-test',
+                eventName: 'auth.timeout',
+                status: 'waiting' as any,
+                continuationStepIndex: 1,
+                stepId: 'step-auth',
+                createdAt: Date.now() - 10000,
+                expiresAt: Date.now() - 2000
+            });
+
+            expect(() => manager.resumeWait('corr-expired-test')).to.throw(ExpiredWaitException);
+        });
+
+        it('clears all records and indexed stack mapping', () => {
+            const manager = new DurableManager();
+            manager.registerWait({
+                stackId: 'stack-clear-test',
+                correlationKey: 'corr-clear-test',
+                eventName: 'event.test',
+                status: 'waiting' as any,
+                continuationStepIndex: 1,
+                stepId: 'step-test',
+                createdAt: Date.now()
+            });
+
+            expect(manager.size).to.equal(1);
+            manager.clear();
+            expect(manager.size).to.equal(0);
+            expect(manager.getWaiting('corr-clear-test')).to.be.undefined;
+            expect(manager.getWaitingByStack('stack-clear-test')).to.be.undefined;
+        });
+    });
 });
