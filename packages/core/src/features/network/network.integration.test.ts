@@ -7,7 +7,8 @@ import {
     inspectGraph,
     toGraph,
     NetworkPolicyViolationException,
-    uninstallNetworkInterceptors
+    uninstallNetworkInterceptors,
+    ExecutionPhase
 } from '../../index';
 
 describe('Network Egress Policy End-to-End Integration Suite', () => {
@@ -383,6 +384,110 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 allowedHosts: [],
                 allowLocalhost: false
             });
+        });
+    });
+    describe('Step.spec Network Policy Enforcement & Validation Phase Tagging', () => {
+        it('intercepts and blocks unauthorized network egress inside spec validator and tags with validation phase', async () => {
+            const step = Step.create('validateStep', async (param: any) => param)
+                .spec('field', {
+                    validate: async () => {
+                        await fetch('https://unauthorized.com/val');
+                        return true;
+                    }
+                })
+                .allowNetwork(['api.stripe.com']);
+
+            try {
+                await step.execute({ field: 'test' });
+                expect.fail('Should have failed unauthorized network egress in spec validator');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+                expect(err.stepName).to.equal('validateStep');
+                expect(err.requestedHost).to.equal('unauthorized.com');
+            }
+        });
+
+        it('intercepts and blocks unauthorized network egress inside spec transformer and tags with validation phase', async () => {
+            const step = Step.create('transformStep', async (param: any) => param)
+                .spec('field', {
+                    transform: async (val: string) => {
+                        await fetch('https://unauthorized.com/trans');
+                        return val.toUpperCase();
+                    }
+                })
+                .allowNetwork(['api.stripe.com']);
+
+            try {
+                await step.execute({ field: 'test' });
+                expect.fail('Should have failed unauthorized network egress in spec transformer');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+                expect(err.stepName).to.equal('transformStep');
+                expect(err.requestedHost).to.equal('unauthorized.com');
+            }
+        });
+
+        it('intercepts and blocks unauthorized network egress inside spec translator and tags with validation phase', async () => {
+            const step = Step.create('translateStep', async (param: any) => param)
+                .spec('field', {
+                    translate: async (val: string) => {
+                        await fetch('https://unauthorized.com/trans');
+                        return val.toLowerCase();
+                    }
+                })
+                .allowNetwork(['api.stripe.com']);
+
+            try {
+                await step.execute({ field: 'TEST' });
+                expect.fail('Should have failed unauthorized network egress in spec translator');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+                expect(err.stepName).to.equal('translateStep');
+                expect(err.requestedHost).to.equal('unauthorized.com');
+            }
+        });
+
+        it('allows permitted network calls inside spec validator when host is whitelisted', async () => {
+            const permittedStep = Step.create('permittedSpecStep', (param: any) => ({ ...param, processed: true }))
+                .spec('field', {
+                    validate: async () => {
+                        const res = await fetch(`http://127.0.0.1:${localPort}/`);
+                        const data = await res.json();
+                        return data.status === 'ok';
+                    }
+                })
+                .networkPolicy({ allowLocalhost: true });
+
+            const result: any = await permittedStep.execute({ field: 'hello' });
+            expect(result.processed).to.be.true;
+            expect(result.field).to.equal('hello');
+        });
+
+        it('enforces flow-level network policy within Step.spec', async () => {
+            const step = Step.create('flowScopedSpecStep', async (param: any) => param)
+                .spec('field', {
+                    validate: async () => {
+                        await fetch('https://evil.com/check');
+                        return true;
+                    }
+                });
+
+            const workflow = flow(step).networkPolicy({
+                allowedHosts: ['api.stripe.com']
+            });
+
+            try {
+                await workflow.execute({ field: 'data' });
+                expect.fail('Should have failed flow-level network egress check in spec');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+                expect(err.stepName).to.equal('flowScopedSpecStep');
+                expect(err.requestedHost).to.equal('evil.com');
+            }
         });
     });
 });

@@ -75,7 +75,9 @@ Dynamic keys can be specified as a context accessor:
 
 ---
 
-## 4. Step-Level Idempotency (`step.idempotent()`)
+## 4. Step-Level Idempotency (Atomic Lifecycle Commitment)
+
+Individual steps (including array `.reduce()` steps) can declare idempotency. A step's idempotency record transitions to `'completed'` atomically only after all post-execution hooks (`onAfter`) successfully pass, preventing dirty cached reads by concurrent executions if post-processing fails: (`step.idempotent()`)
 
 Fine-grained deduplication on individual steps prevents redundant side effects (e.g. charging a payment gateway twice):
 

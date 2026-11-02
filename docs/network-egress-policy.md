@@ -25,7 +25,7 @@ In workflow orchestration systems, governing external network egress and side-ef
 Because Node.js runs asynchronous tasks concurrently on a single event loop, global state or process-wide patching causes severe race conditions between concurrent workflows or parallel branches.
 
 ### 2.2 AsyncLocalStorage Context Isolation
-When a step action begins in `StartChain`, Siglo resolves the effective policy between the step's declaration and the flow's perimeter, then executes the action inside `networkPolicyStorage.run(policy, ...)`. All downstream asynchronous operations, child promises, and third-party libraries automatically inherit the active policy store.
+When a step begins in `StartChain`, Siglo resolves the effective policy between the step's declaration and the flow's perimeter, then executes the entire step lifecycle (including `Step.spec` validation, transformers, translators, schema checks, lifecycle hooks, and the step action) inside `networkPolicyStorage.run(policy, ...)`. All downstream asynchronous operations, child promises, and third-party libraries automatically inherit the active policy store.
 
 ```mermaid
 flowchart TD
@@ -33,9 +33,9 @@ flowchart TD
     Step["Step Declaration<br/>(allowNetwork(['api.stripe.com']))"] --> StartChain
 
     StartChain --> Resolver["resolveEffectiveNetworkPolicy(step, flow)<br/>★ Flow supersedes Step ★"]
-    Resolver --> ASL["networkPolicyStorage.run(effectivePolicy, action)"]
+    Resolver --> ASL["networkPolicyStorage.run(effectivePolicy, stepLifecycle)"]
 
-    subgraph StepExecution ["Step Action Asynchronous Execution"]
+    subgraph StepExecution ["Step Lifecycle Asynchronous Execution (Validation Specs, Hooks, Action)"]
         ASL --> Fetch["globalThis.fetch(...)"]
         ASL --> HttpReq["http.request / axios(...)"]
         ASL --> SocketConn["net.connect / tls.connect(...)"]
@@ -50,7 +50,7 @@ flowchart TD
     IsLocal -- "No" --> CheckAllowlist{"Host in Resolved Allowlist?"}
 
     CheckAllowlist -- "Yes" --> Allow
-    CheckAllowlist -- "No" --> Block["Abort & Throw NetworkPolicyViolationException<br/>(phase: 'action', retryable: false)"]
+    CheckAllowlist -- "No" --> Block["Abort & Throw NetworkPolicyViolationException<br/>(phase: 'validation' | 'action', retryable: false)"]
 ```
 
 ---
@@ -163,7 +163,7 @@ Outbound network destinations are matched against configured patterns using stan
 | **Wildcard Subdomain** | `'*.stripe.com'` | `api.stripe.com`, `hooks.stripe.com` | `stripe.com`, `evil-stripe.com` |
 | **Universal Wildcard** | `'*'` | Any external host | Empty host strings |
 | **Port Specification** | `'api.internal:8080'` | `api.internal:8080` | `api.internal:3000`, `api.internal` |
-| **RegExp** | `/^api\.service\.(internal|local)$/` | `api.service.internal` | `api.service.com` |
+| **RegExp** | `/^api\\.service\\.(internal|local)$/` | `api.service.internal` | `api.service.com` |
 
 ---
 
@@ -203,7 +203,7 @@ export class NetworkPolicyViolationException extends SigloError {
 
 ### Non-Retryable Classification
 Security and policy violations are intentionally tagged with:
-- `phase: 'action'`
+- `phase: 'action'` (or `phase: 'validation'` when triggered during `Step.spec` validation, transforms, or translations; `phase: 'before'` / `phase: 'after'` in hooks)
 - `retryable: false`
 
 Because an unauthorized network destination is a policy failure rather than a transient blip, Siglo halts execution immediately without wasting retry cycles.

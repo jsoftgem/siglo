@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { Step, flow } from '../step';
 import { StepTimeoutException, FlowTimeoutException } from './exceptions';
+import { ExecutionPhase } from '../../shared';
 import { combineAbortSignals } from './signals';
 
 describe('Resilient Execution & Timeouts Unit Tests', () => {
@@ -329,6 +330,45 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                 expect(executed).to.be.false;
                 expect(err.message).to.equal('Manual cancellation');
             }
+        });
+        it('enforces step timeout on hanging spec validation and tags with validation phase', async () => {
+            const step = Step.create('hangingSpecStep', async () => ({ done: true }))
+                .spec('field', {
+                    validate: async () => {
+                        await new Promise(() => {}); // never resolves
+                        return true;
+                    }
+                })
+                .timeout(40);
+
+            try {
+                await step.execute({ field: 'data' });
+                expect.fail('Should have failed timeout in spec validation');
+            } catch (err: any) {
+                const error = err.error || err;
+                expect(error).to.be.an.instanceof(StepTimeoutException);
+                expect(error.phase).to.equal(ExecutionPhase.VALIDATION);
+                expect(error.stepName).to.equal('hangingSpecStep');
+            }
+        });
+
+        it('clears initial macrotask timer when signal aborts before turn fires', (done) => {
+            const controller = new AbortController();
+            let stepStarted = false;
+            const step = Step.create('abortedStep', () => {
+                stepStarted = true;
+                return { ok: true };
+            });
+
+            step.run({}, { signal: controller.signal }).catch((err: any) => {
+                expect(err.message).to.equal('Aborted before start');
+                setTimeout(() => {
+                    expect(stepStarted).to.be.false;
+                    done();
+                }, 15);
+            });
+
+            controller.abort(new Error('Aborted before start'));
         });
     });
 });

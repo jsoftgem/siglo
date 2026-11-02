@@ -52,6 +52,8 @@ try {
 - **Reverse Order (LIFO)**: Compensations execute in exact reverse order of step completion.
 - **Input and Output Accessibility**: Compensation handlers receive both the completed step's `output` and original `input`.
 - **Targeted Triggering**: Compensations only run for steps that successfully completed prior to the point of failure.
+- **Full Lifecycle & Reducer Support**: Both standard single-action steps and array `.reduce()` steps register compensations with the saga manager.
+- **Fault-Tolerant Payload Mapping**: User-supplied `compensationPayloadMapper` functions are executed safely without halting workflow resolution on mapping errors.
 
 ---
 

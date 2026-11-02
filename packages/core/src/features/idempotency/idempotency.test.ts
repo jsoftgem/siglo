@@ -626,4 +626,23 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(isPermanentBusinessError(null)).to.be.false;
         expect(isPermanentBusinessError(undefined)).to.be.false;
     });
+    it("supports successful reducer step execution and idempotency completion", async () => {
+        const store = new InMemoryIdempotencyStore();
+        let callCount = 0;
+        const reduceSuccessStep = Step.create("reduceSuccess", (parameter: any, current: any) => {
+            callCount++;
+            return (parameter.value || 0) + current;
+        })
+        .idempotent("reduce-success-k", { store })
+        .reduce("items");
+
+        const res1: any = await flow(reduceSuccessStep).execute({ items: [1, 2] });
+        expect(res1.value).to.equal(3);
+        expect(callCount).to.equal(2);
+
+        // Re-executing with same idempotency key should hit cached result
+        const res2: any = await flow(reduceSuccessStep).execute({ items: [1, 2] });
+        expect(res2.value).to.equal(3);
+        expect(callCount).to.equal(2);
+    });
 });

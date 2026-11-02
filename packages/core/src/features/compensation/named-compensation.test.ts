@@ -512,5 +512,35 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             expect(flowCompCalled).to.be.true;
             expect(report.reconciled).to.include(stackId);
         });
+        it('registers compensation for reducer steps and handles throwing payload mapper safely', async () => {
+            const stackId = 'reducer-comp-stack';
+            let compensated = false;
+
+            registerCompensationHandler('refundItems', async (payload: any) => {
+                compensated = true;
+                expect(payload.refundAmount).to.equal(50);
+            });
+
+            const throwingStep = Step.create('throwingCompStep', () => ({ processed: true }))
+                .compensate('refundItems', () => {
+                    throw new Error('Mapper exploded');
+                });
+
+            // Throwing mapper should be caught safely without unhandled rejection
+            const throwRes: any = await throwingStep.execute({}, { stackId: 'throwing-stack' });
+            expect(throwRes.processed).to.be.true;
+
+            const reducerStep = Step.create('reduceCompStep', (param: any, current: any) => {
+                return (param.value || 0) + current;
+            })
+            .reduce('items')
+            .compensate('refundItems', (output: any) => ({ refundAmount: output.value * 10 }));
+
+            await reducerStep.execute({ items: [2, 3] }, { stackId });
+
+            const report = await defaultCompensationManager.runCompensations(stackId);
+            expect(report.completed).to.include('reduceCompStep');
+            expect(compensated).to.be.true;
+        });
     });
 });

@@ -42,6 +42,10 @@ const querySlowDatabase = Step.create('queryDb', async () => {
 }).timeout(2500); // Fails with StepTimeoutException if exceeds 2.5s
 ```
 
+> [!NOTE]
+> Step timeouts encompass the entire step lifecycle—including `Step.spec` validation, transformers, translators, `onBefore` plugins, the step action, and `onAfter` hooks. If any phase hangs or exceeds the deadline, the step aborts and rejects with `StepTimeoutException` tagged with its active execution phase.
+
+
 ### Workflow-Level Timeouts
 Enforce end-to-end deadlines across the entire workflow sequence:
 ```typescript

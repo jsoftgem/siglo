@@ -17,5 +17,13 @@ export function tagErrorPhase(err: unknown, phase: ExecutionPhase | string, step
         if (stepName !== undefined) {
             (err as Record<string, unknown>).stepName = stepName;
         }
+        if (Array.isArray(err)) {
+            for (const item of err) {
+                tagErrorPhase(item, phase, stepName);
+                if (item && typeof item === 'object' && (item as any).error) {
+                    tagErrorPhase((item as any).error, phase, stepName);
+                }
+            }
+        }
     }
 }
