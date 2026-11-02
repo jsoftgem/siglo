@@ -478,8 +478,9 @@ export class NetworkPolicyViolationException extends SigloError {
         allowedHosts: (string | RegExp)[],
         metadata: ExecutionErrorMetadata = {}
     ) {
+        const extraReason = (metadata as any)?.reason ? ` Reason: ${(metadata as any).reason}.` : '';
         super(
-            `Step '${stepName}' attempted unauthorized network call to '${requestedHost}' (${requestedUrl}). Allowed hosts: [${allowedHosts.map(String).join(', ')}]`,
+            `Step '${stepName}' attempted unauthorized network call to '${requestedHost}' (${requestedUrl}). Allowed hosts: [${allowedHosts.map(String).join(', ')}]${extraReason}`,
             {
                 ...metadata,
                 stepName,

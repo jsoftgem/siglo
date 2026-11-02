@@ -5,6 +5,7 @@ export interface NetworkPolicyConfig {
     defaultPolicy?: 'deny' | 'allow';
     allowedHosts?: HostPattern[];
     allowLocalhost?: boolean;
+    allowUnixSockets?: string[];
 }
 
 export interface EffectiveNetworkPolicy {
@@ -12,6 +13,7 @@ export interface EffectiveNetworkPolicy {
     defaultPolicy: 'deny' | 'allow';
     allowedHosts: HostPattern[];
     allowLocalhost: boolean;
+    allowUnixSockets?: string[];
     stepName?: string;
     flowPolicy?: EffectiveNetworkPolicy;
     stepPolicy?: EffectiveNetworkPolicy;

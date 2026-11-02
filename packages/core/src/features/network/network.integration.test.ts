@@ -137,7 +137,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             const narrowedStep = Step.create('narrowedStep', async () => {
                 await fetch('https://api.sendgrid.com/v3/mail/send');
                 return { done: true };
-            }).allowNetwork(['api.stripe.com']); // Narrowed only to Stripe, sendgrid is excluded
+            }).allowNetwork(['api.stripe.com', '127.0.0.1']); // Narrowed only to Stripe, sendgrid is excluded
 
             const multiServiceWorkflow = flow(narrowedStep).networkPolicy({
                 allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
@@ -180,25 +180,22 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
     });
 
     describe('Localhost Exemption and Real HTTP Server Verification', () => {
-        it('allows loopback requests by default against a real local HTTP server', async () => {
+        it('allows loopback requests when allowLocalhost: true is configured against a real local HTTP server', async () => {
             const localCallStep = Step.create('localStep', async () => {
                 const res = await fetch(`http://127.0.0.1:${localPort}/`);
                 const data = await res.json();
                 return { data };
-            }).denyNetwork(); // Deny external networks, but localhost is exempted by default!
+            }).networkPolicy({ allowedHosts: [], allowLocalhost: true });
 
             const result: any = await localCallStep.execute();
             expect(result.data).to.deep.equal({ status: 'ok', service: 'mock-local-api' });
         });
 
-        it('blocks loopback requests when allowLocalhost: false is configured', async () => {
+        it('blocks loopback requests by default when denyNetwork() is configured', async () => {
             const strictStep = Step.create('strictStep', async () => {
                 await fetch(`http://127.0.0.1:${localPort}/`);
                 return { ok: true };
-            }).networkPolicy({
-                allowedHosts: [],
-                allowLocalhost: false
-            });
+            }).denyNetwork();
 
             try {
                 await strictStep.execute();
@@ -223,7 +220,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 const json = await res.json();
                 allowedExecuted = true;
                 return { allowed: json.status };
-            }).allowNetwork(['api.stripe.com']);
+            }).networkPolicy({ allowedHosts: ['api.stripe.com'], allowLocalhost: true });
 
             const blockedStep = Step.create('blockedStep', async () => {
                 await new Promise(r => setTimeout(r, 10));
@@ -377,14 +374,14 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com'],
-                allowLocalhost: true
+                allowLocalhost: false
             });
 
             expect(nodeB?.metadata?.networkPolicy).to.deep.equal({
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: [],
-                allowLocalhost: true
+                allowLocalhost: false
             });
         });
     });

@@ -1,15 +1,33 @@
 import { EffectiveNetworkPolicy, HostPattern } from './types';
+import { normalizeIP, isPrivateOrRestrictedIP } from './ip';
+
+export function isUnixSocket(hostOrTarget: string): boolean {
+    if (!hostOrTarget || typeof hostOrTarget !== 'string') {
+        return false;
+    }
+    const clean = hostOrTarget.trim().toLowerCase();
+    return clean.startsWith('unix:') || clean.startsWith('/') || clean.includes('.sock');
+}
+
+export function isUnixSocketAllowed(target: string, allowedUnixSockets?: string[]): boolean {
+    if (!allowedUnixSockets || !Array.isArray(allowedUnixSockets) || allowedUnixSockets.length === 0) {
+        return false;
+    }
+    const clean = target.trim();
+    const normalized = clean.startsWith('unix:') ? clean.slice(5) : clean;
+    for (const pat of allowedUnixSockets) {
+        const normPat = pat.trim();
+        if (normPat === '*') return true;
+        if (normPat === normalized || normalized.startsWith(normPat)) return true;
+    }
+    return false;
+}
 
 export function isLocalhost(hostOrTarget: string): boolean {
     if (!hostOrTarget || typeof hostOrTarget !== 'string') {
         return false;
     }
     const clean = hostOrTarget.trim().toLowerCase();
-
-    // Local Unix domain sockets or IPC paths
-    if (clean.startsWith('unix:') || clean.startsWith('/') || clean.includes('.sock')) {
-        return true;
-    }
 
     // Strip protocol if present
     const withoutProto = clean.replace(/^[a-z]+:\/\//, '');
@@ -34,14 +52,12 @@ export function isLocalhost(hostOrTarget: string): boolean {
     if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
         return true;
     }
-    if (hostname === '127.0.0.1' || hostname.startsWith('127.')) {
-        return true;
-    }
-    if (hostname === '::1') {
-        return true;
-    }
-    if (hostname === '0.0.0.0' || hostname === '::') {
-        return true;
+
+    const normIp = normalizeIP(hostname);
+    if (normIp) {
+        if (normIp.startsWith('127.') || normIp === '0.0.0.0' || normIp === '::1' || normIp === '::') {
+            return true;
+        }
     }
 
     return false;
@@ -140,6 +156,13 @@ export function matchesPattern(
         }
     }
 
+    // Canonical IP matching across alternative encodings
+    const normTargetIP = normalizeIP(normTargetHostname);
+    const normPatIP = normalizeIP(patHost);
+    if (normTargetIP && normPatIP) {
+        return normTargetIP === normPatIP;
+    }
+
     if (patHost.startsWith('*.')) {
         const suffix = patHost.slice(1); // e.g. '.stripe.com'
         const baseDomain = patHost.slice(2); // e.g. 'stripe.com'
@@ -164,12 +187,48 @@ export function isHostAllowed(
                isHostAllowed(requestedUrl, requestedHost, policy.stepPolicy, port);
     }
 
-    const allowLocalhost = policy.allowLocalhost !== false;
+    // Unix domain sockets check
+    if (isUnixSocket(requestedHost) || isUnixSocket(requestedUrl)) {
+        const rawTarget = requestedHost && isUnixSocket(requestedHost) ? requestedHost : requestedUrl;
+        const targetPath = rawTarget.startsWith('unix:') ? rawTarget.slice(5) : rawTarget;
+        return isUnixSocketAllowed(targetPath, policy.allowUnixSockets);
+    }
+
+    // Localhost check (defaults to false)
+    const allowLocalhost = policy.allowLocalhost === true;
     if (allowLocalhost && (isLocalhost(requestedHost) || isLocalhost(requestedUrl))) {
         return true;
     }
 
     const { hostname, port: parsedPort, hostWithPort } = parseHostAndPort(requestedHost, port);
+
+    // If host is an IP address, check for private/restricted ranges
+    const normIp = normalizeIP(hostname);
+    if (normIp) {
+        const isRestricted = isPrivateOrRestrictedIP(normIp, allowLocalhost);
+        if (isRestricted) {
+            const allowedHosts = policy.allowedHosts || [];
+            for (const pattern of allowedHosts) {
+                if (pattern === '*') continue;
+                if (matchesPattern(hostWithPort, hostname, parsedPort, pattern)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    } else {
+        // If it's a localhost hostname (e.g. 'localhost' or 'api.localhost') and allowLocalhost is false:
+        if (!allowLocalhost && (isLocalhost(requestedHost) || isLocalhost(requestedUrl))) {
+            const allowedHosts = policy.allowedHosts || [];
+            for (const pattern of allowedHosts) {
+                if (pattern === '*') continue;
+                if (matchesPattern(hostWithPort, hostname, parsedPort, pattern)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
 
     const allowedHosts = policy.allowedHosts || [];
     for (const pattern of allowedHosts) {

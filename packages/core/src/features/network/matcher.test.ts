@@ -1,6 +1,8 @@
 import { expect } from 'chai';
 import {
     isLocalhost,
+    isUnixSocket,
+    isUnixSocketAllowed,
     parseHostAndPort,
     matchesPattern,
     isHostAllowed
@@ -16,10 +18,17 @@ describe('Network Policy Matcher Tests', () => {
             expect(isLocalhost(123 as any)).to.be.false;
         });
 
-        it('identifies local Unix domain sockets and IPC paths', () => {
-            expect(isLocalhost('unix:/var/run/docker.sock')).to.be.true;
-            expect(isLocalhost('/tmp/app.sock')).to.be.true;
-            expect(isLocalhost('app.sock')).to.be.true;
+        it('identifies local Unix domain sockets and IPC paths via isUnixSocket', () => {
+            expect(isUnixSocket('unix:/var/run/docker.sock')).to.be.true;
+            expect(isUnixSocket('/tmp/app.sock')).to.be.true;
+            expect(isUnixSocket('app.sock')).to.be.true;
+            expect(isUnixSocket('')).to.be.false;
+            expect(isUnixSocket(null as any)).to.be.false;
+            expect(isUnixSocket('http://localhost')).to.be.false;
+            expect(isUnixSocketAllowed('/var/run/docker.sock', ['/var/run/docker.sock'])).to.be.true;
+            expect(isUnixSocketAllowed('/tmp/test.sock', ['*'])).to.be.true;
+            expect(isUnixSocketAllowed('/var/run/docker.sock', ['/tmp/'])).to.be.false;
+            expect(isUnixSocketAllowed('/var/run/docker.sock', undefined)).to.be.false;
         });
 
         it('identifies standard localhost and localhost subdomains', () => {
@@ -159,7 +168,8 @@ describe('Network Policy Matcher Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
+                allowUnixSockets: ['/var/socket.sock']
             };
             expect(isHostAllowed('http://localhost:3000', 'localhost', policy, 3000)).to.be.true;
             expect(isHostAllowed('http://127.0.0.1:8080', '127.0.0.1', policy, 8080)).to.be.true;

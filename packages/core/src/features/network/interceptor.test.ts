@@ -477,12 +477,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('bypasses Unix domain sockets when connecting via path string or options.path', (done) => {
+        it('permits Unix domain sockets when explicitly in allowUnixSockets', (done) => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: [],
                 allowLocalhost: true,
+                allowUnixSockets: [unixSocketPath],
                 stepName: 'unixStep'
             };
 
@@ -495,6 +496,26 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                         done();
                     });
                 });
+            });
+        });
+
+        it('blocks unauthorized Unix domain sockets when not in allowUnixSockets', (done) => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: [],
+                allowLocalhost: true,
+                stepName: 'unixStep'
+            };
+
+            networkPolicyStorage.run(policy, () => {
+                const socket1 = new net.Socket();
+                const socket = new net.Socket();
+                socket.on('error', (err: any) => {
+                    expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                    done();
+                });
+                socket.connect(unixSocketPath);
             });
         });
 
@@ -519,6 +540,123 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                             done();
                         });
                     });
+                });
+            });
+        });
+
+        it('supports http.request and https.request called with options object', (done) => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: ['127.0.0.1'],
+                allowLocalhost: true,
+                stepName: 'optionsStep'
+            };
+
+            networkPolicyStorage.run(policy, () => {
+                const req = http.request({ hostname: '127.0.0.1', port: httpPort, method: 'GET' }, (res) => {
+                    expect(res.statusCode).to.equal(200);
+                    const httpsReq = https.request({ hostname: '127.0.0.1', port: 443, method: 'GET' });
+                    httpsReq.on('error', () => {});
+                    httpsReq.destroy();
+                    done();
+                });
+                req.end();
+            });
+        });
+
+        it('catches DNS rebinding to restricted IP via wrapLookup in http.request', (done) => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: ['public-service.com'],
+                allowLocalhost: false,
+                stepName: 'dnsRebindHttp'
+            };
+
+            networkPolicyStorage.run(policy, () => {
+                const customLookup = (_hostname: string, _opts: any, cb: any) => {
+                    const callback = typeof _opts === 'function' ? _opts : cb;
+                    callback(null, [{ address: '127.0.0.1', family: 4 }]);
+                };
+
+                const req = http.request({
+                    hostname: 'public-service.com',
+                    port: 80,
+                    lookup: customLookup
+                });
+
+                req.on('error', (err) => {
+                    expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                    expect(err.message).to.include('restricted IP');
+                    done();
+                });
+            });
+        });
+
+        it('passes through DNS lookup error in wrapLookup', (done) => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: ['public-service.com'],
+                allowLocalhost: false,
+                stepName: 'dnsErrorHttp'
+            };
+
+            networkPolicyStorage.run(policy, () => {
+                const customLookup = (_hostname: string, _opts: any, cb: any) => {
+                    const callback = typeof _opts === 'function' ? _opts : cb;
+                    callback(new Error('DNS resolution error'));
+                };
+
+                const req = http.request({
+                    hostname: 'public-service.com',
+                    port: 80,
+                    lookup: customLookup
+                });
+
+                req.on('error', (err) => {
+                    expect(err.message).to.include('DNS resolution error');
+                    done();
+                });
+            });
+        });
+
+        it('permits public IP via wrapLookup', (done) => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: ['public-service.com'],
+                allowLocalhost: false,
+                stepName: 'dnsPublicHttp'
+            };
+
+            networkPolicyStorage.run(policy, () => {
+                const customLookup = (_hostname: string, _opts: any, cb: any) => {
+                    const callback = typeof _opts === 'function' ? _opts : cb;
+                    callback(null, '93.184.216.34', 4);
+                };
+
+                const req = http.request({
+                    hostname: 'public-service.com',
+                    port: 80,
+                    lookup: customLookup
+                });
+
+                let called = false;
+                const finish = () => {
+                    if (!called) {
+                        called = true;
+                        done();
+                    }
+                };
+
+                req.on('socket', () => {
+                    req.destroy();
+                    finish();
+                });
+                req.on('error', () => {
+                    finish();
                 });
             });
         });

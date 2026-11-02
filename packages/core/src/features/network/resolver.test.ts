@@ -13,12 +13,14 @@ describe('Network Policy Resolver Tests', () => {
     it('resolves flow policy when only flowPolicy is provided', () => {
         const resolved = resolveEffectiveNetworkPolicy(undefined, {
             allowedHosts: ['api.stripe.com'],
-            allowLocalhost: true
+            allowLocalhost: true,
+            allowUnixSockets: ['/var/run/docker.sock']
         });
         expect(resolved?.enabled).to.be.true;
         expect(resolved?.defaultPolicy).to.equal('deny');
         expect(resolved?.allowedHosts).to.deep.equal(['api.stripe.com']);
         expect(resolved?.allowLocalhost).to.be.true;
+        expect(resolved?.allowUnixSockets).to.deep.equal(['/var/run/docker.sock']);
 
         // Disabled flow policy
         expect(resolveEffectiveNetworkPolicy(undefined, { enabled: false })).to.be.undefined;
@@ -27,12 +29,14 @@ describe('Network Policy Resolver Tests', () => {
     it('resolves step policy when only stepPolicy is provided', () => {
         const resolved = resolveEffectiveNetworkPolicy({
             allowedHosts: ['api.github.com'],
-            allowLocalhost: false
+            allowLocalhost: false,
+            allowUnixSockets: ['/var/run/custom.sock']
         }, undefined);
         expect(resolved?.enabled).to.be.true;
         expect(resolved?.defaultPolicy).to.equal('deny');
         expect(resolved?.allowedHosts).to.deep.equal(['api.github.com']);
         expect(resolved?.allowLocalhost).to.be.false;
+        expect(resolved?.allowUnixSockets).to.deep.equal(['/var/run/custom.sock']);
 
         // Disabled step policy
         expect(resolveEffectiveNetworkPolicy({ enabled: false }, undefined)).to.be.undefined;
@@ -131,5 +135,34 @@ describe('Network Policy Resolver Tests', () => {
         // Both allow -> true
         const res3 = resolveEffectiveNetworkPolicy({ allowLocalhost: true }, { allowLocalhost: true });
         expect(res3!.allowLocalhost).to.be.true;
+    });
+
+    it('enforces flow outer perimeter for unix domain sockets', () => {
+        // Flow allows sockets, step narrows
+        const flowPolicy = {
+            allowUnixSockets: ['/var/run/docker.sock', '/tmp/app.sock']
+        };
+        const stepPolicy = {
+            allowUnixSockets: ['/var/run/docker.sock', '/tmp/unauthorized.sock']
+        };
+        const resolved = resolveEffectiveNetworkPolicy(stepPolicy, flowPolicy);
+        expect(resolved!.allowUnixSockets).to.deep.equal(['/var/run/docker.sock']);
+
+        // Step inherits flow unix sockets when step unix sockets is undefined
+        const stepWithoutSockets = {
+            allowedHosts: ['api.stripe.com']
+        };
+        const resolvedInherited = resolveEffectiveNetworkPolicy(stepWithoutSockets, flowPolicy);
+        expect(resolvedInherited!.allowUnixSockets).to.deep.equal(['/var/run/docker.sock', '/tmp/app.sock']);
+
+        // Flow disallows sockets, step cannot grant access
+        const flowWithoutSockets = {
+            allowedHosts: ['api.stripe.com']
+        };
+        const stepWithSockets = {
+            allowUnixSockets: ['/var/run/docker.sock']
+        };
+        const resolvedBlocked = resolveEffectiveNetworkPolicy(stepWithSockets, flowWithoutSockets);
+        expect(resolvedBlocked!.allowUnixSockets).to.be.undefined;
     });
 });

@@ -120,7 +120,12 @@ import {
     isNetworkInterceptorsInstalled,
     ensureNetworkInterceptorsInstalled,
     isHostAllowed,
-    isLocalhost
+    isLocalhost,
+    isPrivateOrRestrictedIP,
+    normalizeIP,
+    validateAndPinTarget,
+    isUnixSocket,
+    isUnixSocketAllowed
 } from '../network';
 
 export {
@@ -270,7 +275,12 @@ export {
     isNetworkInterceptorsInstalled,
     ensureNetworkInterceptorsInstalled,
     isHostAllowed,
-    isLocalhost
+    isLocalhost,
+    isPrivateOrRestrictedIP,
+    normalizeIP,
+    validateAndPinTarget,
+    isUnixSocket,
+    isUnixSocketAllowed
 };
 
 export interface ExecutionOptions {
@@ -543,7 +553,8 @@ export function flow<TInput = any, TOutput = any>(
                 enabled: policy?.enabled ?? true,
                 defaultPolicy: policy?.defaultPolicy ?? 'deny',
                 allowedHosts: policy?.allowedHosts ? [...policy.allowedHosts] : [],
-                allowLocalhost: policy?.allowLocalhost ?? true
+                allowLocalhost: policy?.allowLocalhost ?? false,
+                ...(policy?.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {})
             };
             flowObj.networkPolicyConfig = flowPolicyConfig;
             return flowObj;
@@ -712,7 +723,20 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             enabled: true,
             defaultPolicy: 'deny',
             allowedHosts: list,
-            allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? true
+            allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? false,
+            ...(this.networkPolicyConfig?.allowUnixSockets ? { allowUnixSockets: this.networkPolicyConfig.allowUnixSockets } : {})
+        };
+        return this;
+    }
+
+    allowUnixSockets(sockets: string | string[]): this {
+        const list = Array.isArray(sockets) ? sockets : [sockets];
+        this.networkPolicyConfig = {
+            enabled: true,
+            defaultPolicy: this.networkPolicyConfig?.defaultPolicy ?? 'deny',
+            allowedHosts: this.networkPolicyConfig?.allowedHosts || [],
+            allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? false,
+            allowUnixSockets: list
         };
         return this;
     }
@@ -731,7 +755,8 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             enabled: policy.enabled ?? true,
             defaultPolicy: policy.defaultPolicy ?? 'deny',
             allowedHosts: policy.allowedHosts ? [...policy.allowedHosts] : [],
-            allowLocalhost: policy.allowLocalhost ?? true
+            allowLocalhost: policy.allowLocalhost ?? false,
+            ...(policy.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {})
         };
         return this;
     }

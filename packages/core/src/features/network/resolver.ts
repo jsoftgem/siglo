@@ -1,5 +1,5 @@
 import { EffectiveNetworkPolicy, HostPattern, NetworkPolicyConfig } from './types';
-import { matchesPattern, parseHostAndPort } from './matcher';
+import { matchesPattern, parseHostAndPort, isUnixSocketAllowed } from './matcher';
 
 function isPatternPermittedByList(pattern: HostPattern, flowAllowedHosts: HostPattern[]): boolean {
     if (pattern instanceof RegExp) {
@@ -59,7 +59,8 @@ export function resolveEffectiveNetworkPolicy(
             enabled: true,
             defaultPolicy: flowPolicy.defaultPolicy ?? 'deny',
             allowedHosts: flowPolicy.allowedHosts ? [...flowPolicy.allowedHosts] : [],
-            allowLocalhost: flowPolicy.allowLocalhost ?? true
+            allowLocalhost: flowPolicy.allowLocalhost ?? false,
+            allowUnixSockets: flowPolicy.allowUnixSockets ? [...flowPolicy.allowUnixSockets] : undefined
         };
     }
 
@@ -69,7 +70,8 @@ export function resolveEffectiveNetworkPolicy(
             enabled: true,
             defaultPolicy: stepPolicy.defaultPolicy ?? 'deny',
             allowedHosts: stepPolicy.allowedHosts ? [...stepPolicy.allowedHosts] : [],
-            allowLocalhost: stepPolicy.allowLocalhost ?? true
+            allowLocalhost: stepPolicy.allowLocalhost ?? false,
+            allowUnixSockets: stepPolicy.allowUnixSockets ? [...stepPolicy.allowUnixSockets] : undefined
         };
     }
 
@@ -79,18 +81,30 @@ export function resolveEffectiveNetworkPolicy(
         enabled: true,
         defaultPolicy: flowPolicy!.defaultPolicy ?? 'deny',
         allowedHosts: flowPolicy!.allowedHosts ? [...flowPolicy!.allowedHosts] : [],
-        allowLocalhost: flowPolicy!.allowLocalhost ?? true
+        allowLocalhost: flowPolicy!.allowLocalhost ?? false,
+        allowUnixSockets: flowPolicy!.allowUnixSockets ? [...flowPolicy!.allowUnixSockets] : undefined
     };
 
     const resolvedStep: EffectiveNetworkPolicy = {
         enabled: true,
         defaultPolicy: stepPolicy!.defaultPolicy ?? 'deny',
         allowedHosts: stepPolicy!.allowedHosts ? [...stepPolicy!.allowedHosts] : [],
-        allowLocalhost: stepPolicy!.allowLocalhost ?? true
+        allowLocalhost: stepPolicy!.allowLocalhost ?? false,
+        allowUnixSockets: stepPolicy!.allowUnixSockets ? [...stepPolicy!.allowUnixSockets] : undefined
     };
 
     // Effective localhost exemption: flow must allow it AND step must allow it
-    const allowLocalhost = (resolvedFlow.allowLocalhost !== false) && (resolvedStep.allowLocalhost !== false);
+    const allowLocalhost = Boolean(resolvedFlow.allowLocalhost && resolvedStep.allowLocalhost);
+
+    // Effective unix sockets: step can only allow what flow allows
+    let effectiveUnixSockets: string[] | undefined;
+    if (resolvedFlow.allowUnixSockets && resolvedStep.allowUnixSockets) {
+        effectiveUnixSockets = resolvedStep.allowUnixSockets.filter(s =>
+            isUnixSocketAllowed(s, resolvedFlow.allowUnixSockets)
+        );
+    } else if (resolvedFlow.allowUnixSockets) {
+        effectiveUnixSockets = [...resolvedFlow.allowUnixSockets];
+    }
 
     // Compute effective allowedHosts:
     // Filter step's allowed hosts to only those permitted by flow's outer perimeter.
@@ -108,6 +122,7 @@ export function resolveEffectiveNetworkPolicy(
         defaultPolicy: 'deny',
         allowedHosts: effectiveAllowedHosts,
         allowLocalhost,
+        allowUnixSockets: effectiveUnixSockets,
         flowPolicy: resolvedFlow,
         stepPolicy: resolvedStep
     };

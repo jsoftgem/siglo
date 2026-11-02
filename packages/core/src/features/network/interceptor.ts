@@ -1,9 +1,11 @@
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
-import { EventEmitter } from 'node:events';
+import dns from 'node:dns';
+import stream from 'node:stream';
 import { networkPolicyStorage } from './storage';
-import { isHostAllowed } from './matcher';
+import { isHostAllowed, isUnixSocketAllowed } from './matcher';
+import { normalizeIP, isPrivateOrRestrictedIP, validateAndPinTarget } from './ip';
 import { NetworkPolicyViolationException } from '../executer/exceptions';
 
 const VALIDATED_SOCKET = Symbol.for('siglo.network.validated');
@@ -23,21 +25,67 @@ let origHttpsRequest: typeof https.request = nativeHttpsRequest;
 let origHttpsGet: typeof https.get = nativeHttpsGet;
 let origSocketConnect: typeof net.Socket.prototype.connect = nativeSocketConnect;
 
-class BlockedClientRequest extends EventEmitter {
-    setHeader() { return this; }
-    getHeader() { return undefined; }
-    getHeaders() { return {}; }
-    getHeaderNames() { return []; }
-    hasHeader() { return false; }
-    removeHeader() { return this; }
-    write() { return false; }
-    end() { return this; }
-    abort() { return this; }
-    destroy(_err?: Error) { return this; }
-    setTimeout() { return this; }
-    setNoDelay() { return this; }
-    setSocketKeepAlive() { return this; }
-    flushHeaders() { return this; }
+class BlockedClientRequest extends http.ClientRequest {
+    constructor() {
+        const dummySocket = new stream.Duplex({
+            read() {},
+            write(_chunk, _enc, cb) { cb(); }
+        });
+        (dummySocket as any).connecting = false;
+        (dummySocket as any).destroyed = false;
+        (dummySocket as any).cork = () => {};
+        (dummySocket as any).uncork = () => {};
+        (dummySocket as any).setTimeout = () => dummySocket;
+        (dummySocket as any).setNoDelay = () => dummySocket;
+        (dummySocket as any).setKeepAlive = () => dummySocket;
+        super({
+            protocol: 'http:',
+            hostname: 'localhost',
+            path: '/',
+            createConnection: () => dummySocket as any
+        });
+    }
+
+    override setHeader(_name: string, _value: any): this {
+        return this;
+    }
+    override getHeader(_name: string): any {
+        return undefined;
+    }
+    override getHeaders(): Record<string, any> {
+        return {};
+    }
+    override getHeaderNames(): string[] {
+        return [];
+    }
+    override hasHeader(_name: string): boolean {
+        return false;
+    }
+    override removeHeader(_name: string): this {
+        return this;
+    }
+    override write(_chunk: any): boolean {
+        return false;
+    }
+    override end(): this {
+        return this;
+    }
+    override abort(): this {
+        return this;
+    }
+    override destroy(_err?: Error): this {
+        return this;
+    }
+    override setTimeout(_msecs: number, _callback?: () => void): this {
+        return this;
+    }
+    override setNoDelay(_noDelay?: boolean): this {
+        return this;
+    }
+    override setSocketKeepAlive(_enable?: boolean, _initialDelay?: number): this {
+        return this;
+    }
+    override flushHeaders(): void {}
 }
 
 function parseHttpArgs(args: any[], defaultProto: string): { urlString: string; host: string; port?: string | number } {
@@ -66,9 +114,43 @@ function parseHttpArgs(args: any[], defaultProto: string): { urlString: string; 
     return { urlString: `${defaultProto}//localhost/`, host: 'localhost' };
 }
 
-function patchedFetch(input: any, init?: any): Promise<Response> {
+function wrapLookup(existingLookup: any, store: any, target: { urlString: string; host: string }) {
+    const baseLookup = existingLookup || dns.lookup;
+    return (hostname: string, opts: any, cb: any) => {
+        const callback = typeof opts === 'function' ? opts : cb;
+        const lookupOpts = typeof opts === 'object' ? opts : {};
+        baseLookup(hostname, lookupOpts, (err: any, address: any, family: any) => {
+            if (err) return callback(err);
+            const addrs = Array.isArray(address) ? address : [{ address, family }];
+            for (const item of addrs) {
+                if (isPrivateOrRestrictedIP(item.address, store.allowLocalhost)) {
+                    const isExplicitlyAllowed = (store.allowedHosts || []).some((pat: any) => {
+                        if (typeof pat === 'string') {
+                            const normPat = normalizeIP(pat);
+                            return normPat === item.address || pat === item.address;
+                        }
+                        return false;
+                    });
+                    if (!isExplicitlyAllowed) {
+                        const blockErr = new NetworkPolicyViolationException(
+                            store.stepName,
+                            target.urlString,
+                            target.host,
+                            store.allowedHosts,
+                            { reason: `Target host '${hostname}' resolved to restricted IP: ${item.address}` } as any
+                        );
+                        return callback(blockErr);
+                    }
+                }
+            }
+            callback(null, address, family);
+        });
+    };
+}
+
+async function patchedFetch(input: any, init?: any): Promise<Response> {
     const store = networkPolicyStorage.getStore();
-    if (!store || !store.enabled) {
+    if (!store || !store.enabled || store.inValidatedScope) {
         return origFetch!.call(globalThis, input, init);
     }
 
@@ -105,9 +187,58 @@ function patchedFetch(input: any, init?: any): Promise<Response> {
         return Promise.reject(error);
     }
 
-    return networkPolicyStorage.run({ ...store, inValidatedScope: true }, () => {
-        return origFetch!.call(globalThis, input, init);
-    });
+    await validateAndPinTarget(urlObj, store);
+
+    let currentUrl = urlString;
+    let currentInit = { ...init, redirect: 'manual' };
+    const maxRedirects = 5;
+    let redirectCount = 0;
+
+    while (true) {
+        const res = await networkPolicyStorage.run({ ...store, inValidatedScope: true }, () => {
+            return origFetch!.call(globalThis, currentUrl, currentInit);
+        });
+
+        if ([301, 302, 303, 307, 308].includes(res.status)) {
+            const location = res.headers.get('location');
+            if (!location) {
+                return res;
+            }
+            redirectCount++;
+            if (redirectCount > maxRedirects) {
+                throw new NetworkPolicyViolationException(
+                    store.stepName,
+                    currentUrl,
+                    host,
+                    store.allowedHosts,
+                    { reason: 'Maximum redirect count exceeded' } as any
+                );
+            }
+
+            const targetUrlObj = new URL(location, currentUrl);
+            const targetUrlString = targetUrlObj.href;
+            const targetHost = targetUrlObj.host;
+            const targetPort = targetUrlObj.port;
+
+            if (!isHostAllowed(targetUrlString, targetHost, store, targetPort)) {
+                throw new NetworkPolicyViolationException(
+                    store.stepName,
+                    targetUrlString,
+                    targetHost,
+                    store.allowedHosts
+                );
+            }
+            await validateAndPinTarget(targetUrlObj, store);
+
+            currentUrl = targetUrlString;
+            if (res.status === 303) {
+                currentInit = { ...currentInit, method: 'GET', body: undefined };
+            }
+            continue;
+        }
+
+        return res;
+    }
 }
 
 function patchedHttpRequest(...args: any[]): http.ClientRequest {
@@ -130,6 +261,11 @@ function patchedHttpRequest(...args: any[]): http.ClientRequest {
         });
         return req as any;
     }
+
+    const opts = typeof args[0] === 'string' || args[0] instanceof URL
+        ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {})
+        : (args[0] || {});
+    opts.lookup = wrapLookup(opts.lookup, store, target);
 
     const req = origHttpRequest!.apply(http, args as any);
     req.on('socket', (socket: any) => {
@@ -164,6 +300,11 @@ function patchedHttpsRequest(...args: any[]): http.ClientRequest {
         });
         return req as any;
     }
+
+    const opts = typeof args[0] === 'string' || args[0] instanceof URL
+        ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {})
+        : (args[0] || {});
+    opts.lookup = wrapLookup(opts.lookup, store, target);
 
     const req = origHttpsRequest!.apply(https, args as any);
     req.on('socket', (socket: any) => {
@@ -206,6 +347,19 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
     }
 
     if (isUnixSocket) {
+        const socketPath = typeof first === 'string' ? first : first.path;
+        if (!isUnixSocketAllowed(socketPath, store.allowUnixSockets)) {
+            const error = new NetworkPolicyViolationException(
+                store.stepName,
+                `unix://${socketPath}`,
+                socketPath,
+                store.allowedHosts || []
+            );
+            process.nextTick(() => {
+                this.destroy(error);
+            });
+            return this;
+        }
         return origSocketConnect!.apply(this, args as any);
     }
 
@@ -276,6 +430,7 @@ export function uninstallNetworkInterceptors(): void {
     origHttpsGet = nativeHttpsGet;
     origSocketConnect = nativeSocketConnect;
 
+    try { networkPolicyStorage.disable(); } catch {} 
     isInstalled = false;
 }
 
