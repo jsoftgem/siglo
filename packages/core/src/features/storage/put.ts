@@ -30,8 +30,16 @@ export const putChainContext = (
             ctx = {};
             state.contexts.set(stepId, ctx);
         }
+        const isNativeOrBinary =
+            value instanceof Date ||
+            value instanceof RegExp ||
+            value instanceof Error ||
+            (typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) ||
+            (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(value)) ||
+            (value !== null && typeof value === 'object' && (typeof (value as any)[Symbol.asyncIterator] === 'function' || typeof (value as any).pipe === 'function'));
+
         const frozenValue = function(subfield?: string): any {
-            if (value && typeof value === 'object' && !Array.isArray(value)) {
+            if (value && typeof value === 'object' && !Array.isArray(value) && !isNativeOrBinary) {
                 if (subfield !== undefined) {
                     return (value as any)[subfield];
                 }

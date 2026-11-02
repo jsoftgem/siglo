@@ -12,6 +12,7 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 
 | Package | Category | Documentation Guide | Key Features |
 | :--- | :--- | :--- | :--- |
+| **`@siglo/crypto`** | Security & Data Confidentiality | [Crypto Security Guide](adapters/crypto.md) | Timing-safe webhook verification, replay defense, AES-256-GCM envelope encryption, PII context redaction |
 | **`@siglo/monitor`** | Observability & DevTools | [Live Monitoring Guide](live-monitoring.md) / [Monitor Adapter Guide](adapters/monitor.md) | React 18 DevTools SPA, dynamic DAG, latency waterfall, state diffs, SSE/WebSocket, Prometheus `/metrics` |
 | **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
 | **`@siglo/http`** | HTTP Client Egress | [HTTP Client Guide](adapters/http.md) | Resilient client steps, ASL egress perimeter, W3C tracing, Retry-After backoff, sagas |
@@ -45,6 +46,10 @@ flowchart TD
         end
     end
 
+    subgraph SECURITY["SECURITY & CRYPTOGRAPHY"]
+        Crypto["@siglo/crypto<br/>• verifyWebhookStep()<br/>• Timing-Safe Equality<br/>• Replay Attack Defense<br/>• AES-256-GCM Field Cipher<br/>• PII Context Redaction"]
+    end
+
     subgraph ENGINE["Siglo (Core Workflow Engine)"]
         Core["• Composable Steps & Flows<br/>• Concurrency & Combinators<br/>• Two-Tier Timeouts<br/>• Saga LIFO Compensations<br/>• Cooperative Cancellation<br/>• Graph AST & Introspection"]
     end
@@ -64,8 +69,10 @@ flowchart TD
         Postgres["@siglo/postgres<br/>• ACID Checkpoint Storage<br/>• Context Event Audit Log<br/>• Automated Data Retention"]
     end
 
-    HTTP --> ENGINE
-    QUEUES --> ENGINE
+    HTTP --> SECURITY
+    QUEUES --> SECURITY
+    SECURITY --> ENGINE
+    ENGINE --> SECURITY
     ENGINE --> EGRESS
     ENGINE --> OBS
     ENGINE --> STORAGE
@@ -98,87 +105,40 @@ All HTTP adapters (`@siglo/express`, `@siglo/fastify`, `@siglo/hono`) share an i
 | `ValidationException` / `SpecFailedException` | `400 Bad Request` | Contract or schema validation failed on input parameters. |
 | `IdempotencyConflictException` | `409 Conflict` | Concurrent claim detected on an in-progress idempotency key. |
 | `CancellationException` / `AbortError` | `499 Client Closed Request` | Client terminated the HTTP socket or workflow was aborted. |
-| `CompensationException` | `500 Internal Server Error` | Saga forward step failed and compensation completed/failed. |
-| Unhandled `Error` | `500 Internal Server Error` | Unexpected runtime error. |
-
-### 3. Distributed Idempotency Contract
-Queue and event adapters (`bullmq`, `kafka`, `sqs`) enforce exactly-once execution semantics by interfacing with an `IdempotencyStore`:
-
-$$\text{Incoming Record} \longrightarrow \text{claim}(\text{key}, \text{ttl}) \longrightarrow \begin{cases} \text{'completed'} & \implies \text{Return cached result (ACK)} \\ \text{'in-progress'} & \implies \text{Throw conflict (Avoid parallel runs)} \\ \text{'claimed'} & \implies \text{Run workflow} \end{cases}$$
+| `NetworkPolicyViolationException` | `403 Forbidden` | ASL network egress perimeter rejected unauthorized destination host. |
+| `SigloError` (Uncaught / Internal) | `500 Internal Server Error` | Unexpected fatal runtime failure within step execution. |
 
 ---
 
-## Trigger Adapters Comparison Matrix
+## Installation & Quick Start Matrix
 
-| Feature | `@siglo/hono` | `@siglo/fastify` | `@siglo/express` | `@siglo/bullmq` | `@siglo/kafka` | `@siglo/sqs` |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Runtime Target** | Cloudflare, Deno, Bun, Node | Node.js | Node.js | Node.js | Node.js | AWS Lambda, Node |
-| **Trigger Mechanism** | Web Standard HTTP | HTTP Request | HTTP Request | Redis Queue Job | Kafka Topic Record | AWS SQS Batch |
-| **Cancellation** | Native Web `AbortSignal` | `request.raw.signal` | `req.signal` | BullMQ Abort | Kafka Rebalance | Lambda Timeout |
-| **Idempotency** | Custom / Store | Custom / Store | Custom / Store | Job ID Deduplication | Key / Offset Composite | Message ID Deduplication |
-| **Batch Support** | No (Single req) | No (Single req) | No (Single req) | No (Single job) | Single / Batch loop | Partial Batch Failures |
-| **Detailed Guide** | [Read Guide](adapters/hono.md) | [Read Guide](adapters/fastify.md) | [Read Guide](adapters/express.md) | [Read Guide](adapters/bullmq.md) | [Read Guide](adapters/kafka.md) | [Read Guide](adapters/sqs.md) |
+Each package can be installed independently as needed:
 
----
+```bash
+# Core workflow orchestrator (required)
+npm install siglo
 
-## Storage & Persistence Backends Comparison
+# Observability
+npm install @siglo/monitor @siglo/opentelemetry
 
-| Capability | `@siglo/redis` | `@siglo/postgres` |
-| :--- | :--- | :--- |
-| **Primary Use Case** | In-memory caching, sub-millisecond checkpoints, ephemeral locks | Durable relational persistence, compliance audit logs |
-| **Storage Mechanism** | Redis Strings (`SET PX`), Hashes (`HSET`) | Relational tables (`JSONB`, `BIGSERIAL`, `TIMESTAMPTZ`) |
-| **Checkpoint Retention** | Native Redis TTL expiration (`checkpointTtlMs`) | Automated cron cleanup (`cleanupOldCheckpoints(days)`) |
-| **Context Change Audit** | Real-time hash update (`HSET siglo:context:...`) | Append-only event log (`siglo_context_events`) |
-| **Step Output Caching** | Yes (`getCachedStep` / `setCachedStep`) | Relies on application layer / Redis |
-| **Idempotency Locking** | Atomic Redis `SET ... PX ... NX` | PostgreSQL `INSERT ... ON CONFLICT DO NOTHING` |
-| **Single-Flight Mutex** | Yes (`RedisLock` with Lua token validation) | Advisory locks or custom transaction tables |
-| **Detailed Guide** | [Read Guide](adapters/redis.md) | [Read Guide](adapters/postgres.md) |
+# Security & Data Confidentiality
+npm install @siglo/crypto
 
----
+# Client Egress
+npm install @siglo/http
 
-## End-to-End Reference Blueprint
+# Storage Backends
+npm install @siglo/redis ioredis
+npm install @siglo/postgres pg
 
-The following blueprint illustrates how to combine multiple adapters into an enterprise microservice:
+# Ingress Triggers
+npm install @siglo/hono
+npm install @siglo/fastify
+npm install @siglo/express
+npm install @siglo/bullmq bullmq
+npm install @siglo/kafka kafkajs
+npm install @siglo/sqs @aws-sdk/client-sqs
 
-```typescript
-import Fastify from 'fastify';
-import { flow, Step } from 'siglo';
-import { sigloFastifyHandler } from '@siglo/fastify';
-import { httpStep } from '@siglo/http';
-import { RedisStorageAdapter } from '@siglo/redis';
-import { instrumentWorkflow } from '@siglo/opentelemetry';
-import { attachToMonitorServer } from '@siglo/monitor';
-import { trace } from '@opentelemetry/api';
-
-// 1. Initialize Fastify & Storage
-const server = Fastify();
-Step.useStorage(new RedisStorageAdapter({ url: process.env.REDIS_URL }));
-
-// 2. Define Workflows using @siglo/http for external calls
-const chargePayment = httpStep('chargePayment', {
-  url: 'https://api.stripe.com/v1/charges',
-  method: 'POST',
-  body: (ctx) => ({ amount: ctx.amount, customer: ctx.customerId }),
-  compensate: {
-    url: (_ctx, res) => `https://api.stripe.com/v1/refunds/${res.id}`,
-    method: 'DELETE'
-  }
-});
-
-const checkoutPipeline = flow(
-  chargePayment,
-  Step.create('fulfillOrder', async (ctx) => ({ orderId: ctx.orderId, status: 'FULFILLED' }))
-).monitor(attachToMonitorServer(4000)); // Attach to live DevTools monitor
-
-// 3. Instrument Workflow with OpenTelemetry
-const tracer = trace.getTracer('checkout-service');
-const { instrumented } = instrumentWorkflow(checkoutPipeline, tracer);
-
-// 4. Mount with Fastify Adapter
-server.post('/api/checkout', sigloFastifyHandler(instrumented, {
-  correlationIdHeader: 'x-correlation-id',
-  allowHeaderNamespace: true
-}));
-
-await server.listen({ port: 3000 });
+# Developer Tooling
+npm install -g @siglo/cli
 ```

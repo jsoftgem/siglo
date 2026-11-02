@@ -1,6 +1,6 @@
 # Siglo Ecosystem Packages Master Roadmap
 
-> Architectural overview and phased implementation roadmap for Siglo's high-impact domain extension packages: `@siglo/http`, `@siglo/crypto`, `@siglo/notifications`, and `@siglo/ai`.
+> Architectural overview and phased implementation roadmap for Siglo's high-impact domain extension packages: `@siglo/http`, `@siglo/crypto`, `@siglo/notifications`, and `@siglo/ai` logic.
 
 ---
 
@@ -54,7 +54,7 @@ flowchart TD
 ---
 
 ### [Phase 1B: Webhook Security & Data Confidentiality (`@siglo/crypto`)](ecosystem-phase-1-crypto.roadmap.md)
-* **Status**: Specification Complete
+* **Status**: Implemented & Verified
 * **Target Delivery**: Q1
 * **Scope**: Zero-dependency cryptographic primitives using `node:crypto`. Webhook signature verification (Stripe, GitHub, Shopify, generic HMAC) with constant-time equality (`timingSafeEqual`) and timestamp tolerance replay defense; envelope field encryption/decryption (`aes-256-gcm`) for securing sensitive context across durable checkpoints; and context redaction for DevTools.
 * **Detailed Document**: See [`ecosystem-phase-1-crypto.roadmap.md`](ecosystem-phase-1-crypto.roadmap.md) for AEAD IV management, provider signature formats, and NIST test vector strategies.

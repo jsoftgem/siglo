@@ -53,6 +53,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md) &mdash; Declarative least-privilege network policies via AsyncLocalStorage, multi-layer interceptors, and perimeter narrowing.
 - 📊 [Live Monitoring & DevTools](docs/live-monitoring.md) &mdash; Real-time DevTools web dashboard, SSE/WebSocket streaming, latency waterfalls, and interactive resumption.
 - 🗺️ [Live Monitoring Roadmap](roadmap/live-monitoring.roadmap.md) &mdash; Implementation specifications and delivery phases.
+- 🔐 [Crypto & Webhook Security](docs/adapters/crypto.md) &mdash; Cryptographic pipeline steps: multi-provider webhook verification, replay prevention, AEAD envelope field encryption, KeyRing rotation, and deep PII masking.
 
 ---
 
@@ -77,6 +78,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 📦 **Standard Schema Integration (`spec` / `schema`)** &mdash; Native Standard Schema, Zod, Valibot, and ArkType contract enforcement.
 - 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.
 - 🌐 **Network Egress Policy & Guardrails via ASL** &mdash; Declarative network egress policies via `AsyncLocalStorage` (`.allowNetwork()`, `.denyNetwork()`, `.networkPolicy()`), multi-layer interception (`fetch`, `http/https`, `net.Socket`), flow perimeter narrowing, and localhost exemptions.
+- 🔐 **Cryptographic Security & Confidentiality (`@siglo/crypto`)** &mdash; Zero-dependency webhook signature verification (Stripe, GitHub, Shopify, Slack, Svix), distributed replay defense, AEAD envelope encryption (AES-256-GCM), KeyRing historical rotation, and structural copy-on-write PII masking.
 - 🔌 **Ecosystem Integration Packages** &mdash; Ready-to-use adapters for PostgreSQL, Redis, BullMQ, Kafka, SQS, OpenTelemetry, Express, Fastify, Hono, and CLI developer tooling.
 
 ---
@@ -100,6 +102,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 | [`@siglo/cli`](packages/cli) | Developer CLI for scaffolding, diagram export, validation, and fixture replay |
 | [`@siglo/postgres`](packages/postgres) | PostgreSQL durable storage adapter and transactional idempotency store |
 | [`@siglo/redis`](packages/redis) | Redis caching, durable storage, idempotency store, and distributed locks |
+| [`@siglo/crypto`](packages/crypto) | Zero-dependency cryptographic pipeline steps: webhook verification, replay defense, AEAD field encryption, KeyRing rotation, and deep PII masking |
 | [`@siglo/opentelemetry`](packages/opentelemetry) | OpenTelemetry distributed tracing and W3C trace context propagation |
 | [`@siglo/bullmq`](packages/bullmq) | BullMQ background worker adapter |
 | [`@siglo/kafka`](packages/kafka) | Kafka consumer batch processor adapter |
@@ -402,6 +405,75 @@ Open `http://localhost:4000` to inspect the dynamic DAG topology, step latency w
 
 ---
 
+## Webhook Security & Data Confidentiality (@siglo/crypto)
+
+> 📘 **Dedicated Adapter Guide**: For in-depth architectural details, zero-dependency cryptographic contracts, and key rotation workflows, consult the [Crypto Adapter Guide](docs/adapters/crypto.md).
+
+Implement end-to-end cryptographic defense in your pipelines using zero-dependency, native `node:crypto` primitives. `@siglo/crypto` provides drop-in workflow steps for multi-provider webhook verification with atomic replay prevention, tenant-isolated AEAD envelope field encryption with `KeyRing` rotation, and structural copy-on-write PII masking.
+
+```typescript
+import { flow } from 'siglo';
+import {
+  verifyWebhookStep,
+  encryptFieldsStep,
+  decryptFieldsStep,
+  maskFieldsStep,
+  StaticKeyRing,
+  InMemoryNonceStore,
+} from '@siglo/crypto';
+import { RedisNonceStore } from '@siglo/redis';
+import Redis from 'ioredis';
+
+// 1. Enterprise KeyRing supporting active encryption & historical decryption
+const keyRing = new StaticKeyRing({
+  primaryKid: 'k2',
+  keys: [
+    { kid: 'k1', secret: process.env.HISTORICAL_KEY! },
+    { kid: 'k2', secret: process.env.PRIMARY_KEY! },
+  ],
+});
+
+// 2. Distributed replay defense store (or InMemoryNonceStore)
+const redis = new Redis(process.env.REDIS_URL!);
+const dedupStore = new RedisNonceStore(redis);
+
+// 3. Compose secure webhook ingestion & storage pipeline
+export const secureOrderPipeline = flow(
+  // Step 1: Verify Stripe/GitHub/Shopify signature & block intra-window replays
+  verifyWebhookStep({
+    provider: 'stripe',
+    secret: process.env.STRIPE_WEBHOOK_SECRET!,
+    toleranceSeconds: 300,
+    dedupStore,
+    maxBodyBytes: 10 * 1024 * 1024, // 10MB DoS protection guard
+  }),
+
+  // Step 2: Encrypt sensitive PII using AES-256-GCM + tenant AAD + HKDF
+  encryptFieldsStep({
+    keyRing,
+    fields: ['body.customer.ssn', 'body.payment.creditCard'],
+    aad: (ctx) => `tenant:${ctx.body.tenantId}`,
+    onNeedsRekey: async (ctx, field, envelope) => {
+      console.warn(`[RE-KEY] Field ${field} encrypted with stale key ${envelope.kid}`);
+    },
+  }),
+
+  // Step 3: Deep copy-on-write structural redaction for audit logging
+  maskFieldsStep({
+    fields: ['body.customer.ssn', 'body.payment.*'],
+    strategy: 'redact',
+  })
+);
+```
+
+### Key Security Capabilities:
+- **Zero-Dependency Webhooks**: Built-in constant-time verification for Stripe, GitHub, Shopify, Slack, and Svix, paired with atomic nonce claims (`dedupStore`) to eliminate replay windows.
+- **AEAD Envelope Encryption**: Authenticated AES-256-GCM encryption with NIST SP 800-38D IV management, context-derived subkeys via HKDF-SHA256, and tenant-bound Additional Authenticated Data (AAD).
+- **KeyRing Rotation & Lazy Re-Keying**: Seamless cryptographic key migration without service downtime; automatically flags historical envelopes (`$needsRekey`) for background rotation.
+- **Copy-on-Write PII Redaction**: Deep structural masking with dot-notation and wildcard (`users.*.ssn`) path resolution, preserving immutable DAG context and memory efficiency.
+
+---
+
 ## API Reference Summary
 
 > 📘 **Comprehensive Reference Pages**: For complete TypeScript signatures, option tables, and in-depth code examples, consult each dedicated reference guide:
@@ -413,6 +485,7 @@ Open `http://localhost:4000` to inspect the dynamic DAG topology, step latency w
 > - 🚨 [Error Hierarchy & Exceptions (`SigloError`)](docs/api/error-hierarchy.md)
 > - 🧪 [Deterministic Testing (`@siglo/testing`)](docs/api/testing.md)
 > - 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md)
+> - 🔐 [Crypto & Webhook Security Steps (`@siglo/crypto`)](docs/adapters/crypto.md)
 
 ### ⛓️ [Orchestration & Combinators](docs/api/orchestration-and-combinators.md)
 

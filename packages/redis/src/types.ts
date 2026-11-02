@@ -22,3 +22,8 @@ export interface RedisIdempotencyOptions {
     keyPrefix?: string;
     defaultTtlMs?: number;
 }
+
+export interface RedisNonceStoreOptions {
+    client: RedisClientInterface;
+    keyPrefix?: string;
+}

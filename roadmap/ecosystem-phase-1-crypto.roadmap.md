@@ -340,12 +340,161 @@ packages/crypto/
     └── redaction.test.ts
 ```
 
-### Implementation Checklist
-- [ ] Scaffold `packages/crypto` in monorepo with zero external dependencies.
-- [ ] Implement `WebhookProtocol` strategy interface and global registry (`registerWebhookProtocol`).
-- [ ] Implement `timingSafeCompare` using `node:crypto.timingSafeEqual`.
-- [ ] Implement built-in protocol presets: Stripe, GitHub, Shopify, Svix, and generic HMAC.
-- [ ] Implement timestamp tolerance replay protection.
-- [ ] Implement `encryptFieldsStep` and `decryptFieldsStep` using AES-256-GCM with fresh 12-byte IV per invocation.
-- [ ] Implement `maskFieldsStep` with preset and custom masking patterns.
-- [ ] Validate 100% test coverage against NIST and provider test fixtures.
+### Initial Phase 1B Implementation Checklist
+- [x] Scaffold `packages/crypto` in monorepo with zero external dependencies.
+- [x] Implement `WebhookProtocol` strategy interface and global registry (`registerWebhookProtocol`).
+- [x] Implement `timingSafeCompare` using `node:crypto.timingSafeEqual`.
+- [x] Implement built-in protocol presets: Stripe, GitHub, Shopify, Svix, and generic HMAC.
+- [x] Implement timestamp tolerance replay protection.
+- [x] Implement `encryptFieldsStep` and `decryptFieldsStep` using AES-256-GCM with fresh 12-byte IV per invocation.
+- [x] Implement `maskFieldsStep` with preset and custom masking patterns.
+- [x] Validate 100% test coverage against NIST and provider test fixtures.
+
+---
+
+## 8. Enterprise Hardening & Security Resilience (Grill-Me Remediation)
+
+> Architectural and cryptographic remediations targeting boundary edge-cases, replay window blind spots, key lifecycle rotation, NIST AEAD bounds, and streaming DoS vulnerabilities identified in `grill-me.md`.
+
+### 8.1 Executive Priority Matrix
+
+| Priority | Focus Area | Vulnerability / Failure Mode | Target Component | Core Deliverable |
+|:---|:---|:---|:---|:---|
+| **P0** | **Key Rotation & Archaeology** | Resumed workflows fail to decrypt checkpoints after quarterly rotation | `packages/crypto/src/cipher/` | Multi-key `KeyRing`, envelope `kid`/`v` headers, lazy re-keying |
+| **P0** | **Replay Protection Window** | Intra-window replay storms ($t < 300\text{s}$) duplicate payments | `packages/crypto/src/webhooks/` | Signature/nonce deduplication cache (`Redis` & In-memory ring buffer) |
+| **P1** | **Nested PII & Context Isolation** | Shallow `{ ...ctx }` leaks nested data and creates mutable race conditions | `packages/crypto/src/redaction/`, `cipher/` | Dot-notation path resolution (`user.billing.ssn`) + structural sharing path setter |
+| **P1** | **AEAD Collision & Multi-Tenancy** | IV collisions after $2^{32}$ messages; cross-tenant ciphertext swapping | `packages/crypto/src/cipher/` | Per-workflow HKDF subkey derivation + tenant AAD binding |
+| **P2** | **Memory DoS & Large Payloads** | 50MB–200MB webhooks cause heap exhaustion (OOM) | `packages/crypto/src/webhooks/` | Streaming HMAC (`AsyncIterable<Buffer>`) + disk/S3 spooling pointers |
+| **P2** | **Cloud KMS Envelope Encryption** | Plaintext master keys stored in local environment variables | `packages/crypto/src/cipher/` | Wrapped DEKs (`KMSEncryptedEnvelope`) for AWS KMS, GCP KMS, and Vault |
+
+---
+
+### 8.2 Architectural Specifications
+
+#### 8.2.1 Intra-Window Replay Defense & Nonce Deduplication (Round 1)
+To stop an attacker from re-transmitting an intercepted valid webhook 500 times within the 300-second tolerance window:
+1. **Extend `WebhookVerifyOptions`:**
+   ```typescript
+   export interface WebhookDedupStore {
+     claim(key: string, ttlSeconds: number): Promise<boolean>;
+   }
+
+   export interface WebhookVerifyOptions<TInput> {
+     // ... existing options ...
+     dedupStore?: WebhookDedupStore;
+   }
+   ```
+2. **Deduplication Key Derivation:**
+   - Compute `dedupKey = crypto.createHash('sha256').update(`${provider}:${timestamp}:${signatureHeader}`).digest('hex')`.
+   - Before executing protocol verification, call `dedupStore.claim(dedupKey, toleranceSeconds)`. If false, throw `ValidationException('Replay detected: duplicate webhook signature within tolerance window')`.
+3. **Storage Adapters:**
+   - **In-Memory Ring Buffer:** 2-tier ring buffer with $O(1)$ partition rotation every minute.
+   - **Distributed Redis:** Native atomic claim using `SET siglo:wh:dedup:<key> 1 EX <ttl> NX`.
+
+#### 8.2.2 Key Rotation, Archaeology & Envelope Evolution (Round 3)
+To support long-running workflows pausing across key rotations (e.g. `waitForEvent('APPROVAL', { timeout: '90d' })`):
+1. **Envelope Schema Versioning:**
+   ```typescript
+   export interface EncryptedEnvelope {
+     __sigloCipher: 'aes-256-gcm';
+     v?: number;          // Envelope schema version (v1, v2)
+     kid?: string;        // Active Key ID at encryption time
+     iv: string;          // Hex-encoded 12-byte IV
+     tag: string;         // Hex-encoded 16-byte authentication tag
+     data: string;        // Hex-encoded ciphertext
+   }
+   ```
+2. **`KeyRing` Multi-Key Provider Contract:**
+   ```typescript
+   export interface KeyRing {
+     getActiveKey(): Promise<{ kid: string; key: Buffer | string }>;
+     getKey(kid: string): Promise<Buffer | string | null>;
+   }
+   ```
+3. **Decryption & Lazy Migration:**
+   - `decryptFieldsStep` resolves the matching key using `envelope.kid`. If missing (legacy envelope), it attempts the active key, falling back to historical keys.
+   - If `envelope.kid !== activeKey.kid`, flag `ctx.$needsRekey = true` to re-encrypt under the active key before the next durable checkpoint.
+
+#### 8.2.3 AES-GCM Birthday Bound, IV Management & Multi-Tenant AAD (Round 2)
+1. **Per-Workflow Ephemeral Subkey Derivation (HKDF):**
+   Instead of encrypting millions of step outputs under a single static master key:
+   ```typescript
+   const stepKey = crypto.hkdfSync('sha256', masterKey, workflowId, stepName, 32);
+   ```
+   *Benefit:* Eliminates the $2^{32}$ NIST SP 800-38D birthday bound by isolating IV spaces per workflow run.
+2. **Additional Authenticated Data (AAD):**
+   Bind `tenantId` into `cipher.setAAD(Buffer.from(tenantId))` and verify during deciphering. Cross-tenant ciphertext substitution is mathematically rejected.
+
+#### 8.2.4 Deep Path Traversal & Structural Sharing (Round 5)
+1. **Dot-Notation Path Resolvers:**
+   Allow targeting nested properties: `fields: ['user.billing.taxId', 'orders.*.cardToken']`.
+2. **Immutable Structural Sharing:**
+   Replace `{ ...ctx }` shallow spread with path-cloning copy-on-write:
+   ```typescript
+   function setInPath(obj: any, path: string[], fn: (val: any) => any): any {
+     if (path.length === 0) return fn(obj);
+     const [head, ...tail] = path;
+     const copy = Array.isArray(obj) ? [...obj] : { ...obj };
+     copy[head] = setInPath(copy[head] ?? {}, tail, fn);
+     return copy;
+   }
+   ```
+   *Benefit:* Only allocates $O(d)$ wrappers along the edited path while keeping sibling object subtrees untouched, preventing accidental context mutations and race conditions.
+
+#### 8.2.5 Streaming HMAC & Large Payload Spooling (Round 4)
+1. **Streaming HMAC:**
+   Update `verifyWebhookStep` to accept `AsyncIterable<Buffer>` or Node.js `Readable` streams, computing HMAC progressively via `hmac.update(chunk)`.
+2. **Reference-Based Checkpointing:**
+   Large webhook streams (> 5MB) spool to ephemeral temp files (`/tmp/siglo-payloads/...`) or S3. Checkpoints store only `{ payloadRef: 'file:///tmp/...' }`, avoiding Node.js heap OOMs and database checkpoint bloat.
+
+---
+
+### 8.3 Remediation Rollout Workflow
+
+```mermaid
+flowchart TD
+    subgraph S1["Sprint 1: Integrity & Rotation (P0)"]
+        A1["Update EncryptedEnvelope (kid, v)"] --> A2["Implement KeyRing Provider"]
+        A3["Intra-Window Nonce Deduplication"] --> A4["Redis & In-Memory Dedup Adapters"]
+    end
+
+    subgraph S2["Sprint 2: Isolation & Deep Paths (P1)"]
+        B1["Dot-Notation Path Traversal"] --> B2["Structural Sharing Path Setter"]
+        B3["HKDF Per-Workflow Derivation"] --> B4["Multi-Tenant AAD Verification"]
+    end
+
+    subgraph S3["Sprint 3: Scale & Cloud KMS (P2)"]
+        C1["Streaming HMAC Verification"] --> C2["Ephemeral Payload Spooling"]
+        C3["KMSEncryptedEnvelope (Wrapped DEK)"] --> C4["AWS KMS & Vault Adapters"]
+    end
+
+    S1 --> S2 --> S3
+```
+
+---
+
+### 8.4 Enterprise Hardening Implementation Checklist
+
+- [x] **Phase 1: Key Ring Rotation & Archaeology**
+  - [x] Add `kid` and `v` fields to `EncryptedEnvelope` in `types.ts`.
+  - [x] Implement `KeyRing` interface and `StaticKeyRing` provider.
+  - [x] Support historical key resolution in `decryptFieldsStep`.
+  - [x] Implement lazy checkpoint re-keying migration hook.
+- [x] **Phase 2: Intra-Window Replay Defense**
+  - [x] Add `dedupStore` option to `WebhookVerifyOptions`.
+  - [x] Implement `InMemoryNonceStore` with bucketed ring buffer.
+  - [x] Implement `RedisNonceStore` in `@siglo/redis`.
+  - [x] Add normalized `idempotencyKey` output to `WebhookVerificationResult`.
+- [x] **Phase 3: Deep Path Redaction & Structural Sharing**
+  - [x] Implement dot-notation parser supporting wildcard paths (`billing.*.ssn`).
+  - [x] Implement `setInPath` structural sharing helper for `encryptFieldsStep` and `maskFieldsStep`.
+  - [x] Add strict development-mode proxy freezing to catch in-place context mutations.
+- [x] **Phase 4: Cryptographic Hardening & AAD**
+  - [x] Implement HKDF per-workflow key derivation in `aes-gcm.ts`.
+  - [x] Add `aad` option to `encryptAESGCM` and `decryptAESGCM`.
+  - [x] Bind tenant identity to GCM authentication tags for multi-tenant isolation.
+  - [x] Enforce key message invocation threshold warnings ($2^{24}$ NIST ceiling).
+- [x] **Phase 5: Streaming HMAC & Spooling**
+  - [x] Support `AsyncIterable<Buffer>` / `Readable` stream payloads in `verifyWebhookStep`.
+  - [x] Add disk/object storage spooling with reference-based checkpoint pointers.
+  - [x] Implement `maxBodyBytes` guard with non-retryable 413 exceptions.

@@ -9,7 +9,9 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
         data instanceof RegExp ||
         data instanceof Error ||
         (typeof ArrayBuffer !== 'undefined' && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))) ||
-        (typeof Blob !== 'undefined' && data instanceof Blob)
+        (typeof Blob !== 'undefined' && data instanceof Blob) ||
+        typeof (data as any)[Symbol.asyncIterator] === 'function' ||
+        typeof (data as any).pipe === 'function'
     ) {
         return data as unknown as T;
     }
@@ -46,7 +48,8 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
                 val instanceof RegExp ||
                 (typeof ArrayBuffer !== 'undefined' && (val instanceof ArrayBuffer || ArrayBuffer.isView(val))) ||
                 (typeof Blob !== 'undefined' && val instanceof Blob) ||
-                (val !== null && typeof (val as any).addEventListener === 'function');
+                (val !== null && typeof (val as any).addEventListener === 'function') ||
+                (val !== null && (typeof (val as any)[Symbol.asyncIterator] === 'function' || typeof (val as any).pipe === 'function'));
 
             if (typeof val === 'object' && val !== null && !isBinaryOrNative) {
                 if (Array.isArray(val)) {
