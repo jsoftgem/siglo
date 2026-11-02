@@ -44,6 +44,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 12. 🏭 [12. Production Operations](docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
 
 ### Architectural Contracts & Adapter Guides
+- 🛡️ [Production Best Practices & Operational Runbook](docs/production-best-practices.md) &mdash; Comprehensive engineering runbook covering PostgreSQL OCC, `@siglo/scheduler` worker daemons, zero-trust network boundaries, named compensation DLQs, and DevTools hardening.
 - 🔌 [Ecosystem Adapters Overview](docs/ecosystem-adapters.md) &mdash; Master guide for all official adapters and CLI tooling.
 - 📜 [Execution Semantics Contract](docs/execution-semantics.md) &mdash; Formal semantics answering all 9 runtime execution contract questions.
 - 🚨 [Error Model & Exception Hierarchy](docs/error-model.md) &mdash; Complete exception hierarchy (`SigloError`), metadata fields, and cause preservation.
