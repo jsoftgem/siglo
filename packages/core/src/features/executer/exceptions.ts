@@ -96,6 +96,41 @@ export class SigloError extends Error {
 /* c8 ignore next */
 }
 
+export class OptimisticLockException extends SigloError {
+    readonly currentVersion?: number;
+    readonly expectedVersion?: number;
+
+    constructor(stackId: string, currentVersion?: number, expectedVersion?: number, metadata: ExecutionErrorMetadata = {}) {
+        super(`Optimistic lock conflict on stack '${stackId}': expected version ${expectedVersion}, but found version ${currentVersion}.`, {
+            ...metadata,
+            stackId,
+            phase: 'checkpoint',
+            retryable: true
+        });
+        this.name = 'OptimisticLockException';
+        this.currentVersion = currentVersion;
+        this.expectedVersion = expectedVersion;
+        Object.setPrototypeOf(this, OptimisticLockException.prototype);
+    }
+/* c8 ignore next */
+}
+
+export class WorkflowAlreadyResumedException extends SigloError {
+    readonly correlationKey: string;
+
+    constructor(correlationKey: string, metadata: ExecutionErrorMetadata = {}) {
+        super(`Workflow with correlationKey '${correlationKey}' has already been resumed.`, {
+            ...metadata,
+            phase: 'action',
+            retryable: false
+        });
+        this.name = 'WorkflowAlreadyResumedException';
+        this.correlationKey = correlationKey;
+        Object.setPrototypeOf(this, WorkflowAlreadyResumedException.prototype);
+    }
+/* c8 ignore next */
+}
+
 export class StepTimeoutException extends SigloError {
     readonly timeoutMs: number;
     readonly elapsedMs?: number;

@@ -11,6 +11,7 @@ export interface PostgresStorageAdapterOptions {
     client: PostgresClientInterface;
     checkpointsTable?: string;
     eventsTable?: string;
+    waitRecordsTable?: string;
     recordContextChanges?: boolean;
 }
 

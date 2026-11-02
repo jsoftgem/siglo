@@ -173,7 +173,11 @@ const executeArrayChain = (
                     defaultStorageManager.checkpoint(options.stackId, {
                         status: Status.WAITING,
                         workflowId: options.workflowId,
-                        metadata: { waitRecord }
+                        metadata: {
+                            waitRecord,
+                            accumulatedContext: toPOJO(accumulatedParam),
+                            steps: steps
+                        }
                     });
                     defaultDurableManager.registerWait(waitRecord);
                     const adapter = defaultStorageManager.getAdapter();

@@ -5,6 +5,7 @@ import { flow, Flow } from '../step';
 import { toPOJO } from '../context';
 import { ExecutionOptions } from '../step';
 import { emitMonitoringEvent } from '../events';
+import { STEPS, HISTORY, safeClone } from '../../shared';
 
 export interface ResumeOptions extends ExecutionOptions {
     migrations?: any;
@@ -50,8 +51,22 @@ export async function resumeWorkflow(
         }
     }
 
-    const waitRecord = defaultDurableManager.resumeWait(correlationKey);
     const adapter = defaultStorageManager.getAdapter();
+    let waitRecord: any;
+
+    if (adapter && typeof (adapter as any).claimWaitRecord === 'function') {
+        waitRecord = await (adapter as any).claimWaitRecord(correlationKey, options?.stackId || 'worker');
+        if (waitRecord) {
+            defaultDurableManager.registerWait(waitRecord);
+            try {
+                defaultDurableManager.resumeWait(correlationKey);
+            } catch {
+                // already marked resumed
+            }
+        }
+    } else {
+        waitRecord = defaultDurableManager.resumeWait(correlationKey);
+    }
     if (adapter && typeof (adapter as any).saveWaitRecord === 'function') {
         try {
             const saveRes = (adapter as any).saveWaitRecord(waitRecord);
@@ -91,7 +106,25 @@ export async function resumeWorkflow(
     const cp = await defaultStorageManager.getCheckpoint(waitRecord.stackId);
     const recordedVersion = waitRecord.version ?? (cp as any)?.workflowVersion;
 
-    let restoredState: any = cp?.contexts ? Object.assign({}, ...Object.values(cp.contexts)) : {};
+    let restoredState: any = cp?.metadata?.accumulatedContext
+        ? safeClone(cp.metadata.accumulatedContext)
+        : (cp?.contexts ? Object.assign({}, ...Object.values(cp.contexts)) : {});
+
+    const stepsData = cp?.metadata?.steps;
+    let stepsAccessor: any;
+    if (stepsData && typeof stepsData === 'object') {
+        stepsAccessor = (subField?: string) => {
+            if (subField !== undefined) {
+                return stepsData[subField];
+            }
+            return stepsData;
+        };
+        Object.assign(stepsAccessor, stepsData);
+        restoredState[STEPS] = stepsAccessor;
+        restoredState[HISTORY] = stepsAccessor;
+        restoredState.$steps = stepsAccessor;
+        restoredState.$history = stepsAccessor;
+    }
 
     if (targetVersion !== undefined && recordedVersion !== undefined && targetVersion !== recordedVersion) {
         restoredState = validateWorkflowVersion(targetVersion, recordedVersion, options?.migrations, restoredState);

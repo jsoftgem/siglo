@@ -22,6 +22,8 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
+    OptimisticLockException,
+    WorkflowAlreadyResumedException,
     NamespaceMismatchException,
     CheckpointVersionException,
     FieldCollisionException,

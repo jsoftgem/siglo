@@ -31,7 +31,7 @@ import {
 import { StepTimeoutException, IdempotencyConflictException } from '../exceptions';
 import { combineAbortSignals } from '../signals';
 import { defaultCompensationManager } from '../../compensation';
-import { defaultIdempotencyStore, buildIdempotencyKey } from '../../idempotency';
+import { defaultIdempotencyStore, buildIdempotencyKey, isPermanentBusinessError } from '../../idempotency';
 import { resolveEffectiveNetworkPolicy, networkPolicyStorage, ensureNetworkInterceptorsInstalled } from '../../network';
 import { emitMonitoringEvent } from '../../events/emitter';
 
@@ -167,9 +167,12 @@ export default class StartChain {
                             if (initialParam?.[RETRY_DELAY]) {
                                 param[RETRY_DELAY] = initialParam[RETRY_DELAY];
                             }
-                            if (initialParam?.[STEPS]) {
-                                param[STEPS] = initialParam[STEPS];
-                                param[HISTORY] = initialParam[HISTORY] || initialParam[STEPS];
+                            if (initialParam?.[STEPS] || (initialParam as any)?.$steps) {
+                                const stpFn = initialParam[STEPS] || (initialParam as any).$steps;
+                                param[STEPS] = stpFn;
+                                param[HISTORY] = initialParam[HISTORY] || (initialParam as any).$history || stpFn;
+                                param.$steps = stpFn;
+                                param.$history = param[HISTORY];
                             }
                             if (initialParam?.[IS_DURABLE]) {
                                 param[IS_DURABLE] = initialParam[IS_DURABLE];
@@ -182,6 +185,13 @@ export default class StartChain {
                                     param[SERVICES] = svcFn;
                                     param[DEPENDENCIES] = svcFn;
                                     param[DEPS] = svcFn;
+                                    if (initialParam?.[STEPS] || (initialParam as any)?.$steps) {
+                                        const stpFn = initialParam[STEPS] || (initialParam as any).$steps;
+                                        param[STEPS] = stpFn;
+                                        param[HISTORY] = initialParam[HISTORY] || (initialParam as any).$history || stpFn;
+                                        param.$steps = stpFn;
+                                        param.$history = param[HISTORY];
+                                    }
                                     if (stepEffectiveSignal) {
                                         const sigFn = () => stepEffectiveSignal;
                                         (sigFn as any).val = stepEffectiveSignal;
@@ -252,7 +262,36 @@ export default class StartChain {
                                                     stepIdempKey = buildIdempotencyKey(rawKey, {
                                                         namespace: options?.namespace
                                                     });
-                                                    const claim = await stepIdempStore.claim(stepIdempKey, chain.idempotencyOptions?.ttlMs);
+                                                    let claim = await stepIdempStore.claim(stepIdempKey, chain.idempotencyOptions?.ttlMs);
+                                                    const stepSettleTimeout = chain.idempotencyOptions?.settleTimeoutMs;
+                                                    const stepPollInterval = chain.idempotencyOptions?.pollIntervalMs || 50;
+
+                                                    if (claim === Status.IN_PROGRESS && stepSettleTimeout && stepSettleTimeout > 0) {
+                                                        const deadline = Date.now() + stepSettleTimeout;
+                                                        while (Date.now() < deadline) {
+                                                            await new Promise(res => setTimeout(res, Math.min(stepPollInterval, Math.max(1, deadline - Date.now()))));
+                                                            if (typeof stepIdempStore.getRecord === 'function') {
+                                                                const rec = await stepIdempStore.getRecord(stepIdempKey);
+                                                                if (rec?.status === Status.COMPLETED) {
+                                                                    claim = Status.COMPLETED;
+                                                                    break;
+                                                                }
+                                                                if (!rec) {
+                                                                    claim = await stepIdempStore.claim(stepIdempKey, chain.idempotencyOptions?.ttlMs);
+                                                                    if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                const stored = await stepIdempStore.get?.(stepIdempKey);
+                                                                if (stored !== undefined) {
+                                                                    claim = Status.COMPLETED;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
                                                     if (claim === Status.COMPLETED) {
                                                         const cachedRes = await stepIdempStore.get(stepIdempKey);
                                                         clearStepTimeout();
@@ -310,7 +349,11 @@ export default class StartChain {
                                                     new ResolveChain(safeResolve, ctx.getData(), chainName, logInfo, executeAfter, Context, safeReject, stepOptions);
                                                 }, (afterErr: any) => {
                                                     if (stepIdempKey) {
-                                                        stepIdempStore.fail(stepIdempKey, afterErr).catch(() => {});
+                                                        if (isPermanentBusinessError(afterErr, chain.idempotencyOptions)) {
+                                                            stepIdempStore.complete(stepIdempKey, { error: afterErr.message, isPermanentError: true, name: afterErr.name }).catch(() => {});
+                                                        } else {
+                                                            stepIdempStore.fail(stepIdempKey, afterErr).catch(() => {});
+                                                        }
                                                     }
                                                     clearStepTimeout();
                                                     tagErrorPhase(afterErr, ExecutionPhase.AFTER, chainName);
@@ -328,7 +371,11 @@ export default class StartChain {
                                                             clearStepTimeout();
                                                             if (err) {
                                                                 if (stepIdempKey) {
-                                                                    stepIdempStore.fail(stepIdempKey, err).catch(() => {});
+                                                                    if (isPermanentBusinessError(err, chain.idempotencyOptions)) {
+                                                                        stepIdempStore.complete(stepIdempKey, { error: err.message, isPermanentError: true, name: err.name }).catch(() => {});
+                                                                    } else {
+                                                                        stepIdempStore.fail(stepIdempKey, err).catch(() => {});
+                                                                    }
                                                                 }
                                                                 tagErrorPhase(err, ExecutionPhase.ACTION, chainName);
                                                                 new OnFail(chain, err, (context: any) => {
@@ -407,6 +454,13 @@ export default class StartChain {
                                                     (actionParam as any)[RETRY_DELAY] = delVal;
                                                     (actionParam as any).$retryDelay = delVal;
                                                 }
+                                                if (param?.[STEPS] || (param as any)?.$steps || initialParam?.[STEPS] || (initialParam as any)?.$steps) {
+                                                    const stepsFn = param?.[STEPS] || (param as any)?.$steps || initialParam?.[STEPS] || (initialParam as any)?.$steps;
+                                                    (actionParam as any)[STEPS] = stepsFn;
+                                                    (actionParam as any)[HISTORY] = param[HISTORY] || (param as any).$history || stepsFn;
+                                                    (actionParam as any).$steps = stepsFn;
+                                                    (actionParam as any).$history = stepsFn;
+                                                }
                                                 let rawAction: any;
                                                 try {
                                                     const runAction = () => chain.cachedLast
@@ -416,7 +470,11 @@ export default class StartChain {
                                                     rawAction = runAction();
                                                 } catch (actionErr: any) {
                                                     if (stepIdempKey) {
-                                                        stepIdempStore.fail(stepIdempKey, actionErr).catch(() => {});
+                                                        if (isPermanentBusinessError(actionErr, chain.idempotencyOptions)) {
+                                                            stepIdempStore.complete(stepIdempKey, { error: actionErr.message, isPermanentError: true, name: actionErr.name }).catch(() => {});
+                                                        } else {
+                                                            stepIdempStore.fail(stepIdempKey, actionErr).catch(() => {});
+                                                        }
                                                     }
                                                     clearStepTimeout();
                                                     tagErrorPhase(actionErr, ExecutionPhase.ACTION, chainName);
@@ -459,7 +517,11 @@ export default class StartChain {
                                                             executeOnAfterAndResolve(props, context);
                                                         }).catch(err => {
                                                             if (stepIdempKey) {
-                                                                stepIdempStore.fail(stepIdempKey, err).catch(() => {});
+                                                                if (isPermanentBusinessError(err, chain.idempotencyOptions)) {
+                                                                    stepIdempStore.complete(stepIdempKey, { error: err.message, isPermanentError: true, name: err.name }).catch(() => {});
+                                                                } else {
+                                                                    stepIdempStore.fail(stepIdempKey, err).catch(() => {});
+                                                                }
                                                             }
                                                             clearStepTimeout();
                                                             tagErrorPhase(err, ExecutionPhase.ACTION, chainName);

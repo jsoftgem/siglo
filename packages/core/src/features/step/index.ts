@@ -49,7 +49,8 @@ import {
     IdempotencyOptions,
     InMemoryIdempotencyStore,
     defaultIdempotencyStore,
-    buildIdempotencyKey
+    buildIdempotencyKey,
+    isPermanentBusinessError
 } from '../idempotency';
 
 import {
@@ -133,6 +134,8 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
+    OptimisticLockException,
+    WorkflowAlreadyResumedException,
     NamespaceMismatchException,
     CheckpointVersionException,
     FieldCollisionException,
@@ -196,7 +199,8 @@ export {
     IdempotencyOptions,
     InMemoryIdempotencyStore,
     defaultIdempotencyStore,
-    buildIdempotencyKey
+    buildIdempotencyKey,
+    isPermanentBusinessError
 };
 
 export {
@@ -284,6 +288,9 @@ export interface ExecutionOptions {
     idempotencyKey?: string | ((ctx: any) => string);
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
+    settleTimeoutMs?: number;
+    pollIntervalMs?: number;
+    isPermanentError?: (err: any) => boolean;
     migrations?: any;
     stackId?: string;
     isResume?: boolean;
@@ -572,7 +579,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     compensationHandler?: any;
     compensationOptions?: CompensationOptions;
     idempotencyKey?: string | ((ctx: any) => string);
-    idempotencyOptions?: { ttlMs?: number; store?: IdempotencyStore };
+    idempotencyOptions?: IdempotencyOptions;
     workflowNode?: WorkflowNode;
     // Phase 4
     dependencies?: Record<string, any>;
@@ -835,7 +842,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: { ttlMs?: number; store?: IdempotencyStore }): Step<TInput, TOutput, TName> {
+    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: IdempotencyOptions): Step<TInput, TOutput, TName> {
         this.idempotencyKey = keyOrFn || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
         this.idempotencyOptions = options;
         return this;

@@ -59,6 +59,9 @@ export function safeClone<T>(val: T, seen = new WeakMap<any, any>()): T {
     if (val === null || typeof val !== 'object') {
         return val;
     }
+    if (val !== null && typeof (val as any).addEventListener === 'function') {
+        return val;
+    }
     if (seen.has(val)) {
         return seen.get(val);
     }

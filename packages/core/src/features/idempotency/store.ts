@@ -93,6 +93,18 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
         return undefined;
     }
 
+    async getRecord(key: string): Promise<IdempotencyRecord | undefined> {
+        const existing = this.records.get(key);
+        if (existing) {
+            if (existing.expiresAt !== undefined && Date.now() > existing.expiresAt) {
+                this.records.delete(key);
+                return undefined;
+            }
+            return existing;
+        }
+        return undefined;
+    }
+
     clear(): void {
         this.records.clear();
     }

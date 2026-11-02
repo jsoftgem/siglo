@@ -526,5 +526,44 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const resNull = await flow(mNull).execute({}, {pojo: true});
             expect(resNull.items).to.deep.equal([null]);
         });
+
+        it("deterministically merges in declaration order even under reverse branch latency", async () => {
+            const slowBranch0 = Step.create("branch0", async () => {
+                await new Promise(r => setTimeout(r, 25));
+                return { count: 1, sharedField: "fromBranch0" };
+            });
+            const fastBranch1 = Step.create("branch1", async () => {
+                await new Promise(r => setTimeout(r, 5));
+                return { count: 2, sharedField: "fromBranch1" };
+            });
+
+            const p = parallel(slowBranch0, fastBranch1);
+            const res = await flow(p).execute({}, { pojo: true });
+
+            // Definition order is 0 then 1, so branch1 overwrites branch0
+            expect(res.count).to.equal(2);
+            expect(res.sharedField).to.equal("fromBranch1");
+            expect(res.$branches[0].name).to.equal("branch0");
+            expect(res.$branches[1].name).to.equal("branch1");
+        });
+
+        it("supports mergeStrategy: 'namespace' placing outputs under branch names", async () => {
+            const bA = Step.create("branchA", () => ({ items: [1, 2], val: "A" }));
+            const bB = Step.create("branchB", () => ({ items: [3, 4], val: "B" }));
+
+            const p = parallel([bA, bB], { mergeStrategy: "namespace" });
+            const res = await flow(p).execute({}, { pojo: true });
+            expect(res.branchA).to.deep.equal({ items: [1, 2], val: "A" });
+            expect(res.branchB).to.deep.equal({ items: [3, 4], val: "B" });
+        });
+
+        it("deepMerge concatenates arrays instead of clobbering", async () => {
+            const b1 = Step.create("b1", () => ({ data: { tags: ["auth", "security"] } }));
+            const b2 = Step.create("b2", () => ({ data: { tags: ["network", "audit"] } }));
+
+            const p = parallel([b1, b2], { mergeStrategy: "deep" });
+            const res = await flow(p).execute({}, { pojo: true });
+            expect(res.data.tags).to.deep.equal(["auth", "security", "network", "audit"]);
+        });
     });
 });

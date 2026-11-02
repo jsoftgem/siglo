@@ -11,7 +11,8 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
         (typeof ArrayBuffer !== 'undefined' && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))) ||
         (typeof Blob !== 'undefined' && data instanceof Blob) ||
         typeof (data as any)[Symbol.asyncIterator] === 'function' ||
-        typeof (data as any).pipe === 'function'
+        typeof (data as any).pipe === 'function' ||
+        typeof (data as any).spanContext === 'function'
     ) {
         return data as unknown as T;
     }
@@ -21,7 +22,7 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
         if (key === VALIDATORS || key === STEP_ID || key === STACK_ID || key === SERVICES || key === DEPENDENCIES || key === DEPS) {
             continue;
         }
-        if (key === SIGNAL || key === SIGNAL_KEY || key === NAMESPACE || key === STEPS || key === HISTORY) {
+        if (key === SIGNAL || key === SIGNAL_KEY || key === NAMESPACE || key === STEPS || key === HISTORY || key === '$steps' || key === '$history') {
             result[key] = data[key];
             continue;
         }
@@ -29,14 +30,11 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
         if (typeof data[key] === 'function') {
             if (data[key].val !== undefined) {
                 val = data[key].val;
-            } else if (data[key].length === 0) {
-                try {
-                    val = data[key]();
-                } catch {
-                    val = data[key];
-                }
+            } else if ((data[key] as any)._isSigloComputed) {
+                val = (data[key] as any).call(data);
             } else {
-                val = data[key];
+                // Functions and methods are omitted from serialization to prevent side effects
+                continue;
             }
         } else {
             val = data[key];
@@ -49,7 +47,8 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
                 (typeof ArrayBuffer !== 'undefined' && (val instanceof ArrayBuffer || ArrayBuffer.isView(val))) ||
                 (typeof Blob !== 'undefined' && val instanceof Blob) ||
                 (val !== null && typeof (val as any).addEventListener === 'function') ||
-                (val !== null && (typeof (val as any)[Symbol.asyncIterator] === 'function' || typeof (val as any).pipe === 'function'));
+                (val !== null && (typeof (val as any)[Symbol.asyncIterator] === 'function' || typeof (val as any).pipe === 'function')) ||
+                (val !== null && typeof (val as any).spanContext === 'function');
 
             if (typeof val === 'object' && val !== null && !isBinaryOrNative) {
                 if (Array.isArray(val)) {

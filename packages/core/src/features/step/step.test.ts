@@ -1225,7 +1225,9 @@ describe("Step unit test", () => {
                     ctx = {};
                     state.contexts.set(stepId, ctx);
                 }
-                ctx[field] = () => val;
+                const fn: any = () => val;
+                fn.val = val;
+                ctx[field] = fn;
             });
 
             try {

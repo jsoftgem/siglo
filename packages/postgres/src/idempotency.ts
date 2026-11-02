@@ -118,6 +118,28 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         return typeof resData === 'string' ? JSON.parse(resData) : resData;
     }
 
+    async get(key: string): Promise<unknown | undefined> {
+        return this.getResult(key);
+    }
+
+    async getRecord(key: string): Promise<any | undefined> {
+        const res = await this.client.query(
+            `SELECT status, result, expires_at, created_at FROM ${this.tableName} WHERE key = $1`,
+            [key]
+        );
+        if (!res.rows || res.rows.length === 0) {
+            return undefined;
+        }
+        const row = res.rows[0];
+        const resData = typeof row.result === 'string' ? JSON.parse(row.result) : row.result;
+        return {
+            status: row.status,
+            result: resData,
+            expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
+            claimedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+        };
+    }
+
     async cleanupExpired(): Promise<number> {
         const res = await this.client.query(
             `DELETE FROM ${this.tableName} WHERE expires_at < NOW()`

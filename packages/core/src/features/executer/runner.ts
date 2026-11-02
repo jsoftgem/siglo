@@ -7,14 +7,16 @@ import {
     NAMESPACE,
     NAMESPACE_KEY,
     IS_DURABLE,
-    VALUE
+    VALUE,
+    STEPS,
+    HISTORY
 } from '../../shared';
 import { toPOJO } from '../context';
 import { FlowTimeoutException, normalizeError, IdempotencyConflictException } from './exceptions';
 import { combineAbortSignals } from './signals';
 import { defaultStorageManager } from '../storage';
 import { defaultCompensationManager } from '../compensation';
-import { defaultIdempotencyStore, buildIdempotencyKey } from '../idempotency';
+import { defaultIdempotencyStore, buildIdempotencyKey, isPermanentBusinessError } from '../idempotency';
 import { emitMonitoringEvent } from '../events/emitter';
 
 export class Runner {
@@ -171,6 +173,13 @@ export class Runner {
 
             const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, namespace);
             this.addChainToStack(stackId, newParam.$stepId());
+            if (param?.[STEPS] || (param as any)?.$steps) {
+                const stepsFn = param[STEPS] || (param as any).$steps;
+                newParam[STEPS] = stepsFn;
+                newParam[HISTORY] = param[HISTORY] || (param as any).$history || stepsFn;
+                newParam.$steps = stepsFn;
+                newParam.$history = stepsFn;
+            }
             if (effectiveSignal) {
                 const sigFn = () => effectiveSignal;
                 (sigFn as any).val = effectiveSignal;
@@ -219,7 +228,38 @@ export class Runner {
 
             const runFlowExecution = async () => {
                 if (idempotencyKeyScoped) {
-                    const claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+                    let claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+
+                    const settleTimeoutMs = rawOptions?.settleTimeoutMs;
+                    const pollIntervalMs = rawOptions?.pollIntervalMs || 50;
+
+                    if (claim === Status.IN_PROGRESS && settleTimeoutMs && settleTimeoutMs > 0) {
+                        const deadline = Date.now() + settleTimeoutMs;
+                        while (Date.now() < deadline) {
+                            await new Promise(res => setTimeout(res, Math.min(pollIntervalMs, Math.max(1, deadline - Date.now()))));
+
+                            if (typeof idempotencyStore.getRecord === 'function') {
+                                const rec = await idempotencyStore.getRecord(idempotencyKeyScoped);
+                                if (rec?.status === Status.COMPLETED) {
+                                    claim = Status.COMPLETED;
+                                    break;
+                                }
+                                if (!rec) {
+                                    claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+                                    if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
+                                        break;
+                                    }
+                                }
+                            } else {
+                                const stored = await idempotencyStore.get?.(idempotencyKeyScoped);
+                                if (stored !== undefined) {
+                                    claim = Status.COMPLETED;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
                     if (claim === Status.COMPLETED) {
                         clearFlowTimer();
                         if (!isSubStack) {
@@ -331,7 +371,15 @@ export class Runner {
 
                     if (idempotencyKeyScoped) {
                         try {
-                            await idempotencyStore.fail(idempotencyKeyScoped, error);
+                            if (isPermanentBusinessError(error, rawOptions)) {
+                                await idempotencyStore.complete(idempotencyKeyScoped, {
+                                    error: error.message,
+                                    isPermanentError: true,
+                                    name: error.name
+                                });
+                            } else {
+                                await idempotencyStore.fail(idempotencyKeyScoped, error);
+                            }
                         /* c8 ignore next 3 */
                         } catch {
                             // ignore

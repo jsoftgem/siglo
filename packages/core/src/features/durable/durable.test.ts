@@ -161,6 +161,63 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(events.some(e => e.type === 'flow:complete')).to.be.true;
         });
 
+        it('supports atomic claimWaitRecord via storage adapter and hydrates $steps accessors', async () => {
+            let claimed = false;
+            let storedStackId = '';
+            const mockAdapter = {
+                name: 'mock-atomic-adapter',
+                async claimWaitRecord(correlationKey: string) {
+                    if (claimed) {
+                        throw new DuplicateEventException(correlationKey);
+                    }
+                    claimed = true;
+                    return {
+                        stackId: storedStackId,
+                        correlationKey,
+                        status: 'WAITING',
+                        continuationStepIndex: 2,
+                        stepId: 'wait-step'
+                    };
+                },
+                async saveWaitRecord() {}
+            };
+
+            const prevAdapter = defaultStorageManager.getAdapter();
+            defaultStorageManager.useStorage(mockAdapter as any);
+
+            try {
+                const s1 = Step.create('step1', () => ({ val1: 42 }));
+                const waitStep = waitForEvent('atomic.event', { correlationKey: 'corr-atomic-1' });
+                let accessedSubField: any;
+                let accessedAll: any;
+                const s2 = Step.create('step2', (ctx: any) => {
+                    accessedSubField = ctx.$steps('step1');
+                    accessedAll = ctx.$steps();
+                    return { val2: ctx.val1 + 10, fromStep: accessedSubField?.val1 };
+                });
+
+                const f = flow(s1, waitStep, s2);
+                const suspended = await f.run({}, { durable: true, pojo: true });
+                expect(suspended.status).to.equal('waiting');
+                storedStackId = suspended.stackId;
+
+                const resumed = await f.resume('corr-atomic-1', { extra: 'payload' });
+                expect(resumed.val2).to.equal(52);
+                expect(resumed.fromStep).to.equal(42);
+                expect(accessedSubField).to.exist;
+                expect(accessedAll).to.exist;
+
+                try {
+                    await f.resume('corr-atomic-1');
+                    expect.fail('Should fail with DuplicateEventException');
+                } catch (err: any) {
+                    expect(err).to.be.instanceOf(DuplicateEventException);
+                }
+            } finally {
+                defaultStorageManager.useStorage(prevAdapter as any);
+            }
+        });
+
         it('rejects duplicate resume with DuplicateEventException', async () => {
             const waitStep = waitForEvent('ticket.approved', { correlationKey: 't-1' });
             const f = flow(waitStep);

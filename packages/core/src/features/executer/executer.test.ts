@@ -19,9 +19,12 @@ describe('executer.unit.test', () => {
         expect(Util.convertToContextStructure(ctx, Context, () => 'id', 'test_stack_id').k()).to.equal('v');
         expect(ctx.$stackId).to.equal('test_stack_id');
 
-        const obj = { x: 10 };
+        const sym = Symbol('testSym');
+        const obj = { x: 10, fn: () => 42, [sym]: 'symVal' };
         const converted = Util.convertToContextStructure(obj, Context, () => 'id_obj');
         expect(converted.x()).to.equal(10);
+        expect(converted.fn()).to.equal(42);
+        expect((converted as any)[sym]).to.equal('symVal');
     });
 
     it('Reducer handles promise resolution in action', done => {
