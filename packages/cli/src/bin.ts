@@ -12,7 +12,8 @@ import {
     generateStep,
     replayFixture,
     exportWorkflow,
-    startMonitor
+    startMonitor,
+    reconcileCommand
 } from './index';
 
 function printHelp(): void {
@@ -33,6 +34,7 @@ COMMANDS:
     checkpoint <file>              Inspect a serialized checkpoint state JSON
     replay <fixture> [workflow]    Replay execution against a recorded test fixture
     monitor [workflow-file]        Launch live workflow monitoring dashboard
+    reconcile [workflow-file]      Reconcile and compensate abandoned/stuck workflows
 
 OPTIONS:
     --format=mermaid|text|dot|json Output format (default: mermaid)
@@ -239,6 +241,30 @@ async function main(): Promise<void> {
                 console.log(`   - SSE Stream: http://localhost:${monitor.port}/events`);
                 console.log(`   - WebSocket: ws://localhost:${monitor.port}/ws`);
                 console.log(`   - Prometheus Metrics: http://localhost:${monitor.port}/metrics`);
+                break;
+            }
+
+            case 'reconcile': {
+                const staleStr = getOption(args, '--stale-threshold=') || '10m';
+                const actionArg = (getOption(args, '--action=') || 'compensate') as 'compensate' | 'fail' | 'inspect';
+                const modeArg = (getOption(args, '--mode=') || 'best-effort') as 'strict' | 'best-effort';
+                const ns = getOption(args, '--namespace=');
+                let wf: any;
+                if (target && !target.startsWith('--')) {
+                    try {
+                        wf = await loadWorkflowFromFile(target);
+                    } catch (e: any) {
+                        console.warn(`Warning: Could not load workflow ${target}: ${e.message}`);
+                    }
+                }
+                const report = await reconcileCommand({
+                    staleThreshold: staleStr,
+                    action: actionArg,
+                    mode: modeArg,
+                    namespace: ns,
+                    flow: wf
+                });
+                writeOutput(JSON.stringify(report, null, 2), outArg);
                 break;
             }
 

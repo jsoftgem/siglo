@@ -58,9 +58,18 @@ import {
     CompensationOptions,
     CompensationRecord,
     CompensationRunResult,
+    CompensationRunOptions,
+    CompensationDeadLetterQueue,
     CompensationManager,
-    defaultCompensationManager
+    defaultCompensationManager,
+    registerCompensationHandler,
+    getCompensationHandler,
+    hasCompensationHandler,
+    unregisterCompensationHandler,
+    clearCompensationHandlers,
+    reconcileAbandonedStacks
 } from '../compensation';
+import { UnresolvableCompensationException } from '../executer/exceptions';
 
 import {
     parallel,
@@ -148,6 +157,7 @@ export {
     IdempotencyConflictException,
     CompensationException,
     CompensationErrorDetail,
+    UnresolvableCompensationException,
     WorkflowSuspendedException,
     DuplicateEventException,
     ExpiredWaitException,
@@ -513,7 +523,7 @@ export function flow<TInput = any, TOutput = any>(
         resume(correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) {
             return resumeWorkflow(flowObj, correlationKeyOrStackId, eventPayload, options);
         },
-        async compensate(stackId: string, options?: any) {
+        async compensate(stackId: string, options?: CompensationRunOptions) {
             const existing = defaultCompensationManager.getCompensations(stackId);
             if (!existing || existing.length === 0) {
                 try {
@@ -522,27 +532,45 @@ export function flow<TInput = any, TOutput = any>(
                     if (Array.isArray(serializedCompensations) && serializedCompensations.length > 0) {
                         const allSteps = flattenSteps(flowObj.steps || []);
                         for (const record of serializedCompensations) {
-                            const matchingStep = allSteps.find((s: any) =>
-                                (s?.name && s.name === record.stepName) ||
-                                (s?.func && s.func === record.stepName) ||
-                                (s?.$stepId && s.$stepId === record.stepId)
-                            );
-                            if (matchingStep?.compensationHandler) {
-                                defaultCompensationManager.registerCompensation(stackId, {
-                                    stepId: record.stepId,
-                                    stepName: record.stepName,
-                                    output: record.output,
-                                    input: record.input,
-                                    handler: matchingStep.compensationHandler,
-                                    options: record.options || matchingStep.compensationOptions,
-                                    status: record.status,
-                                    completedAt: record.completedAt
-                                });
+                            let handler = record.handler;
+                            if (!handler && record.handlerName) {
+                                handler = getCompensationHandler(record.handlerName);
                             }
+                            if (!handler) {
+                                const matchingStep = allSteps.find((s: any) =>
+                                    (s?.name && s.name === record.stepName) ||
+                                    (s?.func && s.func === record.stepName) ||
+                                    (s?.$stepId && s.$stepId === record.stepId)
+                                );
+                                if (matchingStep?.compensationHandler) {
+                                    handler = matchingStep.compensationHandler;
+                                } else if (matchingStep?.compensationHandlerName) {
+                                    handler = getCompensationHandler(matchingStep.compensationHandlerName);
+                                }
+                            }
+
+                            if (!handler && !record.handlerName) {
+                                throw new UnresolvableCompensationException(record.stepName, undefined, { stackId });
+                            }
+
+                            defaultCompensationManager.registerCompensation(stackId, {
+                                stepId: record.stepId,
+                                stepName: record.stepName,
+                                output: record.output,
+                                input: record.input,
+                                handler,
+                                handlerName: record.handlerName,
+                                payload: record.payload,
+                                options: record.options,
+                                status: record.status,
+                                completedAt: record.completedAt
+                            });
                         }
                     }
-                /* c8 ignore next 3 */
-                } catch {
+                } catch (err: any) {
+                    if (err instanceof UnresolvableCompensationException) {
+                        throw err;
+                    }
                     // best-effort checkpoint hydration
                 }
             }
@@ -588,6 +616,8 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     func?: string;
     // Phase 2
     compensationHandler?: any;
+    compensationHandlerName?: string;
+    compensationPayloadMapper?: (output: any, input: any) => any;
     compensationOptions?: CompensationOptions;
     idempotencyKey?: string | ((ctx: any) => string);
     idempotencyOptions?: IdempotencyOptions;
@@ -708,6 +738,13 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static toMermaid = toMermaid;
     static toJSON = toJSON;
     static toDot = toDot;
+
+    // Phase 4 Saga & Compensation Helpers
+    static registerCompensationHandler = registerCompensationHandler;
+    static getCompensationHandler = getCompensationHandler;
+    static unregisterCompensationHandler = unregisterCompensationHandler;
+    static clearCompensationHandlers = clearCompensationHandlers;
+    static reconcileAbandonedStacks = reconcileAbandonedStacks;
 
     // Network Interceptor Helpers
     static installNetworkInterceptors = installNetworkInterceptors;
@@ -861,9 +898,23 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput, TName> {
-        this.compensationHandler = handler;
-        this.compensationOptions = options;
+    compensate(
+        handlerOrName: string | any,
+        payloadMapperOrOptions?: ((output: any, input: any) => any) | CompensationOptions,
+        options?: CompensationOptions
+    ): Step<TInput, TOutput, TName> {
+        if (typeof handlerOrName === 'string') {
+            this.compensationHandlerName = handlerOrName;
+            if (typeof payloadMapperOrOptions === 'function') {
+                this.compensationPayloadMapper = payloadMapperOrOptions;
+                this.compensationOptions = options;
+            } else if (payloadMapperOrOptions && typeof payloadMapperOrOptions === 'object') {
+                this.compensationOptions = payloadMapperOrOptions as CompensationOptions;
+            }
+        } else {
+            this.compensationHandler = handlerOrName;
+            this.compensationOptions = payloadMapperOrOptions as CompensationOptions;
+        }
         return this;
     }
 
@@ -919,6 +970,22 @@ export type PipeArg<TIn = any, TOut = any> = FlowArg<TIn, TOut>;
 
 /** @deprecated Use `isFlow` instead of `isPipeline`. */
 export const isPipeline = isFlow;
+
+export {
+    registerCompensationHandler,
+    getCompensationHandler,
+    hasCompensationHandler,
+    unregisterCompensationHandler,
+    clearCompensationHandlers,
+    reconcileAbandonedStacks
+};
+
+export type {
+    CompensationRunOptions,
+    CompensationDeadLetterQueue,
+    ReconcilerOptions,
+    ReconcileReport
+} from "../compensation";
 
 export default Step;
 

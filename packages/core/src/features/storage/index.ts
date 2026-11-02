@@ -277,6 +277,13 @@ export class StorageManager {
         return this.state.stacks.get(stackId);
     }
 
+    getAllStacks(): any[] {
+        return Array.from(this.state.stacks.entries()).map(([stackId, stack]) => ({
+            stackId,
+            ...stack
+        }));
+    }
+
     set(stackId: string, stepId: string, key: string, val: any): void {
         const stack = this.state.stacks.get(stackId);
         if (stack && !stack.chains.includes(stepId)) {
@@ -483,6 +490,8 @@ export class StorageManager {
             stepName: rec.stepName,
             output: toPOJO(rec.output),
             input: toPOJO(rec.input),
+            handlerName: rec.handlerName,
+            payload: toPOJO(rec.payload),
             options: rec.options,
             status: rec.status,
             completedAt: rec.completedAt

@@ -14,7 +14,8 @@ import {
     generateWorkflow,
     generateStep,
     exportWorkflow,
-    startMonitor
+    startMonitor,
+    reconcileCommand
 } from './index';
 
 describe('@siglo/cli Developer Tools Suite', () => {
@@ -173,5 +174,50 @@ describe('@siglo/cli Developer Tools Suite', () => {
         expect(monitor.port).to.be.a('number');
         expect(monitor.server).to.not.be.undefined;
         await monitor.close();
+    });
+    it('reconciles abandoned stacks via reconcileCommand', async () => {
+        const staleTime = Date.now() - 10 * 60 * 1000;
+        const dummyStacks = [
+            { stackId: 'cli-stale-1', status: 'running', timestamp: staleTime, workflowId: 'wf-cli' },
+            { stackId: 'cli-fresh-1', status: 'running', timestamp: Date.now(), workflowId: 'wf-cli' }
+        ];
+
+        // 1. Inspect
+        const inspectReport = await reconcileCommand({
+            staleThreshold: '5m',
+            action: 'inspect',
+            stacks: dummyStacks
+        });
+        expect(inspectReport.inspected).to.equal(2);
+        expect(inspectReport.staleStacks).to.have.length(1);
+        expect(inspectReport.staleStacks[0].stackId).to.equal('cli-stale-1');
+
+        // 2. Fail
+        const failReport = await reconcileCommand({
+            staleThreshold: '5m',
+            action: 'fail',
+            stacks: dummyStacks
+        });
+        expect(failReport.reconciled).to.include('cli-stale-1');
+
+        // 3. Compensate with flow
+        let compensated = false;
+        const mockFlow = {
+            compensate: async (id: string) => {
+                expect(id).to.equal('cli-stale-1');
+                compensated = true;
+                return { completed: ['step1'], failed: [] };
+            }
+        };
+
+        const compReport = await reconcileCommand({
+            staleThreshold: '5m',
+            action: 'compensate',
+            mode: 'best-effort',
+            flow: mockFlow,
+            stacks: dummyStacks
+        });
+        expect(compensated).to.be.true;
+        expect(compReport.reconciled).to.include('cli-stale-1');
     });
 });

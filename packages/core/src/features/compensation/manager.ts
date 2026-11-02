@@ -1,6 +1,7 @@
 import { Status } from '../../shared';
-import { CompensationRecord, CompensationRunResult } from './types';
-import { CompensationException } from '../executer/exceptions';
+import { CompensationRecord, CompensationRunOptions, CompensationRunResult } from './types';
+import { CompensationException, UnresolvableCompensationException } from '../executer/exceptions';
+import { getCompensationHandler } from './registry';
 
 export class CompensationManager {
     private stackCompensations = new Map<string, CompensationRecord[]>();
@@ -26,11 +27,12 @@ export class CompensationManager {
     async runCompensations(
         stackId: string,
         originalError?: any,
-        _options?: any
+        options?: CompensationRunOptions
     ): Promise<CompensationRunResult> {
         const records = this.getCompensations(stackId);
         const completed: string[] = [];
         const failed: Array<{ stepName: string; error: any }> = [];
+        const mode = options?.mode ?? 'strict';
 
         // Execute in reverse order (LIFO)
         const pending = [...records].reverse();
@@ -41,8 +43,46 @@ export class CompensationManager {
                 continue;
             }
 
-            const maxRetries = record.options?.maxRetries ?? 0;
-            const delayMs = record.options?.delay ?? 0;
+            // Resolve handler: direct function/step or named registry entry
+            let handler = record.handler;
+            if (!handler && record.handlerName) {
+                handler = getCompensationHandler(record.handlerName);
+            }
+
+            if (!handler) {
+                const missingErr = new UnresolvableCompensationException(
+                    record.stepName,
+                    record.handlerName,
+                    { stackId }
+                );
+                record.status = Status.FAILED;
+                record.error = missingErr;
+                failed.push({ stepName: record.stepName, error: missingErr });
+
+                if (options?.onFailure) {
+                    await options.onFailure({ stepName: record.stepName, error: missingErr, record }, missingErr);
+                }
+                if (options?.deadLetterQueue?.send) {
+                    await options.deadLetterQueue.send({
+                        stackId,
+                        stepName: record.stepName,
+                        handlerName: record.handlerName,
+                        failedCompensation: { stepName: record.stepName, error: missingErr.message },
+                        error: missingErr.message,
+                        record,
+                        timestamp: Date.now()
+                    });
+                }
+
+                if (mode === 'strict') {
+                    break;
+                } else {
+                    continue;
+                }
+            }
+
+            const maxRetries = record.options?.maxRetries ?? options?.maxRetries ?? 0;
+            const delayMs = record.options?.delay ?? options?.delay ?? 0;
             let success = false;
             let lastErr: any;
 
@@ -51,10 +91,11 @@ export class CompensationManager {
                     if (attempt > 0 && delayMs > 0) {
                         await new Promise(r => setTimeout(r, delayMs));
                     }
-                    if (typeof record.handler === 'function') {
-                        await record.handler(record.output, record.input);
-                    } else if (record.handler && typeof (record.handler as any).execute === 'function') {
-                        await (record.handler as any).execute({ output: record.output, input: record.input });
+                    const payload = record.payload !== undefined ? record.payload : record.output;
+                    if (typeof handler === 'function') {
+                        await handler(payload, record.input);
+                    } else if (handler && typeof (handler as any).execute === 'function') {
+                        await (handler as any).execute({ output: payload, input: record.input });
                     }
                     success = true;
                     record.status = Status.COMPLETED;
@@ -73,6 +114,25 @@ export class CompensationManager {
                 record.status = Status.FAILED;
                 record.error = lastErr;
                 failed.push({ stepName: record.stepName, error: lastErr });
+
+                if (options?.onFailure) {
+                    await options.onFailure({ stepName: record.stepName, error: lastErr, record }, lastErr);
+                }
+                if (options?.deadLetterQueue?.send) {
+                    await options.deadLetterQueue.send({
+                        stackId,
+                        stepName: record.stepName,
+                        handlerName: record.handlerName,
+                        failedCompensation: { stepName: record.stepName, error: lastErr?.message || String(lastErr) },
+                        error: lastErr?.message || String(lastErr),
+                        record,
+                        timestamp: Date.now()
+                    });
+                }
+
+                if (mode === 'strict') {
+                    break;
+                }
             }
         }
 

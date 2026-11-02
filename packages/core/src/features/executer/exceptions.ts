@@ -2,7 +2,7 @@ import { Status } from '../../shared';
 /* c8 ignore start */
 export interface ExecutionErrorMetadata {
     stepName?: string;
-    phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry';
+    phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry' | 'compensation' | 'fail';
     retryable?: boolean;
     stackId?: string;
     namespace?: string;
@@ -493,6 +493,31 @@ export class NetworkPolicyViolationException extends SigloError {
         this.requestedHost = requestedHost;
         this.allowedHosts = allowedHosts;
         Object.setPrototypeOf(this, NetworkPolicyViolationException.prototype);
+    }
+/* c8 ignore next */
+}
+
+export class UnresolvableCompensationException extends SigloError {
+    readonly handlerName?: string;
+
+    constructor(
+        stepName: string,
+        handlerName?: string,
+        metadata: ExecutionErrorMetadata = {}
+    ) {
+        const hName = handlerName ? ` '${handlerName}'` : "";
+        super(
+            `Cannot resolve compensation handler${hName} for step '${stepName}'. The compensation handler is missing or step definition has drifted.`,
+            {
+                ...metadata,
+                stepName,
+                phase: metadata.phase || "compensation",
+                retryable: false
+            }
+        );
+        this.name = "UnresolvableCompensationException";
+        this.handlerName = handlerName;
+        Object.setPrototypeOf(this, UnresolvableCompensationException.prototype);
     }
 /* c8 ignore next */
 }

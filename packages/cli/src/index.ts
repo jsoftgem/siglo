@@ -6,7 +6,9 @@ import {
     inspectGraph,
     validateGraph,
     GraphValidationResult,
-    GraphInspectionResult
+    GraphInspectionResult,
+    parseDuration,
+    reconcileAbandonedStacks
 } from 'siglo';
 
 export interface WorkflowVisualizationResult {
@@ -332,5 +334,29 @@ export async function startMonitor(options: MonitorOptions = {}): Promise<any> {
         namespaceFilter: options.namespace,
         flow: options.flow,
         open: options.open
+    });
+}
+
+export interface ReconcileCommandOptions {
+    staleThreshold?: string;
+    action?: "compensate" | "fail" | "inspect";
+    mode?: "strict" | "best-effort";
+    namespace?: string;
+    flow?: any;
+    stacks?: any[];
+}
+
+/**
+ * Reconciles abandoned workflow stacks stuck in RUNNING state past a stale threshold.
+ */
+export async function reconcileCommand(options: ReconcileCommandOptions = {}): Promise<any> {
+    const staleMs = options.staleThreshold ? parseDuration(options.staleThreshold) : 10 * 60 * 1000;
+    return reconcileAbandonedStacks({
+        staleThresholdMs: staleMs,
+        action: options.action,
+        mode: options.mode,
+        namespace: options.namespace,
+        flowLookup: () => options.flow,
+        stacks: options.stacks
     });
 }

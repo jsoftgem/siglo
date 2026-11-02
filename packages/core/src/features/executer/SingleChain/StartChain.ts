@@ -334,13 +334,18 @@ export default class StartChain {
                                                 if (stepIdempKey) {
                                                     stepIdempStore.complete(stepIdempKey, output).catch(() => {});
                                                 }
-                                                if (chain.compensationHandler) {
+                                                if (chain.compensationHandler || chain.compensationHandlerName) {
+                                                    const payload = chain.compensationPayloadMapper
+                                                        ? chain.compensationPayloadMapper(output, param)
+                                                        : output;
                                                     defaultCompensationManager.registerCompensation(stackId, {
                                                         stepId: chain.$stepId,
                                                         stepName: chainName,
                                                         output,
                                                         input: toPOJO(param),
                                                         handler: chain.compensationHandler,
+                                                        handlerName: chain.compensationHandlerName,
+                                                        payload: toPOJO(payload),
                                                         options: chain.compensationOptions
                                                     });
                                                 }

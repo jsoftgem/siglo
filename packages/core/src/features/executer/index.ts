@@ -31,6 +31,7 @@ export {
     IdempotencyConflictException,
     CompensationException,
     CompensationErrorDetail,
+    UnresolvableCompensationException,
     WorkflowSuspendedException,
     DuplicateEventException,
     ExpiredWaitException,

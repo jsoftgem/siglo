@@ -6,6 +6,7 @@ export const ExecutionPhase = {
     ACTION: 'action',
     AFTER: 'after',
     FAIL: 'fail',
+    COMPENSATION: 'compensation',
 } as const;
 
 export type ExecutionPhase = (typeof ExecutionPhase)[keyof typeof ExecutionPhase];
