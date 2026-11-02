@@ -157,11 +157,7 @@ const executeArrayChain = (
         .catch((err: any) => {
             if ((err instanceof WorkflowSuspendedException || err?.name === 'WorkflowSuspendedException') && options?.durable) {
                 try {
-                    defaultStorageManager.checkpoint(options.stackId, {
-                        status: Status.WAITING,
-                        workflowId: options.workflowId
-                    });
-                    defaultDurableManager.registerWait({
+                    const waitRecord = {
                         stackId: options.stackId,
                         workflowId: options.workflowId,
                         correlationKey: err.correlationKey || `wait:${options.stackId}`,
@@ -173,7 +169,20 @@ const executeArrayChain = (
                         createdAt: Date.now(),
                         version: options.workflowVersion,
                         namespace: options.namespace
+                    };
+                    defaultStorageManager.checkpoint(options.stackId, {
+                        status: Status.WAITING,
+                        workflowId: options.workflowId,
+                        metadata: { waitRecord }
                     });
+                    defaultDurableManager.registerWait(waitRecord);
+                    const adapter = defaultStorageManager.getAdapter();
+                    if (adapter && typeof (adapter as any).saveWaitRecord === 'function') {
+                        const saveRes = (adapter as any).saveWaitRecord(waitRecord);
+                        if (saveRes && typeof saveRes.catch === 'function') {
+                            saveRes.catch(() => {});
+                        }
+                    }
                 /* c8 ignore next 3 */
                 } catch {
                     // ignore

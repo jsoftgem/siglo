@@ -17,10 +17,53 @@ export async function resumeWorkflow(
     eventPayload: any = {},
     options?: ResumeOptions
 ): Promise<any> {
-    const isByStack = defaultDurableManager.getWaitingByStack(correlationKeyOrStackId);
-    const correlationKey = isByStack ? isByStack.correlationKey : correlationKeyOrStackId;
+    let isByStack = defaultDurableManager.getWaitingByStack(correlationKeyOrStackId);
+    let correlationKey = isByStack ? isByStack.correlationKey : correlationKeyOrStackId;
+
+    if (!isByStack && !defaultDurableManager.getWaiting(correlationKey)) {
+        // Fallback: check storage adapter or checkpoint
+        const adapter = defaultStorageManager.getAdapter();
+        let fallbackRecord: any;
+        if (adapter && typeof (adapter as any).getWaitRecord === 'function') {
+            try {
+                fallbackRecord = await (adapter as any).getWaitRecord(correlationKeyOrStackId);
+            /* c8 ignore next 3 */
+            } catch {
+                // ignore
+            }
+        }
+        if (!fallbackRecord) {
+            try {
+                const cp = await defaultStorageManager.getCheckpoint(correlationKeyOrStackId);
+                if (cp?.metadata?.waitRecord) {
+                    fallbackRecord = cp.metadata.waitRecord;
+                }
+            /* c8 ignore next 3 */
+            } catch {
+                // ignore
+            }
+        }
+        if (fallbackRecord) {
+            defaultDurableManager.registerWait(fallbackRecord);
+            isByStack = defaultDurableManager.getWaitingByStack(correlationKeyOrStackId);
+            correlationKey = isByStack ? isByStack.correlationKey : fallbackRecord.correlationKey;
+        }
+    }
 
     const waitRecord = defaultDurableManager.resumeWait(correlationKey);
+    const adapter = defaultStorageManager.getAdapter();
+    if (adapter && typeof (adapter as any).saveWaitRecord === 'function') {
+        try {
+            const saveRes = (adapter as any).saveWaitRecord(waitRecord);
+            if (saveRes && typeof saveRes.catch === 'function') {
+                saveRes.catch(() => {});
+            }
+        /* c8 ignore next 3 */
+        } catch {
+            // ignore
+        }
+    }
+
     const effectiveMonitor = options?.monitor || (flowInstance as any)?.monitorEmitter || defaultStorageManager.getStack(waitRecord.stackId)?.monitor;
     const effectiveNamespace = options?.namespace || waitRecord.namespace;
     const targetVersion = options?.targetVersion ?? (flowInstance as any)?.workflowVersion ?? waitRecord.version;

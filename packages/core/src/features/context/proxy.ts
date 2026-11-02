@@ -4,7 +4,13 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
     if (!data || typeof data !== 'object') {
         return data;
     }
-    if (data instanceof Date || data instanceof RegExp || data instanceof Error) {
+    if (
+        data instanceof Date ||
+        data instanceof RegExp ||
+        data instanceof Error ||
+        (typeof ArrayBuffer !== 'undefined' && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))) ||
+        (typeof Blob !== 'undefined' && data instanceof Blob)
+    ) {
         return data as unknown as T;
     }
     const result: Record<string, any> = {};
@@ -19,16 +25,30 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
         }
         let val: any;
         if (typeof data[key] === 'function') {
-            try {
-                val = data[key]();
-            } catch {
+            if (data[key].val !== undefined) {
+                val = data[key].val;
+            } else if (data[key].length === 0) {
+                try {
+                    val = data[key]();
+                } catch {
+                    val = data[key];
+                }
+            } else {
                 val = data[key];
             }
         } else {
             val = data[key];
         }
         if (val !== undefined) {
-            if (typeof val === 'object' && val !== null && !(val instanceof Error) && !(val instanceof Date) && !(val instanceof RegExp) && typeof (val as any).addEventListener !== 'function') {
+            const isBinaryOrNative =
+                val instanceof Error ||
+                val instanceof Date ||
+                val instanceof RegExp ||
+                (typeof ArrayBuffer !== 'undefined' && (val instanceof ArrayBuffer || ArrayBuffer.isView(val))) ||
+                (typeof Blob !== 'undefined' && val instanceof Blob) ||
+                (val !== null && typeof (val as any).addEventListener === 'function');
+
+            if (typeof val === 'object' && val !== null && !isBinaryOrNative) {
                 if (Array.isArray(val)) {
                     result[key] = Object.freeze(val.map(item => (item && typeof item === 'object') ? toPOJO(item) : item));
                 } else if (!val.then && typeof val !== 'function') {

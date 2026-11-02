@@ -1,6 +1,6 @@
 import {Step, flow} from '../step';
 import {toPOJO} from '../context';
-import {generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType} from '../../shared';
+import {generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType, safeClone} from '../../shared';
 import {BranchNode, WorkflowNode, toGraph} from '../graph';
 
 export type BranchPredicate = (ctx: any, meta?: any) => boolean | Promise<boolean>;
@@ -32,7 +32,7 @@ function cleanBranchOutput(output: any): any {
 }
 
 function executeBranchTarget(target: any, input: any, signal?: AbortSignal): Promise<any> {
-    const isolatedInput = JSON.parse(JSON.stringify(toPOJO(input)));
+    const isolatedInput = safeClone(toPOJO(input));
     const parentStackId = isFunction(input?.$stackId) ? input.$stackId() : (input?.$stackId || input?.stackId);
     const namespace = isFunction(input?.$namespace) ? input.$namespace() : (input?.$namespace || input?.namespace);
     const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace};

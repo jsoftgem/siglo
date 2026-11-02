@@ -126,7 +126,7 @@ describe('@siglo/monitor Suite', () => {
                 write: (chunk: string) => {
                     writtenChunks.push(chunk);
                 },
-                on: (event: string, cb: Function) => {}
+                on: (_event: string, _cb: (...args: any[]) => void) => {}
             };
 
             sse.addClient(mockRes as any, 'tenant-x');

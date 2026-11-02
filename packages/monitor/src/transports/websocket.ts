@@ -1,7 +1,7 @@
 import { IncomingMessage, Server as HttpServer } from 'http';
 import { Socket } from 'net';
 import * as crypto from 'crypto';
-import { WorkflowExecutionEvent, redactEvent, RedactionOptions, resumeWorkflow, flow } from 'siglo';
+import { WorkflowExecutionEvent, redactEvent, RedactionOptions } from 'siglo';
 import { MonitorClientMessage } from '../types';
 
 export interface WSClient {

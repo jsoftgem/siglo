@@ -30,7 +30,7 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? obj[key]() : obj[key];
+        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
         clean[key] = val;
     }
     return clean;

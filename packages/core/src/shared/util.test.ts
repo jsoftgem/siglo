@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { generateUUID, batch, batchIn, isValidJson, CollectPromiseResult } from './Util';
+import { generateUUID, batch, batchIn, isValidJson, CollectPromiseResult, safeClone } from './Util';
 
 describe('shared.util.unit.test', () => {
     it('generateUUID generates valid uuid', () => {
@@ -76,5 +76,50 @@ describe('shared.util.unit.test', () => {
             expect(result.error).to.deep.equal([]);
             done();
         });
+    });
+
+    it('safeClone handles primitives, dates, regexps, errors, buffers, maps, sets, arrays, objects, and circular refs', () => {
+        expect(safeClone(null)).to.equal(null);
+        expect(safeClone(123)).to.equal(123);
+        expect(safeClone('hello')).to.equal('hello');
+        expect(safeClone(true)).to.equal(true);
+
+        const d = new Date(1700000000000);
+        const clonedD = safeClone(d);
+        expect(clonedD).to.be.instanceOf(Date);
+        expect(clonedD.getTime()).to.equal(d.getTime());
+
+        const r = /abc/gi;
+        const clonedR = safeClone(r);
+        expect(clonedR).to.be.instanceOf(RegExp);
+        expect(clonedR.source).to.equal('abc');
+        expect(clonedR.flags).to.equal('gi');
+
+        const err = new Error('boom');
+        expect(safeClone(err)).to.equal(err);
+
+        const buf = new Uint8Array([1, 2, 3]);
+        expect(safeClone(buf)).to.equal(buf);
+
+        const map = new Map<string, any>([['k', { v: 1 }]]);
+        const clonedMap = safeClone(map);
+        expect(clonedMap.get('k')).to.deep.equal({ v: 1 });
+        expect(clonedMap.get('k')).to.not.equal(map.get('k'));
+
+        const set = new Set([{ v: 2 }]);
+        const clonedSet = safeClone(set);
+        expect(Array.from(clonedSet)[0]).to.deep.equal({ v: 2 });
+        expect(Array.from(clonedSet)[0]).to.not.equal(Array.from(set)[0]);
+
+        const arr = [{ a: 1 }, [2]];
+        const clonedArr = safeClone(arr);
+        expect(clonedArr).to.deep.equal(arr);
+        expect(clonedArr).to.not.equal(arr);
+
+        const circular: any = { name: 'circ' };
+        circular.self = circular;
+        const clonedCirc = safeClone(circular);
+        expect(clonedCirc.name).to.equal('circ');
+        expect(clonedCirc.self).to.equal(clonedCirc);
     });
 });

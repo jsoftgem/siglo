@@ -4,9 +4,13 @@ import { WorkflowRunRecord, StepRunRecord, ContextDiffRecord } from './types';
 export class WorkflowExecutionStore {
     private runs: Map<string, WorkflowRunRecord> = new Map();
     private maxRuns: number;
+    private maxEventsPerRun: number;
+    private maxDiffsPerRun: number;
 
-    constructor(maxRuns: number = 1000) {
+    constructor(maxRuns: number = 1000, maxEventsPerRun: number = 500, maxDiffsPerRun: number = 200) {
         this.maxRuns = maxRuns;
+        this.maxEventsPerRun = maxEventsPerRun;
+        this.maxDiffsPerRun = maxDiffsPerRun;
     }
 
     addEvent(event: WorkflowExecutionEvent): void {
@@ -38,6 +42,9 @@ export class WorkflowExecutionStore {
         }
 
         run.events.push(event);
+        if (run.events.length > this.maxEventsPerRun) {
+            run.events.splice(1, run.events.length - this.maxEventsPerRun);
+        }
 
         switch (event.type) {
             case 'flow:start':
@@ -97,6 +104,9 @@ export class WorkflowExecutionStore {
                     timestamp: event.timestamp
                 };
                 run.contextDiffs.push(diff);
+                if (run.contextDiffs.length > this.maxDiffsPerRun) {
+                    run.contextDiffs.shift();
+                }
                 break;
             }
 

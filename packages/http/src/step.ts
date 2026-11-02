@@ -73,13 +73,6 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
         validatedData = await validatePayload(options.responseSchema, res.data, 'action', name);
       }
 
-      // Preserve Blob and ArrayBuffer from toPOJO cloning
-      if (typeof Blob !== 'undefined' && validatedData instanceof Blob && typeof (validatedData as any).addEventListener !== 'function') {
-        (validatedData as any).addEventListener = () => {};
-      }
-      if (typeof ArrayBuffer !== 'undefined' && validatedData instanceof ArrayBuffer && typeof (validatedData as any).addEventListener !== 'function') {
-        (validatedData as any).addEventListener = () => {};
-      }
 
       // 5. Attach $httpMetadata and construct return object
       if (

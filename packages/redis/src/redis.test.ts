@@ -164,6 +164,29 @@ describe('@siglo/redis Storage & Idempotency Adapter Suite', () => {
             const hash = await mockClient.hgetall('siglo:context:stack-202:processPayment');
             expect(hash.transactionId).to.equal('txn_999');
         });
+
+        it('cleans expired checkpoints and persists wait records', async () => {
+            const adapter = new RedisStorageAdapter({ client: mockClient });
+            const cleaned = await adapter.cleanExpiredCheckpoints();
+            expect(cleaned).to.equal(0);
+
+            const waitRecord = {
+                stackId: 'redis-wait-stack',
+                correlationKey: 'corr-redis-1',
+                eventName: 'approval',
+                status: 'waiting',
+                continuationStepIndex: 1
+            };
+            await adapter.saveWaitRecord(waitRecord);
+            const retrievedByStack = await adapter.getWaitRecord('redis-wait-stack');
+            expect(retrievedByStack).to.deep.equal(waitRecord);
+
+            const retrievedByKey = await adapter.getWaitRecord('corr-redis-1');
+            expect(retrievedByKey).to.deep.equal(waitRecord);
+
+            expect(await adapter.getWaitRecord('')).to.be.undefined;
+            await adapter.saveWaitRecord(null as any);
+        });
     });
 
     describe('RedisIdempotencyStore', () => {

@@ -109,6 +109,61 @@ export class PostgresStorageAdapter implements StorageAdapter {
         }
     }
 
+    async cleanExpiredCheckpoints(): Promise<number> {
+        const res = await this.client.query(
+            `DELETE FROM ${this.checkpointsTable} 
+             WHERE (state->>'expiresAt') IS NOT NULL 
+               AND (state->>'expiresAt')::bigint <= (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint`
+        );
+        return res.rowCount || 0;
+    }
+
+    async saveWaitRecord(record: any): Promise<void> {
+        if (!record || (!record.correlationKey && !record.stackId)) {
+            return;
+        }
+        const stackId = record.stackId;
+        if (stackId) {
+            const cp = await this.getCheckpoint(stackId);
+            if (cp) {
+                cp.metadata = { ...(cp.metadata || {}), waitRecord: record };
+                await this.saveCheckpoint(cp);
+            } else {
+                await this.saveCheckpoint({
+                    version: 2,
+                    schemaVersion: '2.0.0',
+                    stackId,
+                    namespace: record.namespace,
+                    status: record.status || 'waiting',
+                    revision: 1,
+                    timestamp: Date.now(),
+                    metadata: { waitRecord: record },
+                    chains: [],
+                    contexts: {}
+                } as any);
+            }
+        }
+    }
+
+    async getWaitRecord(correlationKeyOrStackId: string): Promise<any | undefined> {
+        if (!correlationKeyOrStackId) {
+            return undefined;
+        }
+        const res = await this.client.query(
+            `SELECT state FROM ${this.checkpointsTable} 
+             WHERE stack_id = $1 
+                OR state->'metadata'->'waitRecord'->>'correlationKey' = $1 
+                OR state->'metadata'->'waitRecord'->>'stackId' = $1 LIMIT 1`,
+            [correlationKeyOrStackId]
+        );
+        if (!res.rows || res.rows.length === 0) {
+            return undefined;
+        }
+        const rowState = res.rows[0].state;
+        const checkpoint = typeof rowState === 'string' ? JSON.parse(rowState) : rowState;
+        return checkpoint?.metadata?.waitRecord;
+    }
+
     async cleanupOldCheckpoints(retentionDays: number = 30): Promise<number> {
         const res = await this.client.query(
             `DELETE FROM ${this.checkpointsTable} WHERE updated_at < NOW() - make_interval(days => $1)`,

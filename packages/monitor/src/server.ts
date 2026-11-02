@@ -68,7 +68,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
         }
     }
 
-    const host = options.host || '0.0.0.0';
+    const host = options.host || '127.0.0.1';
     const store = options.store || new WorkflowExecutionStore();
     const workflows = options.workflows instanceof Map ? options.workflows : new Map();
     if (options.flow) {
@@ -323,7 +323,12 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 if (aborted) return;
                 try {
                     const parsed = body ? JSON.parse(body) : {};
-                    let targetFlow = options.flow || workflows.get(stackId) || workflows.get("default") || flow();
+                    const targetFlow = options.flow || workflows.get(stackId) || workflows.get("default");
+                    if (!targetFlow) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: `Cannot resume workflow '${stackId}': workflow definition not registered on monitor server.` }));
+                        return;
+                    }
                     await resumeWorkflow(targetFlow, stackId, parsed.payload, { monitor: emitter });
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true, stackId }));
@@ -413,8 +418,15 @@ function applyCorsHeaders(req: http.IncomingMessage, res: http.ServerResponse, c
     const requestOrigin = req.headers['origin'];
 
     if (!cors || !cors.origin) {
-        // Default dev behavior
-        res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
+        if (cors?.credentials) {
+            if (requestOrigin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin)) {
+                res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+            } else {
+                res.setHeader('Access-Control-Allow-Origin', 'null');
+            }
+        } else {
+            res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
+        }
     } else if (typeof cors.origin === 'string') {
         res.setHeader('Access-Control-Allow-Origin', cors.origin);
     } else if (Array.isArray(cors.origin)) {

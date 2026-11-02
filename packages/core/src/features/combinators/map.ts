@@ -124,13 +124,18 @@ export function map(
             let hasError = false;
             let firstError: any = undefined;
 
-            async function pullNext(): Promise<{ item: any; index: number; done: boolean }> {
-                const next = await iterator.next();
-                if (next.done) {
-                    return {item: undefined, index: -1, done: true};
-                }
-                const idx = currentIndex++;
-                return {item: next.value, index: idx, done: false};
+            let pullLock: Promise<any> = Promise.resolve();
+            function pullNext(): Promise<{ item: any; index: number; done: boolean }> {
+                const nextPromise = pullLock.then(async () => {
+                    const next = await iterator.next();
+                    if (next.done) {
+                        return {item: undefined, index: -1, done: true};
+                    }
+                    const idx = currentIndex++;
+                    return {item: next.value, index: idx, done: false};
+                });
+                pullLock = nextPromise.catch(() => ({item: undefined, index: -1, done: true}));
+                return nextPromise;
             }
 
             async function worker(): Promise<void> {

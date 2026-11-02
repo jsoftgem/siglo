@@ -340,5 +340,77 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const res = await resumeWorkflow(contFlow, "alone-key", {}, { pojo: true });
             expect(res.done).to.equal(true);
         });
+
+        it("resumeWorkflow recovers waitRecord from storage adapter getWaitRecord and notifies saveWaitRecord", async () => {
+            let savedRecord: any;
+            const mockAdapter = {
+                name: "mock-durable",
+                saveWaitRecord: async (rec: any) => {
+                    savedRecord = rec;
+                },
+                getWaitRecord: async (key: string) => {
+                    if (key === "adapter-key") {
+                        return {
+                            stackId: "adapter-stack",
+                            correlationKey: "adapter-key",
+                            eventName: "approval",
+                            status: "waiting",
+                            continuationStepIndex: 1,
+                            createdAt: Date.now()
+                        };
+                    }
+                    return undefined;
+                },
+                getCheckpoint: async (id: string) => {
+                    return {
+                        version: 2,
+                        schemaVersion: '2.0.0',
+                        stackId: id,
+                        status: 'waiting',
+                        revision: 1,
+                        timestamp: Date.now(),
+                        chains: [],
+                        contexts: {}
+                    } as any;
+                }
+            };
+            defaultStorageManager.useStorage(mockAdapter as any);
+
+            const contStep = Step.create("approvedStep", () => ({ approved: true }));
+            const f = flow(contStep);
+
+            const res = await resumeWorkflow(f, "adapter-key", { notes: "ok" }, { pojo: true });
+            expect(res.approved).to.be.true;
+            expect(savedRecord).to.be.an("object");
+            expect(savedRecord?.status).to.equal("resumed");
+        });
+
+        it("resumeWorkflow recovers waitRecord from checkpoint metadata when in-memory manager is cleared", async () => {
+            let savedWaitRecord: any;
+            const mockAdapter = {
+                name: "mock-suspension",
+                saveWaitRecord: async (rec: any) => {
+                    savedWaitRecord = rec;
+                }
+            };
+            defaultStorageManager.useStorage(mockAdapter as any);
+
+            const waitStep = waitForEvent("invoice.paid", { correlationKey: "inv-key" });
+            const contStep = Step.create("receipt", () => ({ sent: true }));
+            const invoiceFlow = flow(waitStep, contStep);
+
+            const suspension = await invoiceFlow.run({}, { durable: true });
+            expect(suspension.status).to.equal("waiting");
+            expect(savedWaitRecord).to.be.an("object");
+            expect(savedWaitRecord.correlationKey).to.equal("inv-key");
+
+            // Clear in-memory manager to simulate restart
+            defaultDurableManager.clear();
+            expect(defaultDurableManager.getWaiting("inv-key")).to.be.undefined;
+
+            // Resume by stackId
+            const res = await resumeWorkflow(invoiceFlow, suspension.stackId, {}, { pojo: true });
+            expect(res.sent).to.be.true;
+        });
     });
 });

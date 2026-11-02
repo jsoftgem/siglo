@@ -27,11 +27,20 @@ class MockPostgresClient implements PostgresClientInterface {
             return { rows: [], rowCount: 1 };
         }
         if (text.startsWith('SELECT STATE FROM SIGLO_CHECKPOINTS')) {
-            const [stackId] = values || [];
-            if (this.checkpoints.has(stackId)) {
-                return { rows: [{ state: this.checkpoints.get(stackId).state } as unknown as T], rowCount: 1 };
+            const [stackIdOrKey] = values || [];
+            if (this.checkpoints.has(stackIdOrKey)) {
+                return { rows: [{ state: this.checkpoints.get(stackIdOrKey).state } as unknown as T], rowCount: 1 };
+            }
+            for (const cp of this.checkpoints.values()) {
+                const parsed = typeof cp.state === 'string' ? JSON.parse(cp.state) : cp.state;
+                if (parsed?.metadata?.waitRecord?.correlationKey === stackIdOrKey || parsed?.metadata?.waitRecord?.stackId === stackIdOrKey) {
+                    return { rows: [{ state: cp.state } as unknown as T], rowCount: 1 };
+                }
             }
             return { rows: [], rowCount: 0 };
+        }
+        if (text.startsWith('DELETE FROM SIGLO_CHECKPOINTS')) {
+            return { rows: [], rowCount: 1 };
         }
 
         // Events
@@ -161,6 +170,30 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
 
             expect(mockClient.queries.some(q => q.text.includes('DELETE FROM siglo_checkpoints'))).to.be.true;
             expect(mockClient.queries.some(q => q.text.includes('DELETE FROM siglo_context_events'))).to.be.true;
+        });
+
+        it('cleans expired checkpoints and persists wait records', async () => {
+            const adapter = new PostgresStorageAdapter({ client: mockClient });
+            const cleaned = await adapter.cleanExpiredCheckpoints();
+            expect(cleaned).to.equal(1);
+            expect(mockClient.queries.some(q => q.text.includes("expiresAt"))).to.be.true;
+
+            const waitRecord = {
+                stackId: 'pg-wait-stack',
+                correlationKey: 'corr-pg-1',
+                eventName: 'approval',
+                status: 'waiting',
+                continuationStepIndex: 1
+            };
+            await adapter.saveWaitRecord(waitRecord);
+            const retrievedByStack = await adapter.getWaitRecord('pg-wait-stack');
+            expect(retrievedByStack).to.deep.equal(waitRecord);
+
+            const retrievedByKey = await adapter.getWaitRecord('corr-pg-1');
+            expect(retrievedByKey).to.deep.equal(waitRecord);
+
+            expect(await adapter.getWaitRecord('')).to.be.undefined;
+            await adapter.saveWaitRecord(null as any);
         });
     });
 

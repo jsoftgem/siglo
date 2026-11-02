@@ -46,6 +46,8 @@ import {
     StorageAdapterException
 } from "../executer";
 import { emitMonitoringEvent } from "../events/emitter";
+import { defaultCompensationManager } from "../compensation";
+import { toPOJO } from "../context/proxy";
 
 export { GetChainTypeException } from "./get";
 export { PutChainTypeException } from "./put";
@@ -141,6 +143,10 @@ export class StorageManager {
     }
 
     getStorageAdapter(): StorageAdapter | undefined {
+        return this.adapter;
+    }
+
+    getAdapter(): StorageAdapter | undefined {
         return this.adapter;
     }
 
@@ -472,6 +478,23 @@ export class StorageManager {
             stack.expiresAt = expiresAt;
         }
 
+        const compensations = defaultCompensationManager.getCompensations(stackId).map(rec => ({
+            stepId: rec.stepId,
+            stepName: rec.stepName,
+            output: toPOJO(rec.output),
+            input: toPOJO(rec.input),
+            options: rec.options,
+            status: rec.status,
+            completedAt: rec.completedAt
+        }));
+
+        const mergedMetadata: Record<string, any> = {
+            ...(stack.metadata || {}),
+            ...(options?.metadata || {}),
+            ...(compensations.length > 0 ? { compensations } : {})
+        };
+        stack.metadata = mergedMetadata;
+
         const snapshot: SerializedExecutionStack = {
             version: 2,
             schemaVersion: '2.0.0',
@@ -485,7 +508,7 @@ export class StorageManager {
             contexts,
             timestamp: Date.now(),
             expiresAt,
-            metadata: options?.metadata || stack.metadata
+            metadata: mergedMetadata
         };
 
         const stackObj = this.state.stacks.get(stackId);

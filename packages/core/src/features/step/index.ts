@@ -496,7 +496,39 @@ export function flow<TInput = any, TOutput = any>(
         resume(correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) {
             return resumeWorkflow(flowObj, correlationKeyOrStackId, eventPayload, options);
         },
-        compensate(stackId: string, options?: any) {
+        async compensate(stackId: string, options?: any) {
+            const existing = defaultCompensationManager.getCompensations(stackId);
+            if (!existing || existing.length === 0) {
+                try {
+                    const cp = await getCheckpoint(stackId);
+                    const serializedCompensations = cp?.metadata?.compensations;
+                    if (Array.isArray(serializedCompensations) && serializedCompensations.length > 0) {
+                        const allSteps = flattenSteps(flowObj.steps || []);
+                        for (const record of serializedCompensations) {
+                            const matchingStep = allSteps.find((s: any) =>
+                                (s?.name && s.name === record.stepName) ||
+                                (s?.func && s.func === record.stepName) ||
+                                (s?.$stepId && s.$stepId === record.stepId)
+                            );
+                            if (matchingStep?.compensationHandler) {
+                                defaultCompensationManager.registerCompensation(stackId, {
+                                    stepId: record.stepId,
+                                    stepName: record.stepName,
+                                    output: record.output,
+                                    input: record.input,
+                                    handler: matchingStep.compensationHandler,
+                                    options: record.options || matchingStep.compensationOptions,
+                                    status: record.status,
+                                    completedAt: record.completedAt
+                                });
+                            }
+                        }
+                    }
+                /* c8 ignore next 3 */
+                } catch {
+                    // best-effort checkpoint hydration
+                }
+            }
             return defaultCompensationManager.runCompensations(stackId, undefined, options);
         },
         networkPolicy(policy?: NetworkPolicyConfig) {

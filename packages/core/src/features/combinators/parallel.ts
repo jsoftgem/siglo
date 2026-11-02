@@ -1,6 +1,6 @@
 import {Step, flow} from '../step';
 import {toPOJO} from '../context';
-import {generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType} from '../../shared';
+import {generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType, safeClone} from '../../shared';
 import {ParallelNode, WorkflowNode, toGraph} from '../graph';
 import {FieldCollisionException, CollisionDetail} from '../executer';
 import {combineAbortSignals} from '../executer/signals';
@@ -90,8 +90,11 @@ function detectCollisions(
     const collisions: CollisionDetail[] = [];
     for (const [field, entries] of fieldValues.entries()) {
         if (entries.length > 1) {
-            const firstValStr = JSON.stringify(entries[0].value);
-            const hasConflict = entries.some(e => JSON.stringify(e.value) !== firstValStr);
+            const safeStr = (v: any) => {
+                try { return JSON.stringify(v); } catch { return String(v); }
+            };
+            const firstValStr = safeStr(entries[0].value);
+            const hasConflict = entries.some(e => safeStr(e.value) !== firstValStr);
             if (hasConflict) {
                 collisions.push({
                     field,
@@ -106,7 +109,7 @@ function detectCollisions(
 }
 
 function executeBranch(branch: any, input: any, signal?: AbortSignal): Promise<any> {
-    const isolatedInput = JSON.parse(JSON.stringify(toPOJO(input)));
+    const isolatedInput = safeClone(toPOJO(input));
     const parentStackId = typeof input?.$stackId === 'function' ? input.$stackId() : (input?.$stackId || input?.stackId);
     const namespace = typeof input?.$namespace === 'function' ? input.$namespace() : (input?.$namespace || input?.namespace);
     const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace};

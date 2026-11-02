@@ -30,6 +30,10 @@ export class RedisStorageAdapter implements StorageAdapter {
             : `${this.keyPrefix}checkpoint:${stackId}`;
     }
 
+    private waitRecordKey(key: string): string {
+        return `${this.keyPrefix}wait:${key}`;
+    }
+
     private contextKey(stackId: string, stepId: string, namespace?: string): string {
         return namespace
             ? `${this.keyPrefix}${namespace}:context:${stackId}:${stepId}`
@@ -90,6 +94,39 @@ export class RedisStorageAdapter implements StorageAdapter {
         } catch {
             return undefined;
         }
+    }
+
+    async cleanExpiredCheckpoints(): Promise<number> {
+        return 0; // Handled automatically by Redis TTL expiration
+    }
+
+    async saveWaitRecord(record: any): Promise<void> {
+        if (!record || (!record.correlationKey && !record.stackId)) {
+            return;
+        }
+        const serialized = JSON.stringify(record);
+        if (record.correlationKey) {
+            await this.client.set(this.waitRecordKey(record.correlationKey), serialized, 'PX', this.checkpointTtlMs);
+        }
+        if (record.stackId) {
+            await this.client.set(this.waitRecordKey(record.stackId), serialized, 'PX', this.checkpointTtlMs);
+        }
+    }
+
+    async getWaitRecord(correlationKeyOrStackId: string): Promise<any | undefined> {
+        if (!correlationKeyOrStackId) {
+            return undefined;
+        }
+        const data = await this.client.get(this.waitRecordKey(correlationKeyOrStackId));
+        if (data) {
+            try {
+                return JSON.parse(data);
+            } catch {
+                return undefined;
+            }
+        }
+        const cp = await this.getCheckpoint(correlationKeyOrStackId);
+        return cp?.metadata?.waitRecord;
     }
 
     async getCachedStep(key: string): Promise<any | undefined> {

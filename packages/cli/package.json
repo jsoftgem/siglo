@@ -4,6 +4,15 @@
   "description": "Developer CLI and workflow visualizer/inspector for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "siglo": "./dist/bin.js"
   },
