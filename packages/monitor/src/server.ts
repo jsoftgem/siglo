@@ -143,6 +143,9 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 ws.broadcast(message.event);
                 metrics.handleEvent(message.event);
                 emitter.emit(message.event);
+            } else if (message.action === 'resume' && message.stackId && allowRemoteResume) {
+                const targetFlow = options.flow || workflows.get(message.stackId) || workflows.get('default') || flow();
+                resumeWorkflow(targetFlow, message.stackId, message.payload, { monitor: emitter }).catch(() => {});
             }
         }
     });
@@ -321,7 +324,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 try {
                     const parsed = body ? JSON.parse(body) : {};
                     let targetFlow = options.flow || workflows.get(stackId) || workflows.get("default") || flow();
-                    await resumeWorkflow(targetFlow, stackId, parsed.payload);
+                    await resumeWorkflow(targetFlow, stackId, parsed.payload, { monitor: emitter });
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true, stackId }));
                 } catch (err: any) {

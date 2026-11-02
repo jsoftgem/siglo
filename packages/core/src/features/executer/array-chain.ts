@@ -171,7 +171,8 @@ const executeArrayChain = (
                         stepId: chain?.$stepId || `$step_${stepIndex}`,
                         expiresAt: err.expiresAt,
                         createdAt: Date.now(),
-                        version: options.workflowVersion
+                        version: options.workflowVersion,
+                        namespace: options.namespace
                     });
                 /* c8 ignore next 3 */
                 } catch {

@@ -100,15 +100,39 @@ export class WorkflowExecutionStore {
                 break;
             }
 
-            case 'flow:suspended':
+            case 'flow:suspended': {
                 run.status = 'SUSPENDED';
                 run.waitingForEvent = event.waitingForEvent;
+                const targetStepId = event.stepId;
+                if (targetStepId && run.steps[targetStepId]) {
+                    run.steps[targetStepId].status = 'SUSPENDED';
+                } else {
+                    for (const step of Object.values(run.steps)) {
+                        if (step.status === 'RUNNING' && (step.stepName?.includes('wait') || step.stepName?.includes('Wait'))) {
+                            step.status = 'SUSPENDED';
+                        }
+                    }
+                }
                 break;
+            }
 
-            case 'flow:resumed':
+            case 'flow:resumed': {
                 run.status = 'RUNNING';
                 run.waitingForEvent = undefined;
+                const targetStepId = event.stepId;
+                if (targetStepId && run.steps[targetStepId]) {
+                    run.steps[targetStepId].status = 'COMPLETED';
+                    run.steps[targetStepId].endTime = event.timestamp;
+                } else {
+                    for (const step of Object.values(run.steps)) {
+                        if (step.status === 'SUSPENDED' as any) {
+                            step.status = 'COMPLETED';
+                            step.endTime = event.timestamp;
+                        }
+                    }
+                }
                 break;
+            }
 
             case 'flow:complete':
                 run.status = event.status;

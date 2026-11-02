@@ -1,6 +1,6 @@
 import React from 'react';
 import { StepRun, StepStatus } from '../../../types';
-import { CheckCircle2, XCircle, Clock, RotateCw } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, RotateCw, PauseCircle } from 'lucide-react';
 
 interface DagNodeProps {
   step: StepRun;
@@ -23,6 +23,9 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, isSelected, onSelect }) 
         return base + 'bg-emerald-950/20 border-emerald-500/50 hover:border-emerald-400';
       case 'FAILED':
         return base + 'bg-rose-950/30 border-rose-500/70 shadow-lg shadow-rose-500/20';
+      case 'SUSPENDED':
+      case 'WAITING':
+        return base + 'bg-amber-950/30 border-amber-500/70 shadow-lg shadow-amber-500/20';
       case 'SKIPPED':
         return base + 'bg-slate-900 border-slate-800 opacity-60';
       default:
@@ -39,6 +42,9 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, isSelected, onSelect }) 
         return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
       case 'FAILED':
         return <XCircle className="w-4 h-4 text-rose-400" />;
+      case 'SUSPENDED':
+      case 'WAITING':
+        return <PauseCircle className="w-4 h-4 text-amber-400" />;
       case 'SKIPPED':
       default:
         return <Clock className="w-4 h-4 text-slate-500" />;

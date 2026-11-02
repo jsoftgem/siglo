@@ -4,7 +4,7 @@ import { validateWorkflowVersion } from './versioning';
 import { flow, Flow } from '../step';
 import { toPOJO } from '../context';
 import { ExecutionOptions } from '../step';
-import { emitMonitoringEvent } from '../events/emitter';
+import { emitMonitoringEvent } from '../events';
 
 export interface ResumeOptions extends ExecutionOptions {
     migrations?: any;
@@ -21,17 +21,31 @@ export async function resumeWorkflow(
     const correlationKey = isByStack ? isByStack.correlationKey : correlationKeyOrStackId;
 
     const waitRecord = defaultDurableManager.resumeWait(correlationKey);
-    emitMonitoringEvent(options, {
+    const effectiveMonitor = options?.monitor || (flowInstance as any)?.monitorEmitter || defaultStorageManager.getStack(waitRecord.stackId)?.monitor;
+    const effectiveNamespace = options?.namespace || waitRecord.namespace;
+    const targetVersion = options?.targetVersion ?? (flowInstance as any)?.workflowVersion ?? waitRecord.version;
+
+    const effectiveOptions: ResumeOptions = {
+        ...options,
+        stackId: waitRecord.stackId,
+        namespace: effectiveNamespace,
+        monitor: effectiveMonitor,
+        workflowVersion: targetVersion,
+        isResume: true,
+        durable: options?.durable ?? true
+    };
+
+    emitMonitoringEvent(effectiveOptions, {
         type: 'flow:resumed',
         stackId: waitRecord.stackId,
+        stepId: waitRecord.stepId,
         correlationKey: waitRecord.correlationKey,
         eventName: waitRecord.eventName,
         timestamp: Date.now(),
-        namespace: options?.namespace
+        namespace: effectiveNamespace
     });
-    const cp = await defaultStorageManager.getCheckpoint(waitRecord.stackId);
 
-    const targetVersion = options?.targetVersion ?? (flowInstance as any)?.workflowVersion ?? waitRecord.version;
+    const cp = await defaultStorageManager.getCheckpoint(waitRecord.stackId);
     const recordedVersion = waitRecord.version ?? (cp as any)?.workflowVersion;
 
     let restoredState: any = cp?.contexts ? Object.assign({}, ...Object.values(cp.contexts)) : {};
@@ -61,9 +75,20 @@ export async function resumeWorkflow(
     }
 
     if (remainingSteps.length === 0) {
+        emitMonitoringEvent(effectiveOptions, {
+            type: 'flow:complete',
+            stackId: waitRecord.stackId,
+            durationMs: Date.now() - (waitRecord.createdAt || Date.now()),
+            status: 'COMPLETED',
+            timestamp: Date.now(),
+            namespace: effectiveNamespace
+        });
         return cleanInput;
     }
 
     const resumedFlow = flow(...remainingSteps);
-    return resumedFlow.execute(cleanInput, options);
+    if (effectiveMonitor) {
+        resumedFlow.monitor(effectiveMonitor);
+    }
+    return resumedFlow.execute(cleanInput, effectiveOptions);
 }

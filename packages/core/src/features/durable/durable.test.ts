@@ -13,7 +13,8 @@ import {
     WorkflowVersionMismatchException,
     defaultStorageManager,
     validateWorkflowVersion,
-    clearStorage
+    clearStorage,
+    WorkflowEventEmitter
 } from '../../index';
 
 describe('Durable Waits, External Events, and Versioning Tests', () => {
@@ -137,6 +138,27 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const res = await resumeWorkflow(f, suspended.stackId, { token: 'jwt-xyz' }, { pojo: true });
             expect(res.completed).to.equal(true);
             expect(res.token).to.equal('jwt-xyz');
+        });
+
+        it('resumeWorkflow emits flow:resumed and attaches monitor to resumed flow', async () => {
+            const events: any[] = [];
+            const emitter = new WorkflowEventEmitter();
+            emitter.on('*', (ev) => events.push(ev));
+
+            const waitStep = waitForEvent('signal.monitored', {
+                correlationKey: 'sig-mon-1'
+            });
+            const afterStep = Step.create('after', (ctx: any) => ({ completed: true, token: ctx.token }));
+
+            const f = flow(waitStep, afterStep);
+            f.monitor(emitter);
+            const suspended = await f.run({}, { durable: true, pojo: true });
+
+            const res = await resumeWorkflow(f, suspended.stackId, { token: 'jwt-mon' }, { pojo: true });
+            expect(res.completed).to.equal(true);
+            expect(events.some(e => e.type === 'flow:resumed')).to.be.true;
+            expect(events.some(e => e.type === 'step:complete' && e.stepName === 'after')).to.be.true;
+            expect(events.some(e => e.type === 'flow:complete')).to.be.true;
         });
 
         it('rejects duplicate resume with DuplicateEventException', async () => {

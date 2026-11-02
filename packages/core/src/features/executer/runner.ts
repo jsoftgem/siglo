@@ -71,7 +71,7 @@ export class Runner {
     start(param: any, chains: any, rawOptions?: any): Promise<any> | undefined {
         if (chains) {
             const namespace = rawOptions?.namespace;
-            const isSubStack = Boolean(rawOptions?.stackId);
+            const isSubStack = Boolean(rawOptions?.stackId) && !rawOptions?.isResume;
             const stackId = rawOptions?.stackId || this.createExecutionStack(namespace, rawOptions?.monitor);
             const flowStartTime = Date.now();
             if (!isSubStack) {
@@ -119,15 +119,17 @@ export class Runner {
                     workflowId: rawOptions?.workflowId
                 });
                 (normalized as any).stackId = stackId;
-                emitMonitoringEvent(rawOptions, {
-                    type: 'flow:start',
-                    stackId,
-                    flowName: rawOptions?.workflowId,
-                    version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
-                    ast: rawOptions?.ast,
-                    timestamp: flowStartTime,
-                    namespace
-                });
+                if (!rawOptions?.isResume) {
+                    emitMonitoringEvent(rawOptions, {
+                        type: 'flow:start',
+                        stackId,
+                        flowName: rawOptions?.workflowId,
+                        version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
+                        ast: rawOptions?.ast,
+                        timestamp: flowStartTime,
+                        namespace
+                    });
+                }
                 emitMonitoringEvent(rawOptions, {
                     type: 'flow:error',
                     stackId,
@@ -243,15 +245,17 @@ export class Runner {
                     }
                 }
 
-                emitMonitoringEvent(rawOptions, {
-                    type: 'flow:start',
+                if (!rawOptions?.isResume) {
+                    emitMonitoringEvent(rawOptions, {
+                        type: 'flow:start',
                     stackId,
                     flowName: rawOptions?.workflowId,
                     version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
                     ast: rawOptions?.ast,
                     timestamp: flowStartTime,
-                    namespace
-                });
+                        namespace
+                    });
+                }
 
                 const executionPromise = (chains instanceof Array)
                     ? new this.ArrayChain(
@@ -271,6 +275,7 @@ export class Runner {
                         emitMonitoringEvent(rawOptions, {
                             type: 'flow:suspended',
                             stackId,
+                            stepId: result.stepId,
                             waitingForEvent: result.eventName || 'wait',
                             timeoutMs: result.expiresAt ? Math.max(0, result.expiresAt - Date.now()) : undefined,
                             expiresAt: result.expiresAt,

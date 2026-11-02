@@ -101,17 +101,17 @@ export const WorkflowDetail: React.FC<WorkflowDetailProps> = ({
             {run.status === 'SUSPENDED' && (
               <button
                 onClick={() => setIsResumeModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/20 active:scale-95"
+                className="flex h-9 items-center gap-1.5 px-3.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-md shadow-amber-500/20 active:scale-95"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Resume Suspended</span>
+                <span>Resume</span>
               </button>
             )}
 
             <button
               onClick={handleReplayClick}
               disabled={isReplaying}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95 disabled:opacity-50"
+              className="flex h-9 items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95 disabled:opacity-50"
             >
               <RotateCw className={`w-3.5 h-3.5 ${isReplaying ? 'animate-spin' : ''}`} />
               <span>{replaySuccess ? 'Replayed!' : 'Replay'}</span>
@@ -178,8 +178,8 @@ export const WorkflowDetail: React.FC<WorkflowDetailProps> = ({
         waitingForEvent={run.waitingForEvent}
         isOpen={isResumeModalOpen}
         onClose={() => setIsResumeModalOpen(false)}
-        onResume={async (eventName, payload) => {
-          await onResume(run.stackId, eventName, payload);
+        onResume={async (key, eventName, payload) => {
+          await onResume(key, eventName, payload);
         }}
       />
     </div>

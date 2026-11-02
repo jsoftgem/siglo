@@ -1,6 +1,6 @@
-import { FlowTimeoutException } from '../../exceptions';
+import { FlowTimeoutException, WorkflowSuspendedException } from '../../exceptions';
 import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY } from '../../../../shared';
-import { emitMonitoringEvent } from '../../../events/emitter';
+import { emitMonitoringEvent } from '../../../events';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
 
@@ -73,6 +73,11 @@ export default class OnFail {
             rawReject(err);
         };
         reject = safeRejectWithEvent;
+
+        if (error instanceof WorkflowSuspendedException || error?.name === 'WorkflowSuspendedException') {
+            rawReject(error);
+            return;
+        }
 
         if (outerSignal?.aborted) {
             reject(outerSignal.reason || new Error('This operation was aborted'));

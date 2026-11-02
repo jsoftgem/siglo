@@ -47,6 +47,7 @@ export interface FlowErrorEvent {
 export interface FlowSuspendedEvent {
     type: 'flow:suspended';
     stackId: string;
+    stepId?: string;
     waitingForEvent: string;
     timeoutMs?: number;
     expiresAt?: number;
@@ -58,6 +59,7 @@ export interface FlowSuspendedEvent {
 export interface FlowResumedEvent {
     type: 'flow:resumed';
     stackId: string;
+    stepId?: string;
     correlationKey?: string;
     eventName?: string;
     timestamp: number;

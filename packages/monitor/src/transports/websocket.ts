@@ -160,7 +160,7 @@ export class WebSocketBroadcaster {
             if (parsed.action === 'subscribe' && parsed.namespace) {
                 client.namespace = parsed.namespace;
             } else if (parsed.action === 'resume' && parsed.stackId && this.allowRemoteResume) {
-                resumeWorkflow(flow(), parsed.stackId, parsed.payload).catch(() => {});
+                // Delegated to onClientMessageCallback
             }
 
             if (this.onClientMessageCallback) {

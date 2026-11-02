@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../../ui/Modal';
 import { Play, AlertCircle } from 'lucide-react';
 
@@ -7,7 +7,7 @@ interface ResumeModalProps {
   waitingForEvent?: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onResume: (eventName: string, payload: any) => Promise<void>;
+  onResume: (key: string, eventName: string, payload: any) => Promise<void>;
 }
 
 export const ResumeModal: React.FC<ResumeModalProps> = ({
@@ -17,10 +17,19 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({
   onClose,
   onResume
 }) => {
+  const [key, setKey] = useState(stackId);
   const [eventName, setEventName] = useState(waitingForEvent || '');
   const [payloadText, setPayloadText] = useState('{\n  "resumedBy": "dashboard"\n}');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setKey(stackId);
+      setEventName(waitingForEvent || '');
+      setJsonError(null);
+    }
+  }, [isOpen, stackId, waitingForEvent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +47,7 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      await onResume(eventName.trim(), parsedPayload);
+      await onResume(key.trim(), eventName.trim(), parsedPayload);
       onClose();
     } catch (err: any) {
       setJsonError(err?.message || 'Failed to resume workflow');
@@ -60,6 +69,20 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1.5">
+            Key
+          </label>
+          <input
+            type="text"
+            required
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="Stack ID or correlation key"
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+          />
+        </div>
+
         <div>
           <label className="block text-xs font-medium text-slate-300 mb-1.5">
             Event Signal Name

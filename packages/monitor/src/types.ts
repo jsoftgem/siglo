@@ -4,7 +4,7 @@ import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions } from '
 export interface StepRunRecord {
     stepId: string;
     stepName: string;
-    status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'RETRYING';
+    status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'RETRYING' | 'SUSPENDED' | 'WAITING';
     attempts: number;
     maxAttempts?: number;
     startTime?: number;

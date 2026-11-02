@@ -286,6 +286,7 @@ export interface ExecutionOptions {
     idempotencyTtlMs?: number;
     migrations?: any;
     stackId?: string;
+    isResume?: boolean;
     // Phase 4 Dependency Injection
     services?: Record<string, any>;
     dependencies?: Record<string, any>;
@@ -322,6 +323,7 @@ export interface Flow<TInput = any, TOutput = any> {
     networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
     networkPolicyConfig?: NetworkPolicyConfig;
     monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
+    monitorEmitter?: any;
 }
 
 export type FlowItem<TIn = any, TOut = any> =
@@ -510,8 +512,10 @@ export function flow<TInput = any, TOutput = any>(
         networkPolicyConfig: undefined,
         monitor(emitter: any) {
             flowMonitor = emitter;
+            flowObj.monitorEmitter = emitter;
             return flowObj;
-        }
+        },
+        monitorEmitter: undefined
     };
     return flowObj;
 }
