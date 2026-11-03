@@ -1,11 +1,24 @@
 import { expect } from 'chai';
 import * as http from 'http';
-import { Step, flow, defaultDurableManager, clearStorage } from 'siglo';
+import { Step, flow, defaultDurableManager, clearStorage, useStorage } from 'siglo';
 import {
     PostgresWaitPoller,
     MemoryWaitPoller,
     createSchedulerWebhookHandler
 } from './index';
+
+function postgresPoller(options: any): PostgresWaitPoller {
+    if (options?.client) useStorage({
+        name: 'test-durable',
+        getWaitRecord: async (key: string) => defaultDurableManager.getWaiting(key) ?? defaultDurableManager.getWaitingByStack(key),
+        withWorkflowLock: async (_: string, action: any) => action(),
+        claimWaitRecord: async (key: string, _: string, opts: any) => ({ ...defaultDurableManager.resumeWait(key, opts.allowExpired), resumePayload: opts.eventPayload }),
+        completeWaitRecord: async (key: string, worker: string) => {
+            await options.client.query(`UPDATE siglo_wait_records SET status = 'RESUMED' WHERE correlation_key = $2`, [worker, key]);
+        }
+    });
+    return new PostgresWaitPoller(options);
+}
 
 describe('@siglo/scheduler Suite', () => {
     beforeEach(() => {
@@ -20,9 +33,18 @@ describe('@siglo/scheduler Suite', () => {
 
     describe('PostgresWaitPoller', () => {
         it('throws an error if client is missing or identifier contains SQL injection', () => {
-            expect(() => new PostgresWaitPoller(null as any)).to.throw('PostgresWaitPoller requires a valid PostgreSQL client');
-            expect(() => new PostgresWaitPoller({ client: {} as any, waitRecordsTable: 'bad table; DROP TABLE--' }))
+            expect(() => postgresPoller(null as any)).to.throw('PostgresWaitPoller requires a valid PostgreSQL client');
+            expect(() => postgresPoller({ client: {} as any, waitRecordsTable: 'bad table; DROP TABLE--' }))
                 .to.throw('Identifier contains forbidden characters');
+        });
+
+        it('fails closed without a durable storage adapter', async () => {
+            useStorage(undefined as any);
+            let queried = false;
+            const poller = new PostgresWaitPoller({ client: { query: async () => { queried = true; return { rows: [], rowCount: 0 }; } } });
+            try { await poller.pollOnce(); expect.fail('Expected missing storage failure'); }
+            catch (error: any) { expect(error.message).to.include('storage adapter with workflow locks'); }
+            expect(queried).to.equal(false);
         });
 
         it('ensures table schema with ensureTable()', async () => {
@@ -34,7 +56,7 @@ describe('@siglo/scheduler Suite', () => {
                 }
             };
 
-            const poller = new PostgresWaitPoller({
+            const poller = postgresPoller({
                 client: mockClient,
                 waitRecordsTable: 'test_wait_records'
             });
@@ -80,7 +102,7 @@ describe('@siglo/scheduler Suite', () => {
                 })
             );
 
-            const poller = new PostgresWaitPoller({
+            const poller = postgresPoller({
                 client: mockClient,
                 waitRecordsTable: 'siglo_wait_records',
                 flowLookup: (wfId, stackId) => (stackId === 'stack-due-1' ? dummyFlow : undefined),
@@ -102,7 +124,7 @@ describe('@siglo/scheduler Suite', () => {
             expect(updateResumed?.params?.[1]).to.equal('corr-due-1');
         });
 
-        it('handles resumption failure and updates record to FAILED', async () => {
+        it('reports failures without discarding the recoverable continuation', async () => {
             const past = new Date(Date.now() - 5000);
             const mockRows = [
                 {
@@ -133,7 +155,7 @@ describe('@siglo/scheduler Suite', () => {
                 })
             );
 
-            const poller = new PostgresWaitPoller({
+            const poller = postgresPoller({
                 client: mockClient,
                 flowLookup: () => failingFlow,
                 onFailed: (rec, err) => {
@@ -150,7 +172,7 @@ describe('@siglo/scheduler Suite', () => {
             expect(failedErr?.message).to.equal('Database locked');
 
             const updateFailed = executedQueries.find(q => q.sql.includes("SET status = 'FAILED'"));
-            expect(updateFailed).to.not.be.undefined;
+            expect(updateFailed).to.be.undefined;
         });
 
         it('starts and stops background polling loop', async () => {
@@ -158,7 +180,7 @@ describe('@siglo/scheduler Suite', () => {
                 query: async () => ({ rows: [], rowCount: 0 })
             };
 
-            const poller = new PostgresWaitPoller({
+            const poller = postgresPoller({
                 client: mockClient,
                 pollIntervalMs: 20
             });

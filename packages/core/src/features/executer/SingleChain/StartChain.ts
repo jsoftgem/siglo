@@ -302,8 +302,9 @@ export default class StartChain {
 
                                                 if (chain.idempotencyKey) {
                                                     try {
+                                                        // Preserve runtime identity for per-workflow keys; toPOJO removes reserved fields.
                                                         const rawKey = isFunction(chain.idempotencyKey)
-                                                            ? chain.idempotencyKey(toPOJO(param))
+                                                            ? chain.idempotencyKey({ ...toPOJO(param), $stackId: stackId })
                                                             : chain.idempotencyKey;
                                                         stepIdempKey = buildIdempotencyKey(rawKey, {
                                                             namespace: options?.namespace

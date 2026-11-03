@@ -68,3 +68,12 @@ export interface HttpStepInstance<TInput = any, TOutput = Record<string, any>, T
   extends Step<TInput, HttpStepResult<TOutput>, TName> {
   compensateWithHttp(config: CompensationHttpConfig<TInput, TOutput>): this;
 }
+
+/** Standard Schema provider contract accepted by HTTP and notification steps. */
+export interface StandardSchemaV1 {
+  readonly '~standard': {
+    readonly version: 1;
+    readonly vendor: string;
+    readonly validate: (value: unknown) => any;
+  };
+}

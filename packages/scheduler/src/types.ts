@@ -37,7 +37,7 @@ export interface PostgresPollerOptions {
     batchSize?: number;
     /** Unique identifier for this poller instance/worker (default: auto-generated) */
     workerId?: string;
-    /** Lock timeout in milliseconds after which abandoned RESUMING records can be reclaimed (default: 60000) */
+    /** Deprecated for PostgresStorageAdapter: recovery now uses database-session locks, released on disconnect */
     lockTimeoutMs?: number;
     /** Resolver function to look up the workflow definition by workflowId or stackId */
     flowLookup?: (workflowId?: string, stackId?: string) => any;

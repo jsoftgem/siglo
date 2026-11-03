@@ -3,6 +3,7 @@ import {
     WorkflowExecutionEventType,
     WorkflowExecutionEventMap
 } from './types';
+import { redactEvent } from './redaction';
 import { StorageAdapter } from '../storage';
 
 export type EventListener<T = WorkflowExecutionEvent> = (event: T) => void | Promise<void>;
@@ -216,6 +217,7 @@ export function getDefaultMonitor(): WorkflowEventEmitter | undefined {
 }
 
 export function emitMonitoringEvent(options: any, event: WorkflowExecutionEvent): void {
+    event = redactEvent(event);
     const localMonitor = options?.monitor;
     const globalMonitor = globalDefaultMonitor;
 

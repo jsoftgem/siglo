@@ -86,10 +86,12 @@ class MockPostgresClient implements PostgresClientInterface {
             return { rows: [], rowCount: 1 };
         }
         if (text.startsWith('UPDATE SIGLO_WAIT_RECORDS')) {
-            const [claimantId, corrKey] = values || [];
+            const [claimantId, corrKey, payload] = values || [];
             const rec = this.waitRecords.get(corrKey);
             if (rec && rec.status === 'WAITING') {
-                rec.status = 'RESUMED';
+                rec.status = 'RESUMING';
+                rec.resume_payload = payload;
+                rec.locked_by = claimantId;
                 rec.resumed_by = claimantId;
                 rec.resumed_at = new Date();
                 return { rows: [rec as unknown as T], rowCount: 1 };
@@ -328,7 +330,7 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
 
             // First claim succeeds
             const claimed = await adapter.claimWaitRecord('claim-corr-1', 'worker-1');
-            expect(claimed.status).to.equal('RESUMED');
+            expect(claimed.status).to.equal('RESUMING');
             expect(claimed.resumedBy).to.equal('worker-1');
 
             // Concurrent duplicate claim fails with DuplicateEventException

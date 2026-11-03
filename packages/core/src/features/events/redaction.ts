@@ -15,16 +15,30 @@ const DEFAULT_REDACT_KEYS = [
     'creditcard',
     'ssn',
     'privkey',
-    'privatekey'
+    'privatekey',
+    'recipient',
+    'email',
+    'phone',
+    'slackUserId',
+    'slackChannelId',
+    'discordWebhookUrl',
+    'approvalTokens',
+    'approveUrl',
+    'rejectUrl',
+    'signingSecret'
 ];
 
-export function redactValue(val: any, options: RedactionOptions = {}): any {
+export function redactValue(val: any, options: RedactionOptions = {}, visited = new WeakSet<object>()): any {
     if (val === null || val === undefined || typeof val !== 'object') {
         return val;
     }
+    if (visited.has(val)) return '[Circular]';
+    visited.add(val);
     const redactKeys = (options.redactKeys || DEFAULT_REDACT_KEYS).map(k => k.toLowerCase());
     if (Array.isArray(val)) {
-        return val.map(item => redactValue(item, options));
+        const clean = val.map(item => redactValue(item, options, visited));
+        visited.delete(val);
+        return clean;
     }
     const clean: Record<string, any> = {};
     for (const key of Object.keys(val)) {
@@ -38,11 +52,12 @@ export function redactValue(val: any, options: RedactionOptions = {}): any {
         if (redactKeys.includes(key.toLowerCase())) {
             clean[key] = '[REDACTED]';
         } else if (typeof val[key] === 'object' && val[key] !== null) {
-            clean[key] = redactValue(val[key], options);
+            clean[key] = redactValue(val[key], options, visited);
         } else {
             clean[key] = val[key];
         }
     }
+    visited.delete(val);
     return clean;
 }
 

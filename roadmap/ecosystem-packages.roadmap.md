@@ -62,12 +62,15 @@ flowchart TD
 ---
 
 ### [Phase 2: Interaction & Resumption (`@siglo/notifications`)](ecosystem-phase-2-notifications.roadmap.md)
-* **Status**: Specification Complete
+* **Status**: Specification Complete (Updated for Zero-Trust ASL, Schedulers & Sagas)
 * **Target Delivery**: Q2
 * **Scope**:
-  * Multi-channel dispatch (Slack Block Kit, Discord, Email via Resend/SendGrid/SMTP, SMS via Twilio).
-  * First-class integration with Siglo's durable `waitForEvent()` and `resumeWorkflow()`.
-  * Cryptographically signed interactive action links/buttons for zero-database human-in-the-loop workflow approvals.
+  * Multi-channel dispatch (Slack Block Kit, Discord, Email via Resend/SendGrid/SMTP, SMS via Twilio) with ASL network policy (`allowNetwork`).
+  * First-class integration with Siglo's durable `waitForEvent()` (with required `correlationKey`) and atomic multi-worker `resumeWorkflow()`.
+  * Background timer recovery and timeout reclamation via `@siglo/scheduler` (`PostgresWaitPoller`).
+  * Cryptographically signed HMAC action links/buttons using `@siglo/crypto` (`timingSafeEqual`, `KeyRing` rotation, replay defense).
+  * Named Saga Compensation (`registerCompensationHandler('cancelNotification')`) to revoke or update stale interactive cards on workflow failure.
+  * Webhook callback adapters for `@siglo/express`, `@siglo/fastify`, and `@siglo/hono`.
   * Idempotency and deduplication integration via `@siglo/core`'s `IdempotencyStore`.
 * **Detailed Document**: See [`ecosystem-phase-2-notifications.roadmap.md`](ecosystem-phase-2-notifications.roadmap.md) for callback architecture, router middleware, and event contracts.
 

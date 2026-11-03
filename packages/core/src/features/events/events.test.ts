@@ -20,6 +20,18 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         setDefaultMonitor(undefined);
     });
 
+    it('redacts cyclic telemetry without mutating inputs or suppressing repeated aliases', () => {
+        const shared = { email: 'private@example.com', value: 1 };
+        const input: any = { first: shared, second: shared, approvalTokens: { approveUrl: 'secret' } };
+        input.self = input;
+        const clean = redactValue(input);
+        expect(clean.self).to.equal('[Circular]');
+        expect(clean.first).to.deep.equal({ email: '[REDACTED]', value: 1 });
+        expect(clean.second).to.deep.equal(clean.first);
+        expect(clean.approvalTokens).to.equal('[REDACTED]');
+        expect(shared.email).to.equal('private@example.com');
+    });
+
     describe('WorkflowEventEmitter', () => {
         it('subscribes and emits specific events', () => {
             const emitter = new WorkflowEventEmitter();

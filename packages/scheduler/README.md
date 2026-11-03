@@ -9,7 +9,7 @@
 
 ## Features
 
-- **PostgresWaitPoller**: Row-level locking daemon (`FOR UPDATE SKIP LOCKED`) claiming due wait records in `siglo_wait_records` without split-brain races.
+- **PostgresWaitPoller**: Selects due timers and recoverable accepted events from `siglo_wait_records`; PostgresStorageAdapter serializes continuation execution with database-session locks.
 - **MemoryWaitPoller**: Zero-daemon poller for in-memory and local development environments.
 - **CloudSchedulerWebhookHandler**: Cloud-native webhook handler for serverless event dispatchers (AWS EventBridge Scheduler, Google Cloud Tasks, Cloudflare Queues).
 - **Graceful Lifecycle**: Bounded polling loops with cooperative cancellation and `SIGTERM` handlers.
@@ -31,15 +31,19 @@ npm install @siglo/scheduler siglo @siglo/postgres pg
 ```typescript
 import { Pool } from 'pg';
 import { PostgresWaitPoller } from '@siglo/scheduler';
+import { useStorage } from 'siglo';
+import { PostgresStorageAdapter } from '@siglo/postgres';
 import { myFlow } from './workflows';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const storage = new PostgresStorageAdapter({ client: pool });
+await storage.ensureTables();
+useStorage(storage);
 
 const poller = new PostgresWaitPoller({
     client: pool,
     pollIntervalMs: 1000,
     batchSize: 50,
-    lockTimeoutMs: 60000,
     flowLookup: (workflowId, stackId) => myFlow
 });
 

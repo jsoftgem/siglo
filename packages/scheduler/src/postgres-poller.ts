@@ -1,4 +1,4 @@
-import { resumeWorkflow, defaultDurableManager } from 'siglo';
+import { resumeWorkflow, defaultDurableManager, getStorageAdapter, DuplicateEventException, WorkflowAlreadyResumedException, WorkflowSuspendedException } from 'siglo';
 import { PostgresPollerOptions, PollerReport, WaitRecord } from './types';
 
 function validateIdentifier(name: string, label: string): string {
@@ -17,7 +17,6 @@ export class PostgresWaitPoller {
     private pollIntervalMs: number;
     private batchSize: number;
     private workerId: string;
-    private lockTimeoutMs: number;
     private flowLookup?: PostgresPollerOptions['flowLookup'];
     private onResumed?: PostgresPollerOptions['onResumed'];
     private onFailed?: PostgresPollerOptions['onFailed'];
@@ -34,7 +33,6 @@ export class PostgresWaitPoller {
         this.pollIntervalMs = options.pollIntervalMs && options.pollIntervalMs > 0 ? options.pollIntervalMs : 1000;
         this.batchSize = options.batchSize && options.batchSize > 0 ? options.batchSize : 50;
         this.workerId = options.workerId || `worker-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-        this.lockTimeoutMs = options.lockTimeoutMs && options.lockTimeoutMs > 0 ? options.lockTimeoutMs : 60000;
         this.flowLookup = options.flowLookup;
         this.onResumed = options.onResumed;
         this.onFailed = options.onFailed;
@@ -56,61 +54,45 @@ export class PostgresWaitPoller {
                 data JSONB,
                 locked_by VARCHAR(255),
                 locked_at TIMESTAMPTZ,
+                resume_payload JSONB,
                 resumed_by VARCHAR(255),
                 resumed_at TIMESTAMPTZ,
                 expires_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            ALTER TABLE ${this.waitRecordsTable} ADD COLUMN IF NOT EXISTS resume_payload JSONB;
             CREATE INDEX IF NOT EXISTS idx_${this.waitRecordsTable}_due 
                 ON ${this.waitRecordsTable}(status, expires_at);
         `);
     }
 
     /**
-     * Executes a single poll iteration, claiming due wait records with row-level locking
-     * and resuming the associated workflows.
+     * Selects due timers and accepted events. The storage adapter serializes execution
+     * with a database-session lock; accepted events survive process death.
      */
     async pollOnce(): Promise<PollerReport> {
+        const storage = getStorageAdapter();
+        if (!storage?.withWorkflowLock || !storage.claimWaitRecord || !storage.completeWaitRecord) {
+            throw new Error('PostgresWaitPoller requires a storage adapter with workflow locks and durable claim completion');
+        }
         const report: PollerReport = {
             claimed: 0,
             resumed: 0,
             failed: 0
         };
 
-        const lockTimeoutSeconds = Math.max(1, Math.floor(this.lockTimeoutMs / 1000));
-
-        // Atomically claim due records using row-level locking (FOR UPDATE SKIP LOCKED)
-        const claimQuery = `
-            WITH due_records AS (\n                SELECT correlation_key \n                FROM ${this.waitRecordsTable}\n                WHERE (\n                    status = 'WAITING' \n                    OR (status = 'RESUMING' AND locked_at < NOW() - INTERVAL '${lockTimeoutSeconds} seconds')\n                )\n                AND expires_at IS NOT NULL \n                AND expires_at <= NOW()\n                ORDER BY expires_at ASC\n                LIMIT $1\n                FOR UPDATE SKIP LOCKED\n            )\n            UPDATE ${this.waitRecordsTable} r\n            SET status = 'RESUMING', locked_at = NOW(), locked_by = $2, updated_at = NOW()\n            FROM due_records d\n            WHERE r.correlation_key = d.correlation_key\n            RETURNING r.*;
-        `;
-
-        let claimResult: any;
-        try {
-            claimResult = await this.client.query(claimQuery, [this.batchSize, this.workerId]);
-        } catch (queryErr: any) {
-            // Fallback for in-memory or simpler mock clients without SKIP LOCKED / CTE
-            const fallbackQuery = `
+        // Selection is advisory. resumeWorkflow obtains the per-stack database-session lock
+        // and atomically accepts the timer or replays an already persisted decision.
+        // Never fall back to a non-atomic SELECT/UPDATE claim on SQL errors.
+        const claimResult = await this.client.query(`
+            WITH due_records AS (
                 SELECT * FROM ${this.waitRecordsTable}
-                WHERE status = 'WAITING'
-                  AND expires_at IS NOT NULL
-                  AND expires_at <= NOW()
-                LIMIT $1;
-            `;
-            try {
-                claimResult = await this.client.query(fallbackQuery, [this.batchSize]);
-                if (claimResult.rows && claimResult.rows.length > 0) {
-                    for (const row of claimResult.rows) {
-                        await this.client.query(
-                            `UPDATE ${this.waitRecordsTable} SET status = 'RESUMING', locked_at = NOW(), locked_by = $1 WHERE correlation_key = $2`,
-                            [this.workerId, row.correlation_key]
-                        );
-                    }
-                }
-            } catch {
-                throw queryErr;
-            }
-        }
+                WHERE (status = 'WAITING' AND expires_at IS NOT NULL AND expires_at <= NOW())
+                   OR (status = 'RESUMING' AND resume_payload IS NOT NULL)
+                ORDER BY updated_at ASC
+                LIMIT $1
+            ) SELECT * FROM due_records`, [this.batchSize]);
 
         const rows = claimResult.rows || [];
         report.claimed = rows.length;
@@ -155,31 +137,23 @@ export class PostgresWaitPoller {
                         });
                     }
 
-                    result = await resumeWorkflow(targetFlow, record.stackId, {
-                        event: { type: 'timer:expired', timestamp: Date.now() },
-                        ...record.data
-                    }, { allowExpired: true });
+                    const savedEvent = typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload;
+                    try {
+                        result = await resumeWorkflow(targetFlow, record.correlationKey, savedEvent ?? {
+                            ...record.data, event: { type: 'timer:expired', timestamp: Date.now() }
+                        }, { allowExpired: !savedEvent, stackId: this.workerId });
+                    } catch (error) { if (!(error instanceof WorkflowSuspendedException)) throw error; }
+                } else {
+                    throw new Error('No workflow registered for durable continuation');
                 }
-
-                await this.client.query(
-                    `UPDATE ${this.waitRecordsTable} 
-                     SET status = 'RESUMED', resumed_at = NOW(), resumed_by = $1, updated_at = NOW() 
-                     WHERE correlation_key = $2`,
-                    [this.workerId, record.correlationKey]
-                );
 
                 if (this.onResumed) {
                     await this.onResumed(record, result);
                 }
                 report.resumed++;
             } catch (err: any) {
-                await this.client.query(
-                    `UPDATE ${this.waitRecordsTable} 
-                     SET status = 'FAILED', updated_at = NOW() 
-                     WHERE correlation_key = $1`,
-                    [record.correlationKey]
-                );
-
+                if (err instanceof DuplicateEventException || err instanceof WorkflowAlreadyResumedException) continue;
+                // Leave accepted decisions recoverable; never turn them into timer events.
                 if (this.onFailed) {
                     await this.onFailed(record, err);
                 }

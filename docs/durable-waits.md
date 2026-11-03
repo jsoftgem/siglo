@@ -80,3 +80,9 @@ The orchestrator:
 - **Duplicate Events**: Attempting to resume a workflow that is not waiting or has already resumed throws `DuplicateEventException`.
 - **Expired Waits**: If an event arrives after the declared `timeout` has elapsed, `ExpiredWaitException` is thrown.
 - **Resource Efficiency**: In-memory timers and context bindings are released while waiting, permitting thousands of long-running workflows to pause concurrently.
+
+---
+
+## 5. Human-in-the-Loop Approvals
+
+For production human intervention flows (interactive Slack Block Kit cards, responsive HTML emails, signed HMAC action URLs, two-way Twilio SMS, and web framework callback routers), use [`@siglo/notifications`](./adapters/notifications.md). It pairs `sendInteractiveApprovalStep` with `waitForEvent` and provides signed bearer tokens with application-provided authorization, distributed concurrency claims, and automated saga rollback.

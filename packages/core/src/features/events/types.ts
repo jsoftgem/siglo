@@ -14,7 +14,9 @@ export type WorkflowExecutionEventType =
     | 'context:change'
     | 'cache:hit'
     | 'cache:miss'
-    | 'checkpoint:save';
+    | 'checkpoint:save'
+    | 'notification:dispatched'
+    | 'approval:requested';
 
 export interface FlowStartEvent {
     type: 'flow:start';
@@ -157,6 +159,18 @@ export interface CheckpointSaveEvent {
     namespace?: string;
 }
 
+export interface NotificationDispatchedEvent {
+    namespace?: string;
+    type: 'notification:dispatched' | 'approval:requested';
+    stackId: string;
+    stepId: string;
+    timestamp: number;
+    notificationId: string;
+    channel: 'email' | 'slack' | 'discord' | 'sms' | 'push';
+    dispatchedAt: number;
+    recipientMasked: string;
+}
+
 export type WorkflowExecutionEvent =
     | FlowStartEvent
     | FlowCompleteEvent
@@ -171,9 +185,12 @@ export type WorkflowExecutionEvent =
     | ContextChangeEventPayload
     | CacheHitEvent
     | CacheMissEvent
-    | CheckpointSaveEvent;
+    | CheckpointSaveEvent
+    | NotificationDispatchedEvent;
 
 export interface WorkflowExecutionEventMap {
+    'notification:dispatched': NotificationDispatchedEvent;
+    'approval:requested': NotificationDispatchedEvent;
     'flow:start': FlowStartEvent;
     'flow:complete': FlowCompleteEvent;
     'flow:error': FlowErrorEvent;

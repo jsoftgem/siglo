@@ -41,8 +41,37 @@ jobs:
       - name: Run Ecosystem package test suites
         run: npm run test:packages
 
+      - name: Check notification coverage without provider network requests
+        run: npm run test:coverage --workspace=@siglo/notifications
+
       - name: Run Production examples test suites
         run: npm run test:examples
 
       - name: Run Automated Exploratory & Chaos test suite
         run: npm run test:exploratory
+
+  notification-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: siglo
+          POSTGRES_PASSWORD: siglo_test
+          POSTGRES_DB: siglo_notifications_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U siglo -d siglo_notifications_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:postgres --workspace=@siglo/notifications
+        env:
+          SIGLO_TEST_POSTGRES_URL: postgres://siglo:siglo_test@localhost:5432/siglo_notifications_test
