@@ -1,9 +1,9 @@
 # Adversarial Architectural Review: `@siglo/notifications` (The "Grill" Session)
 
-> Implementation status: the original defenses below are architectural proposals, not a description of every current mechanism. See [implemented hardening and migration](docs/adapters/notification-hardening.md) for POST confirmation, authenticated approvals, database-session locks, saved-event recovery, provider-specific idempotency and remaining external-service guarantees.
+> Implementation status: the original defenses below are architectural proposals, not a description of every current mechanism. See [implemented hardening and migration](../docs/adapters/notification-hardening.md) for POST confirmation, authenticated approvals, database-session locks, saved-event recovery, provider-specific idempotency and remaining external-service guarantees.
 
 
-> **Document Under Scrutiny**: [`docs/adapters/notifications.md`](docs/adapters/notifications.md)
+> **Document Under Scrutiny**: [`../docs/adapters/notifications.md`](../docs/adapters/notifications.md)
 > **Target Package**: `@siglo/notifications`
 > **Reviewer Persona**: Principal Distributed Systems & Security Architect
 > **Objective**: Stress-test zero-trust claims, distributed concurrency, network egress policies, saga compensations, and edge-case failure modes in hostile production environments.
@@ -49,7 +49,7 @@ flowchart TD
 ### 1.1. The Email Security Scanner Pre-Fetch Trap
 
 #### ❓ The Challenge
-In Section 6 of [`docs/adapters/notifications.md`](docs/adapters/notifications.md), action tokens are embedded as URL query parameters:
+In Section 6 of [`../docs/adapters/notifications.md`](../docs/adapters/notifications.md), action tokens are embedded as URL query parameters:
 $$\text{Token} = \text{base64url}(\text{Payload}) \,\|\, \text{base64url}(\text{HMAC-SHA256}(\text{Payload}, \text{Secret}))$$
 Enterprise email security gateways (e.g., Proofpoint URL Defense, Microsoft Defender for Office 365, Mimecast) routinely pre-fetch and crawl all embedded hyperlinks via HTTP `GET` requests to scan for malicious payloads before the recipient opens the message.
 
@@ -99,7 +99,7 @@ $$\text{status} = \text{'WAITING'} \longrightarrow \text{status} = \text{'RESUMI
 
 #### 🛡️ Architectural Defense & Hardening
 1. **Distinguishing Lock Timeouts from Workflow Expirations**:
-   - In [`adapter.ts`](packages/postgres/src/adapter.ts), the query distinguishes between an *expired durable timer* (`expires_at <= NOW()`) and a *stale claimant lock* (`status = 'RESUMING' AND locked_at < NOW() - INTERVAL '60s'`).
+   - In [`adapter.ts`](../packages/postgres/src/adapter.ts), the query distinguishes between an *expired durable timer* (`expires_at <= NOW()`) and a *stale claimant lock* (`status = 'RESUMING' AND locked_at < NOW() - INTERVAL '60s'`).
    - If an approver re-clicks the URL after the 60-second lock timeout, `claimWaitRecord` permits re-claiming records whose `locked_at` has expired, allowing a surviving worker to resume the human approval with `{ approved: true }`.
 2. **Scheduler Compensation vs. Resumption**:
    - The `PostgresWaitPoller` only injects `{ event: { type: 'timer:expired' } }` if `expires_at <= NOW()`. If `expires_at` is still in the future, the poller resets `status = 'WAITING'` to make the record claimable again.
