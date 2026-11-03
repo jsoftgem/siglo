@@ -139,7 +139,6 @@ export function transformFields(
     // Nested or wildcard pattern
     const matchingPaths = getMatchingPaths(result, patternStr);
     for (const concretePath of matchingPaths) {
-      const val = getValueAtPath(result, concretePath);
       result = setValueAtPath(result, concretePath, (curr) => transform(curr, concretePath));
     }
   }

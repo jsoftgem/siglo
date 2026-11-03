@@ -1,5 +1,5 @@
-import { defaultDurableManager, resumeWorkflow, defaultStorageManager } from 'siglo';
-import { MemoryPollerOptions, PollerReport, WaitRecord } from './types';
+import {defaultDurableManager, resumeWorkflow} from 'siglo';
+import {MemoryPollerOptions, PollerReport, WaitRecord} from './types';
 
 export class MemoryWaitPoller {
     private pollIntervalMs: number;
