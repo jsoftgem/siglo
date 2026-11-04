@@ -1,5 +1,7 @@
 # Siglo Workflow Explorer — Consolidated Final Session Handover
 
+> **Layout update:** The implemented VS Code extension now lives in `plugins/vscode`, alongside `plugins/intellij`, and is explicitly registered as the `@siglo/vscode` npm workspace. Historical `packages/vscode` references below describe the original plan; use `plugins/vscode` for current work.
+
 **Exported Date**: November 5, 2026 (Asia/Manila)  
 **Repository**: `/Users/jericodeguzman/Projects/fluid-func`  
 **Distribution ZIP**: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.0.zip` (2.0 MB)  

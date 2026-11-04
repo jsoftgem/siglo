@@ -16,7 +16,7 @@ export function WorkflowInspector({ workflow, onSelectNode }: { workflow: Workfl
     allowLocalhost: 'Allow localhost', allowUnixSockets: 'Allowed Unix sockets', source: 'Policy expression',
   };
   const network = Object.entries(properties).filter(([key]) => key.startsWith('network.'));
-  return <aside className="w-80 max-w-[45vw] min-w-[240px] shrink-0 border-l border-[#393b40] bg-[#25262a] flex flex-col h-full text-xs overflow-y-auto">
+  return <aside className="w-full sm:w-80 max-w-none sm:max-w-[45vw] min-w-0 sm:min-w-[240px] max-h-[45%] sm:max-h-none shrink-0 border-l border-[#393b40] bg-[#25262a] flex flex-col h-full text-xs overflow-y-auto">
     <header className="p-4 border-b border-[#393b40]">
       <div className="flex items-center gap-2 text-[#9da0a8] mb-2"><Layers className="w-4 h-4" /><span>Workflow properties</span></div>
       <h2 className="font-semibold text-sm text-[#dfe1e5] break-words [overflow-wrap:anywhere]">{workflow.name}</h2>

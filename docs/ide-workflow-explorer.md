@@ -4,7 +4,7 @@ The **Siglo Workflow Explorer** provides developers with visual static graph ins
 
 Supported IDEs:
 - **IntelliJ IDEA**: 2024.1+ (Community & Ultimate editions) via the Siglo IntelliJ Plugin (`plugins/intellij`).
-- **Visual Studio Code**: 1.90+ (Desktop) via the upcoming `@siglo/vscode` extension.
+- **Visual Studio Code**: 1.90+ (Desktop) via `@siglo/vscode` (M0/M1 implemented; clean-install smoke test pending).
 
 ---
 
@@ -108,9 +108,13 @@ const crypto = encryptFieldsStep({ name: 'protectData', fields: ['ssn', 'card'] 
 
 ## 5. Visual Studio Code Extension (Preview)
 
-The VS Code extension (`packages/vscode`) shares the same `@siglo/ide-protocol`, `@siglo/ide-analysis` daemon, and `@siglo/ide-ui` webview engine. It provides:
+The VS Code extension (`plugins/vscode`) shares the same `@siglo/ide-protocol`, `@siglo/ide-analysis` daemon, and `@siglo/ide-ui` webview engine. It provides:
 - A persistent sidebar **Siglo Workflows** Explorer view.
 - A full-editor tab command: `Siglo: Open Workflow Visualizer`.
 - Bidirectional cursor sync between VS Code editor tabs and the webview canvas.
 
 See [vscode.roadmap.md](file:///Users/jericodeguzman/Projects/fluid-func/roadmap/vscode.roadmap.md) for architecture and implementation status.
+
+### Build and install the VS Code extension
+
+Run `npm run package --workspace=@siglo/vscode` from the repository root. Install `plugins/vscode/siglo-workflow-explorer-1.0.0.vsix` using **Extensions → … → Install from VSIX…**, trust the workspace, then run **Siglo: Open Workflow Visualizer**. The Siglo activity bar also provides a sidebar. **Siglo: Discover Workspace Workflows** scans up to 100 JavaScript/TypeScript files across workspace folders. See [extension documentation](../plugins/vscode/README.md) for lifecycle behavior, security, tests, and remaining manual verification.

@@ -202,8 +202,8 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 min-w-0 relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
+        <main className="flex-1 min-w-0 min-h-0 relative overflow-hidden">
           {displayNodes.length === 0 && displayUnresolved.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-[#868a98] p-8 text-center">
               <img

@@ -1,0 +1,82 @@
+{
+  "name": "@siglo/vscode",
+  "displayName": "Siglo Workflow Explorer",
+  "description": "Explore Siglo workflows with zero-execution static analysis and bidirectional source navigation.",
+  "version": "1.0.0",
+  "publisher": "jsoftgem",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jsoftgem/siglo.git",
+    "directory": "plugins/vscode"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Workflow analysis requires a trusted workspace."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "siglo.openVisualizer",
+        "title": "Siglo: Open Workflow Visualizer"
+      },
+      {
+        "command": "siglo.discoverWorkflows",
+        "title": "Siglo: Discover Workspace Workflows"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "siglo",
+          "title": "Siglo",
+          "icon": "media/siglo.svg"
+        }
+      ]
+    },
+    "views": {
+      "siglo": [
+        {
+          "id": "siglo.workflows",
+          "name": "Siglo Workflows",
+          "type": "webview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "npm run build --workspace=@siglo/ide-protocol && npm run build --workspace=@siglo/ide-analysis && npm run build --workspace=@siglo/ide-ui && npm run check && node scripts/build.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.cjs",
+    "vscode:prepublish": "npm run build",
+    "package": "npm run build && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@siglo/ide-protocol": "^1.0.0",
+    "@siglo/ide-analysis": "^1.0.0",
+    "@siglo/ide-ui": "1.0.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0"
+  }
+}

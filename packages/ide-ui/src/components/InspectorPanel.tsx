@@ -14,7 +14,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
 }) => {
   if (!selectedNode) {
     return (
-      <div className="w-80 max-w-[45vw] min-w-[240px] shrink-0 border-l border-[#393b40] bg-[#25262a] p-4 text-[#9da0a8] flex flex-col justify-center items-center text-center">
+      <div className="w-full sm:w-80 max-w-none sm:max-w-[45vw] min-w-0 sm:min-w-[240px] max-h-[45%] sm:max-h-none shrink-0 border-l border-[#393b40] bg-[#25262a] p-4 text-[#9da0a8] flex flex-col justify-center items-center text-center">
         <FileCode className="w-8 h-8 mb-2 opacity-50" />
         <p className="text-xs">Click a step in the workflow graph to inspect properties and navigate to source.</p>
       </div>
@@ -28,7 +28,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   );
 
   return (
-    <div className="w-80 max-w-[45vw] min-w-[240px] shrink-0 border-l border-[#393b40] bg-[#25262a] flex flex-col h-full text-xs overflow-y-auto">
+    <div className="w-full sm:w-80 max-w-none sm:max-w-[45vw] min-w-0 sm:min-w-[240px] max-h-[45%] sm:max-h-none shrink-0 border-l border-[#393b40] bg-[#25262a] flex flex-col h-full text-xs overflow-y-auto">
       <div className="p-4 border-b border-[#393b40]">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="font-semibold text-sm text-[#dfe1e5] min-w-0 truncate">

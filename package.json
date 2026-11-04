@@ -6,6 +6,7 @@
   "workspaces": [
     "packages/core",
     "packages/*",
+    "plugins/vscode",
     "examples",
     "monitoring",
     "packages/monitor/ui"
