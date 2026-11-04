@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../docs/assets/siglo-logo.jpg" alt="Siglo Logo" width="220" style="border-radius: 16px;" />
+  <img src="../../docs/assets/siglo-logo.png" alt="Siglo Logo" width="220" style="border-radius: 16px;" />
 </p>
 
 # Siglo Core

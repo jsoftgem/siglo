@@ -6,7 +6,7 @@ import { RunList } from './components/workflows/RunList/RunList';
 import { WorkflowDetail } from './components/workflows/WorkflowDetail';
 import { StatsOverview } from './components/workflows/Stats/StatsOverview';
 import { Terminal } from 'lucide-react';
-import sigloLogo from './assets/siglo-logo-128.jpg';
+import sigloLogo from './assets/siglo-logo-128.png';
 
 export const App: React.FC = () => {
   const [selectedStackId, setSelectedStackId] = useState<string | null>(null);

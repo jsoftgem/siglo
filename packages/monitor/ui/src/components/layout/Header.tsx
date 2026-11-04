@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {RefreshCw, BarChart3, Wifi, WifiOff, ChevronDown} from 'lucide-react';
-import sigloLogo from '../../assets/siglo-logo-128.jpg';
+import sigloLogo from '../../assets/siglo-logo-128.png';
 
 export interface AutoRefreshOption {
     label: string;
