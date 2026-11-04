@@ -18,14 +18,20 @@ export class WebSocketBroadcaster {
     private onClientMessageCallback?: (message: MonitorClientMessage, client: WSClient) => void;
     private authenticateCallback?: (req: IncomingMessage) => boolean;
     private allowRemoteResume: boolean;
+    private maxPayloadBytes: number;
+    private authorizeMessage?: (message: MonitorClientMessage, req: IncomingMessage) => boolean;
 
     constructor(options?: {
         redaction?: RedactionOptions;
+        maxPayloadBytes?: number;
+        authorizeMessage?: (message: MonitorClientMessage, req: IncomingMessage) => boolean;
         onClientMessage?: (message: MonitorClientMessage, client: WSClient) => void;
         authenticate?: (req: IncomingMessage) => boolean;
         allowRemoteResume?: boolean;
     }) {
         this.redaction = options?.redaction;
+        this.maxPayloadBytes = options?.maxPayloadBytes && options.maxPayloadBytes > 0 ? options.maxPayloadBytes : 1048576;
+        this.authorizeMessage = options?.authorizeMessage;
         this.onClientMessageCallback = options?.onClientMessage;
         this.authenticateCallback = options?.authenticate;
         this.allowRemoteResume = options?.allowRemoteResume !== undefined ? options.allowRemoteResume : true;
@@ -76,11 +82,11 @@ export class WebSocketBroadcaster {
             };
 
             this.clients.add(client);
-            this.setupSocket(client);
+            this.setupSocket(client, req);
         });
     }
 
-    private setupSocket(client: WSClient): void {
+    private setupSocket(client: WSClient, req: IncomingMessage): void {
         let buffer = Buffer.alloc(0);
 
         client.socket.on('data', (chunk: Buffer) => {
@@ -103,6 +109,15 @@ export class WebSocketBroadcaster {
                     if (buffer.length < 10) return;
                     payloadLength = Number(buffer.readBigUInt64BE(2));
                     offset = 10;
+                }
+
+                // Reject oversized or unsupported frames before waiting for their payload.
+                if (!Number.isSafeInteger(payloadLength) || payloadLength > this.maxPayloadBytes ||
+                    !isMasked || !(firstByte & 0x80) || (firstByte & 0x70) ||
+                    ![0x01, 0x08, 0x09, 0x0a].includes(opcode) || (opcode >= 0x08 && payloadLength > 125)) {
+                    this.removeClient(client);
+                    client.socket.destroy();
+                    return;
                 }
 
                 let maskKey: Buffer | null = null;
@@ -140,7 +155,7 @@ export class WebSocketBroadcaster {
                 } else if (opcode === 0x01) {
                     // Text frame
                     const text = decodedPayload.toString('utf8');
-                    this.handleMessage(client, text);
+                    this.handleMessage(client, text, req);
                 }
             }
         });
@@ -154,9 +169,11 @@ export class WebSocketBroadcaster {
         });
     }
 
-    private handleMessage(client: WSClient, text: string): void {
+    private handleMessage(client: WSClient, text: string, req: IncomingMessage): void {
         try {
             const parsed = JSON.parse(text) as MonitorClientMessage;
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+            if (this.authorizeMessage && !this.authorizeMessage(parsed, req)) return;
             if (parsed.action === 'subscribe' && parsed.namespace) {
                 client.namespace = parsed.namespace;
             } else if (parsed.action === 'resume' && parsed.stackId && this.allowRemoteResume) {

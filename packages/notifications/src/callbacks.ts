@@ -1,7 +1,7 @@
-import { resumeWorkflow, defaultDurableManager, getStorageAdapter, ValidationException, ExpiredWaitException, WorkflowAlreadyResumedException, DuplicateEventException } from 'siglo';
+import { recordInspection, stepInspectionStorage, resumeWorkflow, defaultDurableManager, getStorageAdapter, ValidationException, ExpiredWaitException, WorkflowAlreadyResumedException, DuplicateEventException } from 'siglo';
 import { getApprovalRevocationStore } from './approvals';
 import { CallbackHandlerOptions } from './types';
-import { verifyActionToken } from './tokens';
+import { ActionTokenPayload, verifyActionToken } from './tokens';
 import { escapeHtml } from './transports';
 export interface NotificationCallbackResponse {
   status: number;
@@ -9,22 +9,36 @@ export interface NotificationCallbackResponse {
   redirect?: string;
 }
 export async function handleNotificationCallback(token: string, options: CallbackHandlerOptions): Promise<NotificationCallbackResponse> {
+  let verified: ActionTokenPayload | undefined;
+  const report = (approvalState: 'approved' | 'rejected' | 'forbidden' | 'cancelled' | 'expired' | 'conflict' | 'failed') => {
+    // Never attribute an unverified token to a workflow or accept caller ambient scope.
+    if (!verified?.inspection) return;
+    try {
+      stepInspectionStorage.run({ ...verified.inspection, stackId: verified.stackId, monitor: options.monitor }, () =>
+        recordInspection({ version: 1, kind: 'notification', approval: true,
+          outcome: approvalState === 'approved' || approvalState === 'rejected' ? 'success' : 'failure',
+          approvalState, approvalExpiresAt: verified!.expiresAt }));
+    } catch { /* Observation cannot affect callbacks. */ }
+  };
   try {
     const p = await verifyActionToken(token, options.signingSecret, { toleranceSeconds: options.toleranceSeconds });
-    if (!options.authorize && !options.allowBearerApproval) return { status: 403, body: { message: 'Authenticated approval required' } };
+    verified = p;
+    if (!options.authorize && !options.allowBearerApproval) { report('forbidden'); return { status: 403, body: { message: 'Authenticated approval required' } }; }
     return await getApprovalRevocationStore().withApprovalLock(p.correlationKey, async () => {
-      if (options.authorize && !await options.authorize(p)) return { status: 403, body: { message: 'Approval forbidden' } };
-      if (await getApprovalRevocationStore().isRevoked(p.correlationKey)) return { status: 409, body: { message: 'Approval cancelled' } };
+      if (options.authorize && !await options.authorize(p)) { report('forbidden'); return { status: 403, body: { message: 'Approval forbidden' } }; }
+      if (await getApprovalRevocationStore().isRevoked(p.correlationKey)) { report('cancelled'); return { status: 409, body: { message: 'Approval cancelled' } }; }
       const adapter = getStorageAdapter();
       const record = adapter?.getWaitRecord ? await adapter.getWaitRecord(p.correlationKey) : defaultDurableManager.getWaiting(p.correlationKey);
       if (record && record.stackId !== p.stackId) throw new ValidationException([{ field: 'token', message: 'Approval workflow mismatch' }]);
       await resumeWorkflow(options.workflow, p.correlationKey, { approved: p.approved, event: { type: p.expectedEvent }, expectedEvent: p.expectedEvent });
+      report(p.approved ? 'approved' : 'rejected');
       return { status: 200, body: { message: 'Approval recorded' }, redirect: options.onSuccessRedirect };
     });
   } catch (e) {
     const expired = e instanceof ExpiredWaitException || (e instanceof ValidationException && /expired/i.test(e.message));
     const conflict = e instanceof WorkflowAlreadyResumedException || e instanceof DuplicateEventException;
     const invalid = e instanceof ValidationException;
+    report(conflict ? 'conflict' : expired ? 'expired' : 'failed');
     return { status: conflict ? 409 : expired ? 410 : invalid ? 400 : 500, body: { message: conflict ? 'Approval already resolved' : expired ? 'Approval expired' : invalid ? 'Invalid approval' : 'Unable to process approval' }, redirect: expired ? options.onExpiredRedirect : options.onErrorRedirect };
   }
 }

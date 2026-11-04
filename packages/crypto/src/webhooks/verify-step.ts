@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Step, ValidationException, ExecutionOptions } from 'siglo';
+import { Step, ValidationException, ExecutionOptions, observeEcosystem, recordInspection, EcosystemInspection } from 'siglo';
 import {
   WebhookVerifyOptions,
   WebhookVerificationResult,
@@ -173,21 +173,32 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
   private verifyOptions: WebhookVerifyOptions<TInput>;
 
   constructor(name: TName, options: WebhookVerifyOptions<TInput>) {
-    const action = async (ctx: TInput): Promise<WebhookVerificationResult> => {
+    type Diagnostic = Extract<EcosystemInspection, { kind: 'crypto' }>;
+    const diagnostic = (): Diagnostic => ({ version: 1, kind: 'crypto', outcome: 'failure',
+      provider: typeof options.provider === 'string' && getWebhookProtocol(options.provider) ? options.provider : undefined,
+      category: 'rejected', timestampCheck: 'unavailable', replayCheck: 'unavailable' });
+    const action = async (ctx: TInput, inspection: Diagnostic): Promise<WebhookVerificationResult> => {
       // 1. Resolve raw payload (supports Buffers, strings, and streaming chunks)
       const rawPayloadInput = options.payload(ctx);
       if (!isRawPayload(rawPayloadInput)) {
+        inspection.category = 'invalid-payload';
         throw new ValidationException(
           [{ field: 'payload', message: 'Payload must be a Buffer or raw unparsed string to prevent JSON serialization skew' }],
           { stepName: name, phase: 'action', retryable: false }
         );
       }
 
-      const { rawPayload, payloadRef } = await resolvePayloadData(rawPayloadInput, options, name);
+      const { rawPayload, payloadRef } = await resolvePayloadData(rawPayloadInput, options, name).catch(error => {
+        if (error instanceof ValidationException) inspection.category = 'payload-too-large';
+        throw error;
+      });
+      inspection.payloadBytes = payloadRef.bytes;
+      inspection.category = 'rejected';
 
       // 2. Resolve secret
       const secret = typeof options.secret === 'function' ? options.secret(ctx) : options.secret;
       if (!secret) {
+        inspection.category = 'missing-secret';
         throw new ValidationException(
           [{ field: 'secret', message: 'Webhook secret is required' }],
           { stepName: name, phase: 'action', retryable: false }
@@ -207,6 +218,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
       if (typeof providerOrProtocol === 'string') {
         protocol = getWebhookProtocol(providerOrProtocol);
         if (!protocol) {
+          inspection.category = 'unknown-provider';
           throw new ValidationException(
             [{ field: 'provider', message: `Unknown webhook provider '${providerOrProtocol}'` }],
             { stepName: name, phase: 'action', retryable: false }
@@ -217,6 +229,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
       }
 
       // 4. Resolve headers and signature header
+      inspection.provider = protocol.name;
       const signatureOrHeaders = options.signature(ctx);
       let headers: Record<string, string | string[] | undefined> = {};
       let signatureHeader = '';
@@ -262,6 +275,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
       if (protocol.parseHeaders) {
         const parsed = protocol.parseHeaders(headers, signatureHeader);
         if (!signatureHeader && parsed.signatures.length === 0) {
+          inspection.category = 'missing-signature';
           throw new ValidationException(
             [{ field: 'signature', message: 'Webhook signature header is missing' }],
             { stepName: name, phase: 'action', retryable: false }
@@ -275,13 +289,17 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
             tsSec = Math.floor(tsSec / 1000);
           }
           if (toleranceSeconds > 0 && Math.abs(nowSec - tsSec) > toleranceSeconds) {
+            inspection.category = 'timestamp-rejected';
+            inspection.timestampCheck = 'failed';
             throw new ValidationException(
               [{ field: 'timestamp', message: `Webhook timestamp '${parsed.timestamp}' outside tolerance window (${toleranceSeconds}s)` }],
               { stepName: name, phase: 'action', retryable: false }
             );
           }
         }
+        if (parsed.timestamp !== undefined && toleranceSeconds > 0) inspection.timestampCheck = 'passed';
       } else if (!signatureHeader) {
+        inspection.category = 'missing-signature';
         throw new ValidationException(
           [{ field: 'signature', message: 'Webhook signature header is missing' }],
           { stepName: name, phase: 'action', retryable: false }
@@ -293,12 +311,16 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
       if (options.dedupStore) {
         const claimed = await options.dedupStore.claim(dedupKey, toleranceSeconds);
         if (!claimed) {
+          inspection.category = 'replay-detected';
+          inspection.replayCheck = 'failed';
           throw new ValidationException(
             [{ field: 'signature', message: `Replay detected: duplicate webhook signature within tolerance window (${toleranceSeconds}s)` }],
             { stepName: name, phase: 'action', retryable: false }
           );
         }
       }
+
+      if (options.dedupStore) inspection.replayCheck = 'passed';
 
       // 7. Execute protocol verification
       const isValid = await protocol.verify({
@@ -312,6 +334,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
       });
 
       if (!isValid) {
+        inspection.category = 'invalid-signature';
         throw new ValidationException(
           [{ field: 'signature', message: `Webhook signature verification failed for provider '${protocol.name}'` }],
           { stepName: name, phase: 'action', retryable: false }
@@ -331,34 +354,47 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string>
       };
     };
 
-    super(name, action as any);
+    super(name, ((ctx: TInput) => {
+      const inspection = diagnostic();
+      return observeEcosystem(inspection, () => action(ctx, inspection), result => ({
+        provider: result.provider, payloadBytes: result.payloadRef?.bytes, category: 'verified' as const
+      }));
+    }) as any);
     this.verifyOptions = options;
 
     // 1. BEFORE Phase: Early assertions
     this.onBefore(async (ctx: TInput) => {
-      const payload = options.payload(ctx);
-      if (!isRawPayload(payload)) {
-        throw new ValidationException(
-          [{ field: 'payload', message: 'Payload must be a Buffer or raw unparsed string to prevent JSON serialization skew' }],
-          { stepName: name, phase: 'before', retryable: false }
-        );
-      }
-
-      let provider = options.provider;
-      if (typeof provider === 'function') {
-        provider = provider(ctx);
-      }
-      if (typeof provider === 'string') {
-        const protocol = getWebhookProtocol(provider);
-        if (!protocol) {
+      const inspection = diagnostic();
+      try {
+        const payload = options.payload(ctx);
+        if (!isRawPayload(payload)) {
+          inspection.category = 'invalid-payload';
           throw new ValidationException(
-            [{ field: 'provider', message: `Unknown webhook provider '${provider}'` }],
+            [{ field: 'payload', message: 'Payload must be a Buffer or raw unparsed string to prevent JSON serialization skew' }],
             { stepName: name, phase: 'before', retryable: false }
           );
         }
-      }
 
-      return true;
+        let provider = options.provider;
+        if (typeof provider === 'function') {
+          provider = provider(ctx);
+        }
+        if (typeof provider === 'string') {
+          const protocol = getWebhookProtocol(provider);
+          if (!protocol) {
+            inspection.category = 'unknown-provider';
+            throw new ValidationException(
+              [{ field: 'provider', message: `Unknown webhook provider '${provider}'` }],
+              { stepName: name, phase: 'before', retryable: false }
+            );
+          }
+        }
+
+        return true;
+      } catch (error) {
+        recordInspection(inspection);
+        throw error;
+      }
     });
   }
 

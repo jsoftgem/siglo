@@ -1,3 +1,4 @@
+import type { EcosystemInspection } from 'siglo';
 export type WorkflowStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SUSPENDED' | 'SKIPPED';
 export type StepStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING' | 'SUSPENDED' | 'RETRYING' | 'PENDING';
 
@@ -6,6 +7,10 @@ export interface StepRun {
   stepName?: string;
   status: StepStatus;
   attempts?: number;
+  waitState?: 'waiting' | 'resumed' | 'expired';
+  waitExpiresAt?: number;
+  outputSummary?: unknown;
+  inspections?: { attempt: number; timestamp: number; data: EcosystemInspection }[];
   startTime?: number;
   durationMs?: number;
   error?: string | { message?: string; code?: string; stack?: string } | any;

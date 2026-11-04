@@ -410,9 +410,6 @@ export class Runner {
                         }
                     }
                     /* c8 ignore stop */
-                    if (!isSubStack) {
-                        this.deleteStack(stackId);
-                    }
                     const normalized = normalizeError(effectiveError, {
                         stackId,
                         namespace,
@@ -446,6 +443,10 @@ export class Runner {
                         timestamp: Date.now(),
                         namespace
                     });
+
+                    // Keep the observation policy reachable until terminal telemetry
+                    // has been redacted; execution still releases the stack before throw.
+                    if (!isSubStack) this.deleteStack(stackId);
 
                     throw normalized;
                 }

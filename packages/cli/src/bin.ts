@@ -13,7 +13,8 @@ import {
     replayFixture,
     exportWorkflow,
     startMonitor,
-    reconcileCommand
+    reconcileCommand,
+    GenerateStepOptions
 } from './index';
 
 function printHelp(): void {
@@ -37,6 +38,9 @@ COMMANDS:
     reconcile [workflow-file]      Reconcile and compensate abandoned/stuck workflows
 
 OPTIONS:
+    --type=generic|http|crypto|notification|ai  Step template (default: generic)
+    --url=<url> --provider=<provider> --model=<id>  Template configuration
+    --channel=<channel> --interactive=true|false   Notification configuration
     --format=mermaid|text|dot|json Output format (default: mermaid)
     --direction=TD|LR|TB           Diagram flow direction (default: TD)
     --out=<file>                   Write output directly to file instead of stdout
@@ -121,7 +125,15 @@ async function main(): Promise<void> {
                     console.log(`✔ Generated workflow in ${res.filePath}`);
                     console.log(`✔ Generated workflow test in ${res.testPath}`);
                 } else if (subType === 'step') {
-                    const res = generateStep(name);
+                    const options: Record<string, unknown> = {};
+                    for (const arg of args.slice(3)) {
+                        const match = /^--(type|url|provider|model|channel|interactive)=(.*)$/.exec(arg);
+                        if (!match || match[1] in options) throw new Error(`Invalid or duplicate generator option: ${arg}`);
+                        options[match[1]] = match[1] === 'interactive'
+                            ? match[2] === 'true' ? true : match[2] === 'false' ? false : match[2]
+                            : match[2];
+                    }
+                    const res = generateStep(name, process.cwd(), options as GenerateStepOptions);
                     console.log(`✔ Generated step in ${res.filePath}`);
                     console.log(`✔ Generated step test in ${res.testPath}`);
                 } else {

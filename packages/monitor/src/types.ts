@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions } from 'siglo';
+import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions, EcosystemInspection } from 'siglo';
 
 export interface StepRunRecord {
     stepId: string;
@@ -10,7 +10,10 @@ export interface StepRunRecord {
     startTime?: number;
     endTime?: number;
     durationMs?: number;
+    waitState?: 'waiting' | 'resumed' | 'expired';
+    waitExpiresAt?: number;
     outputSummary?: any;
+    inspections?: { attempt: number; timestamp: number; data: EcosystemInspection }[];
     error?: { message: string; code?: string; stack?: string };
 }
 

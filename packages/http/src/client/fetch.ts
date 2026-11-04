@@ -1,3 +1,4 @@
+import { recordInspection, captureInspection, InspectionCapturePolicy, InspectionContent } from 'siglo';
 import { SigloError, StepTimeoutException, CancellationException } from 'siglo';
 import { Span } from '@opentelemetry/api';
 import { HttpMethod, HttpMetadata } from '../types';
@@ -17,6 +18,7 @@ import {
 import { extractHostInfo } from '../policy/asl-bridge';
 
 export interface ExecuteHttpRequestOptions {
+  capture?: InspectionCapturePolicy;
   stepName: string;
   url: string;
   method?: HttpMethod;
@@ -189,6 +191,19 @@ export async function executeHttpRequest<T = any>(
   const startTime = nowFn();
 
   while (true) {
+    const attemptStarted = nowFn();
+    let responseObserved = false;
+    let inspected = false;
+    let responseStatus: number | undefined;
+    const content: InspectionContent = {
+      ...captureInspection(options.capture, 'requestHeaders', rawHeaders),
+      ...captureInspection(options.capture, 'requestBody', body),
+    };
+    const inspectAttempt = (status?: number, retryDelayMs?: number, retryAfterMs?: number, retryDelaySource?: 'retry-after' | 'backoff', failed = false) => { inspected = true; recordInspection({
+      version: 1, kind: 'http', outcome: !failed && status !== undefined && status < 400 ? 'success' : 'failure',
+      method: normalizedMethod, url: finalUrl, status, requestAttempt: retryAttempts + 1,
+      content, durationMs: Math.max(0, nowFn() - attemptStarted), retryDelayMs, retryAfterMs, retryDelaySource, traceId, policy: status === undefined ? 'unknown' : 'allowed'
+    }); };
     // Setup cooperative AbortController combining externalSignal and step timeout
     const controller = new AbortController();
     let timeoutId: any = undefined;
@@ -226,6 +241,8 @@ export async function executeHttpRequest<T = any>(
         externalSignal.removeEventListener('abort', onExternalAbort);
       }
 
+      responseObserved = true;
+      responseStatus = response.status;
       recordResponseSpanAttributes(response.status, customSpan);
 
       const durationMs = nowFn() - startTime;
@@ -234,6 +251,7 @@ export async function executeHttpRequest<T = any>(
         responseHeaders[key] = val;
       });
 
+      Object.assign(content, captureInspection(options.capture, 'responseHeaders', responseHeaders));
       const metadata: HttpMetadata = {
         status: response.status,
         statusText: response.statusText,
@@ -246,8 +264,11 @@ export async function executeHttpRequest<T = any>(
         cUrl
       };
 
+      const retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), nowFn);
+
       // Handle 404 with allowNotFound
       if (response.status === 404 && allowNotFound) {
+        inspectAttempt(response.status);
         return {
           data: null as any,
           notFound: true,
@@ -258,23 +279,17 @@ export async function executeHttpRequest<T = any>(
       // Check if status is retryable (e.g. 429, 502, 503, 504)
       if (isRetryableStatus(response.status, retryOnStatus)) {
         if (retryAttempts < maxRetries) {
+          const delayMs = retryAfterMs ?? calculateBackoffDelay(retryAttempts + 1);
+          inspectAttempt(response.status, delayMs, retryAfterMs, retryAfterMs === undefined ? 'backoff' : 'retry-after');
           retryAttempts++;
-          let delayMs: number;
-
-          if (response.status === 429) {
-            const retryAfterHeader = response.headers.get('retry-after');
-            const parsed = parseRetryAfter(retryAfterHeader, nowFn);
-            delayMs = parsed !== undefined ? parsed : calculateBackoffDelay(retryAttempts);
-          } else {
-            delayMs = calculateBackoffDelay(retryAttempts);
-          }
-
           await sleepFn(delayMs);
           continue;
         }
 
         // Exhausted retries on retryable status
         const errorText = await response.text().catch(() => '');
+        Object.assign(content, captureInspection(options.capture, 'responseBody', errorText));
+        inspectAttempt(response.status, undefined, retryAfterMs);
         const error = new SigloError(
           `HTTP ${response.status} ${response.statusText}${errorText ? `: ${errorText}` : ''}`,
           {
@@ -293,6 +308,8 @@ export async function executeHttpRequest<T = any>(
       // Handle other non-2xx status codes (fatal client/server errors)
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
+        Object.assign(content, captureInspection(options.capture, 'responseBody', errorText));
+        inspectAttempt(response.status, undefined, retryAfterMs);
         const error = new SigloError(
           `HTTP ${response.status} ${response.statusText}${errorText ? `: ${errorText}` : ''}`,
           {
@@ -321,14 +338,23 @@ export async function executeHttpRequest<T = any>(
       } else {
         // Default: 'json'
         const text = await response.text();
+        Object.assign(content, captureInspection(options.capture, 'responseBody', text));
         parsedData = text.trim().length > 0 ? JSON.parse(text) : {};
       }
 
+      Object.assign(content, captureInspection(options.capture, 'responseBody', parsedData));
+      inspectAttempt(response.status, undefined, retryAfterMs);
       return {
         data: parsedData,
         metadata
       };
     } catch (err: any) {
+      const transportRetryDelay = !responseObserved && !timedOut && !externalSignal?.aborted &&
+        err?.name !== 'AbortError' && !err?.message?.includes('aborted') && !(err instanceof SigloError) &&
+        isTransientNetworkError(err) && retryAttempts < maxRetries
+          ? calculateBackoffDelay(retryAttempts + 1) : undefined;
+      if (!inspected) inspectAttempt(responseStatus, transportRetryDelay, undefined,
+        transportRetryDelay === undefined ? undefined : 'backoff', true);
       if (timeoutId) clearTimeout(timeoutId);
       if (externalSignal && typeof externalSignal.removeEventListener === 'function') {
         externalSignal.removeEventListener('abort', onExternalAbort);
@@ -358,7 +384,7 @@ export async function executeHttpRequest<T = any>(
       // Check if transient network transport error
       if (isTransientNetworkError(err) && retryAttempts < maxRetries) {
         retryAttempts++;
-        const delayMs = calculateBackoffDelay(retryAttempts);
+        const delayMs = transportRetryDelay ?? calculateBackoffDelay(retryAttempts);
         await sleepFn(delayMs);
         continue;
       }

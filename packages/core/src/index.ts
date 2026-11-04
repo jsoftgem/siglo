@@ -1,3 +1,5 @@
+import { captureInspection, sanitizeInspectionContent } from './features/events/capture';
+import { stepInspectionStorage, sanitizeInspection, recordInspection, observeEcosystem, hasEcosystemContent } from './features/events/inspection';
 /* c8 ignore start */
 import {
     Step,
@@ -483,6 +485,7 @@ if (typeof module !== 'undefined' && module.exports) {
         validateAndPinTarget,
         isUnixSocket,
         isUnixSocketAllowed,
+        captureInspection, sanitizeInspectionContent, hasEcosystemContent, stepInspectionStorage, sanitizeInspection, recordInspection, observeEcosystem,
         // Live Monitoring
         WorkflowEventEmitter,
         defaultWorkflowEventEmitter,
@@ -501,3 +504,8 @@ if (typeof module !== 'undefined' && module.exports) {
         isObject
     });
 }
+
+export * from './features/events/inspection';
+export type { StepInspectionEvent } from './features/events/types';
+
+export * from './features/events/capture';

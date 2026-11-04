@@ -1,3 +1,4 @@
+import type { EcosystemInspection } from './inspection';
 import { WorkflowNode } from '../graph';
 
 export type WorkflowExecutionEventType =
@@ -17,7 +18,8 @@ export type WorkflowExecutionEventType =
     | 'checkpoint:save'
     | 'notification:dispatched'
     | 'approval:requested'
-    | 'ai:complete';
+    | 'ai:complete'
+    | 'step:inspection';
 
 export interface FlowStartEvent {
     type: 'flow:start';
@@ -60,6 +62,7 @@ export interface FlowSuspendedEvent {
 }
 
 export interface FlowResumedEvent {
+    resumeReason?: 'event' | 'timer-expired';
     type: 'flow:resumed';
     stackId: string;
     stepId?: string;
@@ -174,6 +177,8 @@ export interface NotificationDispatchedEvent {
 
 /** Provider-independent AI accounting; prompts and generated content are excluded. */
 export interface AiCompleteEvent {
+    attempt?: number;
+    inspection?: EcosystemInspection;
     type: 'ai:complete';
     stackId: string;
     stepId: string;
@@ -187,7 +192,13 @@ export interface AiCompleteEvent {
     };
 }
 
+export interface StepInspectionEvent {
+    type: 'step:inspection'; stackId: string; stepId: string; stepName: string;
+    attempt: number; timestamp: number; namespace?: string; inspection: EcosystemInspection;
+}
+
 export type WorkflowExecutionEvent =
+    | StepInspectionEvent
     | FlowStartEvent
     | FlowCompleteEvent
     | FlowErrorEvent
@@ -206,6 +217,7 @@ export type WorkflowExecutionEvent =
     | AiCompleteEvent;
 
 export interface WorkflowExecutionEventMap {
+    'step:inspection': StepInspectionEvent;
     'ai:complete': AiCompleteEvent;
     'notification:dispatched': NotificationDispatchedEvent;
     'approval:requested': NotificationDispatchedEvent;

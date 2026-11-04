@@ -1,4 +1,5 @@
-import { WorkflowExecutionEvent } from 'siglo';
+import { applyWaitEvent } from './wait-state';
+import { WorkflowExecutionEvent, redactEvent, RedactionOptions, sanitizeInspection } from 'siglo';
 import { WorkflowRunRecord, StepRunRecord, ContextDiffRecord } from './types';
 
 export class WorkflowExecutionStore {
@@ -6,14 +7,17 @@ export class WorkflowExecutionStore {
     private maxRuns: number;
     private maxEventsPerRun: number;
     private maxDiffsPerRun: number;
+    private redaction?: RedactionOptions;
 
-    constructor(maxRuns: number = 1000, maxEventsPerRun: number = 500, maxDiffsPerRun: number = 200) {
+    constructor(maxRuns: number = 1000, maxEventsPerRun: number = 500, maxDiffsPerRun: number = 200, redaction?: RedactionOptions) {
+        this.redaction = redaction;
         this.maxRuns = maxRuns;
         this.maxEventsPerRun = maxEventsPerRun;
         this.maxDiffsPerRun = maxDiffsPerRun;
     }
 
     addEvent(event: WorkflowExecutionEvent): void {
+        if (event) event = redactEvent(event, this.redaction);
         if (!event || !event.stackId) {
             return;
         }
@@ -47,6 +51,17 @@ export class WorkflowExecutionStore {
         }
 
         switch (event.type) {
+            case 'step:inspection':
+            case 'ai:complete': {
+                const data = sanitizeInspection(event.inspection);
+                if (data) {
+                    const step = this.getOrCreateStep(run, event.stepId, event.stepName);
+                    step.inspections = [...(step.inspections || []), {
+                        attempt: event.attempt || step.attempts, timestamp: event.timestamp, data
+                    }].slice(-50);
+                }
+                break;
+            }
             case 'flow:start':
                 run.flowName = event.flowName || run.flowName;
                 run.version = event.version || run.version;
@@ -113,34 +128,14 @@ export class WorkflowExecutionStore {
             case 'flow:suspended': {
                 run.status = 'SUSPENDED';
                 run.waitingForEvent = event.waitingForEvent;
-                const targetStepId = event.stepId;
-                if (targetStepId && run.steps[targetStepId]) {
-                    run.steps[targetStepId].status = 'SUSPENDED';
-                } else {
-                    for (const step of Object.values(run.steps)) {
-                        if (step.status === 'RUNNING' && (step.stepName?.includes('wait') || step.stepName?.includes('Wait'))) {
-                            step.status = 'SUSPENDED';
-                        }
-                    }
-                }
+                run.steps = applyWaitEvent(run.steps, event);
                 break;
             }
 
             case 'flow:resumed': {
                 run.status = 'RUNNING';
                 run.waitingForEvent = undefined;
-                const targetStepId = event.stepId;
-                if (targetStepId && run.steps[targetStepId]) {
-                    run.steps[targetStepId].status = 'COMPLETED';
-                    run.steps[targetStepId].endTime = event.timestamp;
-                } else {
-                    for (const step of Object.values(run.steps)) {
-                        if (step.status === 'SUSPENDED' as any) {
-                            step.status = 'COMPLETED';
-                            step.endTime = event.timestamp;
-                        }
-                    }
-                }
+                run.steps = applyWaitEvent(run.steps, event);
                 break;
             }
 

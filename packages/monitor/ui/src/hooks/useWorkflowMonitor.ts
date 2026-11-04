@@ -1,3 +1,5 @@
+import { applyWaitEvent } from '../../../src/wait-state';
+import { appendInspection } from './inspectionUpdates';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { WorkflowRun, MonitoringEvent } from '../types';
 import { fetchWorkflows } from '../api/workflowApi';
@@ -64,29 +66,22 @@ export function useWorkflowMonitor({
         case 'flow:suspended': {
           updated.status = 'SUSPENDED';
           updated.waitingForEvent = ev.waitingForEvent;
-          const nextSteps = { ...updated.steps };
-          for (const sId of Object.keys(nextSteps)) {
-            const step = nextSteps[sId];
-            if (sId === (ev as any).stepId || (step.status === 'RUNNING' && (step.stepName?.includes('wait') || step.stepName?.includes('Wait')))) {
-              nextSteps[sId] = { ...step, status: 'SUSPENDED' as any };
-            }
-          }
-          updated.steps = nextSteps;
+          updated.steps = applyWaitEvent(updated.steps, ev);
           break;
         }
         case 'flow:resumed': {
           updated.status = 'RUNNING';
           updated.waitingForEvent = null;
-          const nextSteps = { ...updated.steps };
-          for (const sId of Object.keys(nextSteps)) {
-            const step = nextSteps[sId];
-            if (sId === (ev as any).stepId || step.status === ('SUSPENDED' as any)) {
-              nextSteps[sId] = { ...step, status: 'COMPLETED' };
-            }
-          }
-          updated.steps = nextSteps;
+          updated.steps = applyWaitEvent(updated.steps, ev);
           break;
         }
+        case 'step:inspection':
+        case 'ai:complete':
+          if (ev.stepId && ev.inspection) {
+            const step = updated.steps[ev.stepId] || { stepId: ev.stepId, stepName: ev.stepName, status: 'PENDING' as const };
+            updated.steps = { ...updated.steps, [ev.stepId]: appendInspection(step, ev) };
+          }
+          break;
         case 'step:start':
           if (ev.stepId) {
             const step = updated.steps[ev.stepId] || {};
@@ -111,7 +106,8 @@ export function useWorkflowMonitor({
               [ev.stepId]: {
                 ...step,
                 status: 'COMPLETED',
-                durationMs: ev.durationMs
+                durationMs: ev.durationMs,
+                outputSummary: ev.outputSummary
               }
             };
           }

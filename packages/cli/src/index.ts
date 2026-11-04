@@ -1,3 +1,5 @@
+import { GenerateStepOptions, validateStepOptions, ecosystemTemplate } from './step-templates';
+export type { GenerateStepOptions } from './step-templates';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -264,9 +266,10 @@ export function generateWorkflow(name: string, targetDir: string = process.cwd()
 /**
  * Scaffolds a new typed step file and test.
  */
-export function generateStep(name: string, targetDir: string = process.cwd()): { filePath: string; testPath: string } {
+export function generateStep(name: string, targetDir: string = process.cwd(), options: GenerateStepOptions = {}): { filePath: string; testPath: string } {
+    validateStepOptions(name, options);
     const srcDir = path.join(targetDir, "src", "steps");
-    fs.mkdirSync(srcDir, { recursive: true });
+
 
     const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const pascalName = kebabName.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("");
@@ -279,8 +282,16 @@ export function generateStep(name: string, targetDir: string = process.cwd()): {
 
     const testContent = `import { expect } from "chai";\nimport { ${camelName}Step } from "./${kebabName}.step";\n\ndescribe("${pascalName}Step", () => {\n    it("executes successfully", async () => {\n        const result = await ${camelName}Step.execute({});\n        expect(result.success).to.be.true;\n    });\n});\n`;
 
-    fs.writeFileSync(filePath, stepContent, "utf-8");
-    fs.writeFileSync(testPath, testContent, "utf-8");
+    const template = ecosystemTemplate(pascalName, kebabName, options);
+    if (fs.existsSync(filePath) || fs.existsSync(testPath)) throw new Error('Step destination already exists');
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(filePath, template?.source ?? stepContent, { encoding: 'utf-8', flag: 'wx' });
+    try {
+        fs.writeFileSync(testPath, template?.test ?? testContent, { encoding: 'utf-8', flag: 'wx' });
+    } catch (error) {
+        fs.unlinkSync(filePath);
+        throw error;
+    }
 
     return { filePath, testPath };
 }

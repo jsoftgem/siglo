@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Step, SigloError, defaultStorageManager } from 'siglo';
+import { Step, SigloError, defaultStorageManager, recordInspection, captureInspection } from 'siglo';
 import type { CacheOptions } from 'siglo';
 import { validatePayload } from '@siglo/http';
 import type { StandardSchemaV1 } from '@siglo/http';
@@ -37,17 +37,23 @@ function messages(prompt: string | ChatMessage[]): ChatMessage[] {
 export class AiStep<TInput = any, TOutput = string, TName extends string = string>
   extends Step<TInput, AiStepResult<TOutput>, TName> {
   constructor(name: TName, private readonly aiOptions: AiStepOptions<TInput, any>) {
-    super(name, async ctx => this.infer(ctx));
+    super(name, async ctx => {
+      try { return await this.infer(ctx); }
+      catch (error) {
+        recordInspection({ version: 1, kind: 'ai', outcome: 'failure', provider: aiOptions.model.provider, model: aiOptions.model.model });
+        throw error;
+      }
+    });
     this.allowNetwork([
       ...[aiOptions.model, ...(aiOptions.fallbackModels ?? [])].map(m => new URL(modelBaseUrl(m)).host),
       ...(aiOptions.tools ?? []).flatMap(t => t.step.networkPolicyConfig?.allowedHosts ?? [])
     ]);
     // Preflight runs before the core cache lookup; ACTION repeats it for direct invocation.
-    super.onBefore(async ctx => { await this.preflight(ctx); return true; });
+    super.onBefore(async ctx => { await this.inspectedPreflight(ctx); return true; });
   }
 
   override onBefore(hook: (ctx: TInput) => boolean | Promise<boolean>): this {
-    super.onBefore(async ctx => { await this.preflight(ctx); return hook(ctx); });
+    super.onBefore(async ctx => { await this.inspectedPreflight(ctx); return hook(ctx); });
     return this;
   }
 
@@ -77,6 +83,15 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
         input: customKey ? customKey(stepId, ctx, namespace) : ctx })).digest('hex');
     } });
     return this;
+  }
+
+  private async inspectedPreflight(ctx: TInput) {
+    try { return await this.preflight(ctx); }
+    catch (error) {
+      recordInspection({ version: 1, kind: 'ai', outcome: 'failure', phase: 'preflight',
+        provider: this.aiOptions.model.provider, model: this.aiOptions.model.model });
+      throw error;
+    }
   }
 
   private async preflight(ctx: TInput) {
@@ -113,12 +128,19 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
     const maxTools = o.maxToolTurns ?? 5;
     let selected = 0, repairs = 0, turns = 0, inputTokens = 0, outputTokens = 0, cost = 0;
     let knownCost = true;
+    let inferenceAttempt = 0;
     const callIds = new Set<string>();
     for (;;) {
       signal?.throwIfAborted();
       const model = resolveModel(prepared.models[selected], prepared.input, this.name);
       const adapter = model.adapter ?? createAiProvider(model, { stepName: this.name, span: (ctx as any)?.$span ?? (ctx as any)?.span });
       let response: AiProviderResponse;
+      const attemptStarted = Date.now();
+      const attempt = ++inferenceAttempt;
+      const content = captureInspection(o.capture, 'prompt', history);
+      const inspect = (outcome: 'success' | 'failure') => recordInspection({ version: 1, kind: 'ai', outcome,
+        phase: 'attempt', inferenceAttempt: attempt, provider: model.provider, model: model.model,
+        durationMs: Date.now() - attemptStarted, content });
       try {
         response = await withAiRequest(requestSignal => adapter.generate({
           model: model.model, messages: structuredClone(history), signal: requestSignal,
@@ -126,9 +148,12 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
           temperature: o.temperature, maxTokens: o.maxTokens
         }), signal, model.requestTimeoutMs);
       } catch (error) {
+        inspect('failure');
         if (shouldFallback(error, signal) && selected + 1 < prepared.models.length) { selected++; continue; }
         throw error;
       }
+      Object.assign(content, captureInspection(o.capture, 'output', response.text));
+      inspect('success');
       signal?.throwIfAborted();
       if (typeof response.text !== 'string' || !Number.isSafeInteger(response.promptTokens) || response.promptTokens < 0 ||
           !Number.isSafeInteger(response.completionTokens) || response.completionTokens < 0) throw new Error('Invalid AI adapter response');
@@ -181,7 +206,7 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
         totalTokens: inputTokens + outputTokens, latencyMs: Date.now() - started,
         modelUsed: model.model, providerUsed: model.provider, repairAttempts: repairs,
         fallbackCount: selected, estimatedCostUsd: knownCost ? cost : undefined };
-      recordAiCompletion(this.name, metrics, ctx);
+      recordAiCompletion(this.name, metrics, ctx, captureInspection(o.capture, 'parsedOutput', data));
       return createAiResult(data, metrics);
     }
   }

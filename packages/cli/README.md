@@ -2,6 +2,8 @@
 
 `@siglo/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `Siglo` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
 
+See the [ecosystem generator cookbook](ECOSYSTEM.md) for HTTP, webhook, notification, and AI step templates and offline testing.
+
 ---
 
 ## 1. Overview

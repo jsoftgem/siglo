@@ -1,3 +1,4 @@
+import { EcosystemInspector } from './EcosystemInspector';
 import React from 'react';
 import { StepRun } from '../../../types';
 import { Eye, AlertTriangle } from 'lucide-react';
@@ -53,6 +54,12 @@ export const StepDetailCard: React.FC<StepDetailCardProps> = ({ step, onClose })
           <div className="font-mono text-slate-200">{step.attempts || 1}</div>
         </div>
       </div>
+
+      {step.waitState && <div className="mb-3 text-slate-200">
+        <p>Wait state: {step.waitState}</p>
+        <p>Wait deadline (UTC): {step.waitExpiresAt === undefined ? 'Unavailable' : new Date(step.waitExpiresAt).toISOString()}</p>
+      </div>}
+      <EcosystemInspector step={step} />
 
       {step.error && (
         <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-300 text-xs font-mono">

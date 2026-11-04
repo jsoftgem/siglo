@@ -102,7 +102,7 @@ export class WorkflowEventEmitter {
         if (specific && specific.size > 0) {
             for (const fn of Array.from(specific)) {
                 try {
-                    fn(event);
+                    Promise.resolve(fn(event)).catch(() => {});
                 } catch {
                     // Non-functional requirement: resilience against listener failure
                 }
@@ -112,7 +112,7 @@ export class WorkflowEventEmitter {
         if (this.wildcardListeners.size > 0) {
             for (const fn of Array.from(this.wildcardListeners)) {
                 try {
-                    fn(event);
+                    Promise.resolve(fn(event)).catch(() => {});
                 } catch {
                     // Non-functional requirement: resilience against listener failure
                 }
@@ -217,7 +217,7 @@ export function getDefaultMonitor(): WorkflowEventEmitter | undefined {
 }
 
 export function emitMonitoringEvent(options: any, event: WorkflowExecutionEvent): void {
-    event = redactEvent(event);
+    try { event = redactEvent(event); } catch { return; }
     const localMonitor = options?.monitor;
     const globalMonitor = globalDefaultMonitor;
 

@@ -194,6 +194,7 @@ const executeArrayChain = (
                 return done(undefined, {
                     status: Status.WAITING,
                     stackId: options.stackId,
+                    stepId: chain?.$stepId || `$step_${stepIndex}`,
                     correlationKey: err.correlationKey,
                     eventName: err.eventName,
                     expiresAt: err.expiresAt,

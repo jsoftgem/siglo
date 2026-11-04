@@ -25,6 +25,7 @@ export interface CompensationHttpConfig<TInput = any, TOutput = Record<string, a
 }
 
 export interface HttpStepOptions<TInput = any, TOutput = Record<string, any>, TRequestSchema = unknown, TResponseSchema = unknown> {
+  capture?: import('siglo').InspectionCapturePolicy;
   url: string | ((ctx: TInput) => string);
   method?: HttpMethod;
   headers?: Record<string, string> | ((ctx: TInput) => Record<string, string>);

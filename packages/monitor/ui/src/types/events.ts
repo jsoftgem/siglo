@@ -1,6 +1,10 @@
 import { WorkflowStatus, StepStatus } from './workflow';
 
 export type SigloEventType =
+  | 'step:inspection'
+  | 'ai:complete'
+  | 'notification:dispatched'
+  | 'approval:requested'
   | 'flow:start'
   | 'flow:complete'
   | 'flow:error'

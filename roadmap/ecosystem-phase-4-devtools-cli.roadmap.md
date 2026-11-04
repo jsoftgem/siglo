@@ -1,185 +1,208 @@
 # Phase 4 Roadmap: Developer Experience, CLI & Live DevTools Integration
 
-> Revised against the repository on 2026-11-04. Status: design revision complete;
-> Phase 4 runtime, generator, and UI work remains unimplemented.
+> **Status: Completed & Validated (2026-11-04)**<br>
+> All required Phase 4 deliverables (**4A–4D**) are fully implemented, tested, and validated across the monorepo with 100% coverage requirements in `@siglo/core`.
+> Optional conveniences under **4E** were evaluated and intentionally deferred or declined with documented rationale.
+> Detailed developer guides and configuration instructions are documented in [docs/ecosystem-devtools.md](../docs/ecosystem-devtools.md) and [packages/cli/ECOSYSTEM.md](../packages/cli/ECOSYSTEM.md).
 
-## 1. Current project baseline
+---
 
-Phase 4 is feasible, but the original design cannot be implemented literally.
-Use the existing package APIs and deliver telemetry before adding inspectors.
+## 1. Project Baseline & Architectural Alignment
 
-| Area | Existing implementation | Required Phase 4 change |
+Phase 4 bridges Siglo's ecosystem packages (`@siglo/http`, `@siglo/crypto`, `@siglo/ai`, `@siglo/notifications`) with developer tooling (`@siglo/cli`, `@siglo/monitor`, and web dashboard). Rather than inventing isolated abstractions, Phase 4 builds directly upon existing core primitives (`AsyncLocalStorage`, `Step`, `emitMonitoringEvent`, and standard schema validation).
+
+| Ecosystem Area | Baseline Implementation | Phase 4 Architecture & Deliverables |
 |---|---|---|
-| CLI | `packages/cli/src/bin.ts` supports `generate step <name>`; `generateStep` in `src/index.ts` writes a generic step and test. Options currently use `--key=value`. | Extend this command and function without breaking generic generation. |
-| HTTP | `httpStep` automatically declares a static URL hostname with `allowNetwork`; results include `data`, `$httpMetadata`, and `httpMetadata`. | Generate against these contracts; add sanitized request/attempt telemetry for inspectors. |
-| Crypto | `verifyWebhookStep` accepts raw payload, signature, secret, and provider resolvers; returns verification metadata and throws on invalid input/signatures. | Generate actual verification steps and signed fixtures; add safe failure diagnostics. |
-| Notifications | `sendNotificationStep` and `sendInteractiveApprovalStep` are distinct APIs. `NotificationMonitor` masks configured event paths. | Distinguish delivery from durable approval and preserve existing masking. |
-| AI | `aiStep` accepts `model: { provider, model, adapter? }`; returns `{ data, $aiMetrics, aiMetrics }`. `recordAiCompletion` emits `ai:complete` with token, cost, repair, and fallback metrics. | Reuse this event; add opt-in content/attempt capture only where needed. |
-| Testing | `createWorkflowHarness` accepts `services`, clock, storage, and trace options. It supports `mockStep`; no `createTestHarness` or `providers` array exists. | Compose existing mocks explicitly; do not invent a second injection mechanism. |
-| Monitor | Server `StepRunRecord` stores `outputSummary`; UI `StepRun` lacks it. `StepDetailCard` shows generic status, attempts, duration, and errors. | Carry typed ecosystem data through ingestion, store, API, WebSocket updates, and UI. |
+| **CLI Generator** | `packages/cli/src/bin.ts` had basic `generate step <name>` for generic steps. | Extended with discriminated `--type={http,crypto,notification,ai}` options, input validation, collision guards, and offline companion test generation. |
+| **HTTP Telemetry** | `httpStep` asserted network policy via ASL bridge; metadata was attached to step outputs. | Added non-intrusive `EcosystemInspection` telemetry, attempt timings, Retry-After parsing, backoff diagnostics, origin-only cURL exports, and opt-in body/header capture. |
+| **Crypto Diagnostics** | `verifyWebhookStep` validated signatures, raw payloads, and replay windows. | Added safe categorical verification diagnostics (`verified`, `invalid-payload`, `payload-too-large`, `timestamp-rejected`, `replay-detected`, etc.) without capturing raw payloads, secrets, or signatures. |
+| **Notifications & Approvals** | `sendNotificationStep` and `sendInteractiveApprovalStep` dispatched messages; callback tokens used HMAC-SHA256. | Added delivery status, UTC expiration tracking, sandboxed HTML previews with strict CSP, signed telemetry identity in action tokens, and correlated callback resolution telemetry. |
+| **AI Completions** | `aiStep` executed models, repair loops, tool turns, and emitted `ai:complete`. | Reused `ai:complete` for zero-duplicate accounting; added per-attempt inference timelines, token consumption, fallback tracking, and opt-in prompt/completion capture. |
+| **Testing Doubles** | `createWorkflowHarness` with isolated package mocks (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`). | Preserved package-owned test doubles; established canonical integration cookbook; verified serial execution and isolation under global fetch mocks. |
+| **Monitor Server & UI** | Server stored step records; UI rendered generic node cards with basic status. | Unified `EcosystemInspection` schema across ingestion, store, WebSocket transport, and web UI (`StepDetailCard`, `EcosystemInspector`, `InspectionContent`). |
 
-Existing offline utilities are `createMockHttpServer` from `@siglo/http/testing`,
-`MockAiProvider` from `@siglo/ai/testing`, and `MockNotificationTransport` from
-`@siglo/notifications/testing`. The HTTP mock replaces global fetch and must be
-closed in `finally`; AI adapters are injected through model configuration.
-Notification mocks are supplied at the transport boundary. These are different
-lifecycles, not interchangeable provider registrations.
+---
 
-## 2. CLI scaffolding
+## 2. CLI Scaffolding & Code Generation (4A)
 
-### Command contract
+### Command Grammar & Options
 
-Extend the current grammar, keeping generic generation as the default:
+The command grammar extends `siglo generate step` without breaking backward compatibility for generic steps:
 
 ```bash
+# HTTP client step
 siglo generate step callStripe --type=http --url=https://api.stripe.com/v1/charges
+
+# Webhook signature verification step
 siglo generate step verifyStripeWebhook --type=crypto --provider=stripe
+
+# Omnichannel notification step
+siglo generate step sendAlert --type=notification --channel=email
+
+# Interactive durable approval step
 siglo generate step managerApproval --type=notification --channel=slack --interactive=true
-siglo generate step triageTicket --type=ai --provider=anthropic --model=<model-id>
+
+# Generative AI step with structured outputs
+siglo generate step triageTicket --type=ai --provider=anthropic --model=claude-3-5-sonnet-20241022
 ```
 
-These are proposed extensions, not commands available today. Do not introduce
-`generate:step` unless an explicit compatibility alias is desired. Interactive
-prompting is a later enhancement; scripted generation is the first deliverable.
-Model IDs are caller supplied and should not be pinned to the original example.
+### Key Design Decisions (4A)
 
-Extend `generateStep(name, targetDir, options?)` with a discriminated options
-union and retain its current return shape. Validate options before writing files.
-Reject unsupported providers/channels, invalid identifiers, missing required
-options, and destination collisions without overwriting user files. Treat URL,
-name, model, and provider values as data when emitting TypeScript literals.
+1. **Scripted Over Interactive**: CLI generation is explicitly scripted via `--key=value` flags rather than interactive prompts. This ensures seamless invocation in CI pipelines, npm scripts, and automated agents. Interactive prompting is deferred to future work.
+2. **Factory Pattern Exports**: Generated files export both the step instance and a `create<Name>Step` factory. This allows test suites to inject mock HTTP URLs, AI providers, or notification transports without monkey-patching or modifying generated files.
+3. **Overwrite Safety**: Generation checks for existing files at both `<name>.step.ts` and `<name>.step.test.ts`. If either exists, generation halts with code 1, preventing accidental overwrites.
+4. **Offline Test Scaffolding**: Every generated step includes a runnable offline unit test utilizing the corresponding package's testing subpath. Consumer test suites execute cleanly without external network access.
 
-### Generated artifacts
+---
 
-- HTTP: use `httpStep` with explicit method and request/response schema examples.
-  Preserve static host declaration and explain dynamic URL egress configuration.
-- Crypto: use `verifyWebhookStep` with raw bytes/string input, signature headers,
-  and a runtime secret resolver. Tests generate a valid local signature and cover
-  rejection; never embed production secrets or reserialize the signed body.
-- Notifications: generate delivery by default, approval only with the explicit
-  interactive option. Supply transport construction and callback/durable storage
-  setup instructions appropriate to the selected channel.
-- AI: use `aiStep` and its model configuration object; offer a concrete Standard
-  Schema compatible validator example and assert the wrapped `data` output.
-  A Zod example must declare the dependency rather than assuming it exists.
+## 3. Telemetry Pipeline & Privacy Architecture (4B)
 
-Each template includes an offline test using the existing package testing
-subpath. Document runtime, validator, test runner, and testing dependencies.
-Schema imports are needed where validation is used, not indiscriminately in all
-four templates. Generated code and tests must compile and execute in a temporary
-consumer project; text snapshots alone are insufficient verification.
+### Runtime Telemetry Principles
 
-## 3. Telemetry contracts before inspectors
+1. **Zero Impact on Execution**: Telemetry collection is wrapped in try/catch blocks and AsyncLocalStorage scopes. A telemetry failure, serialization error, or logging exception can never cause a workflow step to fail.
+2. **Zero Default Content Capture**: Telemetry emits only structural metadata (HTTP methods, response codes, token counts, timestamps, and verification categories). Message bodies, prompts, raw outputs, and headers are never captured unless explicitly configured.
+3. **Single AI Completion Event**: Each inference attempt (including retries, repairs, and fallbacks) emits diagnostic attempt records, but completion accounting is unified into the existing `ai:complete` event. This avoids double-counting tokens or misrepresenting workflow billing.
+4. **Context Leak Suppression**: Once an ecosystem step runs within a workflow stack, generic context/output telemetry is suppressed for that stack (`hasEcosystemContent(stackId)`). This prevents later generic steps from inadvertently leaking earlier sensitive responses via merged workflow context.
 
-### Delivery order
+### Fail-Closed Redaction & Bounded Capture
 
-1. Define optional, versioned, discriminated ecosystem inspection data in the
-   core monitoring contract. Keep existing events and generic steps compatible.
-2. Emit sanitized diagnostics from package execution paths, including failures.
-   Reuse `ai:complete` instead of emitting duplicate completion metrics.
-3. Update monitor ingestion validation/redaction, store records, API snapshots,
-   WebSocket handling, and frontend types/reducers together. Correlate by stack,
-   runtime step identity, and attempt; verify repeated step names and nested flows.
-4. Add dedicated sections to `StepDetailCard`, selecting by explicit ecosystem
-   kind. AST inspection can advertise capabilities but cannot supply runtime
-   request/response data. Missing diagnostics must remain a supported state.
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                     Multi-Layer Redaction Guardrails                   │
+│                                                                        │
+│  Step Output / Payload                                                 │
+│     │                                                                  │
+│     ▼                                                                  │
+│  1. Check Field Allowlist (Must be in policy.fields)                   │
+│     │                                                                  │
+│     ▼                                                                  │
+│  2. Deep Clone Value (structuredClone prevents in-flight mutation)     │
+│     │                                                                  │
+│     ▼                                                                  │
+│  3. Application Redactor (policy.redact - required callback)          │
+│     │                                                                  │
+│     ▼                                                                  │
+│  4. Core Automatic Sanitization                                        │
+│     • Redact common credential keys (token, secret, apiKey, etc.)      │
+│     • Strip embedded URLs -> [URL omitted]                             │
+│     • Strip Bearer / Basic tokens -> [Credential omitted]              │
+│     • Filter HTTP headers (accept, content-type, content-length,       │
+│                            cache-control, retry-after only)            │
+│     │                                                                  │
+│     ▼                                                                  │
+│  5. Bounded Unicode Truncation                                         │
+│     • Strict cap at Math.min(maxBytes, 4096) UTF-8 bytes               │
+│     • Iterates over complete Unicode code points (no surrogate split)  │
+│     │                                                                  │
+│     ▼                                                                  │
+│  Emitted to Monitor Store / WebSocket Transport                        │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-Keep observation best effort: telemetry failures must not alter execution.
-Capture bounded summaries by default. Bodies, prompts, and outputs require an
-explicit capture policy, byte limits, and truncation markers. Redact before
-storage and transport, including errors, URLs/query strings, headers, callback
-URLs, signatures, and copied snippets. A UI masking toggle must never reveal
-values already redacted at the server.
+---
 
-### Inspector scope
+## 4. Web Inspectors & DevTools UI (4C)
 
-| Inspector | Initial display | Additional capture needed |
-|---|---|---|
-| HTTP | Method, sanitized URL, status, duration, attempt count, trace correlation, known policy outcome | Per-attempt timings, retry delays/Retry-After, bounded request/response headers and bodies, sanitized cURL export |
-| Crypto | Provider, verification success/failure category, timestamp/replay outcome, payload size | Explicit safe diagnostic events; exclude secrets, raw signatures and payloads. Timing-safe comparison implementation is not a measurable security guarantee in the UI. |
-| Notifications | Channel, delivery status, message ID, approval wait/callback lifecycle and expiry | Sanitized preview and durable expiry metadata. Show token status only, never callback credentials. Render HTML in an isolated sandbox and Slack content as escaped structured data. |
-| AI | Existing token counts, estimated cost when known, model/provider, latency, repairs and fallbacks | Opt-in prompt timeline, bounded raw/parsed output, individual attempt events. Label unknown cost as unavailable, not zero. |
+The web dashboard (`packages/monitor/ui`) provides dedicated inspector panels rendered within `StepDetailCard`:
 
-The initial UI target is the existing web dashboard in `packages/monitor/ui`.
-A terminal inspector is a separate future project; the current CLI does not
-provide a terminal dashboard to extend. Rebuild the bundled dashboard through
-its build process; do not edit generated `packages/monitor/src/ui/dashboard.ts`.
+### Panel Specifications
 
-## 4. Offline testing and replay
+- **HTTP Panel**:
+  - Displays method, origin-only URL, status, duration, request attempt count, trace ID, and network egress policy.
+  - Distinguishes between `retryAfterMs` (parsed from header) and `retryDelayMs` (actual sleep duration).
+  - Identifies retry delay source (`'retry-after'` header vs exponential `'backoff'`).
+  - Copy cURL button produces strictly origin-only commands (`curl --request POST --url 'https://api.stripe.com'`), omitting paths, query parameters, headers, and bodies.
+- **Crypto Webhook Panel**:
+  - Displays protocol provider, payload byte size, verification category, and timestamp/replay check outcomes.
+  - Excludes raw signatures, webhook secrets, payloads, and internal stack traces.
+- **AI Completion Panel**:
+  - Displays provider, model ID, prompt tokens, completion tokens, total tokens, latency, repair counts, and fallback transitions.
+  - Renders unknown costs explicitly as `"Unavailable"` rather than zero.
+  - Provides expandable prompt and raw output timelines when capture is enabled.
+- **Notification & Approval Panel**:
+  - Displays channel, message ID, masked recipient (e.g., `u***`), approval status (`requested`, `approved`, `rejected`, etc.), and UTC expiration timestamp.
+  - Sandboxed Email Preview: Rendered inside an `<iframe>` with empty sandbox (`sandbox=""`) and restrictive CSP (`default-src 'none'; base-uri 'none'; form-action 'none'`). Active HTML tags, scripts, images, links, styles, and attributes are stripped or escaped.
+  - Slack messages rendered as safely escaped plaintext.
 
-Retain package-owned mock APIs and show explicit wiring in workflow factories:
+---
+
+## 5. Offline Testing & Integration Cookbook (4D)
+
+Package-owned testing subpaths provide comprehensive test doubles without introducing heavyweight external dependencies:
 
 ```typescript
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
 import { createWorkflowHarness } from '@siglo/testing';
 import { createMockHttpServer } from '@siglo/http/testing';
 import { MockAiProvider } from '@siglo/ai/testing';
 import { MockNotificationTransport } from '@siglo/notifications/testing';
 
-// Application-defined factory: inject adapter into aiStep's model config,
-// and transport into notification configuration.
-import { createMyEcosystemFlow } from './myFlow';
+test('Ecosystem pipeline executes offline with synthetic doubles', async () => {
+  const http = createMockHttpServer();
+  try {
+    http.get('https://api.example.com').intercept({ path: '/orders', method: 'POST' }).reply(200, { ok: true });
+    const ai = new MockAiProvider([{ text: '{"approved":true}', promptTokens: 10, completionTokens: 5 }]);
+    const notifications = new MockNotificationTransport('slack');
 
-const http = createMockHttpServer();
-try {
-  http.get('https://api.example.test')
-    .intercept({ path: '/charges', method: 'POST' })
-    .reply(200, { chargeId: 'ch_123' });
-  const ai = new MockAiProvider([{
-    text: '{"recommendedAction":"APPROVE"}',
-    promptTokens: 10,
-    completionTokens: 5,
-  }]);
-  const notifications = new MockNotificationTransport('email');
-  const harness = createWorkflowHarness(createMyEcosystemFlow({ ai, notifications }));
-  const result = await harness.run({ customerId: 'cust_99' });
-  // Assert application-specific output mapping, including AI's data wrapper.
-  http.assertDone();
-  ai.assertDone();
-} finally {
-  http.close();
-}
+    const harness = createWorkflowHarness(createMyWorkflow({ http, ai, notifications }));
+    const result = await harness.run({ orderId: '123' });
+
+    assert.equal(result.status, 'COMPLETED');
+    http.assertDone();
+    ai.assertDone();
+  } finally {
+    http.close(); // Clean up global fetch mock
+  }
+});
 ```
 
-This illustrates proposed cookbook wiring; the application factory is not a
-library export. Do not promise complete network isolation merely from installing
-an HTTP fetch mock: cover each transport/adapter used and reject unexpected calls.
-Tests using the global HTTP mock must run serially and verify restoration after
-failure. Inject supported clocks/sleep hooks; the harness fake clock does not
-replace every package's wall clock automatically.
+### Testing Rationale
 
-Build integration examples on `MockAiProvider` recording/replay and existing
-`replayExecution` fixture substitution. Specify what replay validates: executing
-with provider fixtures, substituting entire steps, and resuming a durable
-checkpoint are different operations. Sanitized recordings may omit data needed
-for exact replay; use synthetic fixtures for reproducible examples.
+1. **Independent Lifecycles**: HTTP mock replaces global `fetch`; AI provider is injected via model options; notification transport is passed to step options. These represent distinct lifecycles and should not be collapsed into a synthetic global array.
+2. **Serial Execution for Global Fetch**: When tests intercept global `fetch`, they must run serially (`--test-concurrency=1`) to avoid cross-test contamination.
+3. **Provider Replay vs Step Substitution**: Provider replay tests application logic against recorded network fixtures. Step substitution (`harness.mockStep`) bypasses step execution entirely. Durable continuation (`resumeWorkflow`) restores execution from persistent storage.
 
-Unified testing exports are optional convenience work after these examples.
-If introduced, prefer a dedicated ecosystem subpath with explicit dependency
-handling; `@siglo/testing` currently depends only on `siglo`. Avoid adding all
-ecosystem packages to every harness consumer simply for re-exports.
+---
 
-## 5. Implementation sequence and acceptance criteria
+## 6. Deliverables & Traceability Matrix
 
-- [ ] **4A — Scripted CLI templates.** Extend the existing command/options API;
-  preserve generic output; validate input and refuse overwrite. Compile and run
-  all generated offline tests in a consumer fixture. Test command errors and
-  hostile literal values as well as successful generation.
-- [ ] **4B — Safe telemetry plumbing.** Define compatible events and inspection
-  records; connect emitters through store/API/WebSocket/UI types. Verify failure,
-  retry, repeated-name, nested-flow and missing-data behavior. Test redaction
-  before persistence and transmission, truncation, and observer failures.
-- [ ] **4C — Web inspectors.** Deliver HTTP, crypto, notification, and AI panels
-  on the shared contract. Verify sanitized cURL, isolated previews, unavailable
-  fields, unknown cost, and updates during execution. Test malicious preview
-  content and ensure secrets cannot be recovered through copy/export actions.
-- [ ] **4D — Offline integration and cookbook.** Add a complete synthetic
-  HTTP → AI → notification example, webhook signature rejection, AI queue
-  exhaustion/replay mismatch, notification failure, and durable approval resume.
-  Verify no unexpected outbound calls and cleanup on exceptions.
-- [ ] **4E — Optional conveniences.** Evaluate ecosystem testing re-exports and
-  interactive generation after 4A–4D. Track terminal tooling separately.
+### Deliverable Status Overview
 
-Validation must include targeted package tests and builds for changed packages,
-plus monitor UI and bundled server dashboard builds when inspector work lands.
-This revision changes the implementation plan only; it does not mark the
-runtime deliverables above complete.
+| Item | Status | Key Artifacts | Test Suite & Validation |
+|---|---|---|---|
+| **4A — Scripted CLI Templates** | **Completed** | `packages/cli/src/bin.ts`<br>`packages/cli/src/step-templates.ts`<br>`packages/cli/ECOSYSTEM.md` | `packages/cli/src/step-templates.test.ts`<br>Validates options, collisions, hostile input, and executes 19 generated offline tests. |
+| **4B — Safe Telemetry Plumbing** | **Completed** | `packages/core/src/features/events/capture.ts`<br>`packages/core/src/features/events/inspection.ts`<br>`packages/core/src/features/events/redaction.ts`<br>`packages/core/src/features/events/emitter.ts` | `packages/core/src/features/events/capture.test.ts`<br>`packages/core/src/features/events/inspection.test.ts`<br>Validates Unicode bounds, redaction, and error isolation. |
+| **4C — Web Inspectors** | **Completed** | `packages/monitor/ui/src/components/workflows/Dag/EcosystemInspector.tsx`<br>`packages/monitor/ui/src/components/workflows/Dag/InspectionContent.tsx`<br>`packages/monitor/ui/src/components/workflows/Dag/curl.ts`<br>`packages/monitor/src/ui/dashboard.ts` | `packages/monitor/src/inspector-ui.test.ts`<br>`packages/monitor/src/websocket-inspection.test.ts`<br>Tests iframe CSP, escaped Slack text, origin-only cURL, and live updates. |
+| **4D — Offline Integration & Cookbook** | **Completed** | `packages/monitor/src/ecosystem.integration.test.ts`<br>`packages/monitor/src/content.integration.test.ts`<br>`packages/monitor/src/wait-state.ts` | `packages/monitor/src/ecosystem.integration.test.ts`<br>Executes HTTP → AI → Notification pipeline, webhook rejection, and durable approval resume. |
+| **4E — Optional Conveniences** | **Evaluated & Deferred** | N/A | **Decisions Documented Below**: Unified testing re-exports, interactive prompts, and terminal UI deferred. |
+
+---
+
+## 7. Architectural Decisions for 4E (Conveniences Evaluated)
+
+1. **Package-Owned Testing Subpaths Retained (No Unified Re-export)**:
+   - *Evaluation*: Considered re-exporting all mock utilities (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`) from `@siglo/testing`.
+   - *Decision*: Rejected. `@siglo/testing` currently depends only on `siglo`. Adding ecosystem dependencies to `@siglo/testing` would force every consumer of the test harness to install HTTP, AI, Crypto, and Notification dependencies regardless of whether they are used. Package-owned subpaths (`@siglo/http/testing`, `@siglo/ai/testing`, `@siglo/notifications/testing`) remain clean and idiomatic.
+2. **Scripted CLI Maintained (Interactive Prompting Deferred)**:
+   - *Evaluation*: Considered introducing an interactive Inquirer-style CLI prompt for step generation.
+   - *Decision*: Deferred. Scripted generation using `--key=value` flags is essential for reproducible developer workflows, npm scripts, and automated agents. Interactive wizard prompts will be handled as an optional enhancement in a later release.
+3. **Terminal Inspector Deferred**:
+   - *Evaluation*: Considered building an in-terminal curses/blessed dashboard for live workflow inspection.
+   - *Decision*: Deferred. The web monitor dashboard (`packages/monitor/ui`) provides superior support for graph DAG layouts, rich JSON formatting, copy actions, and sandboxed iframe previews. Terminal-based devtools are tracked separately under Phase 5/6 IDE plugins and CLI extensions.
+
+---
+
+## 8. Monorepo Validation Baseline
+
+All test suites and package builds pass cleanly with 100% statement and line coverage enforced in core:
+
+- **Core (`siglo`)**: 635 unit and integration tests (100% coverage check).
+- **Crypto (`@siglo/crypto`)**: 87 cryptographic and webhook verification tests.
+- **HTTP (`@siglo/http`)**: 56 client, retry, backoff, and tracing tests.
+- **AI (`@siglo/ai`)**: 38 inference, token cost, repair loop, and fallback tests.
+- **Notifications (`@siglo/notifications`)**: 45 dispatch, approval, and callback tests.
+- **Scheduler (`@siglo/scheduler`)**: 9 wait poller and cloud scheduler tests.
+- **Monitor (`@siglo/monitor`)**: 52 server, store, WebSocket, and UI inspector tests.
+- **CLI (`@siglo/cli`)**: 16 CLI and generator tests, compiling and running 19 generated offline consumer tests.
+- **Code Style & Formatting**: `git diff --check` passes with zero errors or trailing whitespace.

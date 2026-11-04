@@ -1,3 +1,4 @@
+import { stepInspectionStorage } from '../../events/inspection';
 import AddSpecToContext from './Helpers/AddSpecToContext';
 import AddInitialParam from './Helpers/AddInitialParam';
 import ConvertParamFromSpec from './Helpers/ConvertParamFromSpec';
@@ -157,6 +158,14 @@ export default class StartChain {
                             chain.networkPolicy || chain.networkPolicyConfig,
                             options?.networkPolicy
                         );
+                        // Include validation and before hooks in the same runtime identity
+                        // as the action so rejected ecosystem inputs remain observable.
+                        const executeInspectedStep = () => stepInspectionStorage.run({
+                            stackId, stepId: chain.$stepId || chainName, stepName: chainName,
+                            namespace: options?.namespace, monitor: options?.monitor,
+                            attempt: (initialParam?.[ATTEMPT] ? (typeof initialParam[ATTEMPT] === 'function' ? initialParam[ATTEMPT]() : initialParam[ATTEMPT]) : 0) + 1
+                        }, executeStep);
+
                         if (effectiveNetworkPolicy?.enabled) {
                             ensureNetworkInterceptorsInstalled();
                         }
@@ -630,10 +639,10 @@ export default class StartChain {
                         if (effectiveNetworkPolicy?.enabled) {
                             networkPolicyStorage.run(
                                 { ...effectiveNetworkPolicy, stepName: chainName },
-                                executeStep
+                                executeInspectedStep
                             );
                         } else {
-                            executeStep();
+                            executeInspectedStep();
                         }
                     } catch (err: any) {
                         clearStepTimeout();

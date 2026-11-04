@@ -1,6 +1,10 @@
 import { SigloEventType } from '../types/events';
 
 export const SIGLO_EVENT_TYPES: SigloEventType[] = [
+  'step:inspection',
+  'ai:complete',
+  'notification:dispatched',
+  'approval:requested',
   'flow:start',
   'flow:complete',
   'flow:error',

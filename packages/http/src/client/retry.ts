@@ -24,8 +24,8 @@ export function parseRetryAfter(
 
   // Scenario A: Integer / decimal seconds (e.g. "120" or "1.5")
   const seconds = Number(trimmed);
-  if (!Number.isNaN(seconds)) {
-    return seconds >= 0 ? Math.round(seconds * 1000) : undefined;
+  if (Number.isFinite(seconds)) {
+    return seconds >= 0 && Number.isFinite(seconds * 1000) ? Math.round(seconds * 1000) : undefined;
   }
 
   // Scenario B: RFC 1123 HTTP Date (e.g. "Wed, 21 Oct 2026 07:28:00 GMT")

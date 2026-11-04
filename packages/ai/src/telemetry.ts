@@ -1,8 +1,8 @@
 import { trace } from '@opentelemetry/api';
-import { emitMonitoringEvent, defaultStorageManager } from 'siglo';
+import { emitMonitoringEvent, defaultStorageManager, stepInspectionStorage, sanitizeInspection, InspectionContent } from 'siglo';
 import type { AiMetrics } from './types';
 
-export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any): void {
+export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any, content?: InspectionContent): void {
   try {
     const span = ctx?.$span ?? ctx?.span ?? trace.getActiveSpan();
     if (span) {
@@ -17,12 +17,18 @@ export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any): 
       })) span.setAttribute(key, value);
     }
   } catch { /* Observability must not change inference outcomes. */ }
-  const stackId = typeof ctx?.$stackId === 'function' ? ctx.$stackId() : ctx?.$stackId;
-  if (stackId) {
-    const namespace = typeof ctx?.$namespace === 'function' ? ctx.$namespace() : ctx?.$namespace;
-    emitMonitoringEvent({ monitor: defaultStorageManager.getStack(stackId)?.monitor }, {
-      type: 'ai:complete', stackId, stepId: name, stepName: name, timestamp: Date.now(), namespace,
-      aiMetrics: { ...metrics }
-    });
-  }
+  try {
+    const scope = stepInspectionStorage.getStore();
+    if (scope) scope.ecosystemKind = 'ai';
+    const stackId = scope?.stackId ?? (typeof ctx?.$stackId === 'function' ? ctx.$stackId() : ctx?.$stackId);
+    if (stackId) {
+      const namespace = scope?.namespace ?? (typeof ctx?.$namespace === 'function' ? ctx.$namespace() : ctx?.$namespace);
+      emitMonitoringEvent({ monitor: scope?.monitor ?? defaultStorageManager.getStack(stackId)?.monitor }, {
+        type: 'ai:complete', stackId, stepId: scope?.stepId ?? name, stepName: name,
+        attempt: scope?.attempt, timestamp: Date.now(), namespace, aiMetrics: { ...metrics },
+        inspection: sanitizeInspection({ version: 1, kind: 'ai', outcome: 'success',
+          phase: 'completion', content, provider: metrics.providerUsed, model: metrics.modelUsed, ...metrics, durationMs: metrics.latencyMs })
+      });
+    }
+  } catch { /* Observability cannot change inference outcomes. */ }
 }

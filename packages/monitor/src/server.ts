@@ -1,5 +1,5 @@
 import * as http from 'http';
-import {redactEvent, RedactionOptions, redactValue, resumeWorkflow, WorkflowEventEmitter} from 'siglo';
+import {sanitizeInspection, redactEvent, RedactionOptions, redactValue, resumeWorkflow, WorkflowEventEmitter} from 'siglo';
 import {MonitorServerAuthOptions, MonitorServerCorsOptions, MonitorServerOptions} from './types';
 import {WorkflowExecutionStore} from './store';
 import {SSEBroadcaster} from './transports/sse';
@@ -22,6 +22,14 @@ export interface MonitorServerInstance {
 
 const activeServers = new Map<number, MonitorServerInstance>();
 
+function validInspectionEvent(event: any): boolean {
+    if (event?.type !== 'step:inspection' && !(event?.type === 'ai:complete' && event.inspection)) return true;
+    return typeof event.stackId === 'string' && !!event.stackId && typeof event.stepId === 'string' && !!event.stepId
+        && Number.isSafeInteger(event.attempt) && event.attempt > 0
+        && Number.isFinite(event.timestamp) && event.timestamp >= 0 && !!sanitizeInspection(event.inspection)
+        && (event.type !== 'ai:complete' || event.inspection.kind === 'ai');
+}
+
 function safeJsonStringify(obj: any): string {
     const seen = new WeakSet();
     return JSON.stringify(obj, (key, value) => {
@@ -42,6 +50,7 @@ function sanitizeRunRecord(run: any, redaction?: RedactionOptions): any {
     if (!run) return run;
     return {
         ...run,
+        steps: redactValue(run.steps, redaction),
         context: redactValue(run.context, redaction),
         contextDiffs: Array.isArray(run.contextDiffs)
             ? run.contextDiffs.map((d: any) => ({ ...d, value: redactValue(d.value, redaction) }))
@@ -206,17 +215,19 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     const ws = new WebSocketBroadcaster({
         redaction: effectiveRedaction,
         allowRemoteResume,
+        maxPayloadBytes,
+        authorizeMessage: (message, req) => checkAuth(req,
+            new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`),
+            message.action === 'event' ? 'ingest' : message.action === 'resume' ? 'control' : 'read'),
         authenticate: (req) => {
             const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
             return checkAuth(req, url, 'read');
         },
         onClientMessage: (message, client) => {
             if (message.action === 'event' && message.event) {
-                store.addEvent(message.event);
-                sse.broadcast(message.event);
-                ws.broadcast(message.event);
-                metrics.handleEvent(message.event);
-                emitter.emit(message.event);
+                if (!validInspectionEvent(message.event)) return;
+                const event = redactEvent(message.event, effectiveRedaction);
+                emitter.emit(event);
             } else if (message.action === 'resume' && message.stackId && allowRemoteResume) {
                 const run = store.getRun(message.stackId);
                 const targetFlow = resolveTargetFlow(message.stackId, run, options, workflows);
@@ -238,7 +249,8 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     const metrics = new PrometheusExporter();
 
     // Wire up events
-    emitter.on('*', (event) => {
+    emitter.on('*', (rawEvent) => {
+        const event = redactEvent(rawEvent, effectiveRedaction);
         store.addEvent(event);
         sse.broadcast(event);
         ws.broadcast(event);
@@ -305,13 +317,10 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 try {
                     const parsed = JSON.parse(body);
                     const events = Array.isArray(parsed) ? parsed : [parsed];
+                    if (!events.every(validInspectionEvent)) throw new Error('Invalid inspection event');
                     for (const ev of events) {
                         if (ev && ev.type && ev.stackId) {
-                            store.addEvent(ev);
-                            sse.broadcast(ev);
-                            ws.broadcast(ev);
-                            metrics.handleEvent(ev);
-                            emitter.emit(ev);
+                            emitter.emit(redactEvent(ev, effectiveRedaction));
                         }
                     }
                     res.writeHead(202, { 'Content-Type': 'application/json' });

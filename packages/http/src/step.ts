@@ -1,4 +1,4 @@
-import { Step } from 'siglo';
+import { Step, observeEcosystem, recordInspection } from 'siglo';
 import {
   HttpMethod,
   HttpStepOptions,
@@ -39,6 +39,7 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
 
       // 3. ACTION Phase: Network Execution via executeHttpRequest
       const res = await executeHttpRequest<TOutput>({
+        capture: options.capture,
         stepName: name,
         url: resolvedUrl,
         method: options.method || 'GET',
@@ -100,7 +101,9 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
       return wrappedResult;
     };
 
-    super(name, action as any);
+    super(name, ((ctx: TInput) => observeEcosystem({ version: 1, kind: 'http', outcome: 'failure',
+      method: options.method || 'GET', url: typeof options.url === 'string' ? options.url : undefined },
+      () => action(ctx), result => ({ ...result.$httpMetadata, policy: 'allowed' as const }))) as any);
     this.httpOptions = options;
 
     // Static host assertion for graph inspection
@@ -111,12 +114,19 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
 
     // 1. BEFORE Phase: Validate ASL Network Egress Perimeter early
     this.onBefore(async (ctx: TInput) => {
+      try {
       const resolvedUrl = typeof options.url === 'function' ? options.url(ctx) : options.url;
       const { hostname, port } = extractHostInfo(resolvedUrl);
 
       // Asserts hostname against active AsyncLocalStorage (ASL) network policy
       assertNetworkPolicy(name, resolvedUrl, hostname, port);
 
+      } catch (error) {
+        recordInspection({ version: 1, kind: 'http', outcome: 'failure', method: options.method || 'GET',
+          url: typeof options.url === 'string' ? options.url : undefined,
+          policy: (error as any)?.name === 'NetworkPolicyViolationException' ? 'denied' : 'unknown' });
+        throw error;
+      }
       return true;
     });
 

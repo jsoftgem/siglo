@@ -102,6 +102,7 @@ export async function resumeWorkflow(
 
         emitMonitoringEvent(effectiveOptions, {
             type: 'flow:resumed',
+            resumeReason: (waitRecord.resumePayload ?? eventPayload)?.event?.type === 'timer:expired' ? 'timer-expired' : 'event',
             stackId: waitRecord.stackId,
             stepId: waitRecord.stepId,
             correlationKey: waitRecord.correlationKey,
