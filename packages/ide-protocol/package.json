@@ -1,0 +1,46 @@
+{
+  "name": "@siglo/ide-protocol",
+  "version": "1.0.0",
+  "description": "Shared JSON-RPC 2.0 schemas, interfaces, and protocol types for Siglo IDE extensions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && mocha -r tsx 'test/**/*.test.ts' --exit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
+    "directory": "packages/ide-protocol"
+  },
+  "author": "Jerico de Guzman",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "chai": "^3.5.0",
+    "mocha": "^12.0.3",
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.0"
+  }
+}

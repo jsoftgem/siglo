@@ -592,3 +592,37 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
         await monitor.close();
     });
 });
+
+// Use Case 24: every Step.spec option and alias, plus field and root schemas.
+test('Order intake specs normalize, default, translate, and validate input', async () => {
+    const { createOrderIntakeSpecsPipeline } = await import('./workflow/usecases/usecase-24-order-intake-specs');
+    const input = {
+        orderId: 'ORD-24', email: ' Buyer@Example.com ', countryCode: 'ph',
+        quantity: 2, unitPrice: 125,
+        shippingAddress: { city: 'Manila', postalCode: '1000' }
+    };
+    const result = await createOrderIntakeSpecsPipeline().run(input);
+    assert.equal(result.orderIntakeStatus, 'ACCEPTED');
+    assert.equal(result.totalAmount, 250);
+    assert.equal(result.order.email, 'buyer@example.com');
+    assert.equal(result.order.countryCode, 'PH');
+    assert.equal(result.order.currency, 'PHP');
+    assert.equal(result.order.shippingMethod, 'STANDARD');
+    assert.equal(result.order.customerDomain, 'example.com');
+    assert.equal(result.order.shippingRegion, 'DOMESTIC');
+
+    const custom = await createOrderIntakeSpecsPipeline(true).run({
+        ...input, purchaseOrder: 'PO-24', currency: 'USD', shippingMethod: 'EXPRESS'
+    });
+    assert.equal(custom.order.purchaseOrder, 'PO-24');
+    assert.equal(custom.order.currency, 'USD');
+    assert.equal(custom.order.shippingMethod, 'EXPRESS');
+
+    for (const invalid of [
+        { orderId: '' }, { quantity: 0 }, { unitPrice: -1 },
+        { email: 'invalid' }, { shippingAddress: { city: '', postalCode: '1000' } }
+    ]) {
+        await assert.rejects(() => createOrderIntakeSpecsPipeline().run({ ...input, ...invalid }));
+    }
+    await assert.rejects(() => createOrderIntakeSpecsPipeline(true).run(input));
+});

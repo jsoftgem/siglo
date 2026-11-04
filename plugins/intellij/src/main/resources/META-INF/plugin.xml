@@ -1,0 +1,36 @@
+<idea-plugin>
+    <id>io.siglo.idea</id>
+    <name>Siglo Workflows</name>
+    <vendor url="https://github.com/jsoftgem/siglo">Siglo</vendor>
+
+    <description><![CDATA[
+        Siglo Workflow Explorer & DevTools for IntelliJ IDEA.
+        Provides static workflow graph inspection, bidirectional source code navigation,
+        and developer tools for Siglo workflows.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="siglo-jcef.xml">com.intellij.modules.jcef</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Siglo Workflows Tool Window -->
+        <toolWindow id="Siglo Workflows"
+                    anchor="right"
+                    secondary="false"
+                    factoryClass="io.siglo.idea.toolwindow.SigloToolWindowFactory"
+                    icon="io.siglo.idea.SigloIcons.TOOL_WINDOW"/>
+
+        <!-- Project Service managing the background Node analyzer daemon -->
+        <projectService serviceImplementation="io.siglo.idea.process.SigloAnalyzerService"/>
+    </extensions>
+
+    <actions>
+        <action id="io.siglo.idea.OpenWorkflowGraph"
+                class="io.siglo.idea.actions.OpenWorkflowGraphAction"
+                text="Visualize Siglo Workflow"
+                description="Open static graph visualization for the current Siglo workflow"
+                icon="io.siglo.idea.SigloIcons.TOOL_WINDOW">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
