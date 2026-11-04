@@ -1,10 +1,7 @@
+import { randomUUID } from 'crypto';
+
 export const generateUUID = (): string => {
-    let d = new Date().getTime();
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (d + Math.random() * 16) % 16 | 0;
-        d = Math.floor(d / 16);
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
+    return randomUUID();
 };
 
 export const batchIn = (
@@ -56,6 +53,64 @@ export function isValidJson(json: string): boolean {
     } catch {
         return false;
     }
+}
+
+export function safeClone<T>(val: T, seen = new WeakMap<any, any>()): T {
+    if (val === null || typeof val !== 'object') {
+        return val;
+    }
+    if (val !== null && typeof (val as any).addEventListener === 'function') {
+        return val;
+    }
+    if (seen.has(val)) {
+        return seen.get(val);
+    }
+    if (val instanceof Date) {
+        return new Date(val.getTime()) as any;
+    }
+    if (val instanceof RegExp) {
+        return new RegExp(val.source, val.flags) as any;
+    }
+    if (val instanceof Error) {
+        return val;
+    }
+    if (typeof ArrayBuffer !== 'undefined' && (val instanceof ArrayBuffer || ArrayBuffer.isView(val))) {
+        return val;
+    }
+    if (val instanceof Map) {
+        const copy = new Map();
+        seen.set(val, copy);
+        for (const [k, v] of val.entries()) {
+            copy.set(safeClone(k, seen), safeClone(v, seen));
+        }
+        return copy as any;
+    }
+    if (val instanceof Set) {
+        const copy = new Set();
+        seen.set(val, copy);
+        for (const item of val) {
+            copy.add(safeClone(item, seen));
+        }
+        return copy as any;
+    }
+    if (Array.isArray(val)) {
+        const copy: any[] = [];
+        seen.set(val, copy);
+        for (let i = 0; i < val.length; i++) {
+            copy[i] = safeClone(val[i], seen);
+        }
+        return copy as any;
+    }
+    const copy: Record<string, any> = {};
+    seen.set(val, copy);
+    for (const key of Object.keys(val)) {
+        const propVal = (val as any)[key];
+        if (typeof propVal === 'function') {
+            continue;
+        }
+        copy[key] = safeClone(propVal, seen);
+    }
+    return copy as any;
 }
 
 export interface PromiseCollectResult<T = any> {

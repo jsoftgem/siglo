@@ -8,7 +8,7 @@ import {
     pipe,
     isPipeline,
     isFlow,
-    RivuletError,
+    SigloError,
     StepTimeoutException,
     FlowTimeoutException,
     CancellationException,
@@ -31,7 +31,6 @@ import {
     getErrorMode,
     cleanExpiredCheckpoints,
     parallel,
-    all,
     allSettled,
     race,
     when,
@@ -112,9 +111,9 @@ describe('Product Clarity and Reliability Integration Suite', () => {
     });
 
     describe('Workstream 3: Error Model & Normalization', () => {
-        it('RivuletError attaches metadata, preserves cause, and exports toJSON cleanly', () => {
+        it('SigloError attaches metadata, preserves cause, and exports toJSON cleanly', () => {
             const causeErr = new Error('Database connection failed');
-            const err = new RivuletError('Operation failed', {
+            const err = new SigloError('Operation failed', {
                 stepName: 'fetchUser',
                 phase: 'action',
                 retryable: true,
@@ -126,9 +125,9 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             });
 
             expect(err).to.be.instanceOf(Error);
-            expect(err).to.be.instanceOf(RivuletError);
-            expect(err).to.be.instanceOf(RivuletError);
-            expect(err.name).to.equal('RivuletError');
+            expect(err).to.be.instanceOf(SigloError);
+            expect(err).to.be.instanceOf(SigloError);
+            expect(err.name).to.equal('SigloError');
             expect(err.message).to.equal('Operation failed');
             expect(err.stepName).to.equal('fetchUser');
             expect(err.phase).to.equal('action');
@@ -148,7 +147,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             (err as any).stateSnapshot = circularObj;
 
             const json = err.toJSON();
-            expect(json.name).to.equal('RivuletError');
+            expect(json.name).to.equal('SigloError');
             expect(json.message).to.equal('Operation failed');
             expect(json.stepName).to.equal('fetchUser');
             expect(json.phase).to.equal('action');
@@ -201,9 +200,9 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect((valErr as any).error[0].field).to.equal('email');
         });
 
-        it('normalizeError normalizes various input formats into RivuletError', () => {
-            // Already RivuletError - supplements empty metadata fields
-            const fErr = new RivuletError('orig');
+        it('normalizeError normalizes various input formats into SigloError', () => {
+            // Already SigloError - supplements empty metadata fields
+            const fErr = new SigloError('orig');
             const norm1 = normalizeError(fErr, {
                 stackId: 'stk',
                 namespace: 'tnt',
@@ -233,7 +232,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
 
             // Plain Error
             const norm4 = normalizeError(new Error('plain boom'));
-            expect(norm4).to.be.instanceOf(RivuletError);
+            expect(norm4).to.be.instanceOf(SigloError);
             expect(norm4.message).to.equal('plain boom');
 
             // String
@@ -254,8 +253,8 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 await flow(badStep).execute({}, {namespace: 'ns-1'});
                 expect.fail('Flow should have rejected');
             } catch (err: any) {
-                expect(err).to.be.instanceOf(RivuletError);
-            expect(err).to.be.instanceOf(RivuletError);
+                expect(err).to.be.instanceOf(SigloError);
+            expect(err).to.be.instanceOf(SigloError);
                 expect(err.stepName).to.equal('failingStep');
                 expect(err.phase).to.equal('action');
                 expect(err.namespace).to.equal('ns-1');
@@ -294,7 +293,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             let attempts = 0;
             const nonRetryableStep = Step.create('nonRetryable', () => {
                     attempts++;
-                    throw new RivuletError('Fatal config error', {retryable: false});
+                    throw new SigloError('Fatal config error', {retryable: false});
                 })
                 .onFail({
                     maxRetries: 3,

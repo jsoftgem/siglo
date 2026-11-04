@@ -83,8 +83,8 @@ describe('storage.unit.test', () => {
     });
 
     it('plugins can override getChainContext', () => {
-        setGetChainContextPlugin((chainId: string, field: string) => {
-            return () => `${chainId}_${field}`;
+        setGetChainContextPlugin((stepId: string, field: string) => {
+            return () => `${stepId}_${field}`;
         });
         expect(getChainContext('c1', 'f1')()).to.equal('c1_f1');
 
@@ -100,7 +100,7 @@ describe('storage.unit.test', () => {
 
     it('putChainContext passes stackId via meta or auto-resolves from stacks', () => {
         let capturedMeta: any;
-        setPutChainContextPlugin((_chainId: string, _field: string, _getter: any, meta?: any) => {
+        setPutChainContextPlugin((_stepId: string, _field: string, _getter: any, meta?: any) => {
             capturedMeta = meta;
         });
 
@@ -123,7 +123,7 @@ describe('storage.unit.test', () => {
 
     it('plugins can override putChainContext', () => {
         let putCtxCalled = false;
-        setPutChainContextPlugin((_chainId: string, _field: string, _val: any) => {
+        setPutChainContextPlugin((_stepId: string, _field: string, _val: any) => {
             putCtxCalled = true;
         });
         putChainContext('anyId', 'field', 'val');
@@ -189,7 +189,7 @@ describe('storage.unit.test', () => {
         isolated.clearCache('noStack', 'noChain');
         expect(isolated.hasCached('noStack', 'noChain', {})).to.be.false;
 
-        expect(isolated.getChainContext('noChainId', 'noField')).to.be.undefined;
+        expect(isolated.getChainContext('noStepId', 'noField')).to.be.undefined;
     });
 
     describe('Checkpointing and State Serialization unit tests', () => {
@@ -224,7 +224,7 @@ describe('storage.unit.test', () => {
                 chains: ['step_a'],
                 contexts: {
                     step_a: {
-                        name: 'Rivulet',
+                        name: 'Siglo',
                         age: 5
                     }
                 },
@@ -232,12 +232,12 @@ describe('storage.unit.test', () => {
             };
 
             isolated.restoreCheckpoint(chk);
-            expect(isolated.getChainContext('step_a', 'name')()).to.equal('Rivulet');
+            expect(isolated.getChainContext('step_a', 'name')()).to.equal('Siglo');
             expect(isolated.getChainContext('step_a', 'age')()).to.equal(5);
 
             clearStorage();
             restoreCheckpoint(chk);
-            expect(getChainContext('step_a', 'name')()).to.equal('Rivulet');
+            expect(getChainContext('step_a', 'name')()).to.equal('Siglo');
             clearStorage();
         });
 

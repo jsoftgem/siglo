@@ -1,6 +1,6 @@
 import { Tracer, Span } from '@opentelemetry/api';
 
-export interface RivuletTelemetryOptions {
+export interface SigloTelemetryOptions {
     tracer?: Tracer;
     serviceName?: string;
     workflowName?: string;
@@ -20,3 +20,5 @@ export interface ActiveExecutionSpan {
     stepSpans: Map<string, Span>;
 }
 
+
+export type RivuletTelemetryOptions = SigloTelemetryOptions;

@@ -33,10 +33,22 @@ export class Util {
             const newParam = effContext.createContext(effUUID(), effStackId, effNamespace);
             for (const name in param) {
                 if (Object.prototype.hasOwnProperty.call(param, name)) {
+                    if (typeof param[name] === 'function') {
+                        continue;
+                    }
                     newParam.set(name, param[name]);
                 }
             }
-            return newParam.getData();
+            const data = newParam.getData();
+            for (const name in param) {
+                if (typeof param[name] === 'function') {
+                    data[name] = param[name];
+                }
+            }
+            for (const sym of Object.getOwnPropertySymbols(param)) {
+                (data as any)[sym] = (param as any)[sym];
+            }
+            return data;
         }
         if (effStackId && !(param as any)[STACK_ID]) {
             param.setStackId(effStackId);

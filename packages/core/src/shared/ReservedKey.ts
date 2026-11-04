@@ -3,7 +3,8 @@ export const ReservedKey = {
     STEPS: '$steps',
     HISTORY: '$history',
     SIGNAL: '$signal',
-    CHAIN_ID: '$chainId',
+    STEP_ID: '$stepId',
+    CHAIN_ID: '$stepId',
     STACK_ID: '$stackId',
     NAMESPACE: '$namespace',
     SERVICES: '$services',
@@ -15,9 +16,9 @@ export const ReservedKey = {
     STACK_ID_KEY: 'stackId',
     SIGNAL_KEY: 'signal',
     NAMESPACE_KEY: 'namespace',
+    STEP_ID_KEY: 'stepId',
 
     // Workflow / Execution metadata keys
-    STEP_ID: '$stepId',
     ATTEMPT: '$attempt',
     RETRY_DELAY: '$retryDelay',
     IS_DURABLE: '$isDurable',
@@ -36,6 +37,7 @@ export type ReservedKey = (typeof ReservedKey)[keyof typeof ReservedKey];
 export const STEPS = ReservedKey.STEPS;
 export const HISTORY = ReservedKey.HISTORY;
 export const SIGNAL = ReservedKey.SIGNAL;
+export const STEP_ID = ReservedKey.STEP_ID;
 export const CHAIN_ID = ReservedKey.CHAIN_ID;
 export const STACK_ID = ReservedKey.STACK_ID;
 export const NAMESPACE = ReservedKey.NAMESPACE;
@@ -47,8 +49,8 @@ export const VALIDATORS = ReservedKey.VALIDATORS;
 export const STACK_ID_KEY = ReservedKey.STACK_ID_KEY;
 export const SIGNAL_KEY = ReservedKey.SIGNAL_KEY;
 export const NAMESPACE_KEY = ReservedKey.NAMESPACE_KEY;
+export const STEP_ID_KEY = ReservedKey.STEP_ID_KEY;
 
-export const STEP_ID = ReservedKey.STEP_ID;
 export const ATTEMPT = ReservedKey.ATTEMPT;
 export const RETRY_DELAY = ReservedKey.RETRY_DELAY;
 export const IS_DURABLE = ReservedKey.IS_DURABLE;
@@ -65,6 +67,7 @@ const CORE_RESERVED_KEYS = new Set<string>([
     ReservedKey.STEPS,
     ReservedKey.HISTORY,
     ReservedKey.SIGNAL,
+    ReservedKey.STEP_ID,
     ReservedKey.CHAIN_ID,
     ReservedKey.STACK_ID,
     ReservedKey.NAMESPACE,
@@ -75,7 +78,7 @@ const CORE_RESERVED_KEYS = new Set<string>([
     ReservedKey.STACK_ID_KEY,
     ReservedKey.SIGNAL_KEY,
     ReservedKey.NAMESPACE_KEY,
-    ReservedKey.STEP_ID,
+    ReservedKey.STEP_ID_KEY,
 ]);
 
 export const isReservedKey = (key: string): key is ReservedKey => {

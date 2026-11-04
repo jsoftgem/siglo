@@ -4,7 +4,8 @@ import {
     flow,
     defaultCompensationManager,
     CompensationException,
-    clearStorage
+    clearStorage,
+    defaultStorageManager
 } from '../../index';
 
 describe('Compensation and Sagas Unit Tests', () => {
@@ -206,5 +207,38 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         expect(defaultCompensationManager.getCompensations('stack-clear-1')).to.have.length(0);
         expect(defaultCompensationManager.getCompensations('stack-clear-2')).to.have.length(0);
+    });
+
+    it('hydrates compensations from checkpoint metadata when in-memory registry is cleared', async () => {
+        let compensated = false;
+
+        const step1 = Step.create('bookHotel', () => ({ bookingId: 'hotel-123' }))
+            .compensate(async () => {
+                compensated = true;
+            });
+        const waitStep = Step.create('waitConfirm', () => {
+            const err: any = new Error('Suspended');
+            err.name = 'WorkflowSuspendedException';
+            err.correlationKey = 'corr-hydrate';
+            throw err;
+        });
+
+        const f = flow(step1, waitStep);
+        const suspension = await f.run({}, { durable: true });
+        const stackId = suspension.stackId;
+
+        // Verify checkpoint contains compensations
+        const cp = await defaultStorageManager.getCheckpoint(stackId);
+        expect(cp?.metadata?.compensations).to.be.an('array');
+        expect(cp?.metadata?.compensations).to.have.length(1);
+
+        // Clear in-memory compensation registry to simulate node restart
+        defaultCompensationManager.clear();
+        expect(defaultCompensationManager.getCompensations(stackId)).to.have.length(0);
+
+        // Call f.compensate: should hydrate and execute!
+        const result = await f.compensate(stackId);
+        expect(result.completed).to.include('bookHotel');
+        expect(compensated).to.be.true;
     });
 });

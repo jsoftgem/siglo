@@ -70,7 +70,7 @@ class MockRedisClient implements RedisClientInterface {
     }
 }
 
-describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
+describe('@siglo/redis Storage & Idempotency Adapter Suite', () => {
     let mockClient: MockRedisClient;
 
     beforeEach(() => {
@@ -94,6 +94,45 @@ describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
             const retrieved = await adapter.getCheckpoint('stack-101');
 
             expect(retrieved).to.deep.equal(checkpoint);
+        });
+
+        it('isolates checkpoints and context events by tenant namespace', async () => {
+            const adapter = new RedisStorageAdapter({ client: mockClient });
+            const checkpointTenantA = {
+                stackId: 'shared-stack-id',
+                namespace: 'tenant-a',
+                contexts: { step1: { tenant: 'A' } },
+            };
+            const checkpointTenantB = {
+                stackId: 'shared-stack-id',
+                namespace: 'tenant-b',
+                contexts: { step1: { tenant: 'B' } },
+            };
+
+            await adapter.saveCheckpoint(checkpointTenantA as any);
+            await adapter.saveCheckpoint(checkpointTenantB as any);
+
+            // Separate Redis keys per tenant namespace
+            expect(mockClient.storage.has('siglo:tenant-a:checkpoint:shared-stack-id')).to.be.true;
+            expect(mockClient.storage.has('siglo:tenant-b:checkpoint:shared-stack-id')).to.be.true;
+
+            const retrievedA = await adapter.getCheckpoint('shared-stack-id', 'tenant-a');
+            const retrievedB = await adapter.getCheckpoint('shared-stack-id', 'tenant-b');
+
+            expect((retrievedA as any)?.contexts.step1.tenant).to.equal('A');
+            expect((retrievedB as any)?.contexts.step1.tenant).to.equal('B');
+
+            // Namespaced context changes
+            await adapter.onContextChange({
+                namespace: 'tenant-a',
+                stackId: 'shared-stack-id',
+                stepId: 'step1',
+                field: 'role',
+                value: 'admin',
+                timestamp: Date.now(),
+            });
+            const hashA = await mockClient.hgetall('siglo:tenant-a:context:shared-stack-id:step1');
+            expect(hashA.role).to.equal('admin');
         });
 
         it('returns undefined when checkpoint does not exist', async () => {
@@ -122,8 +161,31 @@ describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
                 timestamp: Date.now(),
             });
 
-            const hash = await mockClient.hgetall('rivulet:context:stack-202:processPayment');
+            const hash = await mockClient.hgetall('siglo:context:stack-202:processPayment');
             expect(hash.transactionId).to.equal('txn_999');
+        });
+
+        it('cleans expired checkpoints and persists wait records', async () => {
+            const adapter = new RedisStorageAdapter({ client: mockClient });
+            const cleaned = await adapter.cleanExpiredCheckpoints();
+            expect(cleaned).to.equal(0);
+
+            const waitRecord = {
+                stackId: 'redis-wait-stack',
+                correlationKey: 'corr-redis-1',
+                eventName: 'approval',
+                status: 'waiting',
+                continuationStepIndex: 1
+            };
+            await adapter.saveWaitRecord(waitRecord);
+            const retrievedByStack = await adapter.getWaitRecord('redis-wait-stack');
+            expect(retrievedByStack).to.deep.equal(waitRecord);
+
+            const retrievedByKey = await adapter.getWaitRecord('corr-redis-1');
+            expect(retrievedByKey).to.deep.equal(waitRecord);
+
+            expect(await adapter.getWaitRecord('')).to.be.undefined;
+            await adapter.saveWaitRecord(null as any);
         });
     });
 
@@ -181,6 +243,7 @@ describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
             const { acquired, token } = await lock.acquire('job:sync-orders', 5000);
             expect(acquired).to.be.true;
             expect(token).to.be.a('string');
+            expect(token).to.match(/^lock_\d+_[a-f0-9]{32}$/);
 
             // Concurrent acquire fails
             const secondAttempt = await lock.acquire('job:sync-orders', 5000);
@@ -197,6 +260,18 @@ describe('@rivulet/redis Storage & Idempotency Adapter Suite', () => {
             // Now acquire succeeds again
             const thirdAttempt = await lock.acquire('job:sync-orders', 5000);
             expect(thirdAttempt.acquired).to.be.true;
+        });
+
+        it('enforces strictAtomicity when client.eval is missing', async () => {
+            const strictLock = new RedisLock(mockClient, { strictAtomicity: true });
+            const { token } = await strictLock.acquire('strict:key', 5000);
+
+            try {
+                await strictLock.release('strict:key', token);
+                expect.fail('Should have thrown on non-atomic release');
+            } catch (err: any) {
+                expect(err.message).to.include('client.eval is required');
+            }
         });
 
         it('executes function wrapped in withLock', async () => {

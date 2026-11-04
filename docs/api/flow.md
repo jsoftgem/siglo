@@ -1,6 +1,6 @@
 # API Reference: Flow Instance Methods (`Flow`)
 
-The `Flow` interface represents an executable, composable workflow pipeline in **Rivulet**. Instances are created using `flow(...steps)`. A `Flow` encapsulates sequential step execution, deadline timeouts, versioning, saga rollbacks, durable event resumption, and AST graph visualization.
+The `Flow` interface represents an executable, composable workflow pipeline in **Siglo**. Instances are created using `flow(...steps)`. A `Flow` encapsulates sequential step execution, deadline timeouts, versioning, saga rollbacks, durable event resumption, and AST graph visualization.
 
 ---
 
@@ -14,6 +14,7 @@ The `Flow` interface represents an executable, composable workflow pipeline in *
 - [Configuration Methods](#configuration-methods)
   - [`flow.timeout(ms)`](#flowtimeoutms)
   - [`flow.version(version)`](#flowversionversion)
+  - [`flow.networkPolicy(policy)`](#flownetworkpolicypolicy)
 - [Lifecycle & Resumption Methods](#lifecycle--resumption-methods)
   - [`flow.resume(correlationKeyOrStackId, payload?, options?)`](#flowresumecorrelationkeyorstackid-payload-options)
   - [`flow.compensate(stackId, options?)`](#flowcompensatestackid-options)
@@ -44,6 +45,7 @@ export interface Flow<TInput = any, TOutput = any> {
     timeoutMs?: number;
     workflowVersion?: string | number;
     version: (v: string | number) => Flow<TInput, TOutput>;
+    networkPolicy?: (policy: NetworkPolicyConfig) => Flow<TInput, TOutput>;
     toGraph: () => WorkflowNode;
     inspect: () => GraphInspectionResult;
     toMermaid: (options?: MermaidExportOptions) => string;
@@ -83,7 +85,7 @@ A Promise resolving to `TOutput`, which contains:
 #### Example
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const step1 = Step.create('init', async (ctx: { orderId: string }) => ({ status: 'pending' }));
 const step2 = Step.create('calculate', async (ctx: { status: string }) => ({ total: 99.95 }));
@@ -129,7 +131,7 @@ Returns the `flow` instance for fluent chaining.
 #### Example
 
 ```typescript
-import { Step, flow, FlowTimeoutException } from 'rivulet';
+import { Step, flow, FlowTimeoutException } from 'siglo';
 
 const longStep = Step.create('slow', async () => {
     await new Promise(r => setTimeout(r, 5000));
@@ -172,11 +174,61 @@ When a durable workflow resumes:
 #### Example
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 export const userOnboarding = flow(
     Step.create('step1', async () => ({ v: 2 }))
 ).version('v2.1');
+```
+
+---
+
+### `flow.networkPolicy(policy)`
+
+Configures the workflow-level network egress policy perimeter. The flow policy supersedes all individual step policies: steps can only narrow permissions within what the flow permits. Outbound requests are intercepted across `globalThis.fetch`, `node:http`/`node:https`, and raw `node:net.Socket`. Loopback addresses and local Unix sockets are permitted by default.
+
+#### Signature
+
+```typescript
+flow.networkPolicy(policy: NetworkPolicyConfig): Flow<TInput, TOutput>;
+```
+
+#### Chainable
+
+Returns the `flow` instance for fluent chaining.
+
+#### Parameters
+
+- `policy`: `NetworkPolicyConfig`
+  - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Outer permissible hosts or wildcard patterns.
+  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Outer perimeter default policy.
+  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback and Unix socket exemption.
+
+#### Precedence & Narrowing Rules
+
+1. **Outer Envelope**: The flow's `allowedHosts` defines the outer boundary. If a flow only allows `['api.stripe.com']`, a step cannot allow `api.github.com`.
+2. **Step Narrowing**: A step can choose to permit only a subset of the flow's allowed hosts or call `.denyNetwork()`.
+3. **Execution Options Override**: Network policy can also be supplied dynamically per execution run via `flow.run(payload, { networkPolicy: { ... } })`.
+
+#### Example
+
+```typescript
+import { Step, flow } from 'siglo';
+
+const chargeCustomer = Step.create('charge', async () => {
+    return await fetch('https://api.stripe.com/v1/charges');
+}).allowNetwork(['api.stripe.com']);
+
+const sendEmail = Step.create('email', async () => {
+    return await fetch('https://api.sendgrid.com/v3/mail/send');
+}).allowNetwork(['api.sendgrid.com']);
+
+// Flow allows both, but individual steps only have access to their designated service
+export const paymentFlow = flow(chargeCustomer, sendEmail)
+    .networkPolicy({
+        defaultPolicy: 'deny',
+        allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
+    });
 ```
 
 ---
@@ -206,7 +258,7 @@ flow.resume(
 #### Example
 
 ```typescript
-import { Step, flow, waitForEvent } from 'rivulet';
+import { Step, flow, waitForEvent } from 'siglo';
 
 const orderFlow = flow(
     Step.create('create', async () => ({ orderId: 'ord_123' })),
@@ -351,7 +403,7 @@ Read-only string or number reflecting the workflow schema version configured via
 Flows are first-class execution units and can be nested seamlessly within other flows:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const subFlowA = flow(
     Step.create('stepA1', async () => ({ a1: true })),

@@ -29,10 +29,19 @@ export interface StorageAdapter {
     getCheckpoint?(stackId: string): Promise<SerializedExecutionStack | undefined>;
     cleanExpiredCheckpoints?(): Promise<number> | number | void;
 
-    // 3. Distributed Caching
+    // 3. Durable Wait Persistence
+    saveWaitRecord?(record: any): Promise<void> | void;
+    getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
+    claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
+    completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
+    withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
+    cancelWaitRecord?(correlationKey: string): Promise<void>;
+    cancelWorkflow?(stackId: string): Promise<void>;
+
+    // 4. Distributed Caching
     getCachedStep?(key: string): Promise<any | undefined>;
     setCachedStep?(key: string, value: any, ttlMs: number): Promise<void>;
 
-    // 4. Cache & Telemetry Events
+    // 5. Cache & Telemetry Events
     onCacheEvent?(event: CacheEvent): Promise<void> | void;
 }

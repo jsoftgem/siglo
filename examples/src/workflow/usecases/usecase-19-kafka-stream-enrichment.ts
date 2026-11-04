@@ -1,5 +1,5 @@
-import { Step, flow } from 'rivulet';
-import { createKafkaMessageHandler } from '@rivulet/kafka';
+import { Step, flow } from 'siglo';
+import { createKafkaMessageHandler } from '@siglo/kafka';
 
 export interface KafkaTransactionPayload {
     transactionId: string;
@@ -23,7 +23,7 @@ export interface EnrichedTransactionOutput {
 
 /**
  * Use Case 19: High-Volume Event-Driven Kafka Stream Enrichment
- * Adapter demonstrated: @rivulet/kafka
+ * Adapter demonstrated: @siglo/kafka
  * Features demonstrated:
  * - Consumption of streaming messages via createKafkaMessageHandler
  * - Namespace extraction from Kafka headers (`x-namespace`)
@@ -87,7 +87,7 @@ export function createKafkaEnrichmentWorkflow() {
  * Creates Kafka message consumer handler.
  */
 export function createKafkaTransactionConsumer(workflow = createKafkaEnrichmentWorkflow()) {
-    const handler = createKafkaMessageHandler(workflow, {
+    const handler = createKafkaMessageHandler<any, any>(workflow, {
         output: (result: any, message: any) => ({
             status: 'COMMITTED',
             key: message.key ? message.key.toString() : null,

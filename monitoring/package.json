@@ -1,8 +1,8 @@
 {
-  "name": "rivulet-apm-monitoring",
+  "name": "siglo-apm-monitoring",
   "version": "1.0.0",
   "private": true,
-  "description": "Zero-code APM dashboard setup for Rivulet workflows using OpenTelemetry, Jaeger, and Grafana",
+  "description": "Zero-code APM dashboard setup for Siglo workflows using OpenTelemetry, Jaeger, and Grafana",
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
@@ -17,13 +17,13 @@
     "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
-    "@rivulet/opentelemetry": "^1.0.0",
-    "rivulet": "^1.0.0",
+    "@siglo/opentelemetry": "^1.0.0",
+    "siglo": "^1.0.0",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-trace-base": "^1.30.0",
-    "@opentelemetry/sdk-trace-node": "^1.30.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
-    "@opentelemetry/resources": "^1.30.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/sdk-trace-node": "^2.12.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/resources": "^2.12.0",
     "@opentelemetry/semantic-conventions": "^1.28.0"
   },
   "devDependencies": {

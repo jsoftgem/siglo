@@ -1,6 +1,6 @@
 # API Reference: Step Methods (`Step`)
 
-The `Step` class is the fundamental execution unit in **Rivulet**. A step encapsulates an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
+The `Step` class is the fundamental execution unit in **Siglo**. A step encapsulates an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
 
 ---
 
@@ -29,6 +29,10 @@ The `Step` class is the fundamental execution unit in **Rivulet**. A step encaps
   - [`step.requireDependency(key)`](#steprequiredependencykey)
 - [Context Transformation](#context-transformation)
   - [`step.reduce(field)`](#stepreducefield)
+- [Network Egress Guardrails](#network-egress-guardrails)
+  - [`step.allowNetwork(hosts, allowLocalhost?)`](#stepallownetworkhosts-allowlocalhost)
+  - [`step.denyNetwork()`](#stepdenynetwork)
+  - [`step.networkPolicy(policy)`](#stepnetworkpolicypolicy)
 - [Execution & Inspection](#execution--inspection)
   - [`step.run(param?, options?)` / `step.execute()`](#steprunparam-options--stepexecute)
   - [`step.toGraph()`, `step.inspect()`, `step.toMermaid()`](#graph-and-export-methods)
@@ -40,14 +44,22 @@ The `Step` class is the fundamental execution unit in **Rivulet**. A step encaps
 
 Every step executes through five distinct, deterministic phases:
 
-```
-Context In ──> [ 1. Validation ] ──> [ 2. onBefore ] ──> [ 3. Action ] ──> [ 4. onAfter ] ──> [ 5. Context Merge ] ──> Context Out
-                     │                      │                   │
-                     ▼ (fail)               ▼ (skip: false)     ▼ (fail)
-             ValidationException        [ onSkip ]         [ onFail (Retry/Fallback) ]
-                                            │                   │ (compensate)
-                                            ▼                   ▼
-                                       Skip Output      Compensation Rollback
+```mermaid
+flowchart TD
+    CIn["Context In"] --> V["1. Validation"]
+    V -->|Pass| B["2. onBefore"]
+    V -->|Fail| VE["ValidationException"]
+
+    B -->|Continue| A["3. Action"]
+    B -->|Skip: false| OS["onSkip"]
+    OS --> SO["Skip Output"]
+
+    A -->|Success| AF["4. onAfter"]
+    A -->|Fail| OF["onFail (Retry/Fallback)"]
+    OF -->|Compensate| CR["Compensation Rollback"]
+
+    AF --> CM["5. Context Merge"]
+    CM --> COut["Context Out"]
 ```
 
 1. **Validation**: Enforces parameter constraints declared via `.schema()` or `.spec()`. Rejections throw `ValidationException`.
@@ -55,6 +67,9 @@ Context In ──> [ 1. Validation ] ──> [ 2. onBefore ] ──> [ 3. Action
 3. **Action Execution**: Runs the step action under the configured `timeout`, `idempotent` lock, and `onFail` retry strategy.
 4. **Post-Execution Transform (`onAfter`)**: Modifies or enriches the raw output before merging.
 5. **Context Merge**: Merges step output into the accumulated workflow context (or assigns it to a target property if `.reduce()` was configured).
+
+> [!NOTE]
+> **Network Guardrails Across Lifecycle Phases**: When `.allowNetwork()`, `.denyNetwork()`, or `.networkPolicy()` is declared, the network egress policy governs phases 2 (`onBefore`/`onSkip`), 3 (`action`), 4 (`onAfter`), and `onFail` through Node's `AsyncLocalStorage`. Any unauthorized outbound call triggers a `NetworkPolicyViolationException` tagged with the active phase (`before`, `action`, or `after`).
 
 ---
 
@@ -88,7 +103,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 #### Example
 
 ```typescript
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 
 interface UserInput {
     userId: string;
@@ -121,7 +136,7 @@ step.schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput, TName>;
 #### Example with Zod
 
 ```typescript
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 import { z } from 'zod';
 
 const OrderInputSchema = z.object({
@@ -294,7 +309,7 @@ step.timeout(ms: number): Step<TInput, TOutput, TName>;
 #### Example
 
 ```typescript
-import { Step, StepTimeoutException } from 'rivulet';
+import { Step, StepTimeoutException } from 'siglo';
 
 const callExternalVendor = Step.create('vendorApi', async (param, _curr, _idx) => {
     const res = await fetch('https://api.vendor.com/data');
@@ -404,12 +419,7 @@ step.idempotent(
 
 #### Semantics
 
-1. **Claiming**: Before execution, attempts to claim the key in the configured `IdempotencyStore`.
-2. **Conflict**: If already in-progress, throws `IdempotencyConflictException`.
-3. **Cache Hit**: If previously completed and within TTL, returns cached output without re-executing.
-4. **Completion**: Upon successful execution, records output and marks status `COMPLETED`.
-
-#### Example
+1. **Claiming**: Before execution, attempts to claim the key in the configured `IdempotencyStore`.\n2. **Conflict**: If already in-progress, throws `IdempotencyConflictException`.\n3. **Cache Hit**: If previously completed and within TTL, returns cached output without re-executing.\n4. **Completion**: Upon successful execution, records output and marks status `COMPLETED`.\n\n#### Example
 
 ```typescript
 const chargeCard = Step.create('chargeCard', async (ctx: { idempotencyToken: string; amount: number }) => {
@@ -507,6 +517,95 @@ const countItems = Step.create('count', async () => 42)
     .reduce('itemCount');
 
 // Output context: { itemCount: 42 } rather than { value: 42 }
+```
+
+---
+
+## Network Egress Guardrails
+
+Steps can declare granular network egress permissions enforced via Node's `AsyncLocalStorage` (ASL). In flows with an outer network policy, the flow supersedes the step; steps can only narrow permissions within what the flow permits. By default, loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are allowed.
+
+### Lifecycle Hook Governance & Plugin Isolation
+
+The network policy boundary wraps the **entire step execution lifecycle** via `AsyncLocalStorage`. This ensures comprehensive perimeter enforcement:
+- **`onBefore` & `onSkip`**: Pre-execution guards and fallback computations are governed by the step's allowlist, preventing data exfiltration or unauthorized calls during pre-checks. Outbound violations during pre-checks fail with `phase: 'before'`.
+- **`action` & `reduce`**: The core step execution runs within the policy context (violations tagged with `phase: 'action'`).
+- **`onAfter`**: Context enrichment and post-processing cannot bypass step network restrictions (violations tagged with `phase: 'after'`).
+- **`onFail`**: Step-level retries and fallback error handlers adhere to the policy perimeter.
+- **Global Plugins (`executeBefore`, `executeAfter`)**: Engine-level plugins execute **outside** this boundary to ensure system observability, tracing, and metric reporting (e.g., OpenTelemetry, Datadog) remain unaffected.
+- **Compensations (`step.compensate`)**: Sagas rollback in an independent scope with their own execution perimeter.
+
+### `step.allowNetwork(hosts, allowLocalhost?)`
+
+Declares an allowlist of target hosts, wildcard subdomains, ports, or regular expressions permitted for network calls during this step.
+
+#### Signatures
+
+```typescript
+step.allowNetwork(hosts: (string | RegExp)[], allowLocalhost?: boolean): this;
+```
+
+#### Parameters
+
+- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\\.internal$/`).
+- `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Whether loopback addresses and Unix sockets are permitted.
+
+#### Example
+
+```typescript
+const chargeStep = Step.create('charge', async ({ amount }) => {
+    return await fetch('https://api.stripe.com/v1/charges', { /* ... */ });
+}).allowNetwork(['api.stripe.com', '*.stripe.network']);
+```
+
+---
+
+### `step.denyNetwork()`
+
+Shorthand for `.allowNetwork([])`. Strictly denies all external outbound network access from the step's lifecycle hooks and action.
+
+#### Signature
+
+```typescript
+step.denyNetwork(): this;
+```
+
+#### Example
+
+```typescript
+const computeTax = Step.create('computeTax', ({ subtotal }) => {
+    return { tax: subtotal * 0.08 };
+}).denyNetwork(); // Disallows external network egress entirely
+```
+
+---
+
+### `step.networkPolicy(policy)`
+
+Configures the complete network egress policy object for the step.
+
+#### Signature
+
+```typescript
+step.networkPolicy(policy: NetworkPolicyConfig): this;
+```
+
+#### Parameters
+
+- `policy`: `NetworkPolicyConfig`
+  - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Allowed target host patterns.
+  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Default fallback rule.
+  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback and Unix socket exemption.
+
+#### Example
+
+```typescript
+const syncStep = Step.create('sync', async () => { /* ... */ })
+    .networkPolicy({
+        allowedHosts: ['api.github.com'],
+        defaultPolicy: 'deny',
+        allowLocalhost: true
+    });
 ```
 
 ---

@@ -16,6 +16,7 @@ export interface WaitingWorkflowRecord {
     createdAt: number;
     resumedAt?: number;
     version?: string | number;
+    namespace?: string;
 }
 
 export type StateMigrationFn = (oldVersion: any, newVersion: any, state: any) => any;

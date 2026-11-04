@@ -1,23 +1,23 @@
 <p align="center">
-  <img src="../../docs/assets/rivulet-logo.jpg" alt="Rivulet Logo" width="220" style="border-radius: 16px;" />
+  <img src="../../docs/assets/siglo-logo.png" alt="Siglo Logo" width="220" style="border-radius: 16px;" />
 </p>
 
-# Rivulet Core
+# Siglo Core
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/rivulet)
+[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
+[![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)]()
 
-**Rivulet** allows you to break complex business logic into clean, reusable, and resilient steps. It combines functional composition with parameter contracts, deterministic caching, lifecycle hooks, structured retry strategies, isolated storage, parallel combinators, sagas with LIFO compensations, scoped idempotency, durable event-driven waits, end-to-end TypeScript context inference, visualization exports, live monitoring DevTools, and deterministic test harnesses.
+**Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic Sagas, durable checkpoints, and live DevTools without external infrastructure.
 
 ---
 
 ## Positioning: In-Process Orchestration vs Distributed Engines
 
-| Dimension | `Rivulet` | Distributed Engines (Temporal, Inngest) |
+| Dimension | `Siglo` | Distributed Engines (Temporal, Inngest) |
 |---|---|---|
 | **Architecture** | Lightweight, zero-infrastructure in-process library | Heavy multi-cluster / external orchestrator daemon |
 | **Latency** | Microsecond direct async function invocation | Millisecond-to-second RPC / polling overhead |
@@ -38,7 +38,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 6. ⏳ [06. Durable Workflows](../../docs/06-durable-workflows.md) &mdash; Long-running human-in-the-loop waits (`waitForEvent`, `wait`), checkpoint resumption, and state migrations.
 7. 💾 [07. Storage and Adapters](../../docs/07-storage-and-adapters.md) &mdash; Distributed persistence contracts, PostgreSQL & Redis adapters, and multi-tenant namespaces.
 8. 🔭 [08. Observability](../../docs/08-observability.md) &mdash; Graph exports (Mermaid, DOT, JSON), OpenTelemetry distributed tracing, and W3C trace propagation.
-9. 🧪 [09. Testing and Replay](../../docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@rivulet/testing`), fake clocks, step spies, mocks, and failure replay.
+9. 🧪 [09. Testing and Replay](../../docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@siglo/testing`), fake clocks, step spies, mocks, and failure replay.
 10. 🏷️ [10. TypeScript Reference](../../docs/10-typescript-reference.md) &mdash; End-to-end accumulated context inference, typed step history (`$steps`), and Standard Schema integration.
 11. 🔄 [11. Migration and Compatibility](../../docs/11-migration-and-compatibility.md) &mdash; Upgrading from 0.x (`Chain`, `pipe`) to 1.0 (`Step`, `flow`), backwards compatibility, and modern POJO mode.
 12. 🏭 [12. Production Operations](../../docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
@@ -48,7 +48,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 ## Quickstart: Type-Safe Composable Flows
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 // 1. Define modular steps with input/output contracts
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {

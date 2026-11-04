@@ -1,9 +1,18 @@
 {
-  "name": "@rivulet/sqs",
+  "name": "@siglo/sqs",
   "version": "1.0.0",
-  "description": "AWS SQS message batch processor and event consumer adapter for Rivulet workflows",
+  "description": "AWS SQS message batch processor and event consumer adapter for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "README.md",
@@ -20,17 +29,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jsoftgem/rivulet.git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
     "directory": "packages/sqs"
   },
   "author": "Jerico de Guzman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jsoftgem/rivulet/issues"
+    "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/rivulet#readme",
+  "homepage": "https://github.com/jsoftgem/siglo#readme",
   "dependencies": {
-    "rivulet": "^1.0.0"
+    "siglo": "^1.0.0"
   },
   "peerDependencies": {
     "@aws-sdk/client-sqs": "^3.0.0"
@@ -45,7 +54,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.6.5",
     "chai": "^3.5.0",
-    "mocha": "^5.2.0",
+    "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
   }

@@ -11,7 +11,7 @@ export default class ResolveChain {
         executeAfter?: (chain: string, context: any) => Promise<any>,
         Context?: any,
         reject?: (reason?: any) => void,
-        options?: any
+        _options?: any
     ) {
         logInfo('SingleChain', {
             chain,

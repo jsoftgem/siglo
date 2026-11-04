@@ -1,6 +1,6 @@
 # API Reference: Storage & Persistence Utilities
 
-The Storage & Persistence API in **Rivulet** provides durable checkpointing, execution stack snapshots, optimistic concurrency control (OCC), multi-tenant namespace isolation, and pluggable storage adapters for distributed backends (e.g. PostgreSQL, Redis).
+The Storage & Persistence API in **Siglo** provides durable checkpointing, execution stack snapshots, optimistic concurrency control (OCC), multi-tenant namespace isolation, and pluggable storage adapters for distributed backends (e.g. PostgreSQL, Redis).
 
 ---
 
@@ -28,7 +28,7 @@ The Storage & Persistence API in **Rivulet** provides durable checkpointing, exe
 
 ## The `StorageAdapter` Interface
 
-Custom persistence adapters (such as `@rivulet/postgres` and `@rivulet/redis`) implement the `StorageAdapter` interface:
+Custom persistence adapters (such as `@siglo/postgres` and `@siglo/redis`) implement the `StorageAdapter` interface:
 
 ```typescript
 export interface StorageAdapter {
@@ -71,7 +71,7 @@ export interface StorageAdapter {
 
 ### `useStorage(adapter)`
 
-Registers the global storage adapter for the Rivulet runtime. Once registered, all workflow checkpoints, context updates, and distributed caching route through this adapter.
+Registers the global storage adapter for the Siglo runtime. Once registered, all workflow checkpoints, context updates, and distributed caching route through this adapter.
 
 #### Signature
 
@@ -82,12 +82,12 @@ export function useStorage(adapter: StorageAdapter): void;
 #### Example
 
 ```typescript
-import { useStorage } from 'rivulet';
-import { PostgresStorageAdapter } from '@rivulet/postgres';
+import { useStorage } from 'siglo';
+import { PostgresStorageAdapter } from '@siglo/postgres';
 
 const postgresAdapter = new PostgresStorageAdapter({
     connectionString: process.env.DATABASE_URL,
-    schema: 'rivulet_workflows'
+    schema: 'siglo_workflows'
 });
 
 useStorage(postgresAdapter);
@@ -97,7 +97,7 @@ useStorage(postgresAdapter);
 
 ### `getStorageAdapter()`
 
-Returns the currently registered `StorageAdapter`, or `undefined` if Rivulet is operating on the default in-memory storage manager.
+Returns the currently registered `StorageAdapter`, or `undefined` if Siglo is operating on the default in-memory storage manager.
 
 #### Signature
 
@@ -109,7 +109,7 @@ export function getStorageAdapter(): StorageAdapter | undefined;
 
 ### `setErrorMode(mode)` and `getErrorMode()`
 
-Configures how Rivulet responds when storage adapter operations fail (e.g. database disconnect during checkpoint save).
+Configures how Siglo responds when storage adapter operations fail (e.g. database disconnect during checkpoint save).
 
 #### Signatures
 
@@ -129,7 +129,7 @@ export function getErrorMode(): StorageErrorMode;
 #### Example
 
 ```typescript
-import { setErrorMode } from 'rivulet';
+import { setErrorMode } from 'siglo';
 
 // Enforce strict persistence in production environments
 if (process.env.NODE_ENV === 'production') {
@@ -185,7 +185,7 @@ export function getCheckpoint(
 #### Example
 
 ```typescript
-import { getCheckpoint } from 'rivulet';
+import { getCheckpoint } from 'siglo';
 
 const cp = await getCheckpoint('stack_abc123');
 if (cp) {
@@ -228,7 +228,7 @@ export function cleanExpiredCheckpoints(): number;
 #### Example
 
 ```typescript
-import { cleanExpiredCheckpoints } from 'rivulet';
+import { cleanExpiredCheckpoints } from 'siglo';
 
 // Scheduled cron job running every hour
 setInterval(() => {
@@ -304,10 +304,10 @@ Checkpoints are serialized using standard Schema v2.0.0:
 
 ## Optimistic Concurrency Control (OCC)
 
-Rivulet uses optimistic concurrency control to prevent multiple distributed workers from overwriting checkpoints concurrently.
+Siglo uses optimistic concurrency control to prevent multiple distributed workers from overwriting checkpoints concurrently.
 
 1. Every checkpoint increments an integer `revision` counter (`0, 1, 2, ...`).
-2. When saving with `options.expectedRevision`, Rivulet verifies that `expectedRevision === currentRevision`.
+2. When saving with `options.expectedRevision`, Siglo verifies that `expectedRevision === currentRevision`.
 3. If another worker updated the checkpoint in the interim, `CheckpointConflictException` is thrown, allowing the caller to reload and retry.
 
 ---

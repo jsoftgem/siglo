@@ -1,6 +1,6 @@
-# @rivulet/express Adapter Guide
+# @siglo/express Adapter Guide
 
-`@rivulet/express` provides an Express middleware adapter for executing `Rivulet` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
+`@siglo/express` provides an Express middleware adapter for executing `Siglo` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
 
 ---
 
@@ -8,81 +8,57 @@
 
 The Express adapter acts as a route-level or path-level middleware:
 
-```
-    HTTP Request (Client)
-             │
-             ▼
-    ┌─────────────────────────────────┐
-    │     rivuletExpressMiddleware      │
-    │  • Extract Correlation ID       │ ──> Set X-Correlation-Id header
-    │  • Extract Input (body / query) │
-    │  • Extract Namespace Header     │
-    │  • Extract req.signal (Abort)   │
-    └────────────────┬────────────────┘
-                     │
-                     ▼
-    ┌─────────────────────────────────┐
-    │       Rivulet Workflow       │
-    │  • Validations & Computations   │
-    │  • Cooperative Cancellation     │
-    │  • Distributed Steps & Sagas    │
-    └────────────────┬────────────────┘
-                     │
-           ┌─────────┴─────────┐
-       (Success)            (Error)
-           │                   │
-           ▼                   ▼
-    ┌──────────────┐   ┌───────────────────────────┐
-    │ Set Stack ID │   │ getErrorStatusCode(err)   │
-    │ 200 OK /     │   │ • 504 Gateway Timeout     │
-    │ Custom JSON  │   │ • 400 Bad Request         │
-    └──────────────┘   │ • 409 Conflict            │
-                       │ • 499 Client Closed Req   │
-                       │ • 500 Server Error        │
-                       └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["HTTP Request (Client)"] --> MW["sigloExpressMiddleware<br/>• Extract Correlation ID (Set X-Correlation-Id header)<br/>• Extract Input (body / query)<br/>• Partition Namespace Scope<br/>• Extract req.signal (Abort)"]
+    MW --> WF["Siglo Workflow<br/>• Validations & Computations<br/>• Cooperative Cancellation<br/>• Distributed Steps & Sagas"]
+    WF -->|Success| Success["Set Stack ID<br/>200 OK / Custom JSON"]
+    WF -->|Error| Error["getErrorStatusCode(err)<br/>• 504 Gateway Timeout<br/>• 400 Bad Request<br/>• 409 Conflict<br/>• 499 Client Closed Req<br/>• 500 Server Error"]
 ```
 
 ---
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/express` and `Rivulet`:
+Install `@siglo/express` and `Siglo`:
 
 ```bash
-npm install Rivulet @rivulet/express express
+npm install Siglo @siglo/express express
 npm install --save-dev @types/express
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `express`: `^4.18.0 || ^5.0.0`
 
 ---
 
 ## 3. API Reference
 
-### `rivuletExpressMiddleware(workflow, options)`
+### `sigloExpressMiddleware(workflow, options)`
 
 Returns a standard Express middleware function `(req, res, next) => Promise<any>`.
 
 ```typescript
-function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
+function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletExpressOptions<TReq, TInput, TOutput>
+    options?: SigloExpressOptions<TReq, TInput, TOutput>
 ): (req: any, res: any, next: (err?: any) => void) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`RivuletExpressOptions`)
+## 4. Configuration Options (`SigloExpressOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `input` | `(req: TReq) => Promise<TInput> \| TInput` | `req.body \|\| req.query` | Custom mapping function from `Request` to workflow input parameters. |
 | `output` | `(result: TOutput, res: Response) => Promise<any> \| any` | `res.json(result)` | Custom responder to set custom status codes, headers, or response shapes. |
 | `timeout` | `number` | `undefined` | Execution timeout in milliseconds. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded. |
-| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `req.headers['x-namespace']` | Namespace string or extractor function for tenant data partitioning. |
-| `onError` | `(err: any, req: TReq, res: any, next: NextFunction) => any` | Default JSON handler | Custom error responder. If omitted, maps status codes and returns `{ error: message }`. |
+| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `undefined` | Namespace string or extractor function for tenant data partitioning. |
+| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
+| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError` | `(err: any, req: TReq, res: any, next: NextFunction) => any` | Default JSON handler | Custom error responder. If omitted, maps status codes and returns sanitized `{ error: message }`. |
 | `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name to inspect for incoming correlation IDs. |
 
 ---
@@ -114,7 +90,7 @@ When an unhandled exception is thrown inside a workflow, the adapter's `getError
 
 When a client closes an HTTP connection early (e.g. user closes browser or upstream proxy aborts), Express exposes `req.signal` (in Express 5) or `req.raw?.signal`.
 
-`@rivulet/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
+`@siglo/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
 
 ```typescript
 const fetchExternalInventory = Step.create(async (param) => {
@@ -132,8 +108,8 @@ If the client terminates the connection while the fetch is pending, the HTTP req
 
 ```typescript
 import express, { Request, Response } from 'express';
-import { Step, flow } from 'rivulet';
-import { rivuletExpressMiddleware } from '@rivulet/express';
+import { Step, flow } from 'siglo';
+import { sigloExpressMiddleware } from '@siglo/express';
 
 const app = express();
 app.use(express.json());
@@ -165,10 +141,10 @@ const createOrderRecord = Step.create('createOrderRecord', async (param: any) =>
 
 const checkoutFlow = flow(validateCart, chargeCustomer, createOrderRecord);
 
-// 2. Mount Rivulet Route
+// 2. Mount Siglo Route
 app.post(
     '/api/v1/checkout',
-    rivuletExpressMiddleware(checkoutFlow, {
+    sigloExpressMiddleware(checkoutFlow, {
         timeout: 10000, // 10s execution SLA
         correlationIdHeader: 'x-request-id',
         input: (req: Request) => ({

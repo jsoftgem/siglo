@@ -1,4 +1,4 @@
-import { Step, flow, parallel, toGraph, validateGraph, inspectGraph, assertValidGraph } from 'rivulet';
+import { Step, flow, parallel, toGraph, validateGraph, inspectGraph, assertValidGraph } from 'siglo';
 
 export interface DeploymentInput {
     releaseId: string;

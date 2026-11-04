@@ -18,7 +18,7 @@ export interface SequenceNode extends BaseWorkflowNode {
 }
 
 export type ParallelMode = 'fail-fast' | 'allSettled' | 'race';
-export type MergeStrategyType = 'shallow' | 'deep' | 'error' | ((target: any, source: any, branchKey: string | number) => any);
+export type MergeStrategyType = 'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
 
 export interface ParallelNode extends BaseWorkflowNode {
     type: 'parallel';

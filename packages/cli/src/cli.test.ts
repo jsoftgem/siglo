@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Step, flow, parallel } from 'rivulet';
+import { Step, flow, parallel } from 'siglo';
 import {
     visualizeWorkflow,
     validateWorkflow,
@@ -13,10 +13,12 @@ import {
     inspectCheckpoint,
     generateWorkflow,
     generateStep,
-    exportWorkflow
+    exportWorkflow,
+    startMonitor,
+    reconcileCommand
 } from './index';
 
-describe('@rivulet/cli Developer Tools Suite', () => {
+describe('@siglo/cli Developer Tools Suite', () => {
     it('visualizes workflow as Mermaid and text diagram', () => {
         const step1 = Step.create('validate', async () => ({ valid: true }));
         const step2 = Step.create('charge', async () => ({ charged: true }));
@@ -116,7 +118,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
     });
 
     it('scaffolds starter project files via initProject', () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rivulet-cli-init-test-'));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'siglo-cli-init-test-'));
         try {
             const res = initProject(tempDir);
             expect(res.filesCreated.length).to.equal(3);
@@ -128,7 +130,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
         }
     });
     it("scaffolds typed workflow files via generateWorkflow", () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rivulet-cli-wf-test-"));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "siglo-cli-wf-test-"));
         try {
             const res = generateWorkflow("order-processing", tempDir);
             expect(fs.existsSync(res.filePath)).to.be.true;
@@ -142,7 +144,7 @@ describe('@rivulet/cli Developer Tools Suite', () => {
     });
 
     it("scaffolds typed step files via generateStep", () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rivulet-cli-step-test-"));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "siglo-cli-step-test-"));
         try {
             const res = generateStep("authorize-payment", tempDir);
             expect(fs.existsSync(res.filePath)).to.be.true;
@@ -166,5 +168,56 @@ describe('@rivulet/cli Developer Tools Suite', () => {
 
         const json = exportWorkflow(wf, { format: "json" });
         expect(JSON.parse(json)).to.have.property("name", "s1");
+    });
+    it('starts live monitoring server via startMonitor', async () => {
+        const monitor = await startMonitor({ port: 0 });
+        expect(monitor.port).to.be.a('number');
+        expect(monitor.server).to.not.be.undefined;
+        await monitor.close();
+    });
+    it('reconciles abandoned stacks via reconcileCommand', async () => {
+        const staleTime = Date.now() - 10 * 60 * 1000;
+        const dummyStacks = [
+            { stackId: 'cli-stale-1', status: 'running', timestamp: staleTime, workflowId: 'wf-cli' },
+            { stackId: 'cli-fresh-1', status: 'running', timestamp: Date.now(), workflowId: 'wf-cli' }
+        ];
+
+        // 1. Inspect
+        const inspectReport = await reconcileCommand({
+            staleThreshold: '5m',
+            action: 'inspect',
+            stacks: dummyStacks
+        });
+        expect(inspectReport.inspected).to.equal(2);
+        expect(inspectReport.staleStacks).to.have.length(1);
+        expect(inspectReport.staleStacks[0].stackId).to.equal('cli-stale-1');
+
+        // 2. Fail
+        const failReport = await reconcileCommand({
+            staleThreshold: '5m',
+            action: 'fail',
+            stacks: dummyStacks
+        });
+        expect(failReport.reconciled).to.include('cli-stale-1');
+
+        // 3. Compensate with flow
+        let compensated = false;
+        const mockFlow = {
+            compensate: async (id: string) => {
+                expect(id).to.equal('cli-stale-1');
+                compensated = true;
+                return { completed: ['step1'], failed: [] };
+            }
+        };
+
+        const compReport = await reconcileCommand({
+            staleThreshold: '5m',
+            action: 'compensate',
+            mode: 'best-effort',
+            flow: mockFlow,
+            stacks: dummyStacks
+        });
+        expect(compensated).to.be.true;
+        expect(compReport.reconciled).to.include('cli-stale-1');
     });
 });

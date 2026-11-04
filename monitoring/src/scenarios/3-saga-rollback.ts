@@ -1,5 +1,5 @@
-import { Step, flow } from 'rivulet';
-import { instrumentWorkflow } from '@rivulet/opentelemetry';
+import { Step, flow } from 'siglo';
+import { instrumentWorkflow } from '@siglo/opentelemetry';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { initTelemetry, getRecordedSpans, clearRecordedSpans, printTraceWaterfall } from '../tracer';
 

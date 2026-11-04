@@ -22,18 +22,22 @@ import {
     createGovernedDeploymentPipeline,
     createHttpCheckoutWorkflow,
     createFastifyCheckoutHandler,
+    createExpressCheckoutHandler,
+    createHonoCheckoutHandler,
     createKafkaTransactionConsumer,
     createBullMqImageProcessor,
+    createSqsImageBatchConsumer,
     MockTracer,
     setupInstrumentedWorkflow,
     MockPostgresClient,
     MockRedisClient,
-    setupSaaSBillingInfrastructure
+    setupSaaSBillingInfrastructure,
+    runLiveMonitoringSample
 } from './workflow/usecases';
 
 async function main() {
     console.log('========================================================================');
-    console.log('   rivulet: Top 22 Production Event-Driven & Workflow Use Cases');
+    console.log('   siglo: Top 23 Production Event-Driven & Workflow Use Cases');
     console.log('========================================================================\n');
 
     // 1. Initialize Database Connectors & Register Storage Hooks
@@ -53,8 +57,10 @@ async function main() {
         ],
         couponCode: 'SAVE10'
     };
-    const orderResult = await orderPipeline.run(orderInput);
-    console.log(`  ✔ Base Order Pipeline -> Invoice ID: ${orderResult.invoiceId}, Total: $${orderResult.amountCharged()}`);
+
+    const orderResult = await orderPipeline
+        .run(orderInput);
+    console.log(`  ✔ Base Order Pipeline -> Invoice ID: ${orderResult.invoiceId}, Total: $${orderResult.amountCharged}`);
 
     // --- 1. E-Commerce Saga ---
     console.log('\n[Demo] 1. E-Commerce Distributed Checkout & Saga Orchestration...');
@@ -69,7 +75,7 @@ async function main() {
         paymentDetails: {cardNumber: '4111-XXXX-XXXX-1111', amount: 1300},
         shippingAddress: {street: '100 Infinite Loop', city: 'Cupertino', zip: '95014'}
     });
-    console.log(`  ✔ E-Commerce Saga -> Status: ${sagaRes.sagaStatus}, Tracking: ${sagaRes.trackingNumber()}, Payment: ${sagaRes.paymentStatus}`);
+    console.log(`  ✔ E-Commerce Saga -> Status: ${sagaRes.sagaStatus}, Tracking: ${sagaRes.trackingNumber}, Payment: ${sagaRes.paymentStatus}`);
 
     // --- 2. AI RAG Pipeline ---
     console.log('\n[Demo] 2. Multi-Stage AI / LLM & RAG Ingestion Pipeline...');
@@ -78,24 +84,25 @@ async function main() {
         documentId: 'DOC-RAG-882',
         sourceUri: 's3://company-docs/architecture-overview.pdf',
         mimeType: 'application/pdf',
-        rawText: 'Rivulet provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
+        rawText: 'Siglo provides discrete step execution, deterministic caching, and pluggable storage hooks. ' +
             'Combined with Apache Kafka, teams can build fault-tolerant, event-driven pipelines across distributed clusters.'
     });
-    console.log(`  ✔ AI / RAG Pipeline -> Status: ${ragRes.ragPipelineStatus}, Vectors Indexed: ${ragRes.indexedVectors()}`);
+    console.log(`  ✔ AI / RAG Pipeline -> Status: ${ragRes.ragPipelineStatus}, Vectors Indexed: ${ragRes.indexedVectors}`);
 
     // --- 3. Financial Transaction Processing & Fraud Detection ---
     console.log('\n[Demo] 3. Financial Transaction Processing & Fraud Detection...');
     const finPipeline = createFinancialFraudPipeline();
-    const finRes = await finPipeline.run({
-        transactionId: 'TXN-FIN-501',
-        sourceAccountId: 'ACCT-USER-100',
-        destinationAccountId: 'ACCT-USER-200',
-        amount: 2500,
-        currency: 'USD',
-        clientIp: '192.168.1.50',
-        timestamp: Date.now()
-    });
-    console.log(`  ✔ Financial Pipeline -> Status: ${finRes.finStatus}, Journal: ${finRes.journalId()}, Risk Score: ${finRes.riskScore()}`);
+    const finRes = await finPipeline
+        .run({
+            transactionId: 'TXN-FIN-501',
+            sourceAccountId: 'ACCT-USER-100',
+            destinationAccountId: 'ACCT-USER-200',
+            amount: 2500,
+            currency: 'USD',
+            clientIp: '192.168.1.50',
+            timestamp: Date.now()
+        });
+    console.log(`  ✔ Financial Pipeline -> Status: ${finRes.finStatus}, Journal: ${finRes.journalId}, Risk Score: ${finRes.riskScore}`);
 
     // --- 4. Asynchronous Media Transcoding ---
     console.log('\n[Demo] 4. Asynchronous Media Transcoding & Asset Processing...');
@@ -212,7 +219,7 @@ async function main() {
         severity: 'CRITICAL',
         maintenanceWindowActive: false
     });
-    console.log(`  ✔ SecOps Remediation -> Status: ${secopsRes.secopsPipelineStatus}, Ticket: ${secopsRes.incidentTicket()}, Node Quarantined: ${secopsRes.quarantinedNode}`);
+    console.log(`  ✔ SecOps Remediation -> Status: ${secopsRes.secopsPipelineStatus}, Ticket: ${secopsRes.incidentTicket}, Node Quarantined: ${secopsRes.quarantinedNode}`);
 
     // ========================================================================
     //   Phase 2: Core Workflow Power Use Cases
@@ -229,7 +236,7 @@ async function main() {
         hotelName: 'Ritz-Carlton',
         shouldFailPayment: false
     });
-    console.log(`  ✔ Travel Saga -> Status: ${travelRes.sagaStatus}, Vouchers: ${travelRes.vouchersIssued}, Total: $${travelRes.totalAmount()}`);
+    console.log(`  ✔ Travel Saga -> Status: ${travelRes.sagaStatus}, Vouchers: ${travelRes.vouchersIssued}, Total: $${travelRes.totalAmount}`);
 
     // --- 12. High-Throughput Batch Processing with Bounded Worker Pool ---
     console.log('\n[Demo] 12. Document Batch Processing with Bounded Worker Pool (concurrency: 3)...');
@@ -256,7 +263,7 @@ async function main() {
         byteSize: 52428800,
         mimeType: 'video/mp4'
     });
-    console.log(`  ✔ Multi-Cloud Race & Sync -> Status: ${cloudRes.pipelineStatus}, Edge: ${cloudRes.selectedEdge()}, Replicas: AWS, GCP, Azure`);
+    console.log(`  ✔ Multi-Cloud Race & Sync -> Status: ${cloudRes.pipelineStatus}, Edge: ${cloudRes.selectedEdge}, Replicas: AWS, GCP, Azure`);
 
     // --- 14. Dynamic Loan Underwriting Engine with Multi-Path Routing ---
     console.log('\n[Demo] 14. Dynamic Loan Underwriting Engine with Multi-Path Routing...');
@@ -269,7 +276,7 @@ async function main() {
         requestedAmount: 30000,
         hasPartnerPromo: true
     });
-    console.log(`  ✔ Loan Underwriting -> Tier: ${loanRes.riskTier()}, Decision: ${loanRes.decision}, Interest Rate: ${loanRes.interestRate}%`);
+    console.log(`  ✔ Loan Underwriting -> Tier: ${loanRes.riskTier}, Decision: ${loanRes.decision}, Interest Rate: ${loanRes.interestRate}%`);
 
     // --- 15. Scoped Financial Settlement & Idempotent Claim Locking ---
     console.log('\n[Demo] 15. Scoped Financial Settlement & Idempotent Claim Locking...');
@@ -283,7 +290,7 @@ async function main() {
     };
     const s1 = await settlementPipeline.run(settlementInput);
     await settlementPipeline.run(settlementInput); // Duplicate delivery
-    console.log(`  ✔ Idempotent Settlement -> Status: ${s1.pipelineStatus}, Journal: ${s1.journalRef()}, Executions: ${settlementStats.settlementExecutionCount} (Deduplicated!)`);
+    console.log(`  ✔ Idempotent Settlement -> Status: ${s1.pipelineStatus}, Journal: ${s1.journalRef}, Executions: ${settlementStats.settlementExecutionCount} (Deduplicated!)`);
 
     // --- 16. Durable Long-Running Human-in-the-Loop Expense Approval ---
     console.log('\n[Demo] 16. Durable Long-Running Human-in-the-Loop Expense Approval & Resumption...');
@@ -300,7 +307,7 @@ async function main() {
         approvedBy: 'cfo@lovelace.org',
         approvedAmount: 3500
     });
-    console.log(`  ✔ Expense Resumption -> Status: ${resumeRes.pipelineStatus()}, Approved By: ${resumeRes.approvedBy()}, Disbursed: $${resumeRes.disbursedAmount()}`);
+    console.log(`  ✔ Expense Resumption -> Status: ${resumeRes.pipelineStatus}, Approved By: ${resumeRes.approvedBy}, Disbursed: $${resumeRes.disbursedAmount}`);
 
     // --- 17. CI/CD Pipeline Governance with Workflow Graph AST Inspection ---
     console.log('\n[Demo] 17. CI/CD Pipeline Governance with Workflow Graph AST Inspection...');
@@ -318,7 +325,7 @@ async function main() {
     // ========================================================================
 
     // --- 18. HTTP Checkout & Order Processing Microservice ---
-    console.log('\n[Demo] 18. HTTP Checkout & Order Processing Microservice (@rivulet/fastify)...');
+    console.log('\n[Demo] 18. HTTP Checkout & Order Processing Microservice (@siglo/fastify)...');
     const fastifyHandler = createFastifyCheckoutHandler(createHttpCheckoutWorkflow());
     const mockReply = {
         statusCode: 200,
@@ -346,10 +353,55 @@ async function main() {
         headers: {'x-namespace': 'ecom-us-east'}
     } as any, mockReply as any);
     const checkoutData = httpRes || mockReply.payload;
-    console.log(`  ✔ HTTP Checkout -> Status: ${checkoutData.status}, Total: $${checkoutData.totalAmount}, Confirmation: ${checkoutData.confirmationCode}`);
+    console.log(`  ✔ HTTP Checkout (@siglo/fastify) -> Status: ${checkoutData.status}, Total: ${checkoutData.totalAmount}, Confirmation: ${checkoutData.confirmationCode}`);
+    const expressHandler = createExpressCheckoutHandler(createHttpCheckoutWorkflow());
+    const mockExpressRes = {
+        statusCode: 200,
+        headers: {} as Record<string, string>,
+        payload: null as any,
+        status(code: number) {
+            this.statusCode = code;
+            return this;
+        },
+        setHeader(k: string, v: string) {
+            this.headers[k] = v;
+            return this;
+        },
+        json(data: any) {
+            this.payload = data;
+            return this;
+        }
+    };
+    const exprRes: any = await expressHandler({
+        body: {orderId: 'ORD-EXPR-3002', items: [{sku: 'MONITOR-4K', price: 600, quantity: 1}], currency: 'USD'},
+        headers: {'x-namespace': 'ecom-us-west'}
+    } as any, mockExpressRes as any, () => {
+    });
+    const exprData = exprRes || mockExpressRes.payload;
+    console.log(`  ✔ Express Checkout -> Status: ${exprData.status}, Total: ${exprData.totalAmount}, Confirmation: ${exprData.confirmationCode}`);
+
+    const honoHandler = createHonoCheckoutHandler(createHttpCheckoutWorkflow());
+    const mockHonoContext = {
+        req: {
+            json: async () => ({
+                orderId: 'ORD-HONO-3003',
+                items: [{sku: 'KEYBOARD-PRO', price: 150, quantity: 2}],
+                currency: 'USD'
+            }),
+            header: (k: string) => k === 'x-namespace' ? 'ecom-eu-central' : undefined
+        },
+        header(_k: string, _v: string) {
+        },
+        json(data: any) {
+            return data;
+        }
+    };
+    const honoData: any = await honoHandler(mockHonoContext as any);
+    console.log(`  ✔ Hono Checkout -> Status: ${honoData.status}, Total: ${honoData.totalAmount}, Confirmation: ${honoData.confirmationCode}`);
+
 
     // --- 19. High-Volume Event-Driven Kafka Stream Enrichment ---
-    console.log('\n[Demo] 19. High-Volume Event-Driven Kafka Stream Enrichment (@rivulet/kafka)...');
+    console.log('\n[Demo] 19. High-Volume Event-Driven Kafka Stream Enrichment (@siglo/kafka)...');
     const kafkaConsumer = createKafkaTransactionConsumer();
     const kafkaRes: any = await kafkaConsumer({
         topic: 'payments.stream',
@@ -369,14 +421,14 @@ async function main() {
     console.log(`  ✔ Kafka Stream -> Status: ${kafkaRes.status}, Tier: ${kafkaRes.enriched.accountTier}, Flagged: ${kafkaRes.enriched.isFlagged}, Risk Score: ${kafkaRes.enriched.riskScore}`);
 
     // --- 20. Resilient Asynchronous Queue Worker & Dead-Letter Handling ---
-    console.log('\n[Demo] 20. Resilient Asynchronous Queue Worker (@rivulet/bullmq)...');
+    console.log('\n[Demo] 20. Resilient Asynchronous Queue Worker (@siglo/bullmq)...');
     const bullMqWorker = createBullMqImageProcessor();
     let currentProgress = 0;
     const bullRes: any = await bullMqWorker({
         id: 'job-image-transcode-42',
         data: {
             jobId: 'IMG-BANNER-4K',
-            imageUrl: 'https://cdn.rivulet.io/assets/raw-banner.png',
+            imageUrl: 'https://cdn.siglo.io/assets/raw-banner.png',
             targetWidth: 3840,
             targetHeight: 2160,
             format: 'webp',
@@ -387,22 +439,40 @@ async function main() {
         }
     });
     console.log(`  ✔ BullMQ Worker -> Job ID: ${bullRes.jobId}, Compression Ratio: ${bullRes.compressionRatio}, Progress: ${currentProgress}%`);
+    const sqsConsumer = createSqsImageBatchConsumer();
+    const sqsBatchRes = await sqsConsumer({
+        Records: [
+            {
+                messageId: 'sqs-msg-img-1',
+                receiptHandle: 'rcpt-sqs-1',
+                body: JSON.stringify({
+                    jobId: 'IMG-SQS-01',
+                    imageUrl: 'https://cdn.siglo.io/sqs.png',
+                    targetWidth: 1280,
+                    targetHeight: 720
+                })
+            }
+        ]
+    });
+    console.log(`  ✔ SQS Batch Consumer -> Processed: ${sqsBatchRes.processedCount}, Failures: ${sqsBatchRes.batchItemFailures.length}`);
+
 
     // --- 21. Distributed Tracing & W3C Trace Context Propagation ---
-    console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@rivulet/opentelemetry)...');
+    console.log('\n[Demo] 21. Distributed Tracing & W3C Trace Context Propagation (@siglo/opentelemetry)...');
     const tracer = new MockTracer();
     const {instrumented} = setupInstrumentedWorkflow(tracer, {allowNamespace: true});
-    const otelRes = await instrumented.run({
-        orderId: 'ORD-OTEL-8899',
-        itemsCount: 2,
-        customerTier: 'ENTERPRISE',
-        apiKeySecret: 'secret_live_token',
-        billingAddress: 'Silicon Valley Blvd'
-    }, {namespace: 'enterprise-tenant-alpha'});
+    const otelRes = await instrumented
+        .run({
+            orderId: 'ORD-OTEL-8899',
+            itemsCount: 2,
+            customerTier: 'ENTERPRISE',
+            apiKeySecret: 'secret_live_token',
+            billingAddress: 'Silicon Valley Blvd'
+        }, {namespace: 'enterprise-tenant-alpha'});
     console.log(`  ✔ OpenTelemetry -> Status: ${otelRes.dispatchStatus}, Spans Recorded: ${tracer.spans.length}, Tracking: ${otelRes.trackingNumber}`);
 
     // --- 22. Multi-Tenant SaaS Billing & Audit Ledger ---
-    console.log('\n[Demo] 22. Multi-Tenant SaaS Billing & Audit Ledger (@rivulet/postgres & @rivulet/redis)...');
+    console.log('\n[Demo] 22. Multi-Tenant SaaS Billing & Audit Ledger (@siglo/postgres & @siglo/redis)...');
     const pgClient = new MockPostgresClient();
     const redisClient = new MockRedisClient();
     const {workflow: billingWf} = setupSaaSBillingInfrastructure(pgClient, redisClient);
@@ -415,12 +485,20 @@ async function main() {
     }, {namespace: 'enterprise-acme', stackId: 'stack-acme-q1'});
     console.log(`  ✔ SaaS Billing -> Invoice: ${billingRes.invoiceId}, Total: $${billingRes.totalAmount}, Discount: $${billingRes.discount}, Status: ${billingRes.status}`);
 
+
+    // --- 23. Live Workflow Monitoring & DevTools Server ---
+    console.log('\n[Demo] 23. Live Workflow Monitoring & DevTools Server (@siglo/monitor)...');
+    const {monitor: sampleMonitor, metricsText} = await runLiveMonitoringSample();
+    console.log(`  ✔ Live Monitor Server running on port: ${sampleMonitor.port}`);
+    console.log(`  ✔ Prometheus Metrics extracted successfully: ${metricsText.split("\n")[2]}`);
+    await sampleMonitor.close();
+
     // --- Verification of Redis & MongoDB State ---
     console.log("\n------------------------------------------------------------------------");
     console.log("[Verification] Checking Storage Adapter State:");
-    const mongoLogs = await mongo.collection("rivulet_execution_logs").find();
+    const mongoLogs = await mongo.collection("siglo_execution_logs").find();
     console.log(`  • MongoDB Execution Logs: ${mongoLogs.length} step context entries logged with stackId & namespace tracing`);
-    console.log("\n[Demo] All 22 use cases executed and streamed to storage adapter successfully!");
+    console.log("\n[Demo] All 23 use cases executed and streamed to storage adapter successfully!");
     console.log('========================================================================\n');
 }
 

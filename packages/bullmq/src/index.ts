@@ -1,6 +1,6 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'rivulet';
+import { Flow, ExecutionOptions, IdempotencyStore } from 'siglo';
 
-export interface RivuletBullMQOptions<TJob = any, TInput = any, TOutput = any> {
+export interface SigloBullMQOptions<TJob = any, TInput = any, TOutput = any> {
     input?: (job: TJob) => Promise<TInput> | TInput;
     output?: (result: any, job: TJob) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
@@ -18,18 +18,18 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? obj[key]() : obj[key];
+        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
         clean[key] = val;
     }
     return clean;
 }
 
 /**
- * Creates a BullMQ worker processor function that runs a rivulet workflow.
+ * Creates a BullMQ worker processor function that runs a siglo workflow.
  */
 export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletBullMQOptions<TJob, TInput, TOutput> = {}
+    options: SigloBullMQOptions<TJob, TInput, TOutput> = {}
 ) {
     return async (job: any): Promise<any> => {
         const jobId = job.id || String(Date.now());
@@ -84,3 +84,5 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     };
 }
 
+
+export type RivuletBullMQOptions<TJob = any, TInput = any, TOutput = any> = SigloBullMQOptions<TJob, TInput, TOutput>;

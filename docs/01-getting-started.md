@@ -1,18 +1,18 @@
 # 01. Getting Started
 
-Welcome to **Rivulet** (formerly `Rivulet`), an enterprise-grade, asynchronous workflow engine and distributed execution runtime for TypeScript and Node.js.
+Welcome to **Siglo** (formerly `Siglo`), an enterprise-grade, asynchronous workflow engine and distributed execution runtime for TypeScript and Node.js.
 
-Rivulet makes it easy to compose complex business pipelines, sagas, parallel fan-outs, and durable human-in-the-loop orchestrations with complete type safety, deterministic testing, and zero mandatory infrastructure daemons.
+Siglo makes it easy to compose complex business pipelines, sagas, parallel fan-outs, and durable human-in-the-loop orchestrations with complete type safety, deterministic testing, and zero mandatory infrastructure daemons.
 
 ---
 
 ## Installation
 
-Install `Rivulet` (or `@rivulet/core`) along with its test harness and CLI:
+Install `Siglo` (or `@siglo/core`) along with its test harness and CLI:
 
 ```bash
-npm install Rivulet
-npm install --save-dev @rivulet/testing @rivulet/cli
+npm install Siglo
+npm install --save-dev @siglo/testing @siglo/cli
 ```
 
 ---
@@ -22,7 +22,7 @@ npm install --save-dev @rivulet/testing @rivulet/cli
 Create a new file `src/quickstart.ts`:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 // 1. Define Step 1: Input validation and enrichment
 export const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
@@ -58,7 +58,7 @@ run();
 Here is a minimal step and flow demonstrating accumulated typed context:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const greet = Step.create('greet', (p: { name: string }) => ({
     message: `Hello, ${p.name}!`
@@ -73,10 +73,10 @@ console.log(res.message); // 'Hello, World!'
 
 ## Failure Example
 
-When a step fails, `Rivulet` captures phase diagnostics, attaches error metadata, and cancels or recovers according to policy:
+When a step fails, `Siglo` captures phase diagnostics, attaches error metadata, and cancels or recovers according to policy:
 
 ```typescript
-import { Step, flow, RivuletError } from 'rivulet';
+import { Step, flow, SigloError } from 'siglo';
 
 const riskyStep = Step.create('riskyStep', async (param: { balance: number }) => {
     if (param.balance < 0) {
@@ -100,11 +100,11 @@ try {
 
 ## Testing Example
 
-Using `@rivulet/testing`, you can deterministically test workflows without mock servers:
+Using `@siglo/testing`, you can deterministically test workflows without mock servers:
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@rivulet/testing';
+import { createWorkflowHarness } from '@siglo/testing';
 import { userWorkflow } from './quickstart';
 
 describe('User Workflow Test Suite', () => {
@@ -139,13 +139,13 @@ Generate production-ready workflow templates using the CLI:
 
 ```bash
 # Scaffold a new project structure
-npx rivulet init
+npx siglo init
 
 # Generate a typed workflow and mocha/chai test
-npx rivulet generate workflow checkout
+npx siglo generate workflow checkout
 
 # Generate an isolated step and unit test
-npx rivulet generate step charge-customer
+npx siglo generate step charge-customer
 ```
 
 ---

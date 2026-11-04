@@ -1,5 +1,5 @@
 /**
- * Autonomous Invariant Oracles for rivulet.
+ * Autonomous Invariant Oracles for siglo.
  * These oracles enforce the core system axioms across all randomized, chaos-injected exploratory tests.
  */
 
@@ -107,7 +107,7 @@ export class InvariantEvaluator {
                     3,
                     'Optimistic Concurrency & Checkpoint Idempotency',
                     `Multiple concurrent writers succeeded with differing outputs! Divergent states detected. Success count: ${fulfilled.length}`,
-                    { results }
+                    { results, rejectedCount: rejected.length }
                 );
             }
         }

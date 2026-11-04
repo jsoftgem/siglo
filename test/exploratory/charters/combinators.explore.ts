@@ -1,7 +1,7 @@
 import { FlowAstGenerator } from '../engine/ast-generator';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
-import { flow, map, race, parallel, allSettled } from 'rivulet';
+import { flow, map, race } from 'siglo';
 import { step } from '../engine/step-helper';
 
 export interface CharterResult {
@@ -106,6 +106,9 @@ export async function runCombinatorsCharter(
         InvariantEvaluator.assertCombinatorSoundness('race', raceRes, {
             winnerExpected: 'fast'
         });
+        if (raceCompletedCount === 0) {
+            errors.push(`Iteration ${i}: Race steps did not run.`);
+        }
     }
 
     return {

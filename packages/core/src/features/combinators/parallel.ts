@@ -1,6 +1,6 @@
 import {Step, flow} from '../step';
 import {toPOJO} from '../context';
-import {generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType} from '../../shared';
+import {generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType, safeClone} from '../../shared';
 import {ParallelNode, WorkflowNode, toGraph} from '../graph';
 import {FieldCollisionException, CollisionDetail} from '../executer';
 import {combineAbortSignals} from '../executer/signals';
@@ -9,6 +9,7 @@ export const ParallelMergeStrategy = {
     SHALLOW: 'shallow',
     DEEP: 'deep',
     ERROR: 'error',
+    NAMESPACE: 'namespace',
 } as const;
 
 export type ParallelMergeStrategy = (typeof ParallelMergeStrategy)[keyof typeof ParallelMergeStrategy];
@@ -24,7 +25,7 @@ export type ParallelMode = (typeof ParallelMode)[keyof typeof ParallelMode];
 export interface ParallelOptions {
     name?: string;
     mode?: ParallelMode | 'fail-fast' | 'allSettled' | 'race';
-    mergeStrategy?: ParallelMergeStrategy | 'shallow' | 'deep' | 'error' | ((target: any, source: any, branchKey: string | number) => any);
+    mergeStrategy?: ParallelMergeStrategy | 'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
 }
 
 export interface BranchExecutionSummary {
@@ -64,6 +65,8 @@ function deepMerge(target: any, source: any): any {
         const tVal = output[key];
         if (sVal && typeof sVal === 'object' && !Array.isArray(sVal) && tVal && typeof tVal === 'object' && !Array.isArray(tVal)) {
             output[key] = deepMerge(tVal, sVal);
+        } else if (Array.isArray(sVal) && Array.isArray(tVal)) {
+            output[key] = [...tVal, ...sVal];
         } else {
             output[key] = sVal;
         }
@@ -90,8 +93,11 @@ function detectCollisions(
     const collisions: CollisionDetail[] = [];
     for (const [field, entries] of fieldValues.entries()) {
         if (entries.length > 1) {
-            const firstValStr = JSON.stringify(entries[0].value);
-            const hasConflict = entries.some(e => JSON.stringify(e.value) !== firstValStr);
+            const safeStr = (v: any) => {
+                try { return JSON.stringify(v); } catch { return String(v); }
+            };
+            const firstValStr = safeStr(entries[0].value);
+            const hasConflict = entries.some(e => safeStr(e.value) !== firstValStr);
             if (hasConflict) {
                 collisions.push({
                     field,
@@ -106,7 +112,7 @@ function detectCollisions(
 }
 
 function executeBranch(branch: any, input: any, signal?: AbortSignal): Promise<any> {
-    const isolatedInput = JSON.parse(JSON.stringify(toPOJO(input)));
+    const isolatedInput = safeClone(toPOJO(input));
     const parentStackId = typeof input?.$stackId === 'function' ? input.$stackId() : (input?.$stackId || input?.stackId);
     const namespace = typeof input?.$namespace === 'function' ? input.$namespace() : (input?.$namespace || input?.namespace);
     const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace};
@@ -170,7 +176,7 @@ export function parallel(
             innerController.signal
         ]);
 
-        const branchSummaries: BranchExecutionSummary[] = [];
+        const branchSummaries = new Array<BranchExecutionSummary>(branches.length);
         const startTime = Date.now();
 
         try {
@@ -186,13 +192,13 @@ export function parallel(
                                     settled = true;
                                     innerController.abort();
                                     const cleaned = cleanBranchOutput(res);
-                                    branchSummaries.push({
+                                    branchSummaries[index] = {
                                         name: bName,
                                         index,
                                         status: Status.COMPLETED,
                                         durationMs: Date.now() - bStart,
                                         output: cleaned
-                                    });
+                                    };
                                     resolve(cleaned);
                                 }
                             })
@@ -200,13 +206,13 @@ export function parallel(
                                 if (!settled) {
                                     settled = true;
                                     innerController.abort();
-                                    branchSummaries.push({
+                                    branchSummaries[index] = {
                                         name: bName,
                                         index,
                                         status: Status.FAILED,
                                         durationMs: Date.now() - bStart,
                                         error: err
-                                    });
+                                    };
                                     reject(err);
                                 }
                             });
@@ -225,22 +231,22 @@ export function parallel(
                         try {
                             const res = await executeBranch(branch, param, combinedSignal);
                             const cleaned = cleanBranchOutput(res);
-                            branchSummaries.push({
+                            branchSummaries[index] = {
                                 name: bName,
                                 index,
                                 status: Status.COMPLETED,
                                 durationMs: Date.now() - bStart,
                                 output: cleaned
-                            });
+                            };
                             return cleaned;
                         } catch (err: any) {
-                            branchSummaries.push({
+                            branchSummaries[index] = {
                                 name: bName,
                                 index,
                                 status: Status.FAILED,
                                 durationMs: Date.now() - bStart,
                                 error: err
-                            });
+                            };
                             throw err;
                         }
                     })
@@ -259,31 +265,31 @@ export function parallel(
             }
 
             // Default 'fail-fast'
-            const branchOutputs: Array<{ name: string; output: any }> = [];
+            const branchOutputs = new Array<{ name: string; output: any }>(branches.length);
             const branchPromises = branches.map(async (branch, index) => {
                 const bName = branch?.name || branch?.func || `branch_${index}`;
                 const bStart = Date.now();
                 try {
                     const out = await executeBranch(branch, param, combinedSignal);
                     const cleaned = cleanBranchOutput(out);
-                    branchSummaries.push({
+                    branchSummaries[index] = {
                         name: bName,
                         index,
                         status: Status.COMPLETED,
                         durationMs: Date.now() - bStart,
                         output: cleaned
-                    });
-                    branchOutputs.push({name: bName, output: cleaned});
+                    };
+                    branchOutputs[index] = {name: bName, output: cleaned};
                     return cleaned;
                 } catch (err: any) {
                     innerController.abort();
-                    branchSummaries.push({
+                    branchSummaries[index] = {
                         name: bName,
                         index,
                         status: Status.FAILED,
                         durationMs: Date.now() - bStart,
                         error: err
-                    });
+                    };
                     throw err;
                 }
             });
@@ -300,7 +306,16 @@ export function parallel(
             let merged: Record<string, any> = {};
             if (typeof mergeStrategy === 'function') {
                 for (let i = 0; i < branchOutputs.length; i++) {
-                    merged = mergeStrategy(merged, branchOutputs[i].output, branchOutputs[i].name) || merged;
+                    const b = branchOutputs[i];
+                    if (b) {
+                        merged = mergeStrategy(merged, b.output, b.name) || merged;
+                    }
+                }
+            } else if (mergeStrategy === 'namespace') {
+                for (const b of branchOutputs) {
+                    if (b) {
+                        merged[b.name] = b.output;
+                    }
                 }
             } else if (mergeStrategy === 'deep') {
                 for (const b of branchOutputs) {

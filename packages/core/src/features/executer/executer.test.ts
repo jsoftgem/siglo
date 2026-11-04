@@ -19,14 +19,17 @@ describe('executer.unit.test', () => {
         expect(Util.convertToContextStructure(ctx, Context, () => 'id', 'test_stack_id').k()).to.equal('v');
         expect(ctx.$stackId).to.equal('test_stack_id');
 
-        const obj = { x: 10 };
+        const sym = Symbol('testSym');
+        const obj = { x: 10, fn: () => 42, [sym]: 'symVal' };
         const converted = Util.convertToContextStructure(obj, Context, () => 'id_obj');
         expect(converted.x()).to.equal(10);
+        expect(converted.fn()).to.equal(42);
+        expect((converted as any)[sym]).to.equal('symVal');
     });
 
     it('Reducer handles promise resolution in action', done => {
         const chain = {
-            $chainId: 'r_chain',
+            $stepId: 'r_chain',
             action: (_param: any, current: number) => Promise.resolve(current * 2)
         };
         const reducer = new Reducer(
@@ -45,7 +48,7 @@ describe('executer.unit.test', () => {
 
     it('Reducer handles promise rejection in action', done => {
         const chain = {
-            $chainId: 'r_chain_err',
+            $stepId: 'r_chain_err',
             action: () => Promise.reject(new Error('Reducer promise fail'))
         };
         const reducer = new Reducer(
@@ -63,7 +66,7 @@ describe('executer.unit.test', () => {
 
     it('Reducer handles action returning undefined', done => {
         const chain = {
-            $chainId: 'r_chain_undef',
+            $stepId: 'r_chain_undef',
             action: () => undefined
         };
         const reducer = new Reducer(
@@ -82,7 +85,7 @@ describe('executer.unit.test', () => {
 
     it('Reducer handles synchronous error in action', done => {
         const chain = {
-            $chainId: 'r_chain_throw',
+            $stepId: 'r_chain_throw',
             action: () => { throw new Error('Reducer throw'); }
         };
         const reducer = new Reducer(
@@ -100,7 +103,7 @@ describe('executer.unit.test', () => {
 
     it('OnBefore handles Promise resolving to true', done => {
         const chain = {
-            $chainId: 'ob_true',
+            $stepId: 'ob_true',
             onbefore: () => Promise.resolve(true)
         };
         new OnBefore(chain, {}, () => {}, () => {}, Context, () => {
@@ -110,7 +113,7 @@ describe('executer.unit.test', () => {
 
     it('OnBefore handles Promise resolving to false', done => {
         const chain = {
-            $chainId: 'ob_false',
+            $stepId: 'ob_false',
             onbefore: () => Promise.resolve(false)
         };
         new OnBefore(chain, {}, (data) => {
@@ -121,7 +124,7 @@ describe('executer.unit.test', () => {
 
     it('OnBefore handles Promise rejecting', done => {
         const chain = {
-            $chainId: 'ob_reject',
+            $stepId: 'ob_reject',
             onbefore: () => Promise.reject(new Error('OnBefore rejected'))
         };
         new OnBefore(chain, {}, () => {}, (err) => {
@@ -132,7 +135,7 @@ describe('executer.unit.test', () => {
 
     it('OnBefore handles synchronous exception', done => {
         const chain = {
-            $chainId: 'ob_throw',
+            $stepId: 'ob_throw',
             onbefore: () => { throw new Error('OnBefore throw'); }
         };
         new OnBefore(chain, {}, () => {}, (err) => {
@@ -143,7 +146,7 @@ describe('executer.unit.test', () => {
 
     it('OnBefore handles legacy stackId string as 7th argument', done => {
         const chain = {
-            $chainId: 'ob_stack_legacy',
+            $stepId: 'ob_stack_legacy',
             onbefore: () => false
         };
         new OnBefore(chain, {}, (data) => {
@@ -155,7 +158,7 @@ describe('executer.unit.test', () => {
     it('OnBefore passes clean POJO param to onbefore', done => {
         let capturedParam: any;
         const chain = {
-            $chainId: 'ob_pojo',
+            $stepId: 'ob_pojo',
             onbefore: (p: any) => {
                 capturedParam = p;
                 return true;
@@ -169,7 +172,7 @@ describe('executer.unit.test', () => {
 
     describe('OnSkip unit tests', () => {
         it('OnSkip resolves context data when onskip is not a function', done => {
-            const chain = { $chainId: 'skip_noop' };
+            const chain = { $stepId: 'skip_noop' };
             new OnSkip(chain, {}, (data: any) => {
                 expect(data).to.be.an('object');
                 done();
@@ -178,7 +181,7 @@ describe('executer.unit.test', () => {
 
         it('OnSkip handles synchronous onskip returning fallback object', done => {
             const chain = {
-                $chainId: 'skip_sync',
+                $stepId: 'skip_sync',
                 onskip: (p: any) => ({ skipped: true, reason: 'test' })
             };
             const propSetter = (ctx: any, ret: any) => {
@@ -194,7 +197,7 @@ describe('executer.unit.test', () => {
         it('OnSkip handles synchronous onskip returning undefined (side-effect only)', done => {
             let called = false;
             const chain = {
-                $chainId: 'skip_undef',
+                $stepId: 'skip_undef',
                 onskip: () => { called = true; return undefined; }
             };
             new OnSkip(chain, {}, (data: any) => {
@@ -206,7 +209,7 @@ describe('executer.unit.test', () => {
 
         it('OnSkip handles synchronous onskip when propertyToContext is omitted', done => {
             const chain = {
-                $chainId: 'skip_no_prop',
+                $stepId: 'skip_no_prop',
                 onskip: () => ({ some: 'data' })
             };
             new OnSkip(chain, {}, (data: any) => {
@@ -217,7 +220,7 @@ describe('executer.unit.test', () => {
 
         it('OnSkip catches synchronous throw in onskip', done => {
             const chain = {
-                $chainId: 'skip_throw',
+                $stepId: 'skip_throw',
                 onskip: () => { throw new Error('OnSkip error'); }
             };
             new OnSkip(chain, {}, () => {}, (err: any) => {
@@ -228,7 +231,7 @@ describe('executer.unit.test', () => {
 
         it('OnSkip handles promise onskip resolving with fallback object', done => {
             const chain = {
-                $chainId: 'skip_async',
+                $stepId: 'skip_async',
                 onskip: () => Promise.resolve({ asyncFallback: 100 })
             };
             const propSetter = (ctx: any, ret: any) => {
@@ -242,7 +245,7 @@ describe('executer.unit.test', () => {
 
         it('OnSkip handles promise onskip resolving with undefined', done => {
             const chain = {
-                $chainId: 'skip_async_undef',
+                $stepId: 'skip_async_undef',
                 onskip: () => Promise.resolve(undefined)
             };
             new OnSkip(chain, {}, (data: any) => {
@@ -253,7 +256,7 @@ describe('executer.unit.test', () => {
 
         it('OnSkip catches promise rejection in onskip', done => {
             const chain = {
-                $chainId: 'skip_async_rej',
+                $stepId: 'skip_async_rej',
                 onskip: () => Promise.reject(new Error('Async skip reject'))
             };
             new OnSkip(chain, {}, () => {}, (err: any) => {
@@ -265,7 +268,7 @@ describe('executer.unit.test', () => {
         it('OnSkip provides clean POJO param to onskip', done => {
             let received: any;
             const chain = {
-                $chainId: 'skip_pojo',
+                $stepId: 'skip_pojo',
                 onskip: (p: any) => {
                     received = p;
                     return { ok: true };
@@ -280,7 +283,7 @@ describe('executer.unit.test', () => {
 
     describe('OnAfter unit tests', () => {
         it('OnAfter calls next when onafter is not a function', done => {
-            const chain = { $chainId: 'after_noop' };
+            const chain = { $stepId: 'after_noop' };
             new OnAfter(chain, {}, {}, {}, () => {}, () => {
                 done();
             }, () => {});
@@ -288,7 +291,7 @@ describe('executer.unit.test', () => {
 
         it('OnAfter handles synchronous onafter returning enrich object', done => {
             const chain = {
-                $chainId: 'after_sync',
+                $stepId: 'after_sync',
                 onafter: (output: any, param: any) => ({ enriched: output.val + param.add })
             };
             const mockContext: Record<string, any> = {};
@@ -304,7 +307,7 @@ describe('executer.unit.test', () => {
         it('OnAfter handles synchronous onafter returning undefined', done => {
             let sideEffect = false;
             const chain = {
-                $chainId: 'after_undef',
+                $stepId: 'after_undef',
                 onafter: () => { sideEffect = true; return undefined; }
             };
             new OnAfter(chain, {}, {}, {}, () => {}, () => {
@@ -315,7 +318,7 @@ describe('executer.unit.test', () => {
 
         it('OnAfter handles synchronous onafter without propertyToContext', done => {
             const chain = {
-                $chainId: 'after_no_prop',
+                $stepId: 'after_no_prop',
                 onafter: () => ({ extra: 'data' })
             };
             new OnAfter(chain, {}, {}, {}, undefined as any, () => {
@@ -325,7 +328,7 @@ describe('executer.unit.test', () => {
 
         it('OnAfter catches synchronous error in onafter', done => {
             const chain = {
-                $chainId: 'after_throw',
+                $stepId: 'after_throw',
                 onafter: () => { throw new Error('OnAfter throw error'); }
             };
             new OnAfter(chain, {}, {}, {}, () => {}, () => {}, (err: any) => {
@@ -336,7 +339,7 @@ describe('executer.unit.test', () => {
 
         it('OnAfter handles promise onafter resolving with enrich object', done => {
             const chain = {
-                $chainId: 'after_async',
+                $stepId: 'after_async',
                 onafter: (output: any) => Promise.resolve({ asyncEnrich: output.total * 2 })
             };
             const mockContext: Record<string, any> = {};
@@ -351,7 +354,7 @@ describe('executer.unit.test', () => {
 
         it('OnAfter handles promise onafter resolving with undefined', done => {
             const chain = {
-                $chainId: 'after_async_undef',
+                $stepId: 'after_async_undef',
                 onafter: () => Promise.resolve(undefined)
             };
             new OnAfter(chain, {}, {}, {}, () => {}, () => {
@@ -361,7 +364,7 @@ describe('executer.unit.test', () => {
 
         it('OnAfter catches promise rejection in onafter', done => {
             const chain = {
-                $chainId: 'after_async_rej',
+                $stepId: 'after_async_rej',
                 onafter: () => Promise.reject(new Error('Async onafter reject'))
             };
             new OnAfter(chain, {}, {}, {}, () => {}, () => {}, (err: any) => {
@@ -373,7 +376,7 @@ describe('executer.unit.test', () => {
         it('OnAfter passes clean POJO param to onafter', done => {
             let receivedParam: any;
             const chain = {
-                $chainId: 'after_pojo',
+                $stepId: 'after_pojo',
                 onafter: (_output: any, param: any) => {
                     receivedParam = param;
                     return undefined;
@@ -437,7 +440,7 @@ describe('executer.unit.test', () => {
     });
 
     
-    it("OnFail handles structured retry when chains has no \$chainId", done => {
+    it("OnFail handles structured retry when chains has no \$stepId", done => {
         let retried = false;
         const chain = {
             func: "namedStep",
@@ -565,6 +568,28 @@ describe('executer.unit.test', () => {
                 expect(err.error.message).to.equal('Reducer action fail');
                 done();
             });
+    });
+
+    it('StartChain executes reducer with active network policy', done => {
+        const step = {
+            func: 'reducerNetworkTest',
+            reducer: 'myList',
+            networkPolicyConfig: { enabled: true, defaultPolicy: 'deny', allowedHosts: ['api.stripe.com'], allowLocalhost: true },
+            specs: [],
+            onbefore: () => true,
+            action: (acc: any, item: any) => {
+                return { ...acc, [item]: true };
+            }
+        };
+
+        const exec = new Executer();
+        exec.start({ myList: ['a', 'b'] }, step)!
+            .then((res: any) => {
+                expect(res.a).to.be.true;
+                expect(res.b).to.be.true;
+                done();
+            })
+            .catch(done);
     });
 
     it('StartChain executes action returning undefined', done => {
@@ -860,7 +885,7 @@ describe('executer.unit.test', () => {
 
     it('StartChain handles executeBefore plugin rejecting', done => {
         const startChain = new StartChain(
-            () => ({ func: 'ebChain', specs: [], $chainId: 'c_eb' }),
+            () => ({ func: 'ebChain', specs: [], $stepId: 'c_eb' }),
             Context,
             () => {},
             class {},
@@ -872,7 +897,7 @@ describe('executer.unit.test', () => {
             () => Promise.resolve(),
             () => Promise.reject(new Error('ExecuteBefore failed'))
         );
-        startChain.start({ $chainId: () => 'eb_ctx' }, 'ebChain')
+        startChain.start({ $stepId: () => 'eb_ctx' }, 'ebChain')
             .catch((err: any) => {
                 expect(err.message).to.equal('ExecuteBefore failed');
                 done();
@@ -881,7 +906,7 @@ describe('executer.unit.test', () => {
 
     it('StartChain handles synchronous error in try block', done => {
         const startChain = new StartChain(
-            () => ({ func: 'syncFail', specs: [], $chainId: 'c_sync' }),
+            () => ({ func: 'syncFail', specs: [], $stepId: 'c_sync' }),
             Context,
             () => {},
             class {},
@@ -893,7 +918,7 @@ describe('executer.unit.test', () => {
             () => Promise.resolve(),
             () => Promise.resolve()
         );
-        startChain.start({ $chainId: () => 'param_sync' }, 'syncFail')
+        startChain.start({ $stepId: () => 'param_sync' }, 'syncFail')
             .catch((err: any) => {
                 expect(err.message).to.equal('addChainToStack sync throw');
                 done();
@@ -904,7 +929,7 @@ describe('executer.unit.test', () => {
         const controller = new AbortController();
         controller.abort(new Error("Pre-aborted startChain"));
         const startChain = new StartChain(
-            () => ({ func: "abortChain", specs: [], $chainId: "c_abort" }),
+            () => ({ func: "abortChain", specs: [], $stepId: "c_abort" }),
             Context,
             () => {},
             class {},
@@ -916,7 +941,7 @@ describe('executer.unit.test', () => {
             () => Promise.resolve(),
             () => Promise.resolve()
         );
-        startChain.start({ $chainId: () => "param_abort" }, "abortChain", { signal: controller.signal })
+        startChain.start({ $stepId: () => "param_abort" }, "abortChain", { signal: controller.signal })
             .catch((err: any) => {
                 expect(err.message).to.equal("Pre-aborted startChain");
                 done();

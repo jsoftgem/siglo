@@ -1,4 +1,4 @@
-import { IdempotencyStore } from 'rivulet';
+import { IdempotencyStore } from 'siglo';
 import { RedisIdempotencyOptions, RedisClientInterface } from './types';
 
 const COMPLETED_PREFIX = 'COMPLETED:';
@@ -14,7 +14,7 @@ export class RedisIdempotencyStore implements IdempotencyStore {
             throw new Error('RedisIdempotencyStore requires a valid Redis client instance.');
         }
         this.client = options.client;
-        this.keyPrefix = options.keyPrefix || 'rivulet:idemp:';
+        this.keyPrefix = options.keyPrefix || 'siglo:idemp:';
         this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours default
     }
 

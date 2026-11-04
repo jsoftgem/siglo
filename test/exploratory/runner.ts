@@ -5,6 +5,7 @@ import { runIdempotencyCharter } from './charters/idempotency.explore';
 import { runQueuesBatchCharter } from './charters/queues-batch.explore';
 import { runHttpAbortCharter } from './charters/http-abort.explore';
 import { runCliDiagramsCharter } from './charters/cli-diagrams.explore';
+import { runGraphAstCharter } from './charters/graph-ast.explore';
 
 export interface ExploratoryRunOptions {
     iterations?: number;
@@ -32,7 +33,8 @@ export async function runAllExploratoryCharters(
         () => runIdempotencyCharter(iterations, seed + 4),
         () => runQueuesBatchCharter(iterations, seed + 5),
         () => runHttpAbortCharter(iterations, seed + 6),
-        () => runCliDiagramsCharter(iterations, seed + 7)
+        () => runCliDiagramsCharter(iterations, seed + 7),
+        () => runGraphAstCharter(iterations, seed + 8)
     ];
 
     const results: CharterResult[] = [];

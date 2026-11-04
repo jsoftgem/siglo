@@ -1,50 +1,20 @@
-# @rivulet/kafka Adapter Guide
+# @siglo/kafka Adapter Guide
 
-`@rivulet/kafka` provides an enterprise event streaming consumer adapter for executing `Rivulet` workflows from Apache Kafka topics. It handles binary and JSON payload deserialization, partition offset tracking, distributed idempotency deduplication, header-based tenant namespace routing, and graceful error recovery.
+`@siglo/kafka` provides an enterprise event streaming consumer adapter for executing `Siglo` workflows from Apache Kafka topics. It handles binary and JSON payload deserialization, partition offset tracking, distributed idempotency deduplication, header-based tenant namespace routing, and graceful error recovery.
 
 ---
 
 ## 1. Overview & Architecture
 
-In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@rivulet/kafka` adapter handles incoming messages, ensures exactly-once semantics via an `IdempotencyStore`, and executes the workflow within configured timeout bounds:
+In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@siglo/kafka` adapter handles incoming messages, ensures exactly-once semantics via an `IdempotencyStore`, and executes the workflow within configured timeout bounds:
 
-```
-                      ┌────────────────────────────┐
-                      │    Kafka Broker / Topic    │
-                      └─────────────┬──────────────┘
-                                    │ Record (key, value, headers, offset)
-                                    ▼
-                      ┌────────────────────────────┐
-                      │      KafkaJS Consumer      │
-                      └─────────────┬──────────────┘
-                                    │ eachMessage
-                                    ▼
-                      ┌────────────────────────────┐
-                      │ createKafkaMessageHandler  │
-                      │  • Parse JSON / Buffer     │
-                      │  • Generate Idemp Key:     │
-                      │    kafka:<topic>:<key|off> │
-                      │  • Claim Idempotency Key   │
-                      │  • Extract x-namespace     │
-                      └─────────────┬──────────────┘
-                                    │
-                                    ▼
-                      ┌────────────────────────────┐
-                      │   Rivulet Workflow      │
-                      │  • Sagas & Compensations   │
-                      │  • Timeout Deadlines       │
-                      └─────────────┬──────────────┘
-                                    │
-                      ┌─────────────┴──────────────┐
-                      │                            │
-               (On Success)                   (On Failure)
-                      │                            │
-                      ▼                            ▼
-           ┌─────────────────────┐      ┌─────────────────────┐
-           │ Complete Claim      │      │ Fail Claim          │
-           │ (idempotencyStore)  │      │ (idempotencyStore)  │
-           │ Commit Offset       │      │ Re-throw / DLQ      │
-           └─────────────────────┘      └─────────────────────┘
+```mermaid
+flowchart TD
+    Broker["Kafka Broker / Topic"] -->|Record: key, value, headers, offset| Consumer["KafkaJS Consumer"]
+    Consumer -->|eachMessage| Handler["createKafkaMessageHandler<br/>• Parse JSON / Buffer<br/>• Generate Idemp Key: kafka:topic:key|off<br/>• Claim Idempotency Key<br/>• Extract x-namespace"]
+    Handler --> WF["Siglo Workflow<br/>• Sagas & Compensations<br/>• Timeout Deadlines"]
+    WF -->|On Success| Success["Complete Claim (idempotencyStore)<br/>Commit Offset"]
+    WF -->|On Failure| Failure["Fail Claim (idempotencyStore)<br/>Re-throw / DLQ"]
 ```
 
 ---
@@ -57,34 +27,23 @@ A common question in distributed event-driven systems is:
 
 ### Direct Answer: **No. By default, all 10 steps execute in-process on the single consumer server that pulled the Kafka message.**
 
-`Rivulet` is an **in-process orchestrator** rather than a multi-machine RPC scheduler (such as Temporal or AWS Step Functions).
+`Siglo` is an **in-process orchestrator** rather than a multi-machine RPC scheduler (such as Temporal or AWS Step Functions).
 
 When an instance of your consumer service pulls a Kafka record, the entire 10-step pipeline runs in-memory on that node:
 
-```
-[ Kafka Broker ] ─── (Topic Partition 0) ───► [ Consumer Server 1 ]
-                                                        │
-                                                        ▼ createKafkaMessageHandler
-                                              ┌───────────────────┐
-                                              │ Step 1 (Validate) │
-                                              └─────────┬─────────┘
-                                                        ▼ (Direct in-memory promise)
-                                              ┌───────────────────┐
-                                              │ Step 2 (Enrich)   │
-                                              └─────────┬─────────┘
-                                                        ▼
-                                                       ...
-                                                        ▼
-                                              ┌───────────────────┐
-                                              │ Step 10 (Audit)   │
-                                              └─────────┬─────────┘
-                                                        ▼
-                                              Commit Kafka Offset
+```mermaid
+flowchart TD
+    Broker["Kafka Broker"] -->|Topic Partition 0| Server["Consumer Server 1"]
+    Server -->|createKafkaMessageHandler| S1["Step 1 (Validate)"]
+    S1 -->|Direct in-memory promise| S2["Step 2 (Enrich)"]
+    S2 --> Dots["..."]
+    Dots --> S10["Step 10 (Audit)"]
+    S10 --> Commit["Commit Kafka Offset"]
 ```
 
 ### Why In-Process Execution is Vastly Superior for 90%+ of Workloads
 
-| Dimension | In-Process Orchestration (`Rivulet`) | Distributed Step Orchestration (Temporal / Step Functions) |
+| Dimension | In-Process Orchestration (`Siglo`) | Distributed Step Orchestration (Temporal / Step Functions) |
 | :--- | :--- | :--- |
 | **Step-to-Step Latency** | **Microseconds** ($\approx 1\text{–}5\ \mu\text{s}$) &mdash; Direct async promise resolution. | **Milliseconds** ($\approx 15\text{–}100\ \text{ms}$) &mdash; Every step requires network RPC, queue write, and DB commit. |
 | **End-to-End Latency (10 Steps)** | $\approx \mathbf{5\text{–}20\ \text{ms}}$ (pure business logic time) | $\approx \mathbf{200\text{–}1000\ \text{ms}}$ (dominated by orchestration network latency) |
@@ -97,22 +56,23 @@ When an instance of your consumer service pulls a Kafka record, the entire 10-st
 #### 1. The "10 Network Hops" Tax
 In systems that distribute every individual step to different servers:
 $$\text{Total Overhead} = 10 \times (\text{JSON Serialization} + \text{Queue Network Write} + \text{Broker Scheduling} + \text{Queue Network Read} + \text{Deserialization})$$
-In such systems, **95% of total workflow duration is spent waiting for network hops and queue contention**, and only 5% executing real code. In `Rivulet`, Step 1 immediately yields to Step 2 in memory with zero serialization penalty.
+In such systems, **95% of total workflow duration is spent waiting for network hops and queue contention**, and only 5% executing real code. In `Siglo`, Step 1 immediately yields to Step 2 in memory with zero serialization penalty.
 
 #### 2. How High-Throughput Scaling Actually Works
 Work is scaled horizontally by **Kafka Partitions (Message-Level Distribution)**, not by splitting individual steps across machines:
 
-```
-[ Kafka: orders Topic (4 Partitions) ]
-      │             │               │              │
-      ▼             ▼               ▼              ▼
- Partition 0   Partition 1     Partition 2    Partition 3
-      │             │               │              │
-      ▼             ▼               ▼              ▼
-[ Server 1 ]   [ Server 2 ]    [ Server 3 ]   [ Server 4 ]
- (Runs steps    (Runs steps     (Runs steps    (Runs steps
-  1-10 for       1-10 for        1-10 for       1-10 for
-  Msg A)         Msg B)          Msg C)         Msg D)
+```mermaid
+flowchart TD
+    Topic["Kafka: orders Topic (4 Partitions)"]
+    Topic --> P0["Partition 0"]
+    Topic --> P1["Partition 1"]
+    Topic --> P2["Partition 2"]
+    Topic --> P3["Partition 3"]
+
+    P0 --> S0["Server 1<br/>(Runs steps 1-10 for Msg A)"]
+    P1 --> S1["Server 2<br/>(Runs steps 1-10 for Msg B)"]
+    P2 --> S2["Server 3<br/>(Runs steps 1-10 for Msg C)"]
+    P3 --> S3["Server 4<br/>(Runs steps 1-10 for Msg D)"]
 ```
 
 Each consumer server processes independent messages in parallel at full hardware capability with maximum CPU cache locality.
@@ -128,18 +88,22 @@ Distributing individual steps across physically separate machines is only necess
 
 For these cases, implement **Event-Driven Choreography** using intermediate Kafka topics:
 
-```
-                   STAGE 1                             STAGE 2                             STAGE 3
-              [ Order Service ]                   [ AI GPU Worker ]                   [ Ledger Service ]
-                 (Server A)                          (Server B)                          (Server C)
-                      │                                   │                                   │
-[ Topic 1: orders.created ]                         [ Topic 2: orders.validated ]       [ Topic 3: images.rendered ]
-         │                                                   │                                       │
-         ▼                                                   ▼                                       ▼
- ┌───────────────┐                                   ┌───────────────┐                       ┌───────────────┐
- │ Subflow 1     │                                   │ Subflow 2     │                       │ Subflow 3     │
- │ (Steps 1 - 3) │ ──(Produce to orders.validated)──►│ (Steps 4 - 7) │ ──(Produce to ...)──► │ (Steps 8 - 10)│
- └───────────────┘                                   └───────────────┘                       └───────────────┘
+```mermaid
+flowchart LR
+    subgraph Stage1["STAGE 1: Order Service (Server A)"]
+        T1["Topic 1: orders.created"] --> SF1["Subflow 1<br/>(Steps 1 - 3)"]
+    end
+
+    subgraph Stage2["STAGE 2: AI GPU Worker (Server B)"]
+        T2["Topic 2: orders.validated"] --> SF2["Subflow 2<br/>(Steps 4 - 7)"]
+    end
+
+    subgraph Stage3["STAGE 3: Ledger Service (Server C)"]
+        T3["Topic 3: images.rendered"] --> SF3["Subflow 3<br/>(Steps 8 - 10)"]
+    end
+
+    SF1 -->|Produce to orders.validated| T2
+    SF2 -->|Produce to images.rendered| T3
 ```
 
 ### Pattern Example: Chaining Workflows Across Topics
@@ -182,23 +146,23 @@ const stage2Handler = createKafkaMessageHandler(stage2Flow);
 
 What happens if Server 1 is executing **Step 6** of 10 and the process crashes?
 
-1. **Uncommitted Offset**: The `@rivulet/kafka` adapter only returns and acknowledges the Kafka record after the workflow completes. Because Step 6 failed or the process died, the offset is **never committed**.
+1. **Uncommitted Offset**: The `@siglo/kafka` adapter only returns and acknowledges the Kafka record after the workflow completes. Because Step 6 failed or the process died, the offset is **never committed**.
 2. **Kafka Partition Rebalance**: Kafka detects consumer heartbeat loss and reassigns that topic partition to another consumer (Server 2).
-3. **Idempotency Protection**: Server 2 re-receives the message from the last committed offset. When it calls `createKafkaMessageHandler`, the configured `IdempotencyStore` (`@rivulet/redis` or `@rivulet/postgres`) ensures external payments or mutations aren't duplicated.
-4. **Durable Resumption**: If durable execution was used with `@rivulet/postgres`, state saved from prior checkpoints can be loaded via `restoreCheckpoint()`.
+3. **Idempotency Protection**: Server 2 re-receives the message from the last committed offset. When it calls `createKafkaMessageHandler`, the configured `IdempotencyStore` (`@siglo/redis` or `@siglo/postgres`) ensures external payments or mutations aren't duplicated.
+4. **Durable Resumption**: If durable execution was used with `@siglo/postgres`, state saved from prior checkpoints can be loaded via `restoreCheckpoint()`.
 
 ---
 
 ## 5. Installation & Requirements
 
-Install `@rivulet/kafka` and `kafkajs`:
+Install `@siglo/kafka` and `kafkajs`:
 
 ```bash
-npm install Rivulet @rivulet/kafka kafkajs
+npm install Siglo @siglo/kafka kafkajs
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `kafkajs`: `^2.0.0`
 
 ---
@@ -212,14 +176,14 @@ Creates an asynchronous message consumer handler:
 ```typescript
 function createKafkaMessageHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletKafkaOptions<TInput, TOutput>
-): (payload: { topic: string; partition: number; message: RivuletKafkaMessage }) => Promise<any>;
+    options?: SigloKafkaOptions<TInput, TOutput>
+): (payload: { topic: string; partition: number; message: SigloKafkaMessage }) => Promise<any>;
 ```
 
-### `RivuletKafkaMessage` Interface
+### `SigloKafkaMessage` Interface
 
 ```typescript
-export interface RivuletKafkaMessage {
+export interface SigloKafkaMessage {
     key?: Buffer | string | null;
     value?: Buffer | string | null;
     partition: number;
@@ -231,22 +195,22 @@ export interface RivuletKafkaMessage {
 
 ---
 
-## 7. Configuration Options (`RivuletKafkaOptions`)
+## 7. Configuration Options (`SigloKafkaOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `input` | `(message: RivuletKafkaMessage) => Promise<TInput> \| TInput` | JSON parser on `message.value` | Custom transformer converting Kafka record into workflow input. |
-| `output` | `(result: any, message: RivuletKafkaMessage) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor formatting the workflow output. |
+| `input` | `(message: SigloKafkaMessage) => Promise<TInput> \| TInput` | JSON parser on `message.value` | Custom transformer converting Kafka record into workflow input. |
+| `output` | `(result: any, message: SigloKafkaMessage) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor formatting the workflow output. |
 | `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to prevent duplicate processing. |
 | `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for idempotency claim lock. |
 | `timeout` | `number` | `undefined` | SLA execution timeout in milliseconds. |
-| `namespace` | `string \| ((message: RivuletKafkaMessage) => string \| undefined)` | `message.headers['x-namespace']` | Namespace identifier for tenant partitioning. |
+| `namespace` | `string \| ((message: SigloKafkaMessage) => string \| undefined)` | `message.headers['x-namespace']` | Namespace identifier for tenant partitioning. |
 
 ---
 
 ## 8. Idempotency Key Semantics
 
-Kafka guarantees at-least-once message delivery under network failures or consumer rebalances. `@rivulet/kafka` constructs an idempotency key using the message record's natural identity:
+Kafka guarantees at-least-once message delivery under network failures or consumer rebalances. `@siglo/kafka` constructs an idempotency key using the message record's natural identity:
 
 $$\text{idempKey} = \text{kafka}:\langle\text{topic}\rangle:\langle\text{key} \lor (\text{partition}:\text{offset})\rangle$$
 
@@ -264,9 +228,9 @@ $$\text{idempKey} = \text{kafka}:\langle\text{topic}\rangle:\langle\text{key} \l
 
 ```typescript
 import { Kafka } from 'kafkajs';
-import { Step, flow } from 'rivulet';
-import { createKafkaMessageHandler } from '@rivulet/kafka';
-import { PostgresIdempotencyStore } from '@rivulet/postgres';
+import { Step, flow } from 'siglo';
+import { createKafkaMessageHandler } from '@siglo/kafka';
+import { PostgresIdempotencyStore } from '@siglo/postgres';
 import { Pool } from 'pg';
 
 // 1. Database & Idempotency Store

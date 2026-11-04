@@ -1,56 +1,54 @@
-# @rivulet/cli Developer Tools & CLI Guide
+# @siglo/cli Developer Tools & CLI Guide
 
-`@rivulet/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `Rivulet` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
+`@siglo/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `Siglo` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
 
 ---
 
 ## 1. Overview
 
-`@rivulet/cli` operates both as an executable terminal tool (`Rivulet`) and as a programmatic TypeScript library:
+`@siglo/cli` operates both as an executable terminal tool (`Siglo`) and as a programmatic TypeScript library:
 
-```
-                               @rivulet/cli
-                 ┌────────────────────┴────────────────────┐
-                 │                                         │
-                 ▼                                         ▼
-         Terminal Command Line                   Programmatic Node.js API
-    ┌─────────────────────────────┐           ┌─────────────────────────────┐
-    │ rivulet init             │           │ initProject()               │
-    │ rivulet generate workflow│           │ generateWorkflow()          │
-    │ rivulet generate step    │           │ generateStep()              │
-    │ rivulet visualize        │           │ visualizeWorkflow()         │
-    │ rivulet export           │           │ exportWorkflow()            │
-    │ rivulet validate         │           │ validateWorkflow()          │
-    │ rivulet inspect          │           │ inspectWorkflow()           │
-    │ rivulet checkpoint       │           │ inspectCheckpoint()         │
-    │ rivulet replay           │           │ replayFixture()             │
-    └─────────────────────────────┘           └─────────────────────────────┘
+```mermaid
+flowchart TD
+    CLI["@siglo/cli"] --> CLI_Term["Terminal Command Line"]
+    CLI --> CLI_API["Programmatic Node.js API"]
+
+    subgraph TerminalCommands["CLI Commands"]
+        C1["siglo init<br/>siglo generate workflow<br/>siglo generate step<br/>siglo visualize<br/>siglo export<br/>siglo validate<br/>siglo inspect<br/>siglo checkpoint<br/>siglo replay"]
+    end
+
+    subgraph ProgrammaticAPI["Node.js API"]
+        A1["initProject()<br/>generateWorkflow()<br/>generateStep()<br/>visualizeWorkflow()<br/>exportWorkflow()<br/>validateWorkflow()<br/>inspectWorkflow()<br/>inspectCheckpoint()<br/>replayFixture()"]
+    end
+
+    CLI_Term --> TerminalCommands
+    CLI_API --> ProgrammaticAPI
 ```
 
 ---
 
 ## 2. Installation
 
-Install `@rivulet/cli` locally in your project or globally:
+Install `@siglo/cli` locally in your project or globally:
 
 ```bash
 # Local development dependency (recommended)
-npm install --save-dev @rivulet/cli @rivulet/testing Rivulet tsx
+npm install --save-dev @siglo/cli @siglo/testing Siglo tsx
 
 # Or run directly via npx
-npx rivulet --help
+npx siglo --help
 ```
 
 ---
 
 ## 3. Command Line Interface (CLI)
 
-The CLI executable is `Rivulet`.
+The CLI executable is `Siglo`.
 
 ### General Usage
 
 ```bash
-Rivulet <command> [arguments] [options]
+Siglo <command> [arguments] [options]
 ```
 
 ### Global Options:
@@ -63,12 +61,12 @@ Rivulet <command> [arguments] [options]
 
 ---
 
-### Command 1: `rivulet init [dir]`
+### Command 1: `siglo init [dir]`
 
-Scaffolds a clean starter project preconfigured with `Rivulet`, `tsx`, modern TypeScript config, and a runnable workflow test.
+Scaffolds a clean starter project preconfigured with `Siglo`, `tsx`, modern TypeScript config, and a runnable workflow test.
 
 ```bash
-rivulet init ./services/order-orchestrator
+siglo init ./services/order-orchestrator
 ```
 
 #### Generated Files:
@@ -78,12 +76,12 @@ rivulet init ./services/order-orchestrator
 
 ---
 
-### Command 2: `rivulet generate workflow <name>`
+### Command 2: `siglo generate workflow <name>`
 
-Scaffolds a brand new typed workflow file and companion unit test powered by `@rivulet/testing`.
+Scaffolds a brand new typed workflow file and companion unit test powered by `@siglo/testing`.
 
 ```bash
-rivulet generate workflow order-processing
+siglo generate workflow order-processing
 ```
 
 #### Generated Files:
@@ -92,12 +90,12 @@ rivulet generate workflow order-processing
 
 ---
 
-### Command 3: `rivulet generate step <name>`
+### Command 3: `siglo generate step <name>`
 
 Scaffolds an isolated, strongly-typed `Step` module and companion unit test.
 
 ```bash
-rivulet generate step send-notification
+siglo generate step send-notification
 ```
 
 #### Generated Files:
@@ -106,13 +104,13 @@ rivulet generate step send-notification
 
 ---
 
-### Command 4: `rivulet visualize <workflow-file> [options]`
+### Command 4: `siglo visualize <workflow-file> [options]`
 
 Renders the workflow graph AST as either a Mermaid flowchart or an indented ASCII text hierarchy.
 
 #### Mermaid Diagram (Default):
 ```bash
-rivulet visualize src/workflows/checkout.ts
+siglo visualize src/workflows/checkout.ts
 ```
 *Output:*
 ```mermaid
@@ -126,7 +124,7 @@ flowchart TD
 
 #### Text Diagram (`--format=text`):
 ```bash
-rivulet visualize src/workflows/checkout.ts --format=text
+siglo visualize src/workflows/checkout.ts --format=text
 ```
 *Output:*
 ```text
@@ -138,7 +136,7 @@ Workflow Graph (total nodes: 3, edges: 2):
 
 ---
 
-### Command 5: `rivulet export <workflow-file> [options]`
+### Command 5: `siglo export <workflow-file> [options]`
 
 Exports the workflow topology graph directly to standard formats for architectural documentation, diagrams, or web visualization:
 - `--format=mermaid`: Mermaid flowchart with policy badges (retries, timeouts, fallback).
@@ -149,18 +147,18 @@ Exports the workflow topology graph directly to standard formats for architectur
 
 ```bash
 # Export Mermaid diagram to file with Left-to-Right layout
-rivulet export src/workflows/order.workflow.ts --format=mermaid --direction=LR --out=docs/order-flow.mmd
+siglo export src/workflows/order.workflow.ts --format=mermaid --direction=LR --out=docs/order-flow.mmd
 
 # Export Graphviz DOT format
-rivulet export src/workflows/order.workflow.ts --format=dot --out=diagrams/order.dot
+siglo export src/workflows/order.workflow.ts --format=dot --out=diagrams/order.dot
 
 # Export raw JSON AST
-rivulet export src/workflows/order.workflow.ts --format=json --out=dist/order-ast.json
+siglo export src/workflows/order.workflow.ts --format=json --out=dist/order-ast.json
 ```
 
 ---
 
-### Command 6: `rivulet validate <workflow-file>`
+### Command 6: `siglo validate <workflow-file>`
 
 Performs static analysis on the workflow graph AST without executing any step business logic:
 - Detects cyclic dependencies.
@@ -168,7 +166,7 @@ Performs static analysis on the workflow graph AST without executing any step bu
 - Verifies combinator structures (`parallel`, `branch`, `map`).
 
 ```bash
-rivulet validate src/workflows/loan-pipeline.ts
+siglo validate src/workflows/loan-pipeline.ts
 ```
 
 *Success Output:*
@@ -184,12 +182,12 @@ rivulet validate src/workflows/loan-pipeline.ts
 
 ---
 
-### Command 7: `rivulet inspect <workflow-file> [options]`
+### Command 7: `siglo inspect <workflow-file> [options]`
 
 Returns a detailed JSON telemetry summary of the workflow topology, node classifications, edge connections, and total complexity metrics.
 
 ```bash
-rivulet inspect src/workflows/settlement.ts --redact=taxId,secretKey
+siglo inspect src/workflows/settlement.ts --redact=taxId,secretKey
 ```
 
 *Output:*
@@ -211,12 +209,12 @@ rivulet inspect src/workflows/settlement.ts --redact=taxId,secretKey
 
 ---
 
-### Command 8: `rivulet checkpoint <file> [options]`
+### Command 8: `siglo checkpoint <file> [options]`
 
 Parses and validates a serialized checkpoint state JSON file (e.g., dumped from Redis or PostgreSQL during debugging), summarizing step chains and execution context while masking sensitive credentials.
 
 ```bash
-rivulet checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
+siglo checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
 ```
 
 *Output:*
@@ -239,16 +237,16 @@ rivulet checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
 
 ---
 
-### Command 9: `rivulet replay <fixture> [workflow-file]`
+### Command 9: `siglo replay <fixture> [workflow-file]`
 
 Replays an end-to-end workflow execution using recorded inputs and validates that output values match golden expectations.
 
 ```bash
 # Replay against default src/workflow.ts
-rivulet replay fixtures/order-regression.json
+siglo replay fixtures/order-regression.json
 
 # Replay against explicit workflow module
-rivulet replay fixtures/order-regression.json src/workflows/order.workflow.ts
+siglo replay fixtures/order-regression.json src/workflows/order.workflow.ts
 ```
 
 *Success Output:*
@@ -289,7 +287,7 @@ import {
     ReplayResult,
     WorkflowVisualizationResult,
     ExportWorkflowOptions
-} from '@rivulet/cli';
+} from '@siglo/cli';
 ```
 
 ---
@@ -450,7 +448,7 @@ Use `replayFixture` in your test suite to ensure that workflow refactoring prese
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as path from 'path';
-import { replayFixture } from '@rivulet/cli';
+import { replayFixture } from '@siglo/cli';
 import { pricingFlow } from '../src/workflows/pricingFlow';
 
 test('Pricing Flow matches golden fixture expectations', async () => {
@@ -471,7 +469,7 @@ test('Pricing Flow matches golden fixture expectations', async () => {
 
 ## 6. Workflow File Loading Mechanics
 
-When `Rivulet` loads a workflow file specified on the command line (e.g. `rivulet visualize src/workflow.ts` or `rivulet export src/workflow.ts`):
+When `Siglo` loads a workflow file specified on the command line (e.g. `siglo visualize src/workflow.ts` or `siglo export src/workflow.ts`):
 1. The file is dynamically imported using Node.js ES modules.
 2. The loader checks exports in the following order:
    - `export default flowInstance`

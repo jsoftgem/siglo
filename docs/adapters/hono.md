@@ -1,87 +1,63 @@
-# @rivulet/hono Adapter Guide
+# @siglo/hono Adapter Guide
 
-`@rivulet/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `Rivulet` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
+`@siglo/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `Siglo` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
 
 ---
 
 ## 1. Overview & Architecture
 
-Because Hono is built on standard `Request` and `Response` Web APIs, `@rivulet/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
+Because Hono is built on standard `Request` and `Response` Web APIs, `@siglo/hono` enables portable, edge-ready workflow orchestration without any platform-specific Node.js bindings:
 
-```
-    Web Standards HTTP Request (Fetch Event / Edge Worker)
-                          │
-                          ▼
-             ┌─────────────────────────┐
-             │     rivuletMiddleware     │
-             │  • Extract c.req.json() │
-             │  • Extract raw.signal   │ (Web Standard AbortSignal)
-             │  • Set X-Correlation-Id │
-             │  • Namespace Header     │
-             └────────────┬────────────┘
-                          │
-                          ▼
-             ┌─────────────────────────┐
-             │   Rivulet Workflow   │
-             │  • In-Memory Sagas      │
-             │  • Parallel Combinators │
-             │  • Two-Tier Timeouts    │
-             └────────────┬────────────┘
-                          │
-                ┌─────────┴─────────┐
-            (Success)            (Error)
-                │                   │
-                ▼                   ▼
-         ┌──────────────┐    ┌───────────────────────────┐
-         │ Set Stack ID │    │ getErrorStatusCode(err)   │
-         │ c.json(...)  │    │ • 504 Gateway Timeout     │
-         │ 200/201 OK   │    │ • 400 Bad Request         │
-         └──────────────┘    │ • 409 Conflict            │
-                             │ • 499 Client Closed Req   │
-                             │ • 500 Server Error        │
-                             └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["Web Standards HTTP Request<br/>(Fetch Event / Edge Worker)"] --> MW["sigloMiddleware<br/>• Extract c.req.json()<br/>• Extract raw.signal (Web Standard AbortSignal)<br/>• Set X-Correlation-Id<br/>• Tenant Namespace"]
+    MW --> WF["Siglo Workflow<br/>• In-Memory Sagas<br/>• Parallel Combinators<br/>• Two-Tier Timeouts"]
+    WF -->|Success| Success["Set Stack ID<br/>c.json(...) 200/201 OK"]
+    WF -->|Error| Error["getErrorStatusCode(err)<br/>• 504 Gateway Timeout<br/>• 400 Bad Request<br/>• 409 Conflict<br/>• 499 Client Closed Req<br/>• 500 Server Error"]
 ```
 
 ---
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/hono` and Hono:
+Install `@siglo/hono` and Hono:
 
 ```bash
-npm install Rivulet @rivulet/hono hono
+npm install Siglo @siglo/hono hono
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `hono`: `^3.0.0 || ^4.0.0`
 
 ---
 
 ## 3. API Reference
 
-### `rivuletMiddleware(workflow, options)`
+### `sigloMiddleware(workflow, options)`
 
 Creates a Hono route handler or middleware `(c: Context, next?: Next) => Promise<any>`:
 
 ```typescript
-function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
+function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletHonoMiddlewareOptions<TReq, TInput, TOutput>
+    options?: SigloHonoMiddlewareOptions<TReq, TInput, TOutput>
 ): (c: any, next?: () => Promise<void>) => Promise<any>;
 ```
 
 ---
 
-## 4. Configuration Options (`RivuletHonoMiddlewareOptions`)
+## 4. Configuration Options (`SigloHonoMiddlewareOptions`)
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `input` | `(c: Context) => Promise<TInput> \| TInput` | `await c.req.json()` or `c.req.query()` | Custom parameter extraction from Hono context. |
 | `output` | `(result: TOutput, c: Context) => Promise<any> \| any` | `c.json(result)` | Custom responder formatting the HTTP response body and status code. |
 | `timeout` | `number` | `undefined` | SLA execution timeout in milliseconds. |
-| `namespace` | `string \| ((c: Context) => string \| undefined)` | `c.req.header('x-namespace')` | Namespace identifier for tenant partitioning. |
-| `onError` | `(err: any, c: Context) => Promise<any> \| any` | Default JSON error response | Custom exception handler. |
+| `namespace` | `string \| ((c: Context) => string \| undefined)` | `undefined` | Namespace identifier or extractor function for tenant partitioning. |
+| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
+| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError` | `(err: any, c: Context) => Promise<any> \| any` | Default JSON error response | Custom exception handler. If omitted, maps status codes and returns sanitized `{ error: message }`. |
 | `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name for correlation tracking. |
 
 ---
@@ -90,7 +66,7 @@ function rivuletMiddleware<TInput = any, TOutput = any, TReq = any>(
 
 In modern edge runtimes (Cloudflare Workers, Bun, Deno), clients closing the connection abort the native Web Standard `c.req.raw.signal`.
 
-`@rivulet/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
+`@siglo/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
 
 ```typescript
 const fetchExchangeRates = Step.create(async (param) => {
@@ -108,8 +84,8 @@ const fetchExchangeRates = Step.create(async (param) => {
 
 ```typescript
 import { Hono } from 'hono';
-import { Step, flow } from 'rivulet';
-import { rivuletMiddleware } from '@rivulet/hono';
+import { Step, flow } from 'siglo';
+import { sigloMiddleware } from '@siglo/hono';
 
 const app = new Hono();
 
@@ -125,7 +101,7 @@ const edgeFlow = flow(geoLookup, rateCalculation);
 
 app.post(
     '/api/calculate-tax',
-    rivuletMiddleware(edgeFlow, {
+    sigloMiddleware(edgeFlow, {
         input: async (c) => {
             const body = await c.req.json();
             return {
@@ -147,8 +123,8 @@ export default app;
 ```typescript
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server'; // Or run directly with `bun run server.ts`
-import { Step, flow } from 'rivulet';
-import { rivuletMiddleware } from '@rivulet/hono';
+import { Step, flow } from 'siglo';
+import { sigloMiddleware } from '@siglo/hono';
 
 const app = new Hono();
 
@@ -159,7 +135,7 @@ const echoWorkflow = flow(
     }))
 );
 
-app.post('/api/echo', rivuletMiddleware(echoWorkflow));
+app.post('/api/echo', sigloMiddleware(echoWorkflow));
 
 // For Node.js:
 serve(app, (info) => {
@@ -171,12 +147,12 @@ serve(app, (info) => {
 
 ## 7. Error Handling & Status Code Mapping
 
-When a step fails, `@rivulet/hono` checks the error type using `getErrorStatusCode(err)`:
+When a step fails, `@siglo/hono` checks the error type using `getErrorStatusCode(err)`:
 
 ```typescript
 app.post(
     '/api/orders',
-    rivuletMiddleware(orderFlow, {
+    sigloMiddleware(orderFlow, {
         onError: (err, c) => {
             if (err.name === 'IdempotencyConflictException') {
                 return c.json({ error: 'Order is currently being processed by another request.' }, 409);
@@ -195,4 +171,4 @@ Default HTTP status mappings:
 - `ValidationException` / `SpecFailedException`: `400 Bad Request`
 - `IdempotencyConflictException`: `409 Conflict`
 - `CancellationException` / `AbortError`: `499 Client Closed Request`
-- Unhandled `Error`: `500 Internal Server Error`
+- Unhandled `Error`: `500 Internal Server Error` (sanitized in production)

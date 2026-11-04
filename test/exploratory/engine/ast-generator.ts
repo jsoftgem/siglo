@@ -6,7 +6,7 @@ import {
     when,
     branch,
     map
-} from 'rivulet';
+} from 'siglo';
 import { step } from './step-helper';
 import { RandomSource } from './property-generators';
 

@@ -1,11 +1,11 @@
 services:
   # ---------------------------------------------------------------------------
   # 1. Redis 7: Distributed Caching, Checkpoints, Idempotency & Distributed Locks
-  #    Used by @rivulet/redis (RedisStorageAdapter, RedisIdempotencyStore, RedisLock)
+  #    Used by @siglo/redis (RedisStorageAdapter, RedisIdempotencyStore, RedisLock)
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: rivulet-redis
+    container_name: siglo-redis
     command: ["redis-server", "--requirepass", "redispassword"]
     ports:
       - "6379:6379"
@@ -18,20 +18,20 @@ services:
 
   # ---------------------------------------------------------------------------
   # 2. PostgreSQL 16: Durable Checkpointing, Audit Events & Scoped Idempotency
-  #    Used by @rivulet/postgres (PostgresStorageAdapter, PostgresIdempotencyStore)
+  #    Used by @siglo/postgres (PostgresStorageAdapter, PostgresIdempotencyStore)
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: rivulet-postgres
+    container_name: siglo-postgres
     ports:
       - "5432:5432"
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: rivulet_db
+      POSTGRES_DB: siglo_db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rivulet_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siglo_db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -42,14 +42,14 @@ services:
   # ---------------------------------------------------------------------------
   mongodb:
     image: mongo:7.0
-    container_name: rivulet-mongodb
+    container_name: siglo-mongodb
     ports:
       - "27017:27017"
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
-      MONGO_INITDB_DATABASE: rivulet_db
+      MONGO_INITDB_DATABASE: siglo_db
     healthcheck:
       test: ["CMD", "mongosh", "-u", "admin", "-p", "mongopassword", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
       interval: 5s
@@ -58,12 +58,12 @@ services:
 
   # ---------------------------------------------------------------------------
   # 4. Redpanda (Kafka-Compatible Streaming): Real-Time Event Enrichment
-  #    Used by @rivulet/kafka (createKafkaHandler)
+  #    Used by @siglo/kafka (createKafkaHandler)
   #    Single-node dev mode, zero-Zookeeper dependency, native Kafka wire protocol on 9092
   # ---------------------------------------------------------------------------
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
-    container_name: rivulet-kafka
+    container_name: siglo-kafka
     command:
       - redpanda
       - start
@@ -88,13 +88,13 @@ services:
 
   # ---------------------------------------------------------------------------
   # 5. Jaeger All-in-One: Distributed Tracing & W3C Trace Visualization
-  #    Used by @rivulet/opentelemetry (instrumentWorkflow, trace context)
+  #    Used by @siglo/opentelemetry (instrumentWorkflow, trace context)
   #    Web UI: http://localhost:16686
   #    OTLP gRPC: localhost:4317, OTLP HTTP: localhost:4318
   # ---------------------------------------------------------------------------
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: rivulet-jaeger
+    container_name: siglo-jaeger
     ports:
       - "16686:16686"
       - "4317:4317"

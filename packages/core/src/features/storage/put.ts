@@ -2,7 +2,7 @@ import { PutChainContextMeta, StorageState } from './state';
 
 export const putChainContext = (
     state: StorageState,
-    chainId: string,
+    stepId: string,
     field: string,
     value: any,
     meta?: PutChainContextMeta | string
@@ -12,7 +12,7 @@ export const putChainContext = (
 
     if (!effectiveMeta?.stackId) {
         for (const [sId, stack] of state.stacks.entries()) {
-            if (stack.chains && stack.chains.includes(chainId)) {
+            if (stack.chains && stack.chains.includes(stepId)) {
                 effectiveMeta = Object.assign({}, effectiveMeta, {
                     stackId: sId,
                     namespace: effectiveMeta?.namespace || stack.namespace
@@ -23,15 +23,23 @@ export const putChainContext = (
     }
 
     if (state.plugins.putChainContext) {
-        state.plugins.putChainContext(chainId, field, () => value, effectiveMeta);
+        state.plugins.putChainContext(stepId, field, () => value, effectiveMeta);
     } else {
-        let ctx = state.contexts.get(chainId);
+        let ctx = state.contexts.get(stepId);
         if (!ctx) {
             ctx = {};
-            state.contexts.set(chainId, ctx);
+            state.contexts.set(stepId, ctx);
         }
+        const isNativeOrBinary =
+            value instanceof Date ||
+            value instanceof RegExp ||
+            value instanceof Error ||
+            (typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) ||
+            (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(value)) ||
+            (value !== null && typeof value === 'object' && (typeof (value as any)[Symbol.asyncIterator] === 'function' || typeof (value as any).pipe === 'function'));
+
         const frozenValue = function(subfield?: string): any {
-            if (value && typeof value === 'object' && !Array.isArray(value)) {
+            if (value && typeof value === 'object' && !Array.isArray(value) && !isNativeOrBinary) {
                 if (subfield !== undefined) {
                     return (value as any)[subfield];
                 }

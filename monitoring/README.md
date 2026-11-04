@@ -1,6 +1,6 @@
-# Zero-Code APM Dashboards for `Rivulet`
+# Zero-Code APM Dashboards for `Siglo`
 
-> Turnkey OpenTelemetry observability stack for `Rivulet` workflows with **Jaeger**, **Grafana**, and **Prometheus**.
+> Turnkey OpenTelemetry observability stack for `Siglo` workflows with **Jaeger**, **Grafana**, and **Prometheus**.
 > Visualize step latencies, retries, saga rollbacks, and distributed parent-child calls across services immediately without building custom UI components.
 
 ---\
@@ -84,7 +84,7 @@ workflow:OrderFulfillmentPipeline [=============================================
     - `step:chargeCreditCard` (attempt 1 &rarr; ❌ `ERROR`, records `503 UpstreamGatewayTimeout`)
     - `step:chargeCreditCard (retry #2)` (attempt 2 &rarr; ❌ `ERROR`, records `503 UpstreamGatewayTimeout`)
     - `step:chargeCreditCard (retry #3)` (attempt 3 &rarr; ✅ `OK`, payment captured)
-  - Spans include the attribute `rivulet.step.attempt: 3` and exception stack traces attached directly to failed spans.
+  - Spans include the attribute `siglo.step.attempt: 3` and exception stack traces attached directly to failed spans.
 
 ---
 
@@ -149,7 +149,7 @@ monitoring/
 │       ├── datasources/datasources.yaml   # Auto-provisioned Jaeger & Prometheus datasources
 │       └── dashboards/
 │           ├── dashboards.yaml            # Dashboard provider configuration
-│           └── rivulet-overview.json   # Pre-built APM dashboard
+│           └── siglo-overview.json   # Pre-built APM dashboard
 ├── package.json                           # Scripts and OTel dependencies
 ├── tsconfig.json                          # TypeScript configuration
 └── src/

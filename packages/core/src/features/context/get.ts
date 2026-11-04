@@ -1,8 +1,8 @@
 export class GetContext {
     private readonly context: Record<string, any>;
 
-    constructor(chainId: string, getChainDataById: (chainId: string) => any) {
-        const currentChain = getChainDataById(chainId);
+    constructor(stepId: string, getChainDataById: (stepId: string) => any) {
+        const currentChain = getChainDataById(stepId);
         this.context = Object.assign({}, { ...currentChain });
     }
 

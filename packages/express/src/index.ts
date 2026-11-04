@@ -1,12 +1,15 @@
-import { Flow, ExecutionOptions } from 'rivulet';
+import { Flow, ExecutionOptions } from 'siglo';
 
-export interface RivuletExpressOptions<TReq = any, TInput = any, TOutput = any> {
+export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, res: any) => Promise<any> | any;
     timeout?: number;
+    durable?: boolean | ((req: TReq) => boolean);
     namespace?: string | ((req: TReq) => string | undefined);
     onError?: (err: any, req: TReq, res: any, next: (err?: any) => void) => Promise<any> | any;
     correlationIdHeader?: string;
+    allowHeaderNamespace?: boolean;
+    exposeErrorDetails?: boolean;
 }
 
 export function getErrorStatusCode(err: any): number {
@@ -16,6 +19,9 @@ export function getErrorStatusCode(err: any): number {
     const name = err.name || '';
     const causeName = err.cause?.name || (err.error?.name) || '';
 
+    if (name.includes('Suspended') || causeName.includes('Suspended')) {
+        return 202;
+    }
     if (err.isTimeout || name.includes('Timeout') || causeName.includes('Timeout')) {
         return 504;
     }
@@ -40,7 +46,7 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? obj[key]() : obj[key];
+        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
         clean[key] = val;
     }
     return clean;
@@ -49,9 +55,9 @@ function unwrapContext(obj: any): any {
 /**
  * Creates an Express middleware handler for executing a rivulet workflow.
  */
-export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
+export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletExpressOptions<TReq, TInput, TOutput> = {}
+    options: SigloExpressOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (req: any, res: any, next: (err?: any) => void): Promise<any> => {
         try {
@@ -76,8 +82,17 @@ export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any
                 namespace = options.namespace(req);
             } else if (options.namespace) {
                 namespace = options.namespace;
-            } else if (req.headers?.['x-namespace']) {
+            } else if (options.allowHeaderNamespace && req.headers?.['x-namespace']) {
                 namespace = req.headers['x-namespace'];
+            }
+
+            let durable: boolean | undefined;
+            if (typeof options.durable === 'function') {
+                durable = options.durable(req);
+            } else if (options.durable !== undefined) {
+                durable = options.durable;
+            } else if (req.headers?.['x-durable'] === 'true' || req.query?.durable === 'true' || req.body?.durable === true) {
+                durable = true;
             }
 
             const abortSignal = req.signal || req.raw?.signal;
@@ -86,6 +101,7 @@ export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any
                 signal: abortSignal,
                 timeout: options.timeout,
                 namespace,
+                durable,
             };
 
             const rawResult: any = await workflow.run(inputData, execOptions);
@@ -114,10 +130,18 @@ export function rivuletExpressMiddleware<TInput = any, TOutput = any, TReq = any
             }
             if (res.status && res.json) {
                 const status = getErrorStatusCode(err);
-                return res.status(status).json({ error: err.message || 'Workflow execution error' });
+                const exposeDetails = options.exposeErrorDetails ?? (process.env.NODE_ENV !== 'production');
+                let errorMessage = err.message || 'Workflow execution error';
+                if (status === 500 && !exposeDetails) {
+                    errorMessage = 'Internal workflow execution error';
+                }
+                return res.status(status).json({ error: errorMessage });
             }
             return next(err);
         }
     };
 }
 
+
+export type RivuletExpressOptions<TReq = any, TInput = any, TOutput = any> = SigloExpressOptions<TReq, TInput, TOutput>;
+export const rivuletExpressMiddleware = sigloExpressMiddleware;

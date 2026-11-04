@@ -1,6 +1,7 @@
 import OnSkip from './OnSkip';
 import { toPOJO } from '../../../context';
-import { isFunction } from '../../../../shared';
+import { isFunction, STACK_ID, STACK_ID_KEY } from '../../../../shared';
+import { emitMonitoringEvent } from '../../../events/emitter';
 
 export default class OnBefore {
     constructor(
@@ -11,7 +12,8 @@ export default class OnBefore {
         Context: any,
         next: () => void,
         propertyToContextOrStackId?: any,
-        stackId?: string
+        stackId?: string,
+        options?: any
     ) {
         let propertyToContext: ((context: any, chainReturn: any) => void) | undefined;
         let actualStackId = stackId;
@@ -22,8 +24,23 @@ export default class OnBefore {
             actualStackId = propertyToContextOrStackId;
         }
 
+        const resolvedStackId = actualStackId ||
+            options?.stackId ||
+            (typeof param?.$stackId === 'function' ? param.$stackId() : param?.$stackId) ||
+            (param && typeof param[STACK_ID] === 'function' ? param[STACK_ID]() : param?.[STACK_ID]) ||
+            param?.[STACK_ID_KEY] ||
+            '';
+
         const handleSkip = () => {
-            new OnSkip(chain, param, resolve, reject, Context, propertyToContext, actualStackId);
+            emitMonitoringEvent(options, {
+                type: 'step:skipped',
+                stackId: resolvedStackId,
+                stepId: chain.$stepId || chain.name || '',
+                stepName: chain.func || chain.name || '',
+                timestamp: Date.now(),
+                namespace: options?.namespace
+            });
+            new OnSkip(chain, param, resolve, reject, Context, propertyToContext, resolvedStackId);
         };
 
         try {

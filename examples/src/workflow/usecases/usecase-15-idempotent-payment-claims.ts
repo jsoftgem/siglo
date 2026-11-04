@@ -1,4 +1,4 @@
-import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'rivulet';
+import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'siglo';
 
 export interface BankTransferInput {
     transactionId: string;
@@ -53,7 +53,7 @@ export function createIdempotentSettlementPipeline(
             currency,
             settlementTimestamp: Date.now()
         };
-    }).idempotent((ctx) => buildIdempotencyKey('ledger-settlement', { txId: ctx.transactionId }), {
+    }).idempotent((ctx) => buildIdempotencyKey(ctx.transactionId, { namespace: 'ledger-settlement' }), {
         ttlMs: 60000,
         store
     });

@@ -1,98 +1,141 @@
 import {
     checkpoint,
+    cleanExpiredCheckpoints,
+    getCheckpoint,
+    getErrorMode,
+    hydrateState,
     restoreCheckpoint,
     serializeState,
-    hydrateState,
-    useStorage,
-    getCheckpoint,
     setErrorMode,
-    getErrorMode,
-    cleanExpiredCheckpoints
+    useStorage
 } from '../storage';
-import { Executer } from '../executer';
-import Spec, { SpecData } from '../spec';
+import {Executer, RetryConfig, UnresolvableCompensationException} from '../executer';
+import Spec, {SpecData} from '../spec';
 import Configurator from '../configurator';
-import { generateUUID, isReservedKey, isFunction, isObject } from '../../shared';
-import { toPOJO } from '../context';
-import { RetryConfig } from '../executer';
-import { CacheOptions } from '../cache';
+import {generateUUID, isFunction, isObject, isReservedKey} from '../../shared';
+import {toPOJO} from '../context';
+import {CacheOptions} from '../cache';
 
 // Phase 2 imports
 import {
-    WorkflowNode,
-    WorkflowNodeType,
-    StepNode,
-    SequenceNode,
-    ParallelNode,
-    BranchNode,
-    WaitNode,
-    MapNode,
-    GraphValidationResult,
-    GraphInspectionResult,
-    GraphInspectionEdge,
-    toGraph,
-    validateGraph,
     assertValidGraph,
+    BranchNode,
+    DotExportOptions,
+    GraphInspectionEdge,
+    GraphInspectionResult,
+    GraphValidationResult,
     inspectGraph,
-    toMermaid,
-    toJSON,
-    toDot,
+    isWorkflowNode,
+    MapNode,
     MermaidExportOptions,
-    DotExportOptions
+    ParallelNode,
+    SequenceNode,
+    StepNode,
+    toDot,
+    toGraph,
+    toJSON,
+    toMermaid,
+    validateGraph,
+    WaitNode,
+    WorkflowNode,
+    WorkflowNodeType
 } from '../graph';
 
 import {
-    IdempotencyStore,
-    IdempotencyClaimStatus,
-    IdempotencyRecord,
-    IdempotencyOptions,
-    InMemoryIdempotencyStore,
+    buildIdempotencyKey,
     defaultIdempotencyStore,
-    buildIdempotencyKey
+    IdempotencyClaimStatus,
+    IdempotencyOptions,
+    IdempotencyRecord,
+    IdempotencyStore,
+    InMemoryIdempotencyStore,
+    isPermanentBusinessError
 } from '../idempotency';
 
 import {
+    clearCompensationHandlers,
     CompensationHandler,
+    CompensationManager,
     CompensationOptions,
     CompensationRecord,
+    CompensationRunOptions,
     CompensationRunResult,
-    CompensationManager,
-    defaultCompensationManager
+    defaultCompensationManager,
+    getCompensationHandler,
+    hasCompensationHandler,
+    reconcileAbandonedStacks,
+    registerCompensationHandler,
+    unregisterCompensationHandler
 } from '../compensation';
 
 import {
-    parallel,
     all,
     allSettled,
-    race,
-    when,
     branch,
-    map,
-    ParallelOptions,
-    ParallelMergeStrategy,
-    ParallelMode,
     BranchExecutionSummary,
     BranchPredicate,
     BranchSelector,
+    map,
+    MapItemAccessor,
     MapOptions,
-    MapItemAccessor
+    parallel,
+    ParallelMergeStrategy,
+    ParallelMode,
+    ParallelOptions,
+    race,
+    when
 } from '../combinators';
 
 import {
-    WaitForEventOptions,
-    WaitingWorkflowRecord,
-    StateMigrationFn,
-    ResumeOptions,
-    parseDuration,
-    waitForEvent,
-    wait,
-    DurableManager,
     defaultDurableManager,
+    DurableManager,
+    parseDuration,
+    ResumeOptions,
+    resumeWorkflow,
+    StateMigrationFn,
     validateWorkflowVersion,
-    resumeWorkflow
+    wait,
+    waitForEvent,
+    WaitForEventOptions,
+    WaitingWorkflowRecord
 } from '../durable';
 
+import {
+    defaultWorkflowEventEmitter,
+    emitMonitoringEvent,
+    getDefaultMonitor,
+    redactEvent,
+    RedactionOptions,
+    redactValue,
+    setDefaultMonitor,
+    WorkflowEventEmitter,
+    WorkflowExecutionEvent,
+    WorkflowExecutionEventMap,
+    WorkflowExecutionEventType
+} from '../events';
+
+import {
+    ActiveNetworkPolicyContext,
+    EffectiveNetworkPolicy,
+    ensureNetworkInterceptorsInstalled,
+    HostPattern,
+    installNetworkInterceptors,
+    isHostAllowed,
+    isLocalhost,
+    isNetworkInterceptorsInstalled,
+    isPrivateOrRestrictedIP,
+    isUnixSocket,
+    isUnixSocketAllowed,
+    NetworkPolicyConfig,
+    networkPolicyStorage,
+    normalizeIP,
+    resolveEffectiveNetworkPolicy,
+    uninstallNetworkInterceptors,
+    validateAndPinTarget
+} from '../network';
+
 export {
+    SigloError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
@@ -102,6 +145,8 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
+    OptimisticLockException,
+    WorkflowAlreadyResumedException,
     NamespaceMismatchException,
     CheckpointVersionException,
     FieldCollisionException,
@@ -109,11 +154,13 @@ export {
     IdempotencyConflictException,
     CompensationException,
     CompensationErrorDetail,
+    UnresolvableCompensationException,
     WorkflowSuspendedException,
     DuplicateEventException,
     ExpiredWaitException,
     WorkflowVersionMismatchException,
     GraphValidationException,
+    NetworkPolicyViolationException,
     normalizeError,
     RetryConfig,
     RetryPredicate
@@ -146,6 +193,7 @@ export {
     GraphInspectionResult,
     GraphInspectionEdge,
     toGraph,
+    isWorkflowNode,
     validateGraph,
     assertValidGraph,
     inspectGraph,
@@ -163,7 +211,8 @@ export {
     IdempotencyOptions,
     InMemoryIdempotencyStore,
     defaultIdempotencyStore,
-    buildIdempotencyKey
+    buildIdempotencyKey,
+    isPermanentBusinessError
 };
 
 export {
@@ -207,6 +256,40 @@ export {
     resumeWorkflow
 };
 
+export {
+    WorkflowExecutionEvent,
+    WorkflowExecutionEventType,
+    WorkflowExecutionEventMap,
+    WorkflowEventEmitter,
+    defaultWorkflowEventEmitter,
+    setDefaultMonitor,
+    getDefaultMonitor,
+    emitMonitoringEvent,
+    redactEvent,
+    redactValue,
+    RedactionOptions
+};
+
+export {
+    NetworkPolicyConfig,
+    EffectiveNetworkPolicy,
+    HostPattern,
+    ActiveNetworkPolicyContext,
+    resolveEffectiveNetworkPolicy,
+    networkPolicyStorage,
+    installNetworkInterceptors,
+    uninstallNetworkInterceptors,
+    isNetworkInterceptorsInstalled,
+    ensureNetworkInterceptorsInstalled,
+    isHostAllowed,
+    isLocalhost,
+    isPrivateOrRestrictedIP,
+    normalizeIP,
+    validateAndPinTarget,
+    isUnixSocket,
+    isUnixSocketAllowed
+};
+
 export interface ExecutionOptions {
     signal?: AbortSignal;
     pojo?: boolean;
@@ -222,11 +305,20 @@ export interface ExecutionOptions {
     idempotencyKey?: string | ((ctx: any) => string);
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
+    settleTimeoutMs?: number;
+    pollIntervalMs?: number;
+    isPermanentError?: (err: any) => boolean;
     migrations?: any;
     stackId?: string;
+    isResume?: boolean;
     // Phase 4 Dependency Injection
     services?: Record<string, any>;
     dependencies?: Record<string, any>;
+    // Network Policy
+    networkPolicy?: NetworkPolicyConfig;
+    // Live Monitoring
+    monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
+    ast?: WorkflowNode;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
@@ -252,6 +344,10 @@ export interface Flow<TInput = any, TOutput = any> {
     toDot: (options?: DotExportOptions) => string;
     resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
     compensate: (stackId: string, options?: any) => Promise<any>;
+    networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
+    networkPolicyConfig?: NetworkPolicyConfig;
+    monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
+    monitorEmitter?: any;
 }
 
 export type FlowItem<TIn = any, TOut = any> =
@@ -367,12 +463,23 @@ export function flow<TInput = any, TOutput = any>(
     const flatSteps = flattenSteps(steps);
     let defaultTimeoutMs: number | undefined;
     let declaredVersion: string | number | undefined;
+    let flowPolicyConfig: NetworkPolicyConfig | undefined;
+    let flowMonitor: any;
 
     const runFn = (param: any = {}, options?: ExecutionOptions) => {
+        let resolvedNetworkPolicy = options?.networkPolicy;
+        if (flowPolicyConfig) {
+            resolvedNetworkPolicy = options?.networkPolicy
+                ? resolveEffectiveNetworkPolicy(options.networkPolicy, flowPolicyConfig)
+                : flowPolicyConfig;
+        }
         const effectiveOptions: ExecutionOptions = {
             ...(defaultTimeoutMs !== undefined ? { timeout: defaultTimeoutMs } : {}),
             ...(declaredVersion !== undefined ? { workflowVersion: declaredVersion } : {}),
-            ...options
+            ...(flowMonitor !== undefined ? { monitor: flowMonitor } : {}),
+            ast: flowObj.toGraph(),
+            ...options,
+            ...(resolvedNetworkPolicy !== undefined ? { networkPolicy: resolvedNetworkPolicy } : {})
         };
         return Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>;
     };
@@ -413,9 +520,77 @@ export function flow<TInput = any, TOutput = any>(
         resume(correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) {
             return resumeWorkflow(flowObj, correlationKeyOrStackId, eventPayload, options);
         },
-        compensate(stackId: string, options?: any) {
+        async compensate(stackId: string, options?: CompensationRunOptions) {
+            const existing = defaultCompensationManager.getCompensations(stackId);
+            if (!existing || existing.length === 0) {
+                try {
+                    const cp = await getCheckpoint(stackId);
+                    const serializedCompensations = cp?.metadata?.compensations;
+                    if (Array.isArray(serializedCompensations) && serializedCompensations.length > 0) {
+                        const allSteps = flattenSteps(flowObj.steps || []);
+                        for (const record of serializedCompensations) {
+                            let handler = record.handler;
+                            if (!handler && record.handlerName) {
+                                handler = getCompensationHandler(record.handlerName);
+                            }
+                            if (!handler) {
+                                const matchingStep = allSteps.find((s: any) =>
+                                    (s?.name && s.name === record.stepName) ||
+                                    (s?.func && s.func === record.stepName) ||
+                                    (s?.$stepId && s.$stepId === record.stepId)
+                                );
+                                if (matchingStep?.compensationHandler) {
+                                    handler = matchingStep.compensationHandler;
+                                } else if (matchingStep?.compensationHandlerName) {
+                                    handler = getCompensationHandler(matchingStep.compensationHandlerName);
+                                }
+                            }
+
+                            if (!handler && !record.handlerName) {
+                                throw new UnresolvableCompensationException(record.stepName, undefined, { stackId });
+                            }
+
+                            defaultCompensationManager.registerCompensation(stackId, {
+                                stepId: record.stepId,
+                                stepName: record.stepName,
+                                output: record.output,
+                                input: record.input,
+                                handler,
+                                handlerName: record.handlerName,
+                                payload: record.payload,
+                                options: record.options,
+                                status: record.status,
+                                completedAt: record.completedAt
+                            });
+                        }
+                    }
+                } catch (err: any) {
+                    if (err instanceof UnresolvableCompensationException) {
+                        throw err;
+                    }
+                    // best-effort checkpoint hydration
+                }
+            }
             return defaultCompensationManager.runCompensations(stackId, undefined, options);
-        }
+        },
+        networkPolicy(policy?: NetworkPolicyConfig) {
+            flowPolicyConfig = {
+                enabled: policy?.enabled ?? true,
+                defaultPolicy: policy?.defaultPolicy ?? 'deny',
+                allowedHosts: policy?.allowedHosts ? [...policy.allowedHosts] : [],
+                allowLocalhost: policy?.allowLocalhost ?? false,
+                ...(policy?.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {})
+            };
+            flowObj.networkPolicyConfig = flowPolicyConfig;
+            return flowObj;
+        },
+        networkPolicyConfig: undefined,
+        monitor(emitter: any) {
+            flowMonitor = emitter;
+            flowObj.monitorEmitter = emitter;
+            return flowObj;
+        },
+        monitorEmitter: undefined
     };
     return flowObj;
 }
@@ -434,17 +609,19 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     cachedLast?: number;
     cacheOptions?: CacheOptions;
     timeoutMs?: number;
-    $chainId?: string;
     $stepId?: string;
     func?: string;
     // Phase 2
     compensationHandler?: any;
+    compensationHandlerName?: string;
+    compensationPayloadMapper?: (output: any, input: any) => any;
     compensationOptions?: CompensationOptions;
     idempotencyKey?: string | ((ctx: any) => string);
-    idempotencyOptions?: { ttlMs?: number; store?: IdempotencyStore };
+    idempotencyOptions?: IdempotencyOptions;
     workflowNode?: WorkflowNode;
     // Phase 4
     dependencies?: Record<string, any>;
+    networkPolicyConfig?: NetworkPolicyConfig;
 
     constructor(
         nameOrAction?: TName | StepAction<TInput, TOutput> | Flow<TInput, TOutput>,
@@ -468,8 +645,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             this.action = action;
         }
         this.func = (this.name as string);
-        this.$chainId = generateUUID();
-        this.$stepId = this.$chainId;
+        this.$stepId = generateUUID();
         this.specs = [];
         this.onbefore = () => true;
         this.sequence = sequence || [];
@@ -499,6 +675,9 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             : Array.isArray(steps)
                 ? flattenSteps(steps)
                 : steps;
+        if (effOptions && !effOptions.ast) {
+            effOptions = Object.assign({}, effOptions, { ast: toGraph(normalizedSteps) });
+        }
         return new Executer().start(effParam, normalizedSteps, effOptions);
     }
 
@@ -556,6 +735,65 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static toMermaid = toMermaid;
     static toJSON = toJSON;
     static toDot = toDot;
+
+    // Phase 4 Saga & Compensation Helpers
+    static registerCompensationHandler = registerCompensationHandler;
+    static getCompensationHandler = getCompensationHandler;
+    static unregisterCompensationHandler = unregisterCompensationHandler;
+    static clearCompensationHandlers = clearCompensationHandlers;
+    static reconcileAbandonedStacks = reconcileAbandonedStacks;
+
+    // Network Interceptor Helpers
+    static installNetworkInterceptors = installNetworkInterceptors;
+    static uninstallNetworkInterceptors = uninstallNetworkInterceptors;
+
+    // Live Monitoring Helpers
+    static setDefaultMonitor = setDefaultMonitor;
+    static getDefaultMonitor = getDefaultMonitor;
+
+    allowNetwork(hosts: HostPattern | HostPattern[]): this {
+        const list = Array.isArray(hosts) ? hosts : [hosts];
+        this.networkPolicyConfig = {
+            enabled: true,
+            defaultPolicy: 'deny',
+            allowedHosts: list,
+            allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? false,
+            ...(this.networkPolicyConfig?.allowUnixSockets ? { allowUnixSockets: this.networkPolicyConfig.allowUnixSockets } : {})
+        };
+        return this;
+    }
+
+    allowUnixSockets(sockets: string | string[]): this {
+        const list = Array.isArray(sockets) ? sockets : [sockets];
+        this.networkPolicyConfig = {
+            enabled: true,
+            defaultPolicy: this.networkPolicyConfig?.defaultPolicy ?? 'deny',
+            allowedHosts: this.networkPolicyConfig?.allowedHosts || [],
+            allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? false,
+            allowUnixSockets: list
+        };
+        return this;
+    }
+
+    denyNetwork(): this {
+        return this.allowNetwork([]);
+    }
+
+    networkPolicy(): NetworkPolicyConfig | undefined;
+    networkPolicy(policy: NetworkPolicyConfig): this;
+    networkPolicy(policy?: NetworkPolicyConfig): this | NetworkPolicyConfig | undefined {
+        if (policy === undefined) {
+            return this.networkPolicyConfig;
+        }
+        this.networkPolicyConfig = {
+            enabled: policy.enabled ?? true,
+            defaultPolicy: policy.defaultPolicy ?? 'deny',
+            allowedHosts: policy.allowedHosts ? [...policy.allowedHosts] : [],
+            allowLocalhost: policy.allowLocalhost ?? false,
+            ...(policy.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {})
+        };
+        return this;
+    }
 
     timeout(ms: number): Step<TInput, TOutput, TName> {
         this.timeoutMs = ms;
@@ -657,13 +895,27 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    compensate(handler: any, options?: CompensationOptions): Step<TInput, TOutput, TName> {
-        this.compensationHandler = handler;
-        this.compensationOptions = options;
+    compensate(
+        handlerOrName: string | any,
+        payloadMapperOrOptions?: ((output: any, input: any) => any) | CompensationOptions,
+        options?: CompensationOptions
+    ): Step<TInput, TOutput, TName> {
+        if (typeof handlerOrName === 'string') {
+            this.compensationHandlerName = handlerOrName;
+            if (typeof payloadMapperOrOptions === 'function') {
+                this.compensationPayloadMapper = payloadMapperOrOptions;
+                this.compensationOptions = options;
+            } else if (payloadMapperOrOptions && typeof payloadMapperOrOptions === 'object') {
+                this.compensationOptions = payloadMapperOrOptions as CompensationOptions;
+            }
+        } else {
+            this.compensationHandler = handlerOrName;
+            this.compensationOptions = payloadMapperOrOptions as CompensationOptions;
+        }
         return this;
     }
 
-    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: { ttlMs?: number; store?: IdempotencyStore }): Step<TInput, TOutput, TName> {
+    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: IdempotencyOptions): Step<TInput, TOutput, TName> {
         this.idempotencyKey = keyOrFn || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
         this.idempotencyOptions = options;
         return this;
@@ -715,6 +967,22 @@ export type PipeArg<TIn = any, TOut = any> = FlowArg<TIn, TOut>;
 
 /** @deprecated Use `isFlow` instead of `isPipeline`. */
 export const isPipeline = isFlow;
+
+export {
+    registerCompensationHandler,
+    getCompensationHandler,
+    hasCompensationHandler,
+    unregisterCompensationHandler,
+    clearCompensationHandlers,
+    reconcileAbandonedStacks
+};
+
+export type {
+    CompensationRunOptions,
+    CompensationDeadLetterQueue,
+    ReconcilerOptions,
+    ReconcileReport
+} from "../compensation";
 
 export default Step;
 

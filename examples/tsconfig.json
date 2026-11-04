@@ -8,8 +8,8 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "rivulet": ["../packages/core/src/index.ts"],
-      "@rivulet/*": ["../packages/*/src/index.ts"]
+      "siglo": ["../packages/core/src/index.ts"],
+      "@siglo/*": ["../packages/*/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

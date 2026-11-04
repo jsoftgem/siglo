@@ -2,7 +2,7 @@
 
 Long-running workflows frequently need to pause execution for minutes, hours, or days awaiting an external event (such as human approval, webhook verification, or payment clearance) or a duration timer.
 
-`Rivulet` v1.0.0 supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.
+`Siglo` v1.0.0 supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.
 
 ---
 
@@ -11,7 +11,7 @@ Long-running workflows frequently need to pause execution for minutes, hours, or
 When a workflow runs with `{ durable: true }`, encounter of a wait node halts execution cleanly, creates a state checkpoint, records a waiting descriptor, and returns execution control:
 
 ```typescript
-import { Step, flow, waitForEvent, wait } from 'rivulet';
+import { Step, flow, waitForEvent, wait } from 'siglo';
 
 const userRegistrationFlow = flow(
   registerAccount,
@@ -80,3 +80,9 @@ The orchestrator:
 - **Duplicate Events**: Attempting to resume a workflow that is not waiting or has already resumed throws `DuplicateEventException`.
 - **Expired Waits**: If an event arrives after the declared `timeout` has elapsed, `ExpiredWaitException` is thrown.
 - **Resource Efficiency**: In-memory timers and context bindings are released while waiting, permitting thousands of long-running workflows to pause concurrently.
+
+---
+
+## 5. Human-in-the-Loop Approvals
+
+For production human intervention flows (interactive Slack Block Kit cards, responsive HTML emails, signed HMAC action URLs, two-way Twilio SMS, and web framework callback routers), use [`@siglo/notifications`](./adapters/notifications.md). It pairs `sendInteractiveApprovalStep` with `waitForEvent` and provides signed bearer tokens with application-provided authorization, distributed concurrency claims, and automated saga rollback.

@@ -12,6 +12,7 @@ import { cache } from '../cache';
 import { generateUUID } from '../../shared';
 
 export {
+    SigloError,
     RivuletError,
     ExecutionErrorMetadata,
     StepTimeoutException,
@@ -21,6 +22,8 @@ export {
     ValidationErrorDetail,
     StorageAdapterException,
     CheckpointConflictException,
+    OptimisticLockException,
+    WorkflowAlreadyResumedException,
     NamespaceMismatchException,
     CheckpointVersionException,
     FieldCollisionException,
@@ -28,11 +31,13 @@ export {
     IdempotencyConflictException,
     CompensationException,
     CompensationErrorDetail,
+    UnresolvableCompensationException,
     WorkflowSuspendedException,
     DuplicateEventException,
     ExpiredWaitException,
     WorkflowVersionMismatchException,
     GraphValidationException,
+    NetworkPolicyViolationException,
     normalizeError
 } from './exceptions';
 export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';

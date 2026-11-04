@@ -1,9 +1,9 @@
-import { Step, flow, toPOJO } from 'rivulet';
+import { Step, flow, toPOJO } from 'siglo';
 import {
     instrumentWorkflow,
     injectTraceContext,
     extractTraceContext
-} from '@rivulet/opentelemetry';
+} from '@siglo/opentelemetry';
 import { context as otelContext } from '@opentelemetry/api';
 import { initTelemetry, getRecordedSpans, clearRecordedSpans, printTraceWaterfall } from '../tracer';
 

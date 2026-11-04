@@ -1,4 +1,4 @@
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 export interface RawTelemetryReading {
     sensorId: string;

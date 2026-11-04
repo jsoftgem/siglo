@@ -23,7 +23,7 @@ export class Reducer {
         this.Context = Context;
         this.propertyToContext = propertyToContext;
         this.stackId = stackId;
-        this.context = contextInstance || Context.createContext(chain.$chainId, stackId);
+        this.context = contextInstance || Context.createContext(chain.$stepId, stackId);
     }
 
     reduce(done: (err?: any, accumulated?: any) => void, accumulated: any = {}, index = 0): void {

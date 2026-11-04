@@ -1,4 +1,4 @@
-import { Step, flow, map } from 'rivulet';
+import { Step, flow, map } from 'siglo';
 
 export interface DocumentItem {
     docId: string;

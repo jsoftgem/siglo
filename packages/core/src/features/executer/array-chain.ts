@@ -157,22 +157,36 @@ const executeArrayChain = (
         .catch((err: any) => {
             if ((err instanceof WorkflowSuspendedException || err?.name === 'WorkflowSuspendedException') && options?.durable) {
                 try {
-                    defaultStorageManager.checkpoint(options.stackId, {
-                        status: Status.WAITING,
-                        workflowId: options.workflowId
-                    });
-                    defaultDurableManager.registerWait({
+                    const waitRecord = {
                         stackId: options.stackId,
                         workflowId: options.workflowId,
                         correlationKey: err.correlationKey || `wait:${options.stackId}`,
                         eventName: err.eventName || 'wait',
                         status: Status.WAITING,
                         continuationStepIndex: stepIndex + 1,
-                        stepId: chain?.$stepId || chain?.$chainId || `$step_${stepIndex}`,
+                        stepId: chain?.$stepId || `$step_${stepIndex}`,
                         expiresAt: err.expiresAt,
                         createdAt: Date.now(),
-                        version: options.workflowVersion
+                        version: options.workflowVersion,
+                        namespace: options.namespace
+                    };
+                    defaultStorageManager.checkpoint(options.stackId, {
+                        status: Status.WAITING,
+                        workflowId: options.workflowId,
+                        metadata: {
+                            waitRecord,
+                            accumulatedContext: toPOJO(accumulatedParam),
+                            steps: steps
+                        }
                     });
+                    defaultDurableManager.registerWait(waitRecord);
+                    const adapter = defaultStorageManager.getAdapter();
+                    if (adapter && typeof (adapter as any).saveWaitRecord === 'function') {
+                        const saveRes = (adapter as any).saveWaitRecord(waitRecord);
+                        if (saveRes && typeof saveRes.catch === 'function') {
+                            saveRes.catch(() => {});
+                        }
+                    }
                 /* c8 ignore next 3 */
                 } catch {
                     // ignore

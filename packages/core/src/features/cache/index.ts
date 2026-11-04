@@ -1,5 +1,4 @@
 import {
-    CHAIN_ID,
     STEP_ID,
     STACK_ID,
     VALIDATORS,
@@ -40,8 +39,7 @@ export function cache(
     const cleanParam = toPOJO(param);
     const paramToHash = Object.assign({}, cleanParam);
     const internalKeys = [
-        CHAIN_ID,
-        STEP_ID,
+            STEP_ID,
         STACK_ID,
         VALIDATORS,
         STEPS,

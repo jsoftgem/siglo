@@ -8,17 +8,17 @@ import {
     Flow,
     Step,
     StorageAdapter
-} from 'rivulet';
+} from 'siglo';
 import { SemanticAttributes } from './attributes';
-import { RivuletTelemetryOptions } from './types';
+import { SigloTelemetryOptions } from './types';
 
-const DEFAULT_TRACER_NAME = '@rivulet/opentelemetry';
+const DEFAULT_TRACER_NAME = '@siglo/opentelemetry';
 const DEFAULT_TRACER_VERSION = '1.0.0';
 
 /**
  * Returns an OpenTelemetry tracer based on configuration.
  */
-export function getTracer(options?: RivuletTelemetryOptions): Tracer {
+export function getTracer(options?: SigloTelemetryOptions): Tracer {
     return options?.tracer || trace.getTracer(options?.serviceName || DEFAULT_TRACER_NAME, DEFAULT_TRACER_VERSION);
 }
 
@@ -36,7 +36,7 @@ function resolveValue<T>(valOrFn: any): T | undefined {
 /**
  * Creates a StorageAdapter that streams allowed, sanitized context changes to active telemetry spans.
  */
-export function createTelemetryStorageAdapter(options: RivuletTelemetryOptions = {}): StorageAdapter {
+export function createTelemetryStorageAdapter(options: SigloTelemetryOptions = {}): StorageAdapter {
     return {
         name: 'opentelemetry',
         onContextChange(entry: any) {
@@ -51,7 +51,7 @@ export function createTelemetryStorageAdapter(options: RivuletTelemetryOptions =
                 }
                 if (val !== undefined) {
                     activeSpan.setAttribute(
-                        `rivulet.context.${entry.field}`,
+                        `siglo.context.${entry.field}`,
                         typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)
                     );
                 }
@@ -66,7 +66,7 @@ export function createTelemetryStorageAdapter(options: RivuletTelemetryOptions =
  */
 export function instrumentStep<TInput = any, TOutput = any>(
     step: Step<TInput, TOutput>,
-    options: RivuletTelemetryOptions = {}
+    options: SigloTelemetryOptions = {}
 ): Step<TInput, TOutput> {
     const tracer = getTracer(options);
     const originalAction = step.action;
@@ -127,7 +127,7 @@ export function instrumentStep<TInput = any, TOutput = any>(
  */
 export function instrumentWorkflow<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletTelemetryOptions = {}
+    options: SigloTelemetryOptions = {}
 ): Flow<TInput, TOutput> {
     const tracer = getTracer(options);
 

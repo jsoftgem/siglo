@@ -1,4 +1,4 @@
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 export interface KycApplicationInput {
     applicantId: string;
@@ -54,9 +54,9 @@ export function createKycOnboardingPipeline() {
             mrzChecksumValid: true
         };
     }).onFail({
-        retries: 2,
+        maxRetries: 2,
         delay: 15,
-        backoff: 1.5
+        backoff: 'exponential'
     });
 
     // Step 3: Verify Facial Biometrics (Selfie vs Document photo)

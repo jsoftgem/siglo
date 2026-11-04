@@ -1,6 +1,6 @@
-# @rivulet/postgres Adapter Guide
+# @siglo/postgres Adapter Guide
 
-`@rivulet/postgres` provides an enterprise ACID-compliant persistence adapter for `Rivulet` workflows using PostgreSQL. It offers durable execution checkpointing, immutable context mutation audit event logging, automated table initialization, schema indexing, retention policy cleanup, and distributed atomic idempotency claim locking.
+`@siglo/postgres` provides an enterprise ACID-compliant persistence adapter for `Siglo` workflows using PostgreSQL. It offers durable execution checkpointing, immutable context mutation audit event logging, automated table initialization, schema indexing, retention policy cleanup, and distributed atomic idempotency claim locking.
 
 ---
 
@@ -8,49 +8,43 @@
 
 When workflows coordinate mission-critical financial, compliance, or enterprise transactions, state persistence must survive node failures and network partitions:
 
-```
-                          ┌───────────────────────────┐
-                          │    Rivulet Engine      │
-                          └─────────────┬─────────────┘
-                                        │
-             ┌──────────────────────────┴──────────────────────────┐
-             │                                                     │
-             ▼                                                     ▼
-┌─────────────────────────┐                               ┌─────────────────────────┐
-│ PostgresStorageAdapter  │                               │ PostgresIdempotencyStore│
-│ • saveCheckpoint()      │                               │ • claim()               │
-│ • getCheckpoint()       │                               │ • complete()            │
-│ • onContextChange()     │                               │ • fail()                │
-│ • cleanupOldCheckpoints │                               │ • cleanupExpired()      │
-└────────────┬────────────┘                               └────────────┬────────────┘
-             │                                                         │
-             ▼                                                         ▼
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                               PostgreSQL Database                                 │
-│                                                                                   │
-│  rivulet_checkpoints          rivulet_context_events        rivulet_idempotency         │
-│  ┌──────────────────────┐   ┌───────────────────────┐   ┌───────────────────────┐ │
-│  │ stack_id (PK)        │   │ id (BIGSERIAL PK)     │   │ key (VARCHAR(512) PK) │ │
-│  │ namespace            │   │ stack_id              │   │ status                │ │
-│  │ state (JSONB)        │   │ step_id               │   │ result (JSONB)        │ │
-│  │ created_at / updated │   │ field, value (JSONB)  │   │ expires_at, created_at│ │
-│  └──────────────────────┘   └───────────────────────┘   └───────────────────────┘ │
-└───────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Engine["Siglo Engine"]
+
+    subgraph Adapters["@siglo/postgres"]
+        direction LR
+        SA["PostgresStorageAdapter<br/>• saveCheckpoint()<br/>• getCheckpoint()<br/>• onContextChange()<br/>• cleanupOldCheckpoints()"]
+        IS["PostgresIdempotencyStore<br/>• claim()<br/>• complete()<br/>• fail()<br/>• cleanupExpired()"]
+    end
+
+    subgraph DB["PostgreSQL Database"]
+        direction LR
+        T1["siglo_checkpoints<br/>• stack_id (PK)<br/>• namespace<br/>• state (JSONB)<br/>• created_at / updated"]
+        T2["siglo_context_events<br/>• id (BIGSERIAL PK)<br/>• stack_id, step_id<br/>• namespace, field<br/>• value (JSONB), created_at"]
+        T3["siglo_idempotency<br/>• key (VARCHAR(512) PK)<br/>• status, result (JSONB)<br/>• expires_at, created_at"]
+    end
+
+    Engine --> SA
+    Engine --> IS
+    SA --> T1
+    SA --> T2
+    IS --> T3
 ```
 
 ---
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/postgres` and `pg`:
+Install `@siglo/postgres` and `pg`:
 
 ```bash
-npm install Rivulet @rivulet/postgres pg
+npm install Siglo @siglo/postgres pg
 npm install --save-dev @types/pg
 ```
 
 Peer dependency matrix:
-- `Rivulet`: `*` (v1.0.0+)
+- `Siglo`: `*` (v1.0.0+)
 - `pg`: `^8.0.0`
 
 ---
@@ -63,17 +57,17 @@ Both `PostgresStorageAdapter` and `PostgresIdempotencyStore` support automated t
 
 ```sql
 -- 1. Checkpoint Storage Table
-CREATE TABLE IF NOT EXISTS rivulet_checkpoints (
+CREATE TABLE IF NOT EXISTS siglo_checkpoints (
     stack_id VARCHAR(255) PRIMARY KEY,
     namespace VARCHAR(255),
     state JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_rivulet_checkpoints_namespace ON rivulet_checkpoints(namespace);
+CREATE INDEX IF NOT EXISTS idx_siglo_checkpoints_namespace ON siglo_checkpoints(namespace);
 
 -- 2. Context Mutation Audit Log
-CREATE TABLE IF NOT EXISTS rivulet_context_events (
+CREATE TABLE IF NOT EXISTS siglo_context_events (
     id BIGSERIAL PRIMARY KEY,
     stack_id VARCHAR(255) NOT NULL,
     step_id VARCHAR(255) NOT NULL,
@@ -82,17 +76,17 @@ CREATE TABLE IF NOT EXISTS rivulet_context_events (
     value JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_rivulet_context_events_stack ON rivulet_context_events(stack_id);
+CREATE INDEX IF NOT EXISTS idx_siglo_context_events_stack ON siglo_context_events(stack_id);
 
 -- 3. Distributed Idempotency Table
-CREATE TABLE IF NOT EXISTS rivulet_idempotency (
+CREATE TABLE IF NOT EXISTS siglo_idempotency (
     key VARCHAR(512) PRIMARY KEY,
     status VARCHAR(50) NOT NULL,
     result JSONB,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_rivulet_idempotency_expires ON rivulet_idempotency(expires_at);
+CREATE INDEX IF NOT EXISTS idx_siglo_idempotency_expires ON siglo_idempotency(expires_at);
 ```
 
 ---
@@ -102,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_rivulet_idempotency_expires ON rivulet_idempotenc
 Implements the standard `StorageAdapter` interface.
 
 ```typescript
-import { PostgresStorageAdapter } from '@rivulet/postgres';
+import { PostgresStorageAdapter } from '@siglo/postgres';
 ```
 
 ### Constructor Options (`PostgresStorageAdapterOptions`)
@@ -110,8 +104,8 @@ import { PostgresStorageAdapter } from '@rivulet/postgres';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `PostgresClientInterface \| Pool` | *Required* | Active PostgreSQL `Pool` or `Client` instance. |
-| `checkpointsTable` | `string` | `'rivulet_checkpoints'` | Name of checkpoints table. |
-| `eventsTable` | `string` | `'rivulet_context_events'` | Name of context change audit table. |
+| `checkpointsTable` | `string` | `'siglo_checkpoints'` | Name of checkpoints table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/` (up to 63 chars) for SQL injection protection. |
+| `eventsTable` | `string` | `'siglo_context_events'` | Name of context change audit table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/` (up to 63 chars) for SQL injection protection. |
 | `recordContextChanges` | `boolean` | `true` | If `true`, writes all step context mutations into `eventsTable`. |
 
 ### Methods
@@ -126,7 +120,7 @@ Upserts a serialized execution stack by `stackId`, updating the `state` JSONB an
 Fetches the checkpoint by `stackId`. Returns `undefined` if no checkpoint is found.
 
 #### `onContextChange(entry): Promise<void>`
-Streams a field modification into `rivulet_context_events` with step ID, field name, JSONB value, and high-resolution timestamp.
+Streams a field modification into `siglo_context_events` with step ID, field name, JSONB value, and high-resolution timestamp.
 
 #### `cleanupOldCheckpoints(retentionDays?: number): Promise<number>`
 Deletes checkpoints older than `retentionDays` (default `30` days). Returns the count of deleted rows.
@@ -141,7 +135,7 @@ Deletes audit records older than `retentionDays` (default `30` days). Returns th
 Implements the standard `IdempotencyStore` interface.
 
 ```typescript
-import { PostgresIdempotencyStore } from '@rivulet/postgres';
+import { PostgresIdempotencyStore } from '@siglo/postgres';
 ```
 
 ### Constructor Options (`PostgresIdempotencyOptions`)
@@ -149,7 +143,7 @@ import { PostgresIdempotencyStore } from '@rivulet/postgres';
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `client` | `PostgresClientInterface \| Pool` | *Required* | Active PostgreSQL `Pool` or `Client` instance. |
-| `tableName` | `string` | `'rivulet_idempotency'` | Name of idempotency table. |
+| `tableName` | `string` | `'siglo_idempotency'` | Name of idempotency table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/` (up to 63 chars) for SQL injection protection. |
 | `defaultTtlMs` | `number` | `86400000` (24h) | Fallback expiration TTL in milliseconds. |
 
 ### Methods
@@ -181,8 +175,8 @@ Prunes expired idempotency records (`WHERE expires_at < NOW()`).
 
 ```typescript
 import { Pool } from 'pg';
-import { Step, flow } from 'rivulet';
-import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@rivulet/postgres';
+import { Step, flow } from 'siglo';
+import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@siglo/postgres';
 
 // 1. Initialize PostgreSQL Connection Pool
 const pool = new Pool({

@@ -1,6 +1,6 @@
-# @rivulet/opentelemetry Adapter Guide
+# @siglo/opentelemetry Adapter Guide
 
-`@rivulet/opentelemetry` provides vendor-neutral distributed tracing, semantic spans, context event streaming, and W3C Trace Context propagation for `Rivulet` workflows. It is fully compliant with the OpenTelemetry API (`@opentelemetry/api` v1.9.0+) and integrates seamlessly with collectors like Jaeger, Zipkin, Datadog, Prometheus, New Relic, and AWS X-Ray.
+`@siglo/opentelemetry` provides vendor-neutral distributed tracing, semantic spans, context event streaming, and W3C Trace Context propagation for `Siglo` workflows. It is fully compliant with the OpenTelemetry API (`@opentelemetry/api` v1.9.0+) and integrates seamlessly with collectors like Jaeger, Zipkin, Datadog, Prometheus, New Relic, and AWS X-Ray.
 
 ---
 
@@ -8,44 +8,22 @@
 
 The OpenTelemetry integration creates an end-to-end distributed span hierarchy covering workflows, steps, retries, and context mutations:
 
-```
-    [ Incoming HTTP / Kafka / SQS Request with W3C traceparent ]
-                               │
-                               ▼ extractTraceContext()
-    ┌──────────────────────────────────────────────────────────┐
-    │  Span: workflow:CheckoutPipeline                         │
-    │  • rivulet.workflow.name = 'CheckoutPipeline'              │
-    │  • rivulet.workflow.version = '2.1.0'                      │
-    │  • rivulet.stack.id = 'stack_9812_01'                      │
-    │  • rivulet.namespace = 'ecommerce-us'                      │
-    │  • rivulet.timeout = 30000                                 │
-    └──────────────────────────┬───────────────────────────────┘
-                               │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-    ┌───────────────────────────┐         ┌───────────────────────────┐
-    │ Span: step:validateCart   │         │ Span: step:chargeCard     │
-    │ • rivulet.step.name = ...   │         │ • rivulet.step.attempt = 1  │
-    │ • rivulet.step.attempt = 1  │         │ (Failure: recordException)│
-    │ • Status: OK              │         └─────────────┬─────────────┘
-    └───────────────────────────┘                       │
-                                                        ▼
-                                          ┌───────────────────────────┐
-                                          │ Span: step:chargeCard     │
-                                          │       (retry #2)          │
-                                          │ • rivulet.step.attempt = 2  │
-                                          │ • Status: OK              │
-                                          └───────────────────────────┘
+```mermaid
+flowchart TD
+    Req["Incoming HTTP / Kafka / SQS Request<br/>(with W3C traceparent)"] -->|extractTraceContext()| WFSpan["Span: workflow:CheckoutPipeline<br/>• siglo.workflow.name = 'CheckoutPipeline'<br/>• siglo.workflow.version = '2.1.0'<br/>• siglo.stack.id = 'stack_9812_01'<br/>• siglo.namespace = 'ecommerce-us'<br/>• siglo.timeout = 30000"]
+    WFSpan --> Step1["Span: step:validateCart<br/>• siglo.step.name = ...<br/>• siglo.step.attempt = 1<br/>• Status: OK"]
+    WFSpan --> Step2["Span: step:chargeCard<br/>• siglo.step.attempt = 1<br/>• (Failure: recordException)"]
+    Step2 -->|Retry| Step2Retry["Span: step:chargeCard (retry #2)<br/>• siglo.step.attempt = 2<br/>• Status: OK"]
 ```
 
 ---
 
 ## 2. Installation & Requirements
 
-Install `@rivulet/opentelemetry` and the OpenTelemetry API:
+Install `@siglo/opentelemetry` and the OpenTelemetry API:
 
 ```bash
-npm install Rivulet @rivulet/opentelemetry @opentelemetry/api
+npm install Siglo @siglo/opentelemetry @opentelemetry/api
 ```
 
 Recommended OpenTelemetry SDK packages for Node.js:
@@ -61,16 +39,16 @@ npm install --save-dev @opentelemetry/sdk-node @opentelemetry/sdk-trace-node @op
 
 | Attribute Constant | String Key | Type | Description |
 | :--- | :--- | :--- | :--- |
-| `WORKFLOW_NAME` | `rivulet.workflow.name` | `string` | Canonical name of the executing workflow. |
-| `WORKFLOW_VERSION` | `rivulet.workflow.version` | `string` | Semantic version string of the workflow. |
-| `WORKFLOW_ID` | `rivulet.workflow.id` | `string` | Unique workflow identifier. |
-| `STACK_ID` | `rivulet.stack.id` | `string` | Unique stack execution identifier. |
-| `STEP_NAME` | `rivulet.step.name` | `string` | Name or debug label of the active step. |
-| `STEP_ID` | `rivulet.step.id` | `string` | Internal node identifier in the workflow graph AST. |
-| `STEP_ATTEMPT` | `rivulet.step.attempt` | `number` | 1-based attempt count (incremented on retries). |
-| `NAMESPACE` | `rivulet.namespace` | `string` | Tenant namespace partition (requires `allowNamespace: true`). |
-| `CACHE_HIT` | `rivulet.cache.hit` | `boolean` | `true` if step result was served from cache. |
-| `TIMEOUT` | `rivulet.timeout` | `number` | Configured timeout in milliseconds. |
+| `WORKFLOW_NAME` | `siglo.workflow.name` | `string` | Canonical name of the executing workflow. |
+| `WORKFLOW_VERSION` | `siglo.workflow.version` | `string` | Semantic version string of the workflow. |
+| `WORKFLOW_ID` | `siglo.workflow.id` | `string` | Unique workflow identifier. |
+| `STACK_ID` | `siglo.stack.id` | `string` | Unique stack execution identifier. |
+| `STEP_NAME` | `siglo.step.name` | `string` | Name or debug label of the active step. |
+| `STEP_ID` | `siglo.step.id` | `string` | Internal node identifier in the workflow graph AST. |
+| `STEP_ATTEMPT` | `siglo.step.attempt` | `number` | 1-based attempt count (incremented on retries). |
+| `NAMESPACE` | `siglo.namespace` | `string` | Tenant namespace partition (requires `allowNamespace: true`). |
+| `CACHE_HIT` | `siglo.cache.hit` | `boolean` | `true` if step result was served from cache. |
+| `TIMEOUT` | `siglo.timeout` | `number` | Configured timeout in milliseconds. |
 
 ---
 
@@ -83,16 +61,16 @@ Instruments a `Flow` instance with a root span, sets execution attributes, and a
 ```typescript
 function instrumentWorkflow<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: RivuletTelemetryOptions
+    options?: SigloTelemetryOptions
 ): Flow<TInput, TOutput>;
 ```
 
-#### Options (`RivuletTelemetryOptions`):
-- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@rivulet/opentelemetry', '1.0.0')`.
+#### Options (`SigloTelemetryOptions`):
+- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@siglo/opentelemetry', '1.0.0')`.
 - `serviceName` (`string`): Tracer service name identifier.
 - `workflowName` (`string`): Override workflow span label.
 - `workflowVersion` (`string`): Workflow version (default: `'1.0.0'`).
-- `allowNamespace` (`boolean`): If `true`, injects `rivulet.namespace` into span attributes. Default `false` to prevent accidental namespace leakage.
+- `allowNamespace` (`boolean`): If `true`, injects `siglo.namespace` into span attributes. Default `false` to prevent accidental namespace leakage.
 - `allowContextFields` (`string[]`): Whitelist of step context mutation keys that are allowed to be recorded as span attributes.
 - `redactHook` (`(key: string, value: unknown) => unknown`): Sanitizer hook to scrub sensitive or PII data before recording attributes.
 
@@ -105,7 +83,7 @@ Wraps an individual `Step` with a child span covering step execution, attempt co
 ```typescript
 function instrumentStep<TInput = any, TOutput = any>(
     step: Step<TInput, TOutput>,
-    options?: RivuletTelemetryOptions
+    options?: SigloTelemetryOptions
 ): Step<TInput, TOutput>;
 ```
 
@@ -116,11 +94,11 @@ function instrumentStep<TInput = any, TOutput = any>(
 Creates a `StorageAdapter` that transforms context changes into OpenTelemetry span attributes:
 
 ```typescript
-function createTelemetryStorageAdapter(options?: RivuletTelemetryOptions): StorageAdapter;
+function createTelemetryStorageAdapter(options?: SigloTelemetryOptions): StorageAdapter;
 ```
 
 #### Security & PII Protection:
-By default, **no context fields are streamed to OpenTelemetry spans**. Only fields explicitly declared in `allowContextFields` are emitted as `rivulet.context.<field>`, and all values pass through `redactHook` if configured.
+By default, **no context fields are streamed to OpenTelemetry spans**. Only fields explicitly declared in `allowContextFields` are emitted as `siglo.context.<field>`, and all values pass through `redactHook` if configured.
 
 ---
 
@@ -138,12 +116,12 @@ By default, **no context fields are streamed to OpenTelemetry spans**. Only fiel
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { trace } from '@opentelemetry/api';
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 import {
     instrumentWorkflow,
     createTelemetryStorageAdapter,
     getTraceHeaders
-} from '@rivulet/opentelemetry';
+} from '@siglo/opentelemetry';
 
 // 1. Initialize OpenTelemetry SDK
 const sdk = new NodeSDK({

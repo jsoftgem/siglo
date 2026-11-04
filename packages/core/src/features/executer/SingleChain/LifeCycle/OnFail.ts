@@ -1,5 +1,6 @@
-import { FlowTimeoutException } from '../../exceptions';
-import { CHAIN_ID, ATTEMPT, RETRY_DELAY } from '../../../../shared';
+import { FlowTimeoutException, WorkflowSuspendedException } from '../../exceptions';
+import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY } from '../../../../shared';
+import { emitMonitoringEvent } from '../../../events';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
 
@@ -14,7 +15,7 @@ export interface RetryConfig {
     onRetry?: (error: any, attempt: number, delayMs?: number) => void;
 }
 
-const RETRY_MAP = Symbol.for('rivulet.retry-map');
+const RETRY_MAP = Symbol.for('siglo.retry-map');
 
 export default class OnFail {
     constructor(
@@ -39,6 +40,44 @@ export default class OnFail {
             params: initialParam
         });
         const outerSignal = options?.outerSignal || options?.signal;
+
+        const resolvedStackId = options?.stackId ||
+            singleChain?.stackId ||
+            (typeof initialParam?.$stackId === 'function' ? initialParam.$stackId() : initialParam?.$stackId) ||
+            (initialParam && typeof initialParam[STACK_ID] === 'function' ? initialParam[STACK_ID]() : initialParam?.[STACK_ID]) ||
+            initialParam?.[STACK_ID_KEY] ||
+            '';
+        const stepId = (chains && chains.$stepId) || chain.$stepId || chain.name || '';
+        const stepName = chain.func || chain.name || 'chain';
+
+        let currentAttemptNumber = 1;
+        const rawReject = reject;
+        const emitStepError = (err: any) => {
+            emitMonitoringEvent(options, {
+                type: 'step:error',
+                stackId: resolvedStackId,
+                stepId,
+                stepName,
+                attempt: currentAttemptNumber,
+                error: {
+                    message: err?.message || String(err),
+                    code: err?.code,
+                    stack: err?.stack
+                },
+                timestamp: Date.now(),
+                namespace: options?.namespace
+            });
+        };
+        const safeRejectWithEvent = (err: any) => {
+            emitStepError(err);
+            rawReject(err);
+        };
+        reject = safeRejectWithEvent;
+
+        if (error instanceof WorkflowSuspendedException || error?.name === 'WorkflowSuspendedException') {
+            rawReject(error);
+            return;
+        }
 
         if (outerSignal?.aborted) {
             reject(outerSignal.reason || new Error('This operation was aborted'));
@@ -101,7 +140,7 @@ export default class OnFail {
                 }
             } else if (typeof chain.onfail === 'object') {
                 const config: RetryConfig = chain.onfail;
-                const maxRetries = config.maxRetries !== undefined ? config.maxRetries : 3;
+                const maxRetries = config.maxRetries !== undefined ? config.maxRetries : ((config as any).maxAttempts !== undefined ? (config as any).maxAttempts : 3);
                 const baseDelay = config.delay !== undefined ? config.delay : 100;
                 const maxDelay = config.maxDelay !== undefined ? config.maxDelay : 10000;
                 const backoff = config.backoff || 'fixed';
@@ -111,12 +150,13 @@ export default class OnFail {
                         initialParam[RETRY_MAP] = {};
                     }
                 }
-                const stepKey = (chains && typeof chains === 'object' && chains[CHAIN_ID])
-                    ? chains[CHAIN_ID]
+                const stepKey = (chains && typeof chains === 'object' && chains[STEP_ID])
+                    ? chains[STEP_ID]
                     : (chain.func || chain.name || (typeof chains === 'string' ? chains : 'chain'));
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
                 retryMap[stepKey] = currentAttempt;
+                currentAttemptNumber = currentAttempt;
 
                 if (config.retryIf && !config.retryIf(error, currentAttempt)) {
                     reject(error);
@@ -146,6 +186,23 @@ export default class OnFail {
                     if (config.onRetry) {
                         config.onRetry(error, currentAttempt, delayMs);
                     }
+
+                    emitMonitoringEvent(options, {
+                        type: 'step:retry',
+                        stackId: resolvedStackId,
+                        stepId,
+                        stepName,
+                        attempt: currentAttempt,
+                        maxAttempts: maxRetries,
+                        error: {
+                            message: error?.message || String(error),
+                            code: error?.code,
+                            stack: error?.stack
+                        },
+                        delayMs,
+                        timestamp: Date.now(),
+                        namespace: options?.namespace
+                    });
 
                     if (initialParam && typeof initialParam === 'object') {
                         const attFn = () => currentAttempt;

@@ -1,7 +1,7 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: rivulet-redis
+    container_name: siglo-redis
     command: ["redis-server", "--requirepass", "redispassword"]
     ports:
       - "6379:6379"
@@ -14,14 +14,14 @@ services:
 
   mongodb:
     image: mongo:7.0
-    container_name: rivulet-mongodb
+    container_name: siglo-mongodb
     ports:
       - "27017:27017"
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
-      MONGO_INITDB_DATABASE: rivulet_db
+      MONGO_INITDB_DATABASE: siglo_db
     healthcheck:
       test: ["CMD", "mongosh", "-u", "admin", "-p", "mongopassword", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
       interval: 5s

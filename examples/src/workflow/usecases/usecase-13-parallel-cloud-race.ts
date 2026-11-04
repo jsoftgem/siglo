@@ -1,4 +1,4 @@
-import { Step, flow, parallel, race, allSettled } from 'rivulet';
+import { Step, flow, parallel, race, allSettled } from 'siglo';
 
 export interface CloudAssetInput {
     assetId: string;
@@ -130,7 +130,7 @@ export function createMultiCloudReplicationPipeline() {
         }),
 
         // 3. Non-blocking allSettled background hooks
-        allSettled(logReplicationAnalytics, pushReplicationAudit),
+        allSettled([logReplicationAnalytics, pushReplicationAudit]),
 
         // 4. Final verification and receipt
         assembleReceipt

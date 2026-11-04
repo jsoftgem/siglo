@@ -11,7 +11,7 @@ export default class OnSkip {
         propertyToContext?: (context: any, chainReturn: any) => void,
         stackId?: string
     ) {
-        const context = Context.createContext(chain.$chainId, stackId);
+        const context = Context.createContext(chain.$stepId, stackId);
         if (isFunction(chain.onskip)) {
             try {
                 const actionParam = toPOJO(param);

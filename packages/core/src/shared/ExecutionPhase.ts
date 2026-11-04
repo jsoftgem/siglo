@@ -6,6 +6,7 @@ export const ExecutionPhase = {
     ACTION: 'action',
     AFTER: 'after',
     FAIL: 'fail',
+    COMPENSATION: 'compensation',
 } as const;
 
 export type ExecutionPhase = (typeof ExecutionPhase)[keyof typeof ExecutionPhase];
@@ -15,6 +16,14 @@ export function tagErrorPhase(err: unknown, phase: ExecutionPhase | string, step
         (err as Record<string, unknown>).phase = phase;
         if (stepName !== undefined) {
             (err as Record<string, unknown>).stepName = stepName;
+        }
+        if (Array.isArray(err)) {
+            for (const item of err) {
+                tagErrorPhase(item, phase, stepName);
+                if (item && typeof item === 'object' && (item as any).error) {
+                    tagErrorPhase((item as any).error, phase, stepName);
+                }
+            }
         }
     }
 }

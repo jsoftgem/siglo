@@ -22,6 +22,18 @@ describe('shared.executionPhase.unit.test', () => {
         expect(obj.stepName).to.be.undefined;
     });
 
+    it('tagErrorPhase recursively tags arrays and nested error objects', () => {
+        const nestedErr: any = new Error('nested');
+        const errArray: any = [{ field: 'testField', error: nestedErr }];
+        tagErrorPhase(errArray, ExecutionPhase.VALIDATION, 'specStep');
+        expect(errArray.phase).to.equal('validation');
+        expect(errArray.stepName).to.equal('specStep');
+        expect(errArray[0].phase).to.equal('validation');
+        expect(errArray[0].stepName).to.equal('specStep');
+        expect(nestedErr.phase).to.equal('validation');
+        expect(nestedErr.stepName).to.equal('specStep');
+    });
+
     it('tagErrorPhase safely ignores non-object inputs', () => {
         expect(() => tagErrorPhase('string error', ExecutionPhase.FAIL)).to.not.throw();
         expect(() => tagErrorPhase(null, ExecutionPhase.FAIL)).to.not.throw();

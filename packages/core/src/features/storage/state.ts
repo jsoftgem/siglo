@@ -7,9 +7,9 @@ export interface PutChainContextMeta {
 }
 
 export interface StoragePlugins {
-    getChainContext?: (chainId: string, field: string) => any;
+    getChainContext?: (stepId: string, field: string) => any;
     putChainContext?: (
-        chainId: string,
+        stepId: string,
         field: string,
         getter: () => any,
         meta?: PutChainContextMeta
@@ -25,6 +25,7 @@ export interface StackRecord {
     expiresAt?: number;
     revision?: number;
     metadata?: Record<string, any>;
+    monitor?: any;
 }
 
 export interface StorageState {

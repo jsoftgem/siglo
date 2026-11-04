@@ -1,4 +1,4 @@
-import { StorageAdapter, SerializedExecutionStack } from 'rivulet';
+import { StorageAdapter, SerializedExecutionStack } from 'siglo';
 import { RedisStorageAdapterOptions, RedisClientInterface } from './types';
 
 export class RedisStorageAdapter implements StorageAdapter {
@@ -14,7 +14,7 @@ export class RedisStorageAdapter implements StorageAdapter {
             throw new Error('RedisStorageAdapter requires a valid Redis client instance.');
         }
         this.client = options.client;
-        this.keyPrefix = options.keyPrefix || 'rivulet:';
+        this.keyPrefix = options.keyPrefix || 'siglo:';
         this.cacheTtlMs = options.cacheTtlMs || 86400000; // 24 hours
         this.checkpointTtlMs = options.checkpointTtlMs || 604800000; // 7 days
         this.recordContextChanges = options.recordContextChanges ?? true;
@@ -24,12 +24,20 @@ export class RedisStorageAdapter implements StorageAdapter {
         return `${this.keyPrefix}cache:${key}`;
     }
 
-    private checkpointKey(stackId: string): string {
-        return `${this.keyPrefix}checkpoint:${stackId}`;
+    private checkpointKey(stackId: string, namespace?: string): string {
+        return namespace
+            ? `${this.keyPrefix}${namespace}:checkpoint:${stackId}`
+            : `${this.keyPrefix}checkpoint:${stackId}`;
     }
 
-    private contextKey(stackId: string, stepId: string): string {
-        return `${this.keyPrefix}context:${stackId}:${stepId}`;
+    private waitRecordKey(key: string): string {
+        return `${this.keyPrefix}wait:${key}`;
+    }
+
+    private contextKey(stackId: string, stepId: string, namespace?: string): string {
+        return namespace
+            ? `${this.keyPrefix}${namespace}:context:${stackId}:${stepId}`
+            : `${this.keyPrefix}context:${stackId}:${stepId}`;
     }
 
     async onContextChange(entry: {
@@ -44,7 +52,7 @@ export class RedisStorageAdapter implements StorageAdapter {
             return;
         }
         try {
-            const key = this.contextKey(entry.stackId, entry.stepId);
+            const key = this.contextKey(entry.stackId, entry.stepId, entry.namespace);
             const serialized = typeof entry.value === 'object' && entry.value !== null
                 ? JSON.stringify(entry.value)
                 : String(entry.value ?? '');
@@ -62,17 +70,22 @@ export class RedisStorageAdapter implements StorageAdapter {
         if (!checkpoint || !checkpoint.stackId) {
             return;
         }
-        const key = this.checkpointKey(checkpoint.stackId);
+        const key = this.checkpointKey(checkpoint.stackId, checkpoint.namespace);
         const serialized = JSON.stringify(checkpoint);
         await this.client.set(key, serialized, 'PX', this.checkpointTtlMs);
     }
 
-    async getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined> {
+    async getCheckpoint(stackId: string, namespace?: string): Promise<SerializedExecutionStack | undefined> {
         if (!stackId) {
             return undefined;
         }
-        const key = this.checkpointKey(stackId);
-        const data = await this.client.get(key);
+        let data: string | null = null;
+        if (namespace) {
+            data = await this.client.get(this.checkpointKey(stackId, namespace));
+        }
+        if (!data) {
+            data = await this.client.get(this.checkpointKey(stackId));
+        }
         if (!data) {
             return undefined;
         }
@@ -81,6 +94,39 @@ export class RedisStorageAdapter implements StorageAdapter {
         } catch {
             return undefined;
         }
+    }
+
+    async cleanExpiredCheckpoints(): Promise<number> {
+        return 0; // Handled automatically by Redis TTL expiration
+    }
+
+    async saveWaitRecord(record: any): Promise<void> {
+        if (!record || (!record.correlationKey && !record.stackId)) {
+            return;
+        }
+        const serialized = JSON.stringify(record);
+        if (record.correlationKey) {
+            await this.client.set(this.waitRecordKey(record.correlationKey), serialized, 'PX', this.checkpointTtlMs);
+        }
+        if (record.stackId) {
+            await this.client.set(this.waitRecordKey(record.stackId), serialized, 'PX', this.checkpointTtlMs);
+        }
+    }
+
+    async getWaitRecord(correlationKeyOrStackId: string): Promise<any | undefined> {
+        if (!correlationKeyOrStackId) {
+            return undefined;
+        }
+        const data = await this.client.get(this.waitRecordKey(correlationKeyOrStackId));
+        if (data) {
+            try {
+                return JSON.parse(data);
+            } catch {
+                return undefined;
+            }
+        }
+        const cp = await this.getCheckpoint(correlationKeyOrStackId);
+        return cp?.metadata?.waitRecord;
     }
 
     async getCachedStep(key: string): Promise<any | undefined> {

@@ -3,7 +3,7 @@ import {
     ContextChangeEvent,
     SerializedExecutionStack,
     Step
-} from 'rivulet';
+} from 'siglo';
 import { IRedisClient } from "../database/redis";
 import { IMongoClient } from "../database/mongodb";
 
@@ -11,7 +11,7 @@ export interface ExecutionLogRecord {
     _id?: string;
     namespace?: string;
     stackId: string;
-    chainId: string;
+    stepId: string;
     field: string;
     value: any;
     timestamp: number;
@@ -19,6 +19,9 @@ export interface ExecutionLogRecord {
 
 export interface CheckpointRecord {
     _id?: string;
+    version?: number;
+    revision?: number;
+    timestamp?: number;
     stackId: string;
     namespace?: string;
     type: string;
@@ -28,7 +31,7 @@ export interface CheckpointRecord {
 }
 
 /**
- * Unified Redis & MongoDB Storage Adapter for rivulet (Modernized v2 Architecture):
+ * Unified Redis & MongoDB Storage Adapter for siglo (Modernized v2 Architecture):
  * - Telemetry & Event Streaming: onContextChange writes to Redis hash & logs to MongoDB.
  * - Distributed Checkpoints: saveCheckpoint & getCheckpoint durable saga state in MongoDB & Redis cache.
  * - Distributed Caching: getCachedStep & setCachedStep for memoized step actions in Redis.
@@ -44,8 +47,8 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         private readonly redis: IRedisClient,
         private readonly mongo: IMongoClient
     ) {
-        this.logsCollection = this.mongo.collection<ExecutionLogRecord>("rivulet_execution_logs");
-        this.checkpointsCollection = this.mongo.collection<CheckpointRecord>("rivulet_checkpoints");
+        this.logsCollection = this.mongo.collection<ExecutionLogRecord>("siglo_execution_logs");
+        this.checkpointsCollection = this.mongo.collection<CheckpointRecord>("siglo_checkpoints");
     }
 
     async onContextChange(entry: ContextChangeEvent): Promise<void> {
@@ -53,16 +56,16 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         const serialized = JSON.stringify(value ?? null);
 
         // Redis: Fast distributed context lookups
-        await this.redis.hset(`rivulet:context:${stepId}`, field, serialized).catch(console.error);
+        await this.redis.hset(`siglo:context:${stepId}`, field, serialized).catch(console.error);
         if (stackId) {
-            await this.redis.hset(`rivulet:stack:${stackId}`, `${stepId}:${field}`, serialized).catch(console.error);
+            await this.redis.hset(`siglo:stack:${stackId}`, `${stepId}:${field}`, serialized).catch(console.error);
         }
 
         // MongoDB: Execution audit event log
         await this.logsCollection.insertOne({
             namespace,
             stackId,
-            chainId: stepId,
+            stepId,
             field,
             value,
             timestamp
@@ -74,7 +77,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         const serialized = JSON.stringify(checkpoint);
 
         // Redis: Low-latency checkpoint cache
-        await this.redis.set(`rivulet:checkpoint:${stackId}`, serialized).catch(console.error);
+        await this.redis.set(`siglo:checkpoint:${stackId}`, serialized).catch(console.error);
 
         // MongoDB: Durable checkpoint record
         const record: CheckpointRecord = {
@@ -97,7 +100,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
 
     async getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined> {
         // Try Redis first
-        const cached = await this.redis.get(`rivulet:checkpoint:${stackId}`).catch(() => null);
+        const cached = await this.redis.get(`siglo:checkpoint:${stackId}`).catch(() => null);
         if (cached) {
             try {
                 return JSON.parse(cached);
@@ -110,6 +113,9 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         const doc = await this.checkpointsCollection.findOne({ stackId }).catch(() => null);
         if (doc) {
             return {
+                version: doc.version ?? 1,
+                revision: doc.revision ?? 0,
+                timestamp: doc.timestamp ?? Date.now(),
                 stackId: doc.stackId,
                 namespace: doc.namespace,
                 type: doc.type,
@@ -121,7 +127,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
     }
 
     async getCachedStep(key: string): Promise<any | undefined> {
-        const raw = await this.redis.get(`rivulet:cache:${key}`).catch(() => null);
+        const raw = await this.redis.get(`siglo:cache:${key}`).catch(() => null);
         if (!raw) return undefined;
         try {
             return JSON.parse(raw);
@@ -133,16 +139,16 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
     async setCachedStep(key: string, value: any, ttlMs: number): Promise<void> {
         const serialized = JSON.stringify(value ?? null);
         const ttlSec = ttlMs > 0 ? Math.ceil(ttlMs / 1000) : undefined;
-        await this.redis.set(`rivulet:cache:${key}`, serialized, ttlSec).catch(console.error);
+        await this.redis.set(`siglo:cache:${key}`, serialized, ttlSec).catch(console.error);
     }
 }
 
 /**
- * Registers Redis & MongoDB as the unified storage provider for rivulet.
+ * Registers Redis & MongoDB as the unified storage provider for siglo.
  */
 export function registerRedisMongoStorage(redis: IRedisClient, mongo: IMongoClient): RedisMongoStorageAdapter {
     const adapter = new RedisMongoStorageAdapter(redis, mongo);
     Step.useStorage(adapter);
-    console.log("[StoragePlugin] Successfully registered Redis & MongoDB storage adapter for rivulet.");
+    console.log("[StoragePlugin] Successfully registered Redis & MongoDB storage adapter for siglo.");
     return adapter;
 }

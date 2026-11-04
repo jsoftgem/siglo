@@ -1,3 +1,4 @@
+/// <reference types="mocha" />
 import { expect } from 'chai';
 import { runCombinatorsCharter } from './charters/combinators.explore';
 import { runSagasCharter } from './charters/sagas.explore';
@@ -6,6 +7,7 @@ import { runIdempotencyCharter } from './charters/idempotency.explore';
 import { runQueuesBatchCharter } from './charters/queues-batch.explore';
 import { runHttpAbortCharter } from './charters/http-abort.explore';
 import { runCliDiagramsCharter } from './charters/cli-diagrams.explore';
+import { runGraphAstCharter } from './charters/graph-ast.explore';
 
 describe('Automated Exploratory Testing Suite', function () {
     // Generative and chaos tests require slightly more timeout headroom
@@ -63,6 +65,14 @@ describe('Automated Exploratory Testing Suite', function () {
         const result = await runCliDiagramsCharter(12, 707);
         if (!result.passed) {
             expect.fail(`Charter 7 failed with errors:\n${result.errors.join('\n')}`);
+        }
+        expect(result.passed).to.be.true;
+    });
+
+    it('Charter 8: Graph AST Generation & Network Policy Reflection (toGraph)', async () => {
+        const result = await runGraphAstCharter(20, 808);
+        if (!result.passed) {
+            expect.fail(`Charter 8 failed with errors:\n${result.errors.join('\n')}`);
         }
         expect(result.passed).to.be.true;
     });

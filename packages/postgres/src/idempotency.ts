@@ -1,5 +1,12 @@
-import { IdempotencyStore } from 'rivulet';
+import { IdempotencyStore } from 'siglo';
 import { PostgresIdempotencyOptions, PostgresClientInterface } from './types';
+
+function validateIdentifier(name: string, paramName: string = 'tableName'): string {
+    if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
+        throw new Error(`Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`);
+    }
+    return name;
+}
 
 export class PostgresIdempotencyStore implements IdempotencyStore {
     private client: PostgresClientInterface;
@@ -11,7 +18,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             throw new Error('PostgresIdempotencyStore requires a valid Postgres client or pool instance.');
         }
         this.client = options.client;
-        this.tableName = options.tableName || 'rivulet_idempotency';
+        this.tableName = validateIdentifier(options.tableName || 'siglo_idempotency', 'tableName');
         this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours
     }
 
@@ -109,6 +116,28 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         }
         const resData = res.rows[0].result;
         return typeof resData === 'string' ? JSON.parse(resData) : resData;
+    }
+
+    async get(key: string): Promise<unknown | undefined> {
+        return this.getResult(key);
+    }
+
+    async getRecord(key: string): Promise<any | undefined> {
+        const res = await this.client.query(
+            `SELECT status, result, expires_at, created_at FROM ${this.tableName} WHERE key = $1`,
+            [key]
+        );
+        if (!res.rows || res.rows.length === 0) {
+            return undefined;
+        }
+        const row = res.rows[0];
+        const resData = typeof row.result === 'string' ? JSON.parse(row.result) : row.result;
+        return {
+            status: row.status,
+            result: resData,
+            expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
+            claimedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+        };
     }
 
     async cleanupExpired(): Promise<number> {

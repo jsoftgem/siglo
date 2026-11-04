@@ -5,7 +5,7 @@ import {
     useStorage,
     toPOJO,
     resumeWorkflow
-} from 'rivulet';
+} from 'siglo';
 
 export interface StepTraceRecord {
     stepName: string;
@@ -377,7 +377,7 @@ function normalizeForComparison(val: any): any {
     if (Array.isArray(val)) return val.map(normalizeForComparison);
     const clean: Record<string, any> = {};
     for (const [k, v] of Object.entries(val)) {
-        if (k === 'stackId' || k === '$stackId' || k === '$stepId' || k === '$chainId' || k === '$steps' || k === '$history') {
+        if (k === 'stackId' || k === '$stackId' || k === '$stepId' || k === '$steps' || k === '$history') {
             continue;
         }
         clean[k] = normalizeForComparison(v);

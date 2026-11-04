@@ -1,12 +1,14 @@
-import { Flow, ExecutionOptions } from 'rivulet';
+import { Flow, ExecutionOptions } from 'siglo';
 
-export interface RivuletFastifyOptions<TReq = any, TInput = any, TOutput = any> {
+export interface SigloFastifyOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, reply: any) => Promise<any> | any;
     timeout?: number;
     namespace?: string | ((req: TReq) => string | undefined);
     onError?: (err: any, reply: any) => Promise<any> | any;
     correlationIdHeader?: string;
+    allowHeaderNamespace?: boolean;
+    exposeErrorDetails?: boolean;
 }
 
 export function getErrorStatusCode(err: any): number {
@@ -40,7 +42,7 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? obj[key]() : obj[key];
+        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
         clean[key] = val;
     }
     return clean;
@@ -49,9 +51,9 @@ function unwrapContext(obj: any): any {
 /**
  * Creates a Fastify route handler for executing a rivulet workflow.
  */
-export function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
+export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: RivuletFastifyOptions<TReq, TInput, TOutput> = {}
+    options: SigloFastifyOptions<TReq, TInput, TOutput> = {}
 ) {
     return async (request: any, reply: any): Promise<any> => {
         try {
@@ -76,7 +78,7 @@ export function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 namespace = options.namespace(request);
             } else if (options.namespace) {
                 namespace = options.namespace;
-            } else if (request.headers?.['x-namespace']) {
+            } else if (options.allowHeaderNamespace && request.headers?.['x-namespace']) {
                 namespace = request.headers['x-namespace'];
             }
 
@@ -109,8 +111,16 @@ export function rivuletFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 return await options.onError(err, reply);
             }
             const status = getErrorStatusCode(err);
-            return reply.status(status).send({ error: err.message || 'Workflow execution error' });
+            const exposeDetails = options.exposeErrorDetails ?? (process.env.NODE_ENV !== 'production');
+            let errorMessage = err.message || 'Workflow execution error';
+            if (status === 500 && !exposeDetails) {
+                errorMessage = 'Internal workflow execution error';
+            }
+            return reply.status(status).send({ error: errorMessage });
         }
     };
 }
 
+
+export type RivuletFastifyOptions<TReq = any, TInput = any, TOutput = any> = SigloFastifyOptions<TReq, TInput, TOutput>;
+export const rivuletFastifyHandler = sigloFastifyHandler;

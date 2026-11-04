@@ -1,6 +1,6 @@
 # 05. Retries, Timeouts, and Cancellation
 
-Enterprise systems encounter network hiccups, slow external services, and user cancellations. `Rivulet` provides built-in fault tolerance without requiring external cron daemons.
+Enterprise systems encounter network hiccups, slow external services, and user cancellations. `Siglo` provides built-in fault tolerance without requiring external cron daemons.
 
 ---
 
@@ -9,7 +9,7 @@ Enterprise systems encounter network hiccups, slow external services, and user c
 Declare retry logic per-step via `.onFail(RetryConfig)`:
 
 ```typescript
-import { Step } from 'rivulet';
+import { Step } from 'siglo';
 
 export const callPaymentGateway = Step.create('callGateway', async (param: any) => {
     return await api.chargeCustomer(param);
@@ -42,10 +42,14 @@ const querySlowDatabase = Step.create('queryDb', async () => {
 }).timeout(2500); // Fails with StepTimeoutException if exceeds 2.5s
 ```
 
+> [!NOTE]
+> Step timeouts encompass the entire step lifecycle—including `Step.spec` validation, transformers, translators, `onBefore` plugins, the step action, and `onAfter` hooks. If any phase hangs or exceeds the deadline, the step aborts and rejects with `StepTimeoutException` tagged with its active execution phase.
+
+
 ### Workflow-Level Timeouts
 Enforce end-to-end deadlines across the entire workflow sequence:
 ```typescript
-import { flow } from 'rivulet';
+import { flow } from 'siglo';
 
 const checkoutWorkflow = flow(step1, step2, step3).timeout(10000); // 10s end-to-end deadline
 ```
@@ -82,10 +86,10 @@ const downloadFile = Step.create('download', async (param: any) => {
 
 ## 4. Sagas and Compensating Transactions
 
-When a multi-step transaction fails midway, `Rivulet` automatically executes registered compensation handlers in reverse (LIFO) order:
+When a multi-step transaction fails midway, `Siglo` automatically executes registered compensation handlers in reverse (LIFO) order:
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 const reserveHotel = Step.create('reserveHotel', async () => {
     const booking = await hotelApi.book();
@@ -116,7 +120,7 @@ export const travelBookingSaga = flow(reserveHotel, reserveFlight, chargeCard);
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'rivulet';
+import { Step, flow } from 'siglo';
 
 let attempts = 0;
 const flaky = Step.create('flaky', async () => {
@@ -135,7 +139,7 @@ console.log(res.recovered); // true
 ## Failure Example: Exceeded Retries & Compensation Diagnostics
 
 ```typescript
-import { Step, flow, CompensationException } from 'rivulet';
+import { Step, flow, CompensationException } from 'siglo';
 
 const step1 = Step.create('step1', () => ({ ok: true }))
     .compensate(async () => {
@@ -164,8 +168,8 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { createWorkflowHarness } from '@rivulet/testing';
-import { Step, flow } from 'rivulet';
+import { createWorkflowHarness } from '@siglo/testing';
+import { Step, flow } from 'siglo';
 
 let calls = 0;
 const step = Step.create('apiCall', () => {
