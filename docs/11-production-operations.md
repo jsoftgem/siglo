@@ -1,4 +1,4 @@
-# 12. Production Operations
+# 11. Production Operations
 
 This runbook covers operational best practices, capacity planning, distributed coordination, and disaster recovery when running `Siglo` workflows in mission-critical production environments.
 

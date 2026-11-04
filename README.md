@@ -27,7 +27,7 @@
 
 ## Documentation & Topic Guides
 
-Explore the 12 comprehensive guides covering architecture, design patterns, testing, and production operations:
+Explore the 11 comprehensive guides covering architecture, design patterns, testing, and production operations:
 
 1. 🚀 [01. Getting Started](docs/01-getting-started.md) &mdash; Installation, quickstart walkthrough, minimal examples, and CLI scaffolding.
 2. 💡 [02. Core Concepts](docs/02-core-concepts.md) &mdash; Executable ASTs, accumulated context immutability, 5-phase step lifecycle, and reserved keys.
@@ -39,8 +39,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 8. 🔭 [08. Observability](docs/08-observability.md) &mdash; Graph exports (Mermaid, DOT, JSON), OpenTelemetry distributed tracing, and W3C trace propagation.
 9. 🧪 [09. Testing and Replay](docs/09-testing-and-replay.md) &mdash; Deterministic workflow harnesses (`@siglo/testing`), fake clocks, step spies, mocks, and failure replay.
 10. 🏷️ [10. TypeScript Reference](docs/10-typescript-reference.md) &mdash; End-to-end accumulated context inference, typed step history (`$steps`), and Standard Schema integration.
-11. 🔄 [11. Migration and Compatibility](docs/11-migration-and-compatibility.md) &mdash; Upgrading from 0.x (`Chain`, `pipe`) to 1.0 (`Step`, `flow`), backwards compatibility, and modern POJO mode.
-12. 🏭 [12. Production Operations](docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
+11. 🏭 [11. Production Operations](docs/11-production-operations.md) &mdash; Production deployment checklist, zero-daemon operational topologies, connection pooling, and retention cleanup.
 
 ### Architectural Contracts & Adapter Guides
 - 🛡️ [Production Best Practices & Operational Runbook](docs/production-best-practices.md) &mdash; Comprehensive engineering runbook covering PostgreSQL OCC, `@siglo/scheduler` worker daemons, zero-trust network boundaries, named compensation DLQs, and DevTools hardening.
@@ -116,6 +115,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 | [`@siglo/hono`](packages/hono) | Hono edge and Web Standards route handler adapter |
 | [`@siglo/express`](packages/express) | Express HTTP route handler adapter |
 | [`@siglo/monitor`](packages/monitor) | Live workflow monitoring server, SSE/WebSocket transports, DevTools Web UI, and Prometheus metrics |
+| [`@siglo/notifications`](packages/notifications) | Multi-channel notifications, durable human approvals, and interactive webhook recovery |
 
 ---
 
