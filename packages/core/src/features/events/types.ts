@@ -16,7 +16,8 @@ export type WorkflowExecutionEventType =
     | 'cache:miss'
     | 'checkpoint:save'
     | 'notification:dispatched'
-    | 'approval:requested';
+    | 'approval:requested'
+    | 'ai:complete';
 
 export interface FlowStartEvent {
     type: 'flow:start';
@@ -171,6 +172,21 @@ export interface NotificationDispatchedEvent {
     recipientMasked: string;
 }
 
+/** Provider-independent AI accounting; prompts and generated content are excluded. */
+export interface AiCompleteEvent {
+    type: 'ai:complete';
+    stackId: string;
+    stepId: string;
+    stepName: string;
+    timestamp: number;
+    namespace?: string;
+    aiMetrics: {
+        promptTokens: number; completionTokens: number; totalTokens: number;
+        estimatedCostUsd?: number; latencyMs: number; modelUsed: string;
+        providerUsed: string; repairAttempts: number; fallbackCount: number;
+    };
+}
+
 export type WorkflowExecutionEvent =
     | FlowStartEvent
     | FlowCompleteEvent
@@ -186,9 +202,11 @@ export type WorkflowExecutionEvent =
     | CacheHitEvent
     | CacheMissEvent
     | CheckpointSaveEvent
-    | NotificationDispatchedEvent;
+    | NotificationDispatchedEvent
+    | AiCompleteEvent;
 
 export interface WorkflowExecutionEventMap {
+    'ai:complete': AiCompleteEvent;
     'notification:dispatched': NotificationDispatchedEvent;
     'approval:requested': NotificationDispatchedEvent;
     'flow:start': FlowStartEvent;

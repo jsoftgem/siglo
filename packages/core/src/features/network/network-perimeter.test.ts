@@ -301,6 +301,28 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
             expect(result.status).to.equal('ok');
         });
 
+        it('honors explicit manual and error redirect modes without following the target', async () => {
+            for (const redirect of ['manual', 'error'] as const) {
+                const step = Step.create('explicitRedirect', async () => {
+                    const response = await fetch(`http://127.0.0.1:${serverPort}/redirect-to-metadata`, { redirect });
+                    const status = response.status;
+                    await response.body?.cancel();
+                    return { status };
+                }).networkPolicy({ allowedHosts: [`127.0.0.1:${serverPort}`], allowLocalhost: true });
+                if (redirect === 'manual') {
+                    const result = await flow(step).run();
+                    expect(result.status).to.equal(302);
+                } else {
+                    try {
+                        await flow(step).run();
+                        expect.fail('Expected redirect error');
+                    } catch (error: any) {
+                        expect(error.message).to.include('redirect is forbidden');
+                    }
+                }
+            }
+        });
+
         it('handles 303 redirect with method change to GET', async () => {
             const step = Step.create('redirectStep', async () => {
                 const res = await fetch(`http://127.0.0.1:${serverPort}/redirect-303`, { method: 'POST', body: 'data' });

@@ -55,6 +55,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 📊 [Live Monitoring & DevTools](docs/live-monitoring.md) &mdash; Real-time DevTools web dashboard, SSE/WebSocket streaming, latency waterfalls, and interactive resumption.
 - 🗺️ [Live Monitoring Roadmap](roadmap/live-monitoring.roadmap.md) &mdash; Implementation specifications and delivery phases.
 - 🔐 [Crypto & Webhook Security](docs/adapters/crypto.md) &mdash; Cryptographic pipeline steps: multi-provider webhook verification, replay prevention, AEAD envelope field encryption, KeyRing rotation, and deep PII masking.
+- 🤖 [AI & LLM Steps](docs/adapters/ai.md) &mdash; Multi-provider AI steps, native structured outputs, self-healing repair loops, fallback cascades, Step-as-Tool agent loops, and token cost telemetry.
 
 ---
 
@@ -80,6 +81,7 @@ Explore the 12 comprehensive guides covering architecture, design patterns, test
 - 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.
 - 🌐 **Network Egress Policy & Guardrails via ASL** &mdash; Declarative network egress policies via `AsyncLocalStorage` (`.allowNetwork()`, `.denyNetwork()`, `.networkPolicy()`), multi-layer interception (`fetch`, `http/https`, `net.Socket`), flow perimeter narrowing, and localhost exemptions.
 - 🔐 **Cryptographic Security & Confidentiality (`@siglo/crypto`)** &mdash; Zero-dependency webhook signature verification (Stripe, GitHub, Shopify, Slack, Svix), distributed replay defense, AEAD envelope encryption (AES-256-GCM), KeyRing historical rotation, and structural copy-on-write PII masking.
+- 🤖 **Resilient AI & LLM Inference (`@siglo/ai`)** &mdash; Multi-provider LLM steps (Anthropic, OpenAI, Gemini, Ollama), native JSON Schema structured outputs, self-healing prompt repair loops, model fallback cascades, Step-as-Tool agent loops with saga compensations, and OpenTelemetry GenAI observability.
 - 🔌 **Ecosystem Integration Packages** &mdash; Ready-to-use adapters for PostgreSQL, Redis, BullMQ, Kafka, SQS, OpenTelemetry, Express, Fastify, Hono, and CLI developer tooling.
 
 ---
@@ -109,6 +111,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 | [`@siglo/kafka`](packages/kafka) | Kafka consumer batch processor adapter |
 | [`@siglo/sqs`](packages/sqs) | AWS SQS batch consumer with partial failure reporting |
 | [`@siglo/http`](packages/http) | Resilient HTTP client steps, egress perimeter guardrails, and distributed tracing |
+| [`@siglo/ai`](packages/ai) | Multi-provider AI steps, structured outputs, repair/fallback loops, typed tools, and token metrics |
 | [`@siglo/scheduler`](packages/scheduler) | PostgreSQL row-level poller daemon (`FOR UPDATE SKIP LOCKED`), memory poller, and cloud webhook dispatchers |
 | [`@siglo/fastify`](packages/fastify) | Fastify HTTP route handler adapter |
 | [`@siglo/hono`](packages/hono) | Hono edge and Web Standards route handler adapter |
@@ -489,6 +492,7 @@ export const secureOrderPipeline = flow(
 > - 🧪 [Deterministic Testing (`@siglo/testing`)](docs/api/testing.md)
 > - 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md)
 > - 🔐 [Crypto & Webhook Security Steps (`@siglo/crypto`)](docs/adapters/crypto.md)
+> - 🤖 [AI & LLM Steps (`@siglo/ai`)](docs/adapters/ai.md)
 
 ### ⛓️ [Orchestration & Combinators](docs/api/orchestration-and-combinators.md)
 

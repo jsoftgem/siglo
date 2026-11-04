@@ -1,6 +1,6 @@
 # Notification approval security and recovery
 
-This describes the implemented defenses following `notification-grill.md`. It replaces the original assumptions about scanner detection, nonce tracking, leases and provider guarantees.
+This describes the implemented defenses following `../../grill/notification-grill.md`. It replaces the original assumptions about scanner detection, nonce tracking, leases and provider guarantees.
 
 ## Callback migration
 

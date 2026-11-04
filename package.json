@@ -10,7 +10,7 @@
     "monitoring"
   ],
   "scripts": {
-    "build": "npm run build --workspace=siglo && npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=siglo && npm run build --workspace=@siglo/http && npm run build --workspaces --if-present",
     "compile": "npm run build",
     "lint": "eslint packages/*/src examples/src test",
     "test": "npm run build --workspace=siglo && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",

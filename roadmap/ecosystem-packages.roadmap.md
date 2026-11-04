@@ -77,14 +77,15 @@ flowchart TD
 ---
 
 ### [Phase 3: Intelligence & Agents (`@siglo/ai`)](ecosystem-phase-3-ai.roadmap.md)
-* **Status**: Specification Complete
+* **Status**: Implemented & Verified Offline (Provider Runtime, Tools, Repair, Fallbacks & Telemetry)
 * **Target Delivery**: Q3
 * **Scope**:
-  * Multi-provider LLM step abstractions (Anthropic, OpenAI, Google Gemini, Ollama/local).
-  * Standard Schema (`zod`, `valibot`, `arktype`) output extraction and enforcement.
-  * Self-healing repair loops that feed schema errors back into an ephemeral correction prompt before failing.
-  * Model fallback cascades (e.g. Claude 3.5 Sonnet -> GPT-4o -> Gemini 1.5 Flash) on rate limits (`429`) or timeouts.
-  * Token usage and cost accounting stored in context `$steps.<stepName>.metrics`.
+  * Multi-provider LLM step abstractions (Anthropic, OpenAI, Google Gemini, Ollama/vLLM) with ASL network egress governance.
+  * Standard Schema V1 (`~standard`) output extraction with full TypeScript inference.
+  * Native JSON Schema structured output enforcement with self-healing prompt repair fallback loops.
+  * Model fallback cascades (e.g. Claude 3.5 Sonnet -> GPT-4o -> Gemini 2.0 Flash) on rate limits (`429`), 5xx, or timeouts.
+  * Step-as-Tool agentic multi-turn execution loops.
+  * OpenTelemetry GenAI Semantic Convention telemetry and token cost accounting in `$steps.<stepName>.aiMetrics`.
   * Integration with Siglo caching (`step.cache()`).
 * **Detailed Document**: See [`ecosystem-phase-3-ai.roadmap.md`](ecosystem-phase-3-ai.roadmap.md) for model cascades, prompt formats, and repair algorithms.
 

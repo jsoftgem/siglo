@@ -44,6 +44,9 @@ jobs:
       - name: Check notification coverage without provider network requests
         run: npm run test:coverage --workspace=@siglo/notifications
 
+      - name: Check AI coverage and inferred types without provider network requests
+        run: npm run test:coverage --workspace=@siglo/ai
+
       - name: Run Production examples test suites
         run: npm run test:examples
 

@@ -26,9 +26,11 @@ export async function validatePayload<T = any>(
   if (typeof schema === 'object' && schema !== null && schema['~standard']) {
     const standard = schema['~standard'];
     const result = await standard.validate(data);
-    if (result && result.issues && result.issues.length > 0) {
+    if (result && result.issues) {
       const details: ValidationErrorDetail[] = result.issues.map((issue: any) => ({
-        field: issue.path && issue.path.length > 0 ? issue.path.join('.') : '$root$',
+        field: issue.path && issue.path.length > 0
+          ? issue.path.map((segment: any) => String(typeof segment === 'object' && segment !== null ? segment.key : segment)).join('.')
+          : '$root$',
         message: issue.message || 'Validation failed',
         error: issue
       }));
@@ -40,7 +42,10 @@ export async function validatePayload<T = any>(
       });
       throw exception;
     }
-    return (result && result.value !== undefined ? result.value : data) as T;
+    if (!result || !('value' in result)) {
+      throw new TypeError('Standard Schema validator must return value or issues');
+    }
+    return result.value as T;
   }
 
   // 2. safeParse (Zod, Valibot, etc.)

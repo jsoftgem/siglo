@@ -31,3 +31,9 @@ export const getUser = httpStep('getUser', {
 const workflow = flow(getUser);
 const result = await workflow.run({});
 ```
+
+The package re-exports the official `StandardSchemaV1` and `StandardJSONSchemaV1`
+types from `@standard-schema/spec`, including `StandardSchemaV1.InferInput<S>` and
+`StandardSchemaV1.InferOutput<S>`. Runtime validation preserves transformed values
+(including `undefined`) and supports structured diagnostic path segments. Native
+JSON Schema conversion is a separate capability from runtime validation.

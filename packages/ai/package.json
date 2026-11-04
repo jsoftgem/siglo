@@ -1,0 +1,37 @@
+{
+  "name": "@siglo/ai",
+  "version": "1.0.0",
+  "description": "Resilient multi-provider AI steps, structured outputs and tool execution for Siglo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && npm run test:types && mocha -r tsx 'src/**/*.test.ts' --exit",
+    "test:types": "tsc -p tsconfig.types.json",
+    "test:coverage": "npm run build && npm run test:types && c8 --include='dist/**/*.js' --check-coverage --lines 100 --statements 100 mocha -r tsx 'src/**/*.test.ts' --exit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@siglo/http": "^1.0.0",
+    "siglo": "^1.0.0"
+  },
+  "devDependencies": {
+    "@siglo/testing": "^1.0.0"
+  }
+}

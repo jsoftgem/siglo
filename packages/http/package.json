@@ -46,6 +46,7 @@
   "homepage": "https://github.com/jsoftgem/siglo#readme",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
+    "@standard-schema/spec": "^1.1.0",
     "siglo": "^1.0.0"
   },
   "devDependencies": {

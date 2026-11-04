@@ -200,6 +200,11 @@ async function patchedFetch(input: any, init?: any): Promise<Response> {
         });
 
         if ([301, 302, 303, 307, 308].includes(res.status)) {
+            if (init?.redirect === 'manual') return res;
+            if (init?.redirect === 'error') {
+                await res.body?.cancel();
+                throw new TypeError('Fetch redirect is forbidden by redirect: error');
+            }
             const location = res.headers.get('location');
             if (!location) {
                 return res;
