@@ -543,4 +543,56 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             expect(compensated).to.be.true;
         });
     });
+    describe('Compensation recovery without serialized functions', () => {
+        it('recovers inline and named handlers from workflow steps after restart', async () => {
+            const restored: string[] = [];
+            registerCompensationHandler('release-restored', () => { restored.push('named'); });
+            const inline = Step.create('inline-restored', () => ({}))
+                .compensate(() => { restored.push('inline'); });
+            const named = Step.create('named-restored', () => ({})).compensate('release-restored');
+            const workflow = flow(inline, named);
+            const original = defaultStorageManager.getCheckpoint;
+            defaultStorageManager.getCheckpoint = async () => ({ metadata: { compensations: [
+                { stepId: 'old-inline-id', stepName: 'inline-restored', output: {}, input: {} },
+                { stepId: 'old-named-id', stepName: 'named-restored', output: {}, input: {} }
+            ] } } as any);
+            try {
+                const result = await workflow.compensate('restored-handler-stack');
+                expect(result.failed).to.deep.equal([]);
+                expect(restored).to.deep.equal(['named', 'inline']);
+            } finally {
+                defaultStorageManager.getCheckpoint = original;
+            }
+        });
+
+        it('rejects recovery when a persisted compensation has no resolvable handler', async () => {
+            const original = defaultStorageManager.getCheckpoint;
+            defaultStorageManager.getCheckpoint = async () => ({ metadata: { compensations: [
+                { stepId: 'removed-id', stepName: 'removed-step', output: {}, input: {} }
+            ] } } as any);
+            try {
+                try {
+                    await flow(Step.create('remaining-step', () => ({}))).compensate('missing-handler-stack');
+                    expect.fail('Expected unresolved compensation to reject');
+                } catch (error) {
+                    expect(error).to.be.instanceOf(UnresolvableCompensationException);
+                }
+            } finally {
+                defaultStorageManager.getCheckpoint = original;
+            }
+        });
+
+        it('tolerates an unavailable checkpoint when no compensations are registered', async () => {
+            const original = defaultStorageManager.getCheckpoint;
+            defaultStorageManager.getCheckpoint = async () => { throw new Error('storage offline'); };
+            try {
+                const result = await flow(Step.create('empty-recovery', () => ({})))
+                    .compensate('offline-checkpoint-stack');
+                expect(result).to.deep.equal({ completed: [], failed: [] });
+            } finally {
+                defaultStorageManager.getCheckpoint = original;
+            }
+        });
+    });
+
 });

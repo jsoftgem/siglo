@@ -24,7 +24,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && npm run test:types && mocha -r tsx 'src/**/*.test.ts' --exit",
     "test:types": "tsc -p tsconfig.types.json",
-    "test:coverage": "npm run build && npm run test:types && c8 --include='dist/**/*.js' --check-coverage --lines 100 --statements 100 mocha -r tsx 'src/**/*.test.ts' --exit"
+    "test:coverage": "npm run build && npm run test:types && c8 --include='dist/**/*.js' --check-coverage --lines 100 --statements 100 mocha -r tsx 'src/**/*.test.ts' --exit",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

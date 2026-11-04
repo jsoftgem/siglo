@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout code
@@ -49,6 +49,12 @@ jobs:
 
       - name: Run Production examples test suites
         run: npm run test:examples
+
+      - name: Run Monitoring integration tests
+        run: npm run test:monitoring
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org/
 
       - name: Run Automated Exploratory & Chaos test suite
         run: npm run test:exploratory

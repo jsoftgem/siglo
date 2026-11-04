@@ -88,10 +88,10 @@ describe('Zero-Code APM Monitoring & OpenTelemetry Integration', () => {
         const rootTraceId = [...traceIds][0];
         assert.ok(outgoingHeaders.traceparent.includes(rootTraceId));
 
-        // Downstream workflow span must have parentSpanId linked to upstream execution
+        // Downstream workflow span must have parentSpanContext linked to upstream execution
         const downstreamWorkflowSpan = spans.find(s => s.name === 'workflow:WarehouseFulfillmentFlow');
         assert.ok(downstreamWorkflowSpan);
-        assert.ok(downstreamWorkflowSpan.parentSpanId, 'Downstream span should have parentSpanId');
+        assert.ok(downstreamWorkflowSpan.parentSpanContext, 'Downstream span should have parentSpanContext');
 
         await shutdownTelemetry();
     });

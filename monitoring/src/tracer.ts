@@ -4,10 +4,11 @@ import {
     SimpleSpanProcessor,
     BatchSpanProcessor,
     InMemorySpanExporter,
+    SpanProcessor,
     ReadableSpan
 } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 const providers = new Map<string, NodeTracerProvider>();
@@ -32,16 +33,14 @@ export function initTelemetry(config: TelemetryConfig = {}): Tracer {
 
     let provider = providers.get(serviceName);
     if (!provider) {
-        const resource = new Resource({
+        const resource = resourceFromAttributes({
             [ATTR_SERVICE_NAME]: serviceName,
             [ATTR_SERVICE_VERSION]: serviceVersion,
             'deployment.environment': process.env.NODE_ENV || 'development'
         });
 
-        provider = new NodeTracerProvider({ resource });
-
         // 1. In-memory processor for terminal visualizer & test assertions
-        provider.addSpanProcessor(new SimpleSpanProcessor(inMemoryExporter));
+        const spanProcessors: SpanProcessor[] = [new SimpleSpanProcessor(inMemoryExporter)];
 
         // 2. OTLP HTTP processor for Jaeger / Grafana Tempo / APM collectors
         if (exportToOtlp) {
@@ -49,12 +48,14 @@ export function initTelemetry(config: TelemetryConfig = {}): Tracer {
                 url: otlpEndpoint,
                 timeoutMillis: 1500
             });
-            provider.addSpanProcessor(new BatchSpanProcessor(otlpExporter, {
+            spanProcessors.push(new BatchSpanProcessor(otlpExporter, {
                 maxQueueSize: 2048,
                 maxExportBatchSize: 512,
                 scheduledDelayMillis: 100
             }));
         }
+
+        provider = new NodeTracerProvider({ resource, spanProcessors });
 
         // Register default global provider if none registered yet
         if (providers.size === 0) {
@@ -115,7 +116,7 @@ export function printTraceWaterfall(title: string, spans: ReadableSpan[]): void 
     if (spans.length === 0) return;
 
     console.log(`\n  ┌─ ${title} (${spans.length} spans)`);
-    const rootSpan = spans.find(s => !s.parentSpanId) || spans[0];
+    const rootSpan = spans.find(s => !s.parentSpanContext) || spans[0];
     const traceId = rootSpan.spanContext().traceId;
     const baseTime = spans.reduce((min, s) => {
         const start = s.startTime[0] * 1000 + s.startTime[1] / 1e6;
@@ -128,7 +129,7 @@ export function printTraceWaterfall(title: string, spans: ReadableSpan[]): void 
         const duration = Math.max(0, Math.round(end - start));
         const offset = Math.max(0, Math.round(start - baseTime));
 
-        const isRoot = !span.parentSpanId;
+        const isRoot = !span.parentSpanContext;
         const indent = isRoot ? '  ├── ' : '  │   ├── ';
         const isError = span.status.code === 2; // SpanStatusCode.ERROR
         const statusBadge = isError ? '❌ ERROR' : '✅ OK';

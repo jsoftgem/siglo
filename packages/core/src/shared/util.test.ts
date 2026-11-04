@@ -2,6 +2,16 @@ import { expect } from 'chai';
 import { generateUUID, batch, batchIn, isValidJson, CollectPromiseResult, safeClone } from './Util';
 
 describe('shared.util.unit.test', () => {
+    it('preserves AbortSignal identity and cancellation listeners when cloning context', () => {
+        const controller = new AbortController();
+        const cloned = safeClone({ signal: controller.signal, data: { value: 1 } });
+        expect(cloned.signal).to.equal(controller.signal);
+        controller.abort('cancelled');
+        expect(cloned.signal.aborted).to.equal(true);
+        expect(cloned.signal.reason).to.equal('cancelled');
+        expect(cloned.data).to.deep.equal({ value: 1 });
+    });
+
     it('generateUUID generates valid uuid', () => {
         const uuid = generateUUID();
         expect(uuid).to.be.a('string');
