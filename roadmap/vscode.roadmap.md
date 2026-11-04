@@ -1,19 +1,19 @@
-# IDE Plugins Roadmap: VS Code & IntelliJ IDEA
+# VS Code Extension Roadmap: Siglo Workflow Explorer & DevTools
 
 > **Status: Approved for Development — Ready for Milestone 0 Execution (2026-11-04)**<br>
-> Targets Visual Studio Code (1.90+) and IntelliJ IDEA (Community & Ultimate 2024.1+).<br>
+> Targets Visual Studio Code (1.90+ Desktop; Web/Remote architectures gated separately).<br>
 > Cross-host architecture, shared JSON-RPC protocol contracts, static TypeScript analysis specifications, and security boundaries are fully specified below.
 
 ---
 
 ## 1. Objective and Scope
 
-Make Siglo workflows easier to understand, author, and inspect directly inside the developer's primary editor. The initial release (M0/M1) visualizes workflow graphs statically and navigates bidirectionally between graph nodes and source code definitions. Subsequent releases connect this graph to live execution data, authoring templates, and ecosystem diagnostics.
+Make Siglo workflows easier to understand, author, and inspect directly inside Visual Studio Code. The initial release (M0/M1) visualizes workflow graphs statically and navigates bidirectionally between graph nodes and source code definitions. Subsequent releases connect this graph to live execution data, authoring templates, and ecosystem diagnostics.
 
-### Supported Hosts
+### Supported Hosts & Runtime Model
 - **Visual Studio Code**: Version 1.90+ (Desktop; Web/Remote architectures gated separately).
-- **IntelliJ IDEA**: Version 2024.1+ (Community and Ultimate editions; Android Studio, WebStorm, and other JetBrains IDEs deferred).
-- **Explicit Negative Scope**: Do not expand this roadmap to other editors (Sublime, Eclipse, Neovim) or other JetBrains IDE products until the core IntelliJ IDEA plugin is stable and distributed.
+- **Runtime Environment**: Native Node.js extension host process (`packages/vscode`).
+- **Explicit Negative Scope**: Do not expand this roadmap to other editors (Sublime, Eclipse, Neovim) or JetBrains IDEs (covered in [intellij.roadmap.md](file:///Users/jericodeguzman/Projects/fluid-func/roadmap/intellij.roadmap.md)).
 
 ### Initial Language & Framework Scope
 - **Workflow Language**: TypeScript (TypeScript 5.0+ syntax).
@@ -24,17 +24,17 @@ Make Siglo workflows easier to understand, author, and inspect directly inside t
 
 ## 2. Relationship to the Monorepo Baseline & Phase 4
 
-Phase 4 (CLI Scaffolding, Live DevTools & Ecosystem Telemetry) is **fully completed and validated** in the monorepo. The IDE plugins build directly on top of Phase 4 deliverables rather than reinventing schemas or duplicating runtime logic:
+Phase 4 (CLI Scaffolding, Live DevTools & Ecosystem Telemetry) is **fully completed and validated** in the monorepo. The VS Code extension builds directly on top of Phase 4 deliverables rather than reinventing schemas or duplicating runtime logic:
 
-| Monorepo Component | Status | Relationship to IDE Plugins |
+| Monorepo Component | Status | Relationship to VS Code Extension |
 |---|---|---|
-| **Ecosystem CLI Generators** | Completed (Phase 4A) | Scaffolding actions in IDEs share pure generation templates (`createStepFileContents`). Plugins invoke pure template functions directly and **must not** parse CLI console stdout. |
+| **Ecosystem CLI Generators** | Completed (Phase 4A) | Scaffolding actions in VS Code share pure generation templates (`createStepFileContents`). The extension invokes pure template functions directly and **must not** parse CLI console stdout. |
 | **Fail-Closed Telemetry** | Completed (Phase 4B) | The runtime's `EcosystemInspection` metadata contract is consumed directly for runtime inspectors (M4). Zero raw payloads, secrets, or cURL secrets are leaked. |
 | **Web Monitor Dashboard** | Completed (Phase 4C) | The graph presentation and inspector panel contracts (`packages/monitor/ui`) are reused in the host-neutral webview (`packages/ide-ui`). |
-| **Offline Integration Fixtures** | Completed (Phase 4D) | Reused as canonical test fixtures for the shared static analyzer and host adapters. |
-| **Testing Subpaths** | Completed (Phase 4E) | Package-owned mocks (`@siglo/http/testing`, `@siglo/ai/testing`) provide offline test doubles for plugin integration tests. |
+| **Offline Integration Fixtures** | Completed (Phase 4D) | Reused as canonical test fixtures for the shared static analyzer and the VS Code extension adapter. |
+| **Testing Subpaths** | Completed (Phase 4E) | Package-owned mocks (`@siglo/http/testing`, `@siglo/ai/testing`) provide offline test doubles for extension integration tests. |
 
-The plugins strictly reuse Siglo runtime semantics, schemas, and redaction policies; they **never** implement independent execution engines, custom retry loops, or ad-hoc event formats.
+The extension strictly reuses Siglo runtime semantics, schemas, and redaction policies; it **never** implements independent execution engines, custom retry loops, or ad-hoc event formats.
 
 ---
 
@@ -43,12 +43,12 @@ The plugins strictly reuse Siglo runtime semantics, schemas, and redaction polic
 ### 3.1 Static Analysis vs. Runtime Reflection
 `@siglo/core` currently exposes graph inspection via `toGraph()`, `inspectGraph()`, and `validateGraph()`. However, these APIs operate exclusively on **already-instantiated** workflow objects in memory. Importing an arbitrary user file (e.g. `import('./workflow.ts')`) runs top-level module code (connecting to databases, reading environment variables, or executing side-effects).
 
-**Architectural Gap**: Opening a file in an IDE must **never** execute application code. The IDE tooling requires a dedicated static AST analyzer (`packages/ide-analysis`) that extracts graph topology solely using the TypeScript Compiler API.
+**Architectural Gap**: Opening a file in VS Code must **never** execute application code. The IDE tooling requires a dedicated static AST analyzer (`packages/ide-analysis`) that extracts graph topology solely using the TypeScript Compiler API.
 
 ### 3.2 Stable IDE Protocol & Contract
 `@siglo/monitor` provides HTTP snapshots and WebSocket/SSE streaming. However, this is an application-level monitoring feed, not an IDE language service protocol.
 
-**Architectural Gap**: A standardized JSON-RPC 2.0 protocol (`packages/ide-protocol`) is required over standard I/O (stdio) to allow both the VS Code extension (Node.js host) and the IntelliJ plugin (JVM host) to interact with the static analyzer process identically.
+**Architectural Gap**: A standardized JSON-RPC 2.0 protocol (`packages/ide-protocol`) is required over standard I/O (stdio) to allow the VS Code extension (Node.js host) to interact with the static analyzer process reliably and deterministically.
 
 ### 3.3 Source-to-Graph Bidirectional Mapping
 Existing runtime graph serializations only capture step names and dependency edges. They do not capture source file URIs, line/column coordinates, declaration spans, or AST node offsets.
@@ -57,23 +57,22 @@ Existing runtime graph serializations only capture step names and dependency edg
 
 ---
 
-## 4. Shared Architecture
+## 4. Architecture: VS Code Extension
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           HOST EDITORS (UI LAYER)                           │
+│                       VS CODE EXTENSION (UI LAYER)                          │
+│                       packages/vscode                                       │
 │                                                                             │
-│   ┌─────────────────────────────┐         ┌─────────────────────────────┐   │
-│   │   VS Code Extension (TS)    │         │  IntelliJ IDEA Plugin (JVM) │   │
-│   │   packages/vscode           │         │  plugins/intellij           │   │
-│   │   • Webview Panel (CSP)     │         │  • JCEF Browser Tool Window │   │
-│   │   • SecretStorage (Tokens)  │         │  • PasswordSafe (Tokens)    │   │
-│   │   • Workspace Trust Gate    │         │  • TrustedProjects Gate     │   │
-│   └──────────────┬──────────────┘         └──────────────┬──────────────┘   │
-└──────────────────┼───────────────────────────────────────┼──────────────────┘
-                   │                                       │
-                   │ Standard I/O (JSON-RPC 2.0)           │ Standard I/O (JSON-RPC 2.0)
-                   ▼                                       ▼
+│   • Extension Host Process (Node.js / TypeScript)                           │
+│   • Webview Panel (Dedicated Editor Tab) & Webview View (Sidebar Provider)  │
+│   • Strict Content Security Policy (CSP + Nonce-guarded scripts/styles)     │
+│   • SecretStorage (context.secrets for monitor bearer tokens)               │
+│   • Workspace Trust Gate (vscode.workspace.isTrusted)                       │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+                                       │ Standard I/O (JSON-RPC 2.0)
+                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                   SHARED STATIC ANALYZER PROCESS (NODE DAEMON)               │
 │                   packages/ide-analysis (CLI stdio entry point)              │
@@ -191,58 +190,42 @@ export interface GraphDocument {
 }
 ```
 
-### 4.2 Host Adapters
+### 4.2 VS Code Host Adapter (`packages/vscode`)
 
-#### VS Code Extension (`packages/vscode`)
 - **Runtime Model**: Runs natively in VS Code's Node.js extension host process.
-- **Process Management**: Spawns `packages/ide-analysis/dist/bin.js` via `child_process.spawn` using the bundled Node.js runtime.
-- **UI Surface**: Webview Panel and Webview View (`vscode.window.registerWebviewViewProvider`) hosting the shared `@siglo/ide-ui` bundle.
-- **Security & Sandboxing**:
-  - Enforces strict Content Security Policy (CSP): `default-src 'none'; img-src data: vscode-resource:; script-src 'nonce-...'; style-src 'nonce-...';`.
-  - Validates all message origins through `vscode.Webview.onDidReceiveMessage`.
-  - Workspace Trust: Gated behind `vscode.workspace.isTrusted`. Unchecked workspaces only allow read-only file diagnostics; daemon startup is disabled.
-  - Secret Storage: Uses `context.secrets` (`vscode.SecretStorage`) for monitor connection tokens.
-
-#### IntelliJ IDEA Plugin (`plugins/intellij`)
-- **Runtime Model**: Kotlin/Java plugin built with the modern IntelliJ Platform Gradle Plugin 2.x (`org.jetbrains.intellij.platform`).
-- **Target Platform**: IntelliJ IDEA Community and Ultimate 2024.1+ (build `241.x` to `243.x`).
 - **Process Management**:
-  - Spawns the static analyzer using `com.intellij.execution.configurations.GeneralCommandLine` and `com.intellij.execution.process.OSProcessHandler`.
-  - Communicates via JSON-RPC 2.0 over standard streams using IntelliJ's non-blocking `ProcessListener`.
-- **Node.js Discovery Strategy**:
-  1. Inspects IDE-configured Node.js interpreters (`NodeCommandLineConfigurator` when Ultimate/JS plugin is present).
-  2. Probes user environment: `$PATH`, standard version managers (`~/.nvm`, `~/.volta`, `~/.asdf`, `~/.fnm`), and platform package paths (`/opt/homebrew/bin/node`, `/usr/local/bin/node`, `C:\Program Files\nodejs\node.exe`).
-  3. If Node.js (>= 18.0.0) is not found, displays a non-modal notification banner with a "Configure Node.js Interpreter" action, maintaining an explicit "Node Unavailable" fallback state.
+  - Spawns `packages/ide-analysis/dist/bin.js` via `child_process.spawn` using the bundled Node.js runtime.
+  - Monitors daemon health with periodic heartbeats; transparently restarts the process upon unexpected exit.
 - **UI Surface**:
-  - Registers a Tool Window (`com.intellij.openapi.wm.ToolWindowFactory`) labeled **Siglo Workflows**.
-  - Renders graph visualization using JCEF (`com.intellij.ui.jcef.JBCefBrowser`).
-  - **Graceful Fallback**: If JCEF is disabled or unsupported (e.g. running in remote development or headless CI), falls back to a native Swing component (`JBTree` / `JBTable`) displaying the structured workflow hierarchy.
+  - Webview Panel (`vscode.window.createWebviewPanel`) for dedicated full-tab workflow visualization.
+  - Webview View (`vscode.window.registerWebviewViewProvider`) for persistent sidebar explorer view hosting `@siglo/ide-ui`.
 - **Security & Sandboxing**:
-  - Workspace Trust: Uses `com.intellij.ide.trustedProjects.TrustedProjects.isProjectTrusted(project)` before launching the analyzer process.
-  - Secret Storage: Uses `com.intellij.ide.passwordSafe.PasswordSafe.getInstance()` for monitor credentials.
+  - **Strict CSP**: `default-src 'none'; img-src data: vscode-resource:; script-src 'nonce-...'; style-src 'nonce-...';`.
+  - **Message Validation**: Validates all message origins through `vscode.Webview.onDidReceiveMessage`.
+  - **Workspace Trust**: Gated behind `vscode.workspace.isTrusted`. In untrusted workspaces, only read-only file diagnostics are permitted; daemon startup and webviews are disabled.
+  - **Secret Storage**: Uses `context.secrets` (`vscode.SecretStorage`) to securely persist monitor connection tokens.
 
 ### 4.3 Shared UI Bundle (`packages/ide-ui`)
 
 - Micro-bundle compiled with Vite, producing a standalone HTML/JS/CSS asset.
 - Graph visualization powered by Cytoscape / SVG canvas matching the aesthetics of `@siglo/monitor/ui`.
-- **Host Agnostic Bridge**: Communicates with the hosting editor via a lightweight adapter:
+- **VS Code Bridge**:
   ```typescript
   export interface HostBridge {
     postMessage(msg: { type: string; payload: unknown }): void;
     onMessage(callback: (msg: { type: string; payload: unknown }) => void): void;
   }
   ```
-  - In VS Code: Wraps `acquireVsCodeApi().postMessage`.
-  - In IntelliJ: Wraps `window.cefQuery` (JCEF IPC).
+  In VS Code, this wraps `acquireVsCodeApi().postMessage`.
 
 ### 4.4 Monitor Connection & Real-Time Sync (M3/M4)
 
-- **Connection**: Connects to the `@siglo/monitor` HTTP/WebSocket server using bearer authentication.
+- **Connection**: Connects to the `@siglo/monitor` HTTP/WebSocket server using bearer authentication stored in `vscode.SecretStorage`.
 - **Reconciliation Protocol**:
   1. On initial connection and reconnect, issues an authoritative HTTP `GET /api/v1/workflows/:id` snapshot.
   2. Subscribes to live WebSocket events (`step:start`, `step:complete`, `step:retry`, `step:error`).
   3. Buffers incoming streaming events during reconnect; drops duplicate event IDs based on sequence numbers.
-- **Source Correlation**: Matches running runtime step records to static graph nodes using the deterministic step ID (`step.id`). If the local source file has been modified since the run started (hash mismatch), displays a visible `⚠️ Run executed on different revision` indicator.
+- **Source Correlation**: Matches running runtime step records to static graph nodes using deterministic step IDs (`step.id`). If the local source file has been modified since the run started (hash mismatch), displays a visible `⚠️ Run executed on different revision` indicator.
 - **Data Protection**: Strictly inherits Phase 4 redaction rules. Step inputs, outputs, and tokens are rendered through Phase 4 multi-layer sanitization; raw secrets and bodies are never displayed.
 
 ---
@@ -251,18 +234,17 @@ export interface GraphDocument {
 
 ### M0 — Architecture and Compatibility Spike (Ready to Execute)
 
-**Goal**: Prove cross-host process communication, synthetic graph rendering, and bidirectional source navigation without executing workspace code.
+**Goal**: Prove extension host process communication, synthetic graph rendering, and bidirectional source navigation without executing workspace code.
 
 #### Actionable Developer Tasks
 - [ ] **Task M0.1**: Scaffold `packages/ide-protocol` with TypeScript types for JSON-RPC messages (`GraphDocument`, `GraphNode`, `SourceRange`).
-- [ ] **Task M0.2**: Scaffold `packages/ide-analysis` with a CLI stdio entry point that responds to `siglo/initialize` and parses a static fixture file using `ts.createSourceFile`.
-- [ ] **Task M0.3**: Scaffold minimal VS Code extension in `packages/vscode` that spawns the analyzer daemon, sends `siglo/getGraph`, and logs the returned AST.
-- [ ] **Task M0.4**: Scaffold minimal IntelliJ IDEA plugin in `plugins/intellij` using Gradle 8.x and IntelliJ Platform Gradle Plugin 2.x; launch the analyzer and display received node IDs in a tool window.
-- [ ] **Task M0.5**: Build minimal `packages/ide-ui` webview; render synthetic graph nodes and dispatch a `nodeSelected` message.
-- [ ] **Task M0.6**: Wire `nodeSelected` event to host navigation (`vscode.window.showTextDocument` / IntelliJ `FileEditorManager.openTextEditor`) opening the fixture file at the step's exact line and character.
+- [ ] **Task M0.2**: Scaffold `packages/ide-analysis` with a CLI stdio entry point (`bin.ts`) that responds to `siglo/initialize` and parses a static fixture file using `ts.createSourceFile`.
+- [ ] **Task M0.3**: Scaffold minimal VS Code extension in `packages/vscode` that spawns the analyzer daemon via `child_process.spawn`, sends `siglo/getGraph`, and logs the returned AST.
+- [ ] **Task M0.4**: Build minimal `packages/ide-ui` webview; render synthetic graph nodes and dispatch a `nodeSelected` message via `acquireVsCodeApi().postMessage`.
+- [ ] **Task M0.5**: Wire `nodeSelected` event to `vscode.window.showTextDocument` opening the fixture file at the step's exact line and character coordinates.
 
 #### Exit Criteria (Gate to M1)
-1. Both VS Code and IntelliJ IDEA render the identical synthetic graph and navigate to line/column positions in a fixture file.
+1. VS Code renders the synthetic graph in a Webview panel and navigates to line/column positions in a fixture file upon clicking a node.
 2. Analyzer process lifecycle (startup, ping, cancellation, shutdown) verified on macOS, Linux, and Windows.
 3. Analyzer verified to **never** evaluate top-level JavaScript (fixture with `process.exit(1)` or top-level file writes must parse cleanly without executing).
 4. Compatibility matrix recorded and committed.
@@ -271,7 +253,7 @@ export interface GraphDocument {
 
 ### M1 — Static Workflow Explorer: First Useful Release
 
-**Goal**: Deliver a fully functional, read-only static workflow explorer in both editors.
+**Goal**: Deliver a fully functional, read-only static workflow explorer in VS Code.
 
 #### Acceptance Criteria
 - [ ] **Workflow Discovery**: Automatically detects workflows containing `flow(...)` or `workflow(...)` in open files and workspace scans (bounded by explicit ignore lists: `node_modules`, `dist`, `.git`).
@@ -285,9 +267,9 @@ export interface GraphDocument {
 - [ ] **Multi-Root Support**: Correctly handles multi-folder workspaces without cross-contaminating project roots.
 
 #### Exit Criteria
-- Both hosts pass the shared fixture test suite (`fixtures/static-analysis/**`).
+- Extension passes the shared fixture test suite (`fixtures/static-analysis/**`).
 - Analyzer memory footprint remains `< 150MB RSS` during 1,000 continuous edit cycles.
-- Packaged `.vsix` and IntelliJ `.zip` distributions pass manual smoke tests on clean installations.
+- Packaged `.vsix` distribution passes manual smoke tests on clean VS Code installations.
 
 ---
 
@@ -296,28 +278,28 @@ export interface GraphDocument {
 **Goal**: Accelerate workflow authoring with scaffolding actions and proactive lint diagnostics.
 
 #### Acceptance Criteria
-- [ ] **Editor Actions**: Add "Create Siglo Step" and "Create Siglo Workflow" context menu actions.
+- [ ] **Editor Actions**: Add "Siglo: Create Step" and "Siglo: Create Workflow" commands in Command Palette and file context menus.
 - [ ] **Template Engine**: Reuses Phase 4 generator templates (`createStepFileContents`) to generate clean, offline-testable TypeScript steps.
-- [ ] **Static Diagnostics**:
+- [ ] **Static Diagnostics (`vscode.DiagnosticCollection`)**:
   - Warns on cyclic dependencies in DAG topology.
   - Warns on missing compensations for sagas with side-effect steps.
   - Warns on unhandled error branches in durable workflows.
   - Flags duplicate step IDs within the same workflow.
-- [ ] **Preview & Undo**: All file generation actions support standard IDE Undo/Redo stacks.
+- [ ] **Preview & Undo**: All file generation actions support standard VS Code Undo/Redo stacks.
 
 #### Exit Criteria
-- Diagnostic ranges precisely underline offending AST tokens in both editors.
+- Diagnostic ranges precisely underline offending AST tokens with diagnostic squiggles in the VS Code editor.
 - Generated steps pass `tsc --noEmit` and execute offline unit tests successfully.
 
 ---
 
 ### M3 — Read-Only Live Execution Monitoring
 
-**Goal**: Connect the IDE graph to running workflows via `@siglo/monitor`.
+**Goal**: Connect the VS Code graph to running workflows via `@siglo/monitor`.
 
 #### Acceptance Criteria
-- [ ] **Connection Manager**: Configures monitor endpoints (`http://localhost:4000`) and securely stores authentication tokens in host secret vaults.
-- [ ] **Workflow Run List**: Displays active and historical workflow runs with status, execution time, and retry counts.
+- [ ] **Connection Manager**: Configures monitor endpoints (`http://localhost:4000`) and securely stores authentication tokens in `vscode.SecretStorage`.
+- [ ] **Workflow Run List**: Displays active and historical workflow runs in a custom VS Code TreeDataProvider / Webview View with status, execution time, and retry counts.
 - [ ] **Live Graph Overlay**: Dynamically updates node badges:
   - ⚪ Pending &rarr; 🔵 Running &rarr; 🟢 Completed / 🔴 Failed / 🟡 Suspended (`waitForEvent`).
 - [ ] **Resilience**: Gracefully handles network disconnects, buffers in-flight events, and reconciles state with authoritative snapshots upon reconnect.
@@ -331,7 +313,7 @@ export interface GraphDocument {
 
 ### M4 — Ecosystem Deep-Dive Inspectors
 
-**Goal**: Surface Phase 4 telemetry contracts directly in editor inspector panels.
+**Goal**: Surface Phase 4 telemetry contracts directly in VS Code inspector panels.
 
 #### Acceptance Criteria
 - [ ] **HTTP Inspector**: Displays method, origin-only URL, status, retry attempts, `retryAfterMs` vs `retryDelayMs`, and copy origin-only cURL.
@@ -340,21 +322,21 @@ export interface GraphDocument {
 - [ ] **AI Inspector**: Displays provider, model ID, prompt/completion token metrics, repair loop counts, and fallback transitions. Displays unknown costs as `"Unavailable"`.
 
 #### Exit Criteria
-- Deep-dive panels render consistently in both VS Code Webviews and IntelliJ JCEF.
+- Deep-dive panels render consistently in VS Code Webviews.
 - Copy/export actions strictly preserve Phase 4 sanitization rules.
 
 ---
 
-### M5 — Optional Execution Controls & Marketplace Distribution
+### M5 — Execution Controls & Marketplace Distribution
 
-**Goal**: Enable developer execution controls and publish plugins to official marketplaces.
+**Goal**: Enable developer execution controls and publish extension to official marketplaces.
 
 #### Acceptance Criteria
-- [ ] **Run/Debug Integration**: Trigger workflow runs using native IDE run configurations (`launch.json` in VS Code / Run Configurations in IntelliJ).
+- [ ] **Run/Debug Integration**: Trigger workflow runs using native VS Code run configurations (`launch.json` integration for debugging workflows).
 - [ ] **Interactive Resume**: Trigger `resumeWorkflow` events for durable workflows suspended on `waitForEvent`, with clear side-effect warning prompts.
 - [ ] **Marketplace Packaging**:
-  - Publish VS Code Extension to Visual Studio Marketplace and Open VSX Registry.
-  - Publish IntelliJ Plugin to JetBrains Marketplace.
+  - Publish VS Code Extension to Visual Studio Marketplace (`vsce publish`).
+  - Publish VS Code Extension to Open VSX Registry (`ovsx publish`).
 - [ ] **Documentation**: Complete getting-started guides, keyboard shortcut references, and troubleshooting documentation.
 
 ---
@@ -383,7 +365,7 @@ fluid-func/
 │   ├── ide-ui/                    # Host-neutral graph & inspector UI micro-bundle
 │   │   ├── src/
 │   │   │   ├── App.tsx            # Graph canvas & detail inspector views
-│   │   │   ├── bridge.ts          # Host communication abstraction
+│   │   │   ├── bridge.ts          # Host communication abstraction (acquireVsCodeApi)
 │   │   │   └── components/        # Graph nodes, edges, and ecosystem cards
 │   │   ├── vite.config.ts         # Single-file / embedded bundle configuration
 │   │   └── package.json
@@ -395,28 +377,11 @@ fluid-func/
 │       │   └── webview.ts         # Webview panel provider with CSP
 │       ├── package.json           # VS Code extension manifest & contributions
 │       └── tsconfig.json
-│
-└── plugins/
-    └── intellij/                  # IntelliJ IDEA JVM plugin (isolated Gradle build)
-        ├── src/main/kotlin/
-        │   └── io/siglo/idea/
-        │       ├── SigloIcons.kt
-        │       ├── process/       # OSProcessHandler & JSON-RPC client
-        │       ├── toolwindow/    # ToolWindowFactory & JCEF browser integration
-        │       └── actions/       # Editor navigation & context actions
-        ├── src/main/resources/
-        │   └── META-INF/
-        │       └── plugin.xml     # IntelliJ plugin declaration & extensions
-        ├── build.gradle.kts       # Gradle IntelliJ Platform Plugin 2.x
-        └── settings.gradle.kts
 ```
 
-### Build & Workspace Isolation Rules
+### Build & Packaging Rules
 1. **NPM Workspace Boundaries**: `packages/ide-protocol`, `packages/ide-analysis`, `packages/ide-ui`, and `packages/vscode` are registered npm packages under the monorepo root `package.json`.
-2. **JVM Build Isolation**: `plugins/intellij` is a Gradle project managed independently via `./gradlew`. It is **never** added to npm workspace scripts.
-3. **Distribution Packaging**:
-   - VS Code: `npm run package --workspace=@siglo/vscode` runs `vsce package`.
-   - IntelliJ: `cd plugins/intellij && ./gradlew buildPlugin` builds the distributable `.zip`.
+2. **Distribution Packaging**: `npm run package --workspace=@siglo/vscode` runs `vsce package` to produce the production `.vsix` archive.
 
 ---
 
@@ -431,7 +396,6 @@ To prevent editor stutter, high CPU usage, or runaway memory consumption, the fo
 | **Analyzer Process Memory** | `< 80 MB` | `150 MB RSS` | Daemon restarts automatically if RSS exceeds 150MB. |
 | **Graph Rendering (UI)** | `< 30 ms` | `100 ms` | Virtualized SVG / Canvas viewport; capped at 250 nodes. |
 | **Max Workspace Scan Files** | `100 files` | `500 files` | Strict exclusion of `node_modules`, `dist`, `.git`, `coverage`. |
-| **Node.js Discovery Timeout** | `< 500 ms` | `2,000 ms` | Background check; non-blocking to IDE startup. |
 
 ---
 
@@ -441,8 +405,6 @@ To prevent editor stutter, high CPU usage, or runaway memory consumption, the fo
 | Dimension | Minimum Supported | Recommended Baseline |
 |---|---|---|
 | **VS Code Engine** | `^1.90.0` | `Latest stable` |
-| **IntelliJ Platform** | `2024.1` (Build 241.x) | `2024.2+` (Build 242.x / 243.x) |
-| **IntelliJ Editions** | Community & Ultimate | Community & Ultimate |
 | **Node.js Runtime** | `18.0.0` (LTS) | `20.x` or `22.x` (Active LTS) |
 | **TypeScript (Workspace)**| `~5.0.0` | `^5.5.0` |
 | **Operating Systems** | macOS (ARM64/x64), Linux (x64), Windows 10/11 (x64) | All platforms |
@@ -451,4 +413,4 @@ To prevent editor stutter, high CPU usage, or runaway memory consumption, the fo
 1. **Zero-Execution Assertion**: Automated test suite parses malicious fixture files containing top-level `process.exit(1)`, network calls, and file-system mutations. Tests fail if any side-effect executes.
 2. **Cross-Platform Path Normalization**: Automated unit tests verify Windows backslashes (`\`), UNC paths, and POSIX URIs (`file:///...`) resolve to identical document ranges.
 3. **Unicode Range Fixtures**: Test fixtures containing multi-byte Unicode characters (emojis, CJK glyphs) assert exact character and line offset calculations.
-4. **Disconnection & Reconnect Simulation**: Host integration smoke tests simulate sudden daemon termination, verifying automatic restarts and error notifications.
+4. **Disconnection & Reconnect Simulation**: Extension integration smoke tests simulate sudden daemon termination, verifying automatic restarts and error notifications.
