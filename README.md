@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/assets/siglo-logo.png" alt="Siglo Logo" width="220" style="border-radius: 16px;" />
+  <img src="docs/assets/siglo-logo.png" alt="Siglo Logo" width="320" style="border-radius: 16px;" />
 </p>
-
-# Siglo
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
 [![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/siglo)
