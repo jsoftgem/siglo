@@ -184,7 +184,7 @@ Siglo executes steps through a formal 5-phase lifecycle: `BEFORE` &rarr; `VALIDA
 
 ## 4. TypeScript API contracts
 
-Implemented source of truth: [`packages/ai/src/types.ts`](../packages/ai/src/types.ts).
+Implemented source of truth: [`packages/ai/src/types.ts`](../../packages/ai/src/types.ts).
 `AiModelConfig`, `AiTool`, `AiStepOptions`, `AiStepResult`, and `AiOutput` are exported.
 `AiStep` extends `Step<TInput, AiStepResult<TOutput>, TName>`. Its factory has separate
 schema-present and schema-absent overloads: schema-free calls infer `string`, and
@@ -348,5 +348,5 @@ export const agenticAdvisoryStep = aiStep('financialAdvisor', {
 - Live API smoke tests require the deployment's own credentials and supported model IDs;
   they are not part of zero-network CI. Wire contracts are tested with injected transports.
 
-See [`packages/ai/README.md`](../packages/ai/README.md) and [`docs/adapters/ai.md`](../docs/adapters/ai.md) for working configuration, tool,
+See [`packages/ai/README.md`](../../packages/ai/README.md) and [`docs/adapters/ai.md`](../adapters/ai.md) for working configuration, tool,
 cache, telemetry and replay examples, plus official provider references.

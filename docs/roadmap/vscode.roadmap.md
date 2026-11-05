@@ -18,7 +18,7 @@
 
 Follow-up fix: nonce injection now matches complete script/style elements and preserves their contents. Previously it rewrote a `"<script>"` string inside React, causing a JavaScript syntax error and a blank webview. An isolated macOS VS Code Extension Development Host running the rebuilt VSIX successfully started the analyzer and rendered all five steps in `usecase-2-ai-rag-pipeline.ts`. Full manual acceptance checks above remain open.
 
-Build and installation instructions: [VS Code extension README](../plugins/vscode/README.md). M2–M5 remain future work.
+Build and installation instructions: [VS Code extension README](../../plugins/vscode/README.md). M2–M5 remain future work.
 
 ---
 
@@ -29,7 +29,7 @@ Make Siglo workflows easier to understand, author, and inspect directly inside V
 ### Supported Hosts & Runtime Model
 - **Visual Studio Code**: Version 1.90+ (Desktop; Web/Remote architectures gated separately).
 - **Runtime Environment**: Native Node.js extension host process (`plugins/vscode`).
-- **Explicit Negative Scope**: Do not expand this roadmap to other editors (Sublime, Eclipse, Neovim) or JetBrains IDEs (covered in [intellij.roadmap.md](file:///Users/jericodeguzman/Projects/fluid-func/roadmap/intellij.roadmap.md)).
+- **Explicit Negative Scope**: Do not expand this roadmap to other editors (Sublime, Eclipse, Neovim) or JetBrains IDEs (covered in [intellij.roadmap.md](intellij.roadmap.md)).
 
 ### Initial Language & Framework Scope
 - **Workflow Language**: TypeScript (TypeScript 5.0+ syntax) and JavaScript.

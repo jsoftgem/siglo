@@ -246,7 +246,7 @@ const replayAdapter = MockAiProvider.replay(recording);
 ## Documentation & References
 
 - 📘 [Dedicated Adapter Guide](../../docs/adapters/ai.md): In-depth architecture, lifecycle phases, and complete production scenarios.
-- 🗺️ [Phase 3 AI Roadmap](../../roadmap/ecosystem-phase-3-ai.roadmap.md): Specification design, binding contracts, and initial release boundaries.
+- 🗺️ [Phase 3 AI Roadmap](../../docs/roadmap/ecosystem-phase-3-ai.roadmap.md): Specification design, binding contracts, and initial release boundaries.
 - 🌐 [Official Provider References]:
   - [OpenAI Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
   - [Anthropic Messages Tool Use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls)

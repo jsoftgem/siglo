@@ -113,7 +113,7 @@ The VS Code extension (`plugins/vscode`) shares the same `@siglo/ide-protocol`, 
 - A full-editor tab command: `Siglo: Open Workflow Visualizer`.
 - Bidirectional cursor sync between VS Code editor tabs and the webview canvas.
 
-See [vscode.roadmap.md](../roadmap/vscode.roadmap.md) for architecture and implementation status.
+See [vscode.roadmap.md](roadmap/vscode.roadmap.md) for architecture and implementation status.
 
 ### Build and install the VS Code extension
 

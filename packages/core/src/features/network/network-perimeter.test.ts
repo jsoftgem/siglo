@@ -2,6 +2,7 @@ import { parseNumericIPv4, extractMappedIPv4 } from './ip';
 import { expect } from 'chai';
 import http from 'node:http';
 import net from 'node:net';
+import fs from 'node:fs';
 import {
     Step,
     flow,
@@ -389,7 +390,8 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
         });
 
         it('allows unix socket connection when explicitly configured in allowUnixSockets', (done) => {
-            const safeSocketPath = '/tmp/siglo_safe_test.sock';
+            const safeSocketPath = `/tmp/siglo_safe_test_${Date.now()}_${process.pid}.sock`;
+            try { fs.unlinkSync(safeSocketPath); } catch {}
             const unixServer = net.createServer((sock) => {
                 sock.end('hello unix');
             });
@@ -409,7 +411,10 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                         client.on('data', (d) => {
                             expect(d.toString()).to.equal('hello unix');
                             client.end();
-                            unixServer.close(done);
+                            unixServer.close(() => {
+                                try { fs.unlinkSync(safeSocketPath); } catch {}
+                                done();
+                            });
                         });
                     });
                 });

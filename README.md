@@ -51,7 +51,7 @@ Explore the 11 comprehensive guides covering architecture, design patterns, test
 - 🔑 [Idempotency & Deduplication](docs/idempotency.md) &mdash; Scoped idempotency keys, claim locking, and TTL stores.
 - 🌐 [Network Egress Policy & Guardrails](docs/network-egress-policy.md) &mdash; Declarative least-privilege network policies via AsyncLocalStorage, multi-layer interceptors, and perimeter narrowing.
 - 📊 [Live Monitoring & DevTools](docs/live-monitoring.md) &mdash; Real-time DevTools web dashboard, SSE/WebSocket streaming, latency waterfalls, and interactive resumption.
-- 🗺️ [Live Monitoring Roadmap](roadmap/live-monitoring.roadmap.md) &mdash; Implementation specifications and delivery phases.
+- 🗺️ [Live Monitoring Roadmap](docs/roadmap/live-monitoring.roadmap.md) &mdash; Implementation specifications and delivery phases.
 - 🔐 [Crypto & Webhook Security](docs/adapters/crypto.md) &mdash; Cryptographic pipeline steps: multi-provider webhook verification, replay prevention, AEAD envelope field encryption, KeyRing rotation, and deep PII masking.
 - 🤖 [AI & LLM Steps](docs/adapters/ai.md) &mdash; Multi-provider AI steps, native structured outputs, self-healing repair loops, fallback cascades, Step-as-Tool agent loops, and token cost telemetry.
 
