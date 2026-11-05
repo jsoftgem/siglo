@@ -2,6 +2,29 @@
 
 Read-only workflow exploration for VS Code 1.90+ on desktop and remote workspace hosts. Uses the same `@siglo/ide-protocol`, zero-execution `@siglo/ide-analysis`, and React/SVG `@siglo/ide-ui` as the IntelliJ plugin. Requires workspace trust. Browser-only VS Code and virtual workspaces are unsupported.
 
+## Getting started
+
+1. [Install the extension from VSIX](#install-in-vs-code), then open and trust your project folder.
+2. Open an existing Siglo workflow, or save the example below as `hello.workflow.ts` in your project. For a project that will run the example, install the runtime with `npm install siglo`; the visualizer itself can analyze the file without installing or running the application.
+3. Open the Command Palette and run **Siglo: Open Workflow Visualizer**. You should see `helloWorkflow` with two connected steps: `greet` and `formatMessage`.
+4. Click `greet` to inspect its required `name` input and navigate to its definition. Change `.timeout(1000)` to `.timeout(2000)` and watch the graph update with **Auto-Reload** enabled.
+
+```ts
+import { Step, flow } from 'siglo';
+
+const greet = Step.create('greet', async (input: { name: string }) => ({
+  message: `Hello, ${input.name}!`,
+})).spec('name', { require: true }).timeout(1000);
+
+const formatMessage = Step.create('formatMessage', async (input: { message: string }) => ({
+  message: input.message.toUpperCase(),
+}));
+
+export const helloWorkflow = flow(greet, formatMessage);
+```
+
+For the workflows shown in the screenshots, open [demo.workflow.ts](marketplace/demo.workflow.ts) and choose **All Flows**. If the graph does not appear, confirm workspace trust, click **Reload**, and inspect **Output → Siglo Workflow Explorer**.
+
 ## Features
 
 - **Visual workflow graphs:** Follow sequential steps, parallel forks and joins, conditional branches, races, compensation paths, and fallbacks. Switch between workflows in a file or compare them with **All Flows**.
