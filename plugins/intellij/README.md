@@ -29,7 +29,7 @@ The **Siglo Workflows** IntelliJ plugin enables developers to visualize, inspect
 | **IntelliJ Editions** | Community & Ultimate | Community & Ultimate | ✅ Verified |
 | **Node.js Runtime** | `18.0.0` (LTS) | `20.x` or `22.x` (Active LTS) | ✅ Node.js >= 18.0.0 |
 | **TypeScript (Workspace)** | `~5.0.0` | `^5.5.0` | ✅ TypeScript 5.0+ |
-| **Host JVM Toolchain** | Java 17 | Java 21 | ✅ Built with JVM Toolchain 17 / 21 |
+| **Host JVM / Environment** | Java 17 | Java 21 | ✅ JDK 17, 21, and 25 supported (auto-managed via Daemon JVM criteria) |
 | **Operating Systems** | macOS (Apple Silicon & Intel), Linux (x64), Windows 10/11 (x64) | All platforms | ✅ Cross-platform POSIX & Windows |
 
 ---
@@ -111,6 +111,8 @@ From `plugins/intellij`:
 ```bash
 ./gradlew test buildPlugin
 ```
+*(Note: If your system default Java is JDK 25+, Gradle automatically delegates to a compatible daemon JVM via `gradle/gradle-daemon-jvm.properties` without requiring manual environment switches).*
+
 The resulting installable ZIP distribution is located at:
 `plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.0.zip`
 
@@ -140,6 +142,14 @@ Node.js itself is located by probing IDE-configured interpreters, `$PATH`, and s
 ---
 
 ## 7. Troubleshooting
+
+### Running on JDK 25 Environments
+- The project includes `gradle/gradle-daemon-jvm.properties` configured for JDK 21. If your default shell uses JDK 25 (e.g. GraalVM CE 25), Gradle automatically launches its daemon using a compatible JDK on your machine, preventing `JavaVersion.parse` errors with Kotlin DSL.
+- If no compatible JDK is installed on a new machine, Gradle can auto-provision one, or you can point `JAVA_HOME` to JDK 17 or 21:
+  ```bash
+  export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+  ./gradlew test buildPlugin
+  ```
 
 ### "Node.js (>= 18.0.0) is not found" Notification
 - Ensure Node.js 18+ is installed on your system.

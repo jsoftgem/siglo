@@ -87,3 +87,37 @@ jobs:
       - run: npm run test:postgres --workspace=@siglo/notifications
         env:
           SIGLO_TEST_POSTGRES_URL: postgres://siglo:siglo_test@localhost:5432/siglo_notifications_test
+
+  intellij-plugin:
+    name: IntelliJ Plugin Build & Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies & build IDE packages
+        run: |
+          npm ci
+          npm run build --workspace=@siglo/ide-protocol
+          npm run build --workspace=@siglo/ide-analysis
+          npm run build --workspace=@siglo/ide-ui
+          cp packages/ide-ui/dist/index.html plugins/intellij/src/main/resources/ide-ui/index.html
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test, Build & Verify Plugin
+        working-directory: plugins/intellij
+        run: ./gradlew test buildPlugin verifyPlugin

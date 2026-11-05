@@ -1,3 +1,5 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+
 plugins {
     id("java")
     kotlin("jvm") version "2.0.21"
@@ -5,7 +7,7 @@ plugins {
 }
 
 group = "io.siglo"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -53,7 +55,7 @@ intellijPlatform {
     }
     pluginVerification {
         ides {
-            recommended()
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2024.1.4")
         }
     }
 }

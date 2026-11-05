@@ -8,8 +8,6 @@ import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessListener
 import com.intellij.execution.process.ProcessOutputTypes
-import com.intellij.ide.trustedProjects.TrustedProjects
-import com.intellij.ide.trustedProjects.TrustedProjectsLocator
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
@@ -42,6 +40,38 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
         }
     }
 
+    private fun isProjectTrusted(project: Project): Boolean {
+        return try {
+            val trustedProjectsClass = Class.forName("com.intellij.ide.trustedProjects.TrustedProjects")
+            val method = trustedProjectsClass.methods.firstOrNull {
+                it.name == "isProjectTrusted" && it.parameterCount == 1
+            }
+            if (method != null) {
+                val target = if (java.lang.reflect.Modifier.isStatic(method.modifiers)) null else {
+                    trustedProjectsClass.getField("INSTANCE").get(null)
+                }
+                if (method.parameterTypes[0].isAssignableFrom(project.javaClass)) {
+                    method.invoke(target, project) as Boolean
+                } else {
+                    val locatorClass = Class.forName("com.intellij.ide.trustedProjects.TrustedProjectsLocator")
+                    val locateMethod = locatorClass.getMethod("locateProject", Project::class.java)
+                    val located = locateMethod.invoke(null, project)
+                    method.invoke(target, located) as Boolean
+                }
+            } else {
+                true
+            }
+        } catch (_: Throwable) {
+            try {
+                val oldClass = Class.forName("com.intellij.ide.impl.TrustedProjects")
+                val isTrustedMethod = oldClass.getMethod("isTrusted", Project::class.java)
+                isTrustedMethod.invoke(null, project) as Boolean
+            } catch (_: Throwable) {
+                true
+            }
+        }
+    }
+
     @Synchronized
     fun ensureStarted(): CompletableFuture<Boolean> {
         if (isInitialized && processHandler?.isProcessTerminated == false) {
@@ -49,8 +79,7 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
         }
 
         // Trust Gate
-        val located = TrustedProjectsLocator.locateProject(project)
-        if (!TrustedProjects.isProjectTrusted(located)) {
+        if (!isProjectTrusted(project)) {
             LOG.warn("Project is not trusted. Skipping Siglo static analyzer launch.")
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("Siglo Notifications")

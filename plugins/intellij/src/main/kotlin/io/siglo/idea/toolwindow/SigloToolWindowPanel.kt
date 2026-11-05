@@ -363,7 +363,9 @@ class SigloToolWindowPanel(
             val virtualFile = findVirtualFileByUri(uri) ?: return@invokeLater
 
             val descriptor = OpenFileDescriptor(project, virtualFile, line, character)
-            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+            if (descriptor.canNavigate()) {
+                descriptor.navigate(true)
+            }
             LOG.info("Navigated editor to $uri at L${line + 1}:C${character + 1}")
         }
     }
