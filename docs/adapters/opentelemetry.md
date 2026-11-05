@@ -10,7 +10,7 @@ The OpenTelemetry integration creates an end-to-end distributed span hierarchy c
 
 ```mermaid
 flowchart TD
-    Req["Incoming HTTP / Kafka / SQS Request<br/>(with W3C traceparent)"] -->|extractTraceContext()| WFSpan["Span: workflow:CheckoutPipeline<br/>• siglo.workflow.name = 'CheckoutPipeline'<br/>• siglo.workflow.version = '2.1.0'<br/>• siglo.stack.id = 'stack_9812_01'<br/>• siglo.namespace = 'ecommerce-us'<br/>• siglo.timeout = 30000"]
+    Req["Incoming HTTP / Kafka / SQS Request<br/>(with W3C traceparent)"] -->|"extractTraceContext()"| WFSpan["Span: workflow:CheckoutPipeline<br/>• siglo.workflow.name = 'CheckoutPipeline'<br/>• siglo.workflow.version = '2.1.0'<br/>• siglo.stack.id = 'stack_9812_01'<br/>• siglo.namespace = 'ecommerce-us'<br/>• siglo.timeout = 30000"]
     WFSpan --> Step1["Span: step:validateCart<br/>• siglo.step.name = ...<br/>• siglo.step.attempt = 1<br/>• Status: OK"]
     WFSpan --> Step2["Span: step:chargeCard<br/>• siglo.step.attempt = 1<br/>• (Failure: recordException)"]
     Step2 -->|Retry| Step2Retry["Span: step:chargeCard (retry #2)<br/>• siglo.step.attempt = 2<br/>• Status: OK"]

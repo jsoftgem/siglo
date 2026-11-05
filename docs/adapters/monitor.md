@@ -22,7 +22,7 @@ npm install --save-dev @siglo/cli
 ```mermaid
 flowchart TD
     Wf["Siglo Workflow"] -->|Local attach| Emitter["WorkflowEventEmitter"]
-    Wf -->|Remote attach (with Auth)| Client["MonitorClient (HTTP POST)"]
+    Wf -->|"Remote attach (with Auth)"| Client["MonitorClient (HTTP POST)"]
     Client --> Ingest["POST /api/events"]
     Ingest --> Store["WorkflowExecutionStore"]
     Emitter --> Store

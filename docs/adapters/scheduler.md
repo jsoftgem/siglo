@@ -12,20 +12,20 @@ Siglo workflows operate in-process without requiring a central coordinator daemo
 
 ```mermaid
 flowchart TD
-    subgraph Schedulers[\"Dispatcher Topologies\"]
+    subgraph Schedulers["Dispatcher Topologies"]
         direction LR
-        P1[\"PostgresWaitPoller<br/>• Row-level FOR UPDATE SKIP LOCKED<br/>• Atomic CAS Resumption<br/>• Automatic Recovery from Stale Locks\"]
-        P2[\"MemoryWaitPoller<br/>• Zero-Daemon In-Memory Poller<br/>• Local Dev & Unit Test Environments<br/>• defaultDurableManager Integration\"]
-        P3[\"createSchedulerWebhookHandler<br/>• Cloud-Native Webhook Receiver<br/>• AWS EventBridge Scheduler<br/>• Google Cloud Tasks / Cloudflare\"]
+        P1["PostgresWaitPoller<br/>• Row-level FOR UPDATE SKIP LOCKED<br/>• Atomic CAS Resumption<br/>• Automatic Recovery from Stale Locks"]
+        P2["MemoryWaitPoller<br/>• Zero-Daemon In-Memory Poller<br/>• Local Dev & Unit Test Environments<br/>• defaultDurableManager Integration"]
+        P3["createSchedulerWebhookHandler<br/>• Cloud-Native Webhook Receiver<br/>• AWS EventBridge Scheduler<br/>• Google Cloud Tasks / Cloudflare"]
     end
 
-    subgraph Store[\"Storage & Persistence\"]
-        DB[(\"PostgreSQL Database<br/>siglo_wait_records\")]
-        Mem[(\"In-Memory Map<br/>defaultDurableManager\")]
+    subgraph Store["Storage & Persistence"]
+        DB[("PostgreSQL Database<br/>siglo_wait_records")]
+        Mem[("In-Memory Map<br/>defaultDurableManager")]
     end
 
-    subgraph Core[\"Siglo Workflow Engine\"]
-        Resume[\"resumeWorkflow(flow, stackId, payload, { allowExpired: true })\"]
+    subgraph Core["Siglo Workflow Engine"]
+        Resume["resumeWorkflow(flow, stackId, payload, { allowExpired: true })"]
     end
 
     P1 --> DB

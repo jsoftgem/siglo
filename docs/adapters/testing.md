@@ -15,19 +15,19 @@ Testing distributed workflows is notoriously difficult due to non-deterministic 
 
 ```mermaid
 flowchart TD
-    Workflow[\"Workflow Definition (flow)\"]
+    Workflow["Workflow Definition (flow)"]
 
-    subgraph Harness[\"@siglo/testing Harness\"]
-        WH[\"createWorkflowHarness(flow, options)\"]
-        Clock[\"FakeClock<br/>• advanceTime()<br/>• tick()\"]
-        Spy[\"StepSpy<br/>• spyOnStep()<br/>• mockStep()\"]
-        FakeStore[\"InMemoryStorageFake<br/>• saveCheckpoint()<br/>• getCheckpoint()\"]
+    subgraph Harness["@siglo/testing Harness"]
+        WH["createWorkflowHarness(flow, options)"]
+        Clock["FakeClock<br/>• advanceTime()<br/>• tick()"]
+        Spy["StepSpy<br/>• spyOnStep()<br/>• mockStep()"]
+        FakeStore["InMemoryStorageFake<br/>• saveCheckpoint()<br/>• getCheckpoint()"]
     end
 
-    subgraph Assertions[\"Test Assertions\"]
-        A1[\"assertStepCompleted(name)\"]
-        A2[\"assertStepFailed(name)\"]
-        A3[\"assertStepRetried(name, count)\"]
+    subgraph Assertions["Test Assertions"]
+        A1["assertStepCompleted(name)"]
+        A2["assertStepFailed(name)"]
+        A3["assertStepRetried(name, count)"]
     end
 
     Workflow --> WH
