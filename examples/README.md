@@ -19,6 +19,22 @@ This workspace provides runnable examples demonstrating [`Siglo`](https://github
 - [`instrumentWorkflow`](../packages/opentelemetry/src/instrument.ts) / [`createTelemetryStorageAdapter`](../packages/opentelemetry/src/instrument.ts) (OpenTelemetry spans, retry tracing, W3C trace context, and namespace redaction)
 - [`PostgresStorageAdapter`](../packages/postgres/src/adapter.ts) / [`RedisStorageAdapter`](../packages/redis/src/adapter.ts) (enterprise storage adapters and distributed locks)
 
+## Start Here: A Checkout You Can Run Locally
+
+New to Siglo? Follow [Getting Started: Build a Checkout That Handles Failure](../docs/01-getting-started.md). The [checkout example](src/getting-started/checkout.ts) uses fake inventory, payment, and shipping services to show retries and compensation without external infrastructure.
+
+From the repository root, with dependencies installed:
+
+```bash
+npm run build --workspace=@siglo/core
+node --import tsx examples/src/getting-started/checkout-demo.ts
+node --import tsx --test examples/src/getting-started/checkout.test.ts
+```
+
+To call checkout over HTTP and inspect it in the dashboard, follow [REST Integration and Live Monitoring](../docs/rest-and-live-monitoring.md) and run `node --import tsx examples/src/getting-started/checkout-server.ts` after building `@siglo/express` and `@siglo/monitor`.
+
+The demo shows a recovered payment failure and a shipping failure that triggers a refund and stock release. The tests also cover invalid input, permanent payment failure, and duplicate requests.
+
 ---
 
 ## Architecture Overview

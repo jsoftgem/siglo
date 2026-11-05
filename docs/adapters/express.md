@@ -1,5 +1,7 @@
 # @siglo/express Adapter Guide
 
+For a complete walkthrough, see [Serve a REST Endpoint and Watch It Run Live](../rest-and-live-monitoring.md).
+
 `@siglo/express` provides an Express middleware adapter for executing `Siglo` workflows within traditional Node.js web applications. It automates HTTP request extraction, correlation identifier propagation, cooperative cancellation, timeout enforcement, and semantic error-to-HTTP status code mapping.
 
 ---

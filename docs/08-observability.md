@@ -1,5 +1,7 @@
 # 08. Observability
 
+For a complete HTTP example, follow [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md).
+
 Observability is a first-class citizen in `Siglo`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, record granular execution traces, and stream real-time events to an interactive React DevTools dashboard.
 
 ---

@@ -14,6 +14,12 @@
 
 ---
 
+## Start with a Real Problem
+
+What happens when checkout charges a customer, but shipping fails? [Build a checkout that handles failure](docs/01-getting-started.md) walks through payment retries, refunds, stock release, and duplicate requests with runnable TypeScript and fake services. No database or external services are needed for the demo.
+
+For approvals that wait on people, imports that need bounded concurrency, and event consumers that need recovery rules, start with the tutorial’s [real-world use cases](docs/01-getting-started.md#7-apply-the-same-idea-to-other-problems).
+
 ## Positioning: In-Process Orchestration vs Distributed Engines
 
 | Dimension | `Siglo` | Distributed Engines (Temporal, Inngest) |
@@ -27,9 +33,11 @@
 
 ## Documentation & Topic Guides
 
+**Practical tutorial:** [Serve a REST Endpoint and Watch It Run Live](docs/rest-and-live-monitoring.md) — connect an Express checkout endpoint to the dashboard, inspect retries, and diagnose failed requests.
+
 Explore the 11 comprehensive guides covering architecture, design patterns, testing, and production operations:
 
-1. 🚀 [01. Getting Started](docs/01-getting-started.md) &mdash; Installation, quickstart walkthrough, minimal examples, and CLI scaffolding.
+1. 🚀 [01. Getting Started](docs/01-getting-started.md) &mdash; A practical checkout tutorial: retry payment, undo partial work, test recovery, and handle duplicate requests.
 2. 💡 [02. Core Concepts](docs/02-core-concepts.md) &mdash; Executable ASTs, accumulated context immutability, 5-phase step lifecycle, and reserved keys.
 3. ⛓️ [03. Sequential Workflows](docs/03-sequential-workflows.md) &mdash; Linear pipelines, clean POJO parameters, lifecycle hooks (`onBefore`, `onSkip`, `onAfter`), and caching.
 4. 🔀 [04. Branching and Parallelism](docs/04-branching-and-parallelism.md) &mdash; Concurrent fan-outs (`parallel`, `all`, `allSettled`, `race`), dynamic routing (`when`, `branch`), and bounded mapping (`map`).
@@ -63,6 +71,7 @@ Explore the 11 comprehensive guides covering architecture, design patterns, test
 - 🧠 **Accumulated Context Inference** &mdash; TypeScript automatically computes the accumulated output type across composed sequential steps at compile time.
 - 📜 **Typed Step History (`$steps`)** &mdash; Statically typed access to any step's output using string literal names (`context.$steps.loadUser.user`).
 - 🗺️ **Workflow Graph Visualization** &mdash; Export workflow graphs directly to Mermaid diagrams (`flow.toMermaid()`), Graphviz DOT (`flow.toDot()`), and JSON AST (`flow.toJSON()`) with policy badges.
+- 🧩 **IDE Extensions for VS Code & IntelliJ IDEA** &mdash; Explore workflow graphs, inspect step inputs and retry/timeout policies, navigate to source, and refresh diagrams as you edit. See [VS Code setup](plugins/vscode/README.md) and [IntelliJ IDEA setup](plugins/intellij/README.md).
 - 🖥️ **Live DevTools & Monitoring** &mdash; Real-time step inspection, timeline waterfalls, active DAG node highlighting, and failure replay.
 - 🧪 **Deterministic Test Harness (`@siglo/testing`)** &mdash; Zero-flake test harness with virtual clocks (`FakeClock`), step spies, mocking, trace snapshots, and failure replay.
 - 💉 **Runtime Dependency Injection** &mdash; Inject services and repositories explicitly via `options.services` or step-level `step.withDependencies()`.
@@ -147,6 +156,14 @@ async function main() {
 
 main();
 ```
+
+---
+
+## IDE Extensions
+
+Explore workflows directly in [VS Code](plugins/vscode/README.md) or [IntelliJ IDEA](plugins/intellij/README.md). The extensions statically analyze JavaScript and TypeScript source without executing your application. View branching and parallel paths, inspect input contracts and workflow settings, click steps to navigate to code, and enable **Auto-Reload** to update the graph as you edit. **All Flows** shows multiple workflows from the same file.
+
+Follow the linked setup guides to build and install the VS Code VSIX or IntelliJ plugin ZIP. In a trusted project, open a workflow file and run **Siglo: Open Workflow Visualizer** in VS Code, or right-click the editor and choose **Visualize Siglo Workflow** in IntelliJ IDEA. For execution timelines and live runtime events, use [Live Monitoring & DevTools](docs/live-monitoring.md).
 
 ---
 
