@@ -13,12 +13,10 @@ export async function handleNotificationCallback(token: string, options: Callbac
   const report = (approvalState: 'approved' | 'rejected' | 'forbidden' | 'cancelled' | 'expired' | 'conflict' | 'failed') => {
     // Never attribute an unverified token to a workflow or accept caller ambient scope.
     if (!verified?.inspection) return;
-    try {
-      stepInspectionStorage.run({ ...verified.inspection, stackId: verified.stackId, monitor: options.monitor }, () =>
-        recordInspection({ version: 1, kind: 'notification', approval: true,
-          outcome: approvalState === 'approved' || approvalState === 'rejected' ? 'success' : 'failure',
-          approvalState, approvalExpiresAt: verified!.expiresAt }));
-    } catch { /* Observation cannot affect callbacks. */ }
+    stepInspectionStorage.run({ ...verified.inspection, stackId: verified.stackId, monitor: options.monitor }, () =>
+      recordInspection({ version: 1, kind: 'notification', approval: true,
+        outcome: approvalState === 'approved' || approvalState === 'rejected' ? 'success' : 'failure',
+        approvalState, approvalExpiresAt: verified!.expiresAt }));
   };
   try {
     const p = await verifyActionToken(token, options.signingSecret, { toleranceSeconds: options.toleranceSeconds });

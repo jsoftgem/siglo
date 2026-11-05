@@ -5,7 +5,6 @@ import type {
   GraphEdge,
   UnresolvedNode,
   Diagnostic,
-  SourceRange,
 } from '@siglo/ide-protocol';
 import { getSourceRange, generateDeterministicNodeId } from '../mapper';
 import { detectStepFromExpression, DetectedStep, extractDisplayProperties } from './step-detector';

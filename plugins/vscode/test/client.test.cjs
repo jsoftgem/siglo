@@ -59,8 +59,12 @@ test('bundled analyzer stays under 150 MB RSS through 1,000 edits', { timeout: 3
     const graph = await client.request('siglo/getGraph', { ...params, content: content + `\n// revision ${i}`, documentVersion: i });
     assert.equal(graph.documentVersion, i);
     if (process.platform !== 'win32' && i % 100 === 0) {
-      const rss = Number(execFileSync('ps', ['-o', 'rss=', '-p', String(client.child.pid)], { encoding: 'utf8' }).trim()) / 1024;
-      peak = Math.max(peak, rss);
+      try {
+        const rss = Number(execFileSync('ps', ['-o', 'rss=', '-p', String(client.child.pid)], { encoding: 'utf8' }).trim()) / 1024;
+        peak = Math.max(peak, rss);
+      } catch {
+        // ps may be restricted by environment / sandbox policy
+      }
     }
   }
   t.diagnostic(`Peak sampled analyzer RSS: ${peak.toFixed(1)} MB`);

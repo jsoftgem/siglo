@@ -41,6 +41,9 @@ jobs:
       - name: Run Ecosystem package test suites
         run: npm run test:packages
 
+      - name: Run IDE test suites
+        run: npm run test:ide
+
       - name: Check notification coverage without provider network requests
         run: npm run test:coverage --workspace=@siglo/notifications
 

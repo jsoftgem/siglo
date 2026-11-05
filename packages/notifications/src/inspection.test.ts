@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { flow, WorkflowEventEmitter } from 'siglo';
-import { sendNotificationStep } from './steps';
-import { MockNotificationTransport } from './testing';
+import { sendNotificationStep } from '../dist';
+import { MockNotificationTransport } from '../dist/testing';
 
 describe('notification pre-action inspection', () => {
   for (const scenario of ['recipient', 'schema', 'resolver', 'transport'] as const) {
@@ -40,17 +40,30 @@ describe('notification pre-action inspection', () => {
       assert.equal(calls, 1);
     });
   }
+  it('reports dynamic channel failure during pre-action inspection', async () => {
+    const events: any[] = [];
+    const monitor = new WorkflowEventEmitter().on('*', event => { events.push(event); });
+    const step = sendNotificationStep('notify-dynamic', {
+      channel: () => 'email',
+      template: 'private-message',
+      recipient: () => { throw new Error('fail'); },
+      transport: new MockNotificationTransport(),
+    });
+    await assert.rejects(() => flow(step).run({}, { monitor }));
+    const inspections = events.filter(event => event.type === 'step:inspection');
+    assert.equal(inspections.length, 1);
+    assert.equal(inspections[0].inspection.channel, undefined);
+  });
 });
 
 describe('approval expiry inspection', () => {
   it('reports the persisted signed expiry on delivery without callback credentials', async () => {
-    const { sendInteractiveApprovalStep } = await import('./steps');
+    const { sendInteractiveApprovalStep, InMemoryNotificationDispatchStore, verifyActionToken } = await import('../dist');
     const { WorkflowExecutionStore } = await import('../../monitor/src/store');
     const store = new WorkflowExecutionStore();
     const events: any[] = [];
     const monitor = new WorkflowEventEmitter().on('*', event => { events.push(event); store.addEvent(event); });
     const transport = new MockNotificationTransport();
-    const { InMemoryNotificationDispatchStore } = await import('./dispatch');
     const dispatchStore = new InMemoryNotificationDispatchStore();
     const before = Date.now();
     await flow(sendInteractiveApprovalStep('approve', {
@@ -60,7 +73,6 @@ describe('approval expiry inspection', () => {
       transport, dispatchStore,
     })).run({}, { monitor });
     const token = new URL(transport.messages[0].interactiveActions!.approveUrl).searchParams.get('token')!;
-    const { verifyActionToken } = await import('./tokens');
     const payload = await verifyActionToken(token, 'private-secret');
     const inspections = events.filter(event => event.type === 'step:inspection');
     assert.equal(inspections.length, 1);
@@ -78,8 +90,7 @@ describe('correlated approval callback inspection', () => {
   for (const approved of [true, false]) {
     it(`records ${approved ? 'approval' : 'rejection'} against the dispatch step`, async () => {
       const { waitForEvent, Step } = await import('siglo');
-      const { sendInteractiveApprovalStep } = await import('./steps');
-      const { handleNotificationCallback } = await import('./callbacks');
+      const { sendInteractiveApprovalStep, handleNotificationCallback } = await import('../dist');
       const transport = new MockNotificationTransport();
       const events: any[] = [];
       const monitor = new WorkflowEventEmitter().on('*', event => { events.push(event); });
@@ -115,4 +126,30 @@ describe('correlated approval callback inspection', () => {
       assert.equal(JSON.stringify(inspect()).includes('private'), false);
     });
   }
+});
+
+describe('action token inspection payload validation', () => {
+  it('validates namespace in token inspection payload', async () => {
+    const { signActionToken, verifyActionToken } = await import('../dist');
+    const validToken = await signActionToken({
+      stackId: 'stack-1',
+      correlationKey: 'corr-1',
+      expectedEvent: 'YES',
+      approved: true,
+      expiresAt: Date.now() + 60000,
+      inspection: { stepId: 'step-1', stepName: 'Step', attempt: 1, namespace: 'prod' },
+    }, 'secret');
+    const verified = await verifyActionToken(validToken, 'secret');
+    assert.equal(verified.inspection?.namespace, 'prod');
+
+    const invalidToken = await signActionToken({
+      stackId: 'stack-1',
+      correlationKey: 'corr-1',
+      expectedEvent: 'YES',
+      approved: true,
+      expiresAt: Date.now() + 60000,
+      inspection: { stepId: 'step-1', stepName: 'Step', attempt: 1, namespace: 123 as any },
+    }, 'secret');
+    await assert.rejects(() => verifyActionToken(invalidToken, 'secret'));
+  });
 });

@@ -12,13 +12,14 @@
     "packages/monitor/ui"
   ],
   "scripts": {
-    "build": "npm run build --workspace=siglo && npm run build --workspace=@siglo/http && npm run build:ui --workspace=@siglo/monitor && npm run build --workspace=@siglo/monitor && npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=siglo && npm run build --workspace=@siglo/http && npm run build --workspace=@siglo/ide-protocol && npm run build:ui --workspace=@siglo/monitor && npm run build --workspace=@siglo/monitor && npm run build --workspaces --if-present",
     "compile": "npm run build",
     "lint": "eslint packages/*/src examples/src test",
     "test": "npm run build --workspace=siglo && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
     "test:packages": "mocha 'packages/*/src/**/*.test.ts' 'packages/http/test/**/*.test.ts' 'packages/crypto/test/**/*.test.ts' --exit",
+    "test:ide": "npm test --workspace=@siglo/ide-protocol && npm test --workspace=@siglo/ide-analysis && npm test --workspace=@siglo/vscode",
     "test:examples": "npm run test --workspace=siglo-examples",
-    "test:all": "npm test && npm run test:packages && npm run test:examples",
+    "test:all": "npm test && npm run test:packages && npm run test:ide && npm run test:examples",
     "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
     "explore": "tsx test/exploratory/runner.ts",
     "publish:core": "npm publish --workspace=siglo --registry https://registry.npmjs.org/",

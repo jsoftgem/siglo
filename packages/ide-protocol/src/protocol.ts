@@ -104,7 +104,7 @@ export interface ResolveLocationResult {
 }
 
 // 5. siglo/shutdown
-export interface ShutdownParams {}
+export type ShutdownParams = Record<string, never>;
 
 export interface ShutdownResult {
   success: boolean;

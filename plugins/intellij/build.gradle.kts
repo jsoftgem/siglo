@@ -51,6 +51,11 @@ intellijPlatform {
             untilBuild = provider { null }
         }
     }
+    pluginVerification {
+        ides {
+            recommended()
+        }
+    }
 }
 
 tasks.test {
