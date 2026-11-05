@@ -138,25 +138,37 @@ export const App: React.FC = () => {
             <div className="flex items-center gap-1.5 min-w-0 flex-1 max-w-sm">
               <span className="text-[11px] text-[#868a98] font-medium">Flow:</span>
               <div className="relative min-w-0 flex-1">
-              <span aria-hidden="true" className="block truncate bg-[#1e1f22] border border-[#393b40] rounded pl-2 pr-6 py-0.5 text-xs text-[#dfe1e5]">{displayTitle} ▾</span>
-              <select
-                aria-label="Workflow"
-                title={displayTitle}
-                value={selectedFlowName || doc.workflowName}
-                onChange={(e) => {
-                  setSelectedFlowName(e.target.value);
-                  setInspectedWorkflowName(e.target.value === '__ALL__' ? null : e.target.value);
-                  setSelectedNodeId(null);
-                }}
-                className="absolute inset-0 w-full opacity-0 cursor-pointer"
-              >
-                <option value="__ALL__">All Flows ({availableWorkflows.length})</option>
-                {availableWorkflows.map((w) => (
-                  <option key={w.name} value={w.name}>
-                    {w.name} ({w.nodes.length} steps)
+                <select
+                  aria-label="Workflow"
+                  title={displayTitle}
+                  value={selectedFlowName || doc.workflowName}
+                  onChange={(e) => {
+                    setSelectedFlowName(e.target.value);
+                    setInspectedWorkflowName(e.target.value === '__ALL__' ? null : e.target.value);
+                    setSelectedNodeId(null);
+                  }}
+                  className="w-full bg-[#1e1f22] text-[#dfe1e5] border border-[#393b40] rounded pl-2 pr-6 py-0.5 text-xs cursor-pointer focus:outline-none focus:border-[#3574f0] focus:ring-1 focus:ring-[#3574f0] appearance-none truncate [color-scheme:dark]"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option
+                    value="__ALL__"
+                    className="bg-[#1e1f22] text-[#dfe1e5]"
+                    style={{ backgroundColor: '#1e1f22', color: '#dfe1e5' }}
+                  >
+                    All Flows ({availableWorkflows.length})
                   </option>
-                ))}
-              </select>
+                  {availableWorkflows.map((w) => (
+                    <option
+                      key={w.name}
+                      value={w.name}
+                      className="bg-[#1e1f22] text-[#dfe1e5]"
+                      style={{ backgroundColor: '#1e1f22', color: '#dfe1e5' }}
+                    >
+                      {w.name} ({w.nodes.length} steps)
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#868a98]">▾</span>
               </div>
             </div>
           ) : (

@@ -10,4 +10,5 @@ html, body, #root {
   background-color: #1e1f22;
   color: #bcbec4;
   overflow: hidden;
+  color-scheme: dark;
 }
