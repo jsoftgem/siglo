@@ -1,6 +1,6 @@
 {
   "name": "@siglo/crypto",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zero-dependency cryptographic step package for Siglo workflows: timing-safe webhook verification, AEAD envelope field encryption, and context redaction",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

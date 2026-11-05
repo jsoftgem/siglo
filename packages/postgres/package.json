@@ -1,6 +1,6 @@
 {
   "name": "@siglo/postgres",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production PostgreSQL durable checkpoint, event audit, and idempotency adapter for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

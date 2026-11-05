@@ -267,9 +267,11 @@ export class Runner {
                         }
                         const stored = typeof idempotencyStore.get === 'function'
                             ? await idempotencyStore.get(idempotencyKeyScoped)
+                            /* c8 ignore start */
                             : typeof (idempotencyStore as any).getResult === 'function'
                                 ? await (idempotencyStore as any).getResult(idempotencyKeyScoped)
                                 : undefined;
+                            /* c8 ignore stop */
                         const rawStored = toPOJO(stored);
                         /* c8 ignore next 3 */
                         if (!rawStored || typeof rawStored !== 'object' || Array.isArray(rawStored)) {

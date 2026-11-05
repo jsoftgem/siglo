@@ -1,6 +1,6 @@
 {
   "name": "@siglo/kafka",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Kafka consumer message handler and event streaming adapter for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

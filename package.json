@@ -1,6 +1,6 @@
 {
   "name": "siglo-monorepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Monorepo for Siglo workflow runtime and ecosystem integration packages",
   "workspaces": [
