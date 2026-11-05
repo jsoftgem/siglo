@@ -292,3 +292,5 @@ The monitor binds to loopback here, keeps execution history in memory, and disab
 To observe workers in another process, attach a [remote monitor client](live-monitoring.md#scenario-c-high-throughput-buffered-client) instead of sharing an in-process emitter. For long-running work that should outlive an HTTP request, use a [queue worker](adapters/bullmq.md) or a [durable workflow](06-durable-workflows.md) with persistent storage and a defined status/resumption API.
 
 Press `Ctrl+C` in the server terminal to close the API and monitor together.
+
+Continue with [Run Checkout Across Two Servers with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md) for shared checkpoints, cross-instance request deduplication, Redis caching, and a separate live monitor, with a complete Docker Compose setup.

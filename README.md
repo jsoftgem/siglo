@@ -35,6 +35,8 @@ For approvals that wait on people, imports that need bounded concurrency, and ev
 
 **Practical tutorial:** [Serve a REST Endpoint and Watch It Run Live](docs/rest-and-live-monitoring.md) — connect an Express checkout endpoint to the dashboard, inspect retries, and diagnose failed requests.
 
+**Continue the tutorial:** [Distributed Checkout with PostgreSQL and Redis](docs/distributed-rest-and-live-monitoring.md) — run two API instances with shared persistence, caching, and a separate live monitor using Docker Compose.
+
 Explore the 11 comprehensive guides covering architecture, design patterns, testing, and production operations:
 
 1. 🚀 [01. Getting Started](docs/01-getting-started.md) &mdash; A practical checkout tutorial: retry payment, undo partial work, test recovery, and handle duplicate requests.

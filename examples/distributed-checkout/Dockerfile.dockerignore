@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/dist
+!packages/monitor/ui/dist
+!packages/monitor/ui/dist/**
+coverage
+.idea
+.agents
+.codex
+.aws
+**/.DS_Store
