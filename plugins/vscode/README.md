@@ -2,6 +2,54 @@
 
 Read-only workflow exploration for VS Code 1.90+ on desktop and remote workspace hosts. Uses the same `@siglo/ide-protocol`, zero-execution `@siglo/ide-analysis`, and React/SVG `@siglo/ide-ui` as the IntelliJ plugin. Requires workspace trust. Browser-only VS Code and virtual workspaces are unsupported.
 
+## Features
+
+- **Visual workflow graphs:** Follow sequential steps, parallel forks and joins, conditional branches, races, compensation paths, and fallbacks. Switch between workflows in a file or compare them with **All Flows**.
+- **Step inspection:** Review declared retries, timeouts, compensation, and source coordinates. Inspect input contracts from `.spec(...)` and `.schema(...)`, including required fields, defaults, validators, transforms, and schemas.
+- **Workflow settings:** Inspect workflow deadlines, schema versions, network policies, and monitor expressions.
+- **Source navigation:** Click graph steps to open their definitions, and move the editor cursor into a step to highlight it in the graph.
+- **Live editing:** Follow the active source file, refresh after edits, and control automatic or manual reload independently in each view.
+- **Flexible views:** Open the visualizer beside your code or in the Siglo sidebar. Discover workflows across workspace folders from the Command Palette.
+- **Static analysis:** Understand declared workflow structure without importing or executing application code. Dynamic expressions may remain unresolved; the visualizer does not show live execution traces or runtime results.
+
+## Screenshots
+
+These captures show the extension's actual bundled webview using a statically analyzed example workflow. They exclude the surrounding VS Code editor.
+
+### Workflow graph and step settings
+
+Explore parallel paths and inspect a payment step's declared retries, timeout, and source coordinates.
+
+![Workflow graph with a payment step selected](marketplace/screenshots/01-workflow-graph.png)
+
+### Input contracts
+
+Review required inputs, transforms, defaults, and validation rules extracted from step definitions.
+
+![Step inspector showing structured input contracts](marketplace/screenshots/02-step-input-contracts.png)
+
+### Workflow settings
+
+Inspect the workflow deadline, schema version, and allowed network hosts.
+
+![Workflow inspector showing execution defaults and network policy](marketplace/screenshots/03-workflow-settings.png)
+
+### Multiple workflows
+
+Compare workflows from the same source file with **All Flows**.
+
+![All Flows view showing checkout and receipt workflows](marketplace/screenshots/04-all-workflows.png)
+
+See [Marketplace listing assets](marketplace/README.md) for listing details, screenshot captions, and capture instructions.
+
+## Requirements
+
+- VS Code 1.90 or newer on a desktop or remote workspace host.
+- A trusted workspace containing JavaScript or TypeScript Siglo workflow source.
+- The installed extension includes its analyzer and UI. Users do not need a separate Node.js installation or workspace npm dependencies for analysis.
+
+Browser-only VS Code and virtual workspaces are unsupported. Building from source requires the Node.js version declared in the repository root manifest.
+
 ## Install in VS Code
 
 Use the generated archive at `plugins/vscode/siglo-workflow-explorer-1.0.0.vsix`. If it is missing, follow [Build and package](#build-and-package) first.

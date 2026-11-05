@@ -45,9 +45,7 @@ intellijPlatform {
             name = "Siglo"
             url = "https://github.com/jsoftgem/siglo"
         }
-        description = """
-            Visual static workflow explorer, real-time inspector, and developer tools for Siglo workflows.
-        """.trimIndent()
+        description = file("marketplace/description.html").readText()
         ideaVersion {
             sinceBuild = "241"
             untilBuild = provider { null }

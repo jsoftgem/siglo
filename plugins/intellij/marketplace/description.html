@@ -1,0 +1,26 @@
+<p>Explore Siglo workflows directly in IntelliJ IDEA. Siglo Workflows turns workflow source into an interactive graph so you can understand composition, inspect step settings, and navigate to definitions.</p>
+<h3>Visual workflow explorer</h3>
+<ul>
+  <li>Follow sequential steps, parallel forks and joins, conditional branches, races, compensation paths, and fallbacks.</li>
+  <li>Switch between workflows in a file or compare them with the All Flows view.</li>
+  <li>Click a graph step to inspect its properties and open its source location.</li>
+  <li>Keep the graph in sync with the active editor and automatically refresh it as you type, or reload manually.</li>
+</ul>
+<h3>Step and workflow inspection</h3>
+<ul>
+  <li>Inspect declared retries, timeouts, compensation, and source coordinates.</li>
+  <li>Explore input contracts from <code>.spec(...)</code> and <code>.schema(...)</code>, including required fields, defaults, validators, transforms, and schemas.</li>
+  <li>Review workflow deadlines, schema versions, network policies, and monitor expressions.</li>
+  <li>Recognize core steps and supported HTTP, AI, notification, crypto, and durable wait patterns.</li>
+</ul>
+<h3>Static analysis</h3>
+<p>The Node.js analyzer reads source using the TypeScript Compiler API without executing your application code. The graph describes declared structure and settings; it does not display live execution traces or runtime results. Dynamic expressions may remain unresolved.</p>
+<h3>Getting started</h3>
+<ol>
+  <li>Install Node.js 18 or newer and make the <code>@siglo/ide-analysis</code> analyzer available in your workspace, or configure <code>SIGLO_ANALYZER_BIN</code> with the path to its <code>dist/bin.js</code> file.</li>
+  <li>Open a trusted project containing Siglo workflow source.</li>
+  <li>Open a JavaScript or TypeScript file and choose <b>Visualize Siglo Workflow</b> from the editor context menu, or open <b>View → Tool Windows → Siglo Workflows</b>.</li>
+  <li>Select a workflow or click a step to explore its settings and source.</li>
+</ol>
+<p>Targets IntelliJ Platform 2024.1 and newer (build 241+). The interactive graph uses JCEF; when JCEF is unavailable, the plugin provides a native tree view.</p>
+<p><a href="https://github.com/jsoftgem/siglo/tree/main/plugins/intellij">Documentation and source</a> · <a href="https://github.com/jsoftgem/siglo/issues">Report an issue</a></p>

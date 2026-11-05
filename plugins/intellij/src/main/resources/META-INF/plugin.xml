@@ -3,11 +3,7 @@
     <name>Siglo Workflows</name>
     <vendor url="https://github.com/jsoftgem/siglo">Siglo</vendor>
 
-    <description><![CDATA[
-        Siglo Workflow Explorer & DevTools for IntelliJ IDEA.
-        Provides static workflow graph inspection, bidirectional source code navigation,
-        and developer tools for Siglo workflows.
-    ]]></description>
+    <!-- Description is supplied from marketplace/description.html by Gradle. -->
 
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="siglo-jcef.xml">com.intellij.modules.jcef</depends>

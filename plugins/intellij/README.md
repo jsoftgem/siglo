@@ -1,6 +1,36 @@
 # Siglo Workflows — IntelliJ IDEA Plugin
 
-Visual static workflow explorer, real-time inspector, and developer tools for [Siglo](https://github.com/jsoftgem/siglo) workflows directly inside IntelliJ IDEA.
+Visual static workflow explorer, step inspector, and developer tools for [Siglo](https://github.com/jsoftgem/siglo) workflows directly inside IntelliJ IDEA.
+
+## Screenshots
+
+The following captures show the plugin's bundled webview using a statically analyzed example workflow. They exclude the surrounding IntelliJ editor.
+
+### Workflow graph and step settings
+
+Explore parallel paths and inspect declared retries, timeouts, and source coordinates.
+
+![Workflow graph with a payment step selected](marketplace/screenshots/01-workflow-graph.png)
+
+### Input contracts
+
+Review required fields, transforms, defaults, and validation rules extracted from step definitions.
+
+![Step inspector showing structured input contracts](marketplace/screenshots/02-step-input-contracts.png)
+
+### Workflow settings
+
+Inspect the workflow deadline, schema version, and network perimeter.
+
+![Workflow inspector showing execution defaults and allowed hosts](marketplace/screenshots/03-workflow-settings.png)
+
+### Multiple workflows
+
+Compare workflows from the same file with the All Flows selector.
+
+![All Flows view showing checkout and receipt workflows](marketplace/screenshots/04-all-workflows.png)
+
+See [Marketplace listing assets](marketplace/README.md) for the description, screenshot captions, and capture instructions.
 
 ---
 
@@ -114,12 +144,12 @@ From `plugins/intellij`:
 *(Note: If your system default Java is JDK 25+, Gradle automatically delegates to a compatible daemon JVM via `gradle/gradle-daemon-jvm.properties` without requiring manual environment switches).*
 
 The resulting installable ZIP distribution is located at:
-`plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.0.zip`
+`plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.1.zip`
 
 ### Step 3: Install in IntelliJ IDEA
 1. Open IntelliJ IDEA $\rightarrow$ **Settings / Preferences** (`⌘,` on macOS, `Ctrl+Alt+S` on Linux/Windows).
 2. Navigate to **Plugins** $\rightarrow$ Click the gear icon ⚙️ $\rightarrow$ **Install Plugin from Disk...**.
-3. Select `plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.0.zip`.
+3. Select `plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.1.zip`.
 4. Click **Restart IDE**.
 5. The **Siglo Workflows** tool window will be available on the right-hand stripe.
 
