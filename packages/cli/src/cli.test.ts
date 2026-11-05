@@ -125,6 +125,11 @@ describe('@siglo/cli Developer Tools Suite', () => {
             expect(fs.existsSync(path.join(tempDir, 'package.json'))).to.be.true;
             expect(fs.existsSync(path.join(tempDir, 'src/workflow.ts'))).to.be.true;
             expect(fs.existsSync(path.join(tempDir, 'src/workflow.test.ts'))).to.be.true;
+            const testCode = fs.readFileSync(path.join(tempDir, 'src/workflow.test.ts'), 'utf-8');
+            expect(testCode).to.include('result.validated, true');
+            expect(testCode).to.not.include('result.validated()');
+            const pkgJson = JSON.parse(fs.readFileSync(path.join(tempDir, 'package.json'), 'utf-8'));
+            expect(pkgJson.devDependencies).to.have.property('@siglo/testing');
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }

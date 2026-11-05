@@ -44,7 +44,7 @@
 - 🔄 **Replay Workflows**: Trigger execution replays directly from the dashboard or REST endpoints.
 - 📡 **Multi-Transport Streaming**: Native Server-Sent Events (SSE) and RFC 6455 WebSockets with automatic reconnection, heartbeat pings, and connection tracking.
 - 📊 **Prometheus Telemetry**: Standard `/metrics` endpoint exporting active flow gauges, completion counters, execution summaries, and step retry counters.
-- 📈 **Pre-Packaged Grafana Dashboard**: Ready-to-import Grafana JSON template (`grafana/provisioning/dashboards/siglo-live-monitoring.json`).
+- 📈 **Pre-Packaged Grafana Dashboard**: Ready-to-import Grafana JSON template (`grafana/siglo-live-monitoring.json`).
 - 🛡️ **Automated Data Redaction**: Automatic masking of sensitive fields (`password`, `token`, `secret`, `apiKey`) and tenant-isolated `$namespace` filtering.
 - 🔌 **Framework Middlewares**: One-line integration for Express, Fastify, and Hono applications.
 
@@ -322,7 +322,7 @@ const monitor = await createMonitorServer({ port: 4000 });
 ```
 
 Import the ready-to-use Grafana JSON dashboard located in:
-[`grafana/provisioning/dashboards/siglo-live-monitoring.json`](./grafana/provisioning/dashboards/siglo-live-monitoring.json)
+[`grafana/siglo-live-monitoring.json`](./grafana/siglo-live-monitoring.json)
 
 ---
 

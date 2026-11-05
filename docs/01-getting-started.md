@@ -1,17 +1,25 @@
 # 01. Getting Started
 
-Welcome to **Siglo** (formerly `Siglo`), an enterprise-grade, asynchronous workflow engine and distributed execution runtime for TypeScript and Node.js.
+Welcome to **Siglo**, an enterprise-grade, asynchronous workflow engine and distributed execution runtime for TypeScript and Node.js.
 
 Siglo makes it easy to compose complex business pipelines, sagas, parallel fan-outs, and durable human-in-the-loop orchestrations with complete type safety, deterministic testing, and zero mandatory infrastructure daemons.
 
 ---
 
+## Requirements
+
+- **Node.js**: `^22.13.0 || >=24.0.0`
+- **TypeScript**: `5.0+`
+- **Module Format**: ESM or CommonJS with Node.js module resolution
+
+---
+
 ## Installation
 
-Install `Siglo` (or `@siglo/core`) along with its test harness and CLI:
+Install `siglo` along with its testing harness and developer CLI:
 
 ```bash
-npm install Siglo
+npm install siglo
 npm install --save-dev @siglo/testing @siglo/cli
 ```
 

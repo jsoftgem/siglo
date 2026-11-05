@@ -1,6 +1,6 @@
 # Top 10 Event-Driven Use Cases for Siglo & Apache Kafka
 
-A comprehensive guide and reference document detailing the top 10 distributed, event-driven use cases powered by the combination of [**`Siglo`**](https://github.com/rickzx98/Siglo) and **Apache Kafka**, as described in [event-driven-via-kafka.md](./event-driven-via-kafka.md).
+A comprehensive guide and reference document detailing the top 10 distributed, event-driven use cases powered by the combination of [**`Siglo`**](https://github.com/jsoftgem/siglo) and **Apache Kafka**, as described in [docs/adapters/kafka.md](docs/adapters/kafka.md).
 
 ---
 

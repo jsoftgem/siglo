@@ -116,7 +116,7 @@ This is the initial production release of **`Siglo`** (v1.0.0), marking the tran
 
 ### Documentation & Reference Guides
 
-- **12 Dedicated Topic Guides** (`docs/01-` to `docs/12-`):
+- **11 Dedicated Topic Guides** (`docs/01-` to `docs/11-`):
   1. Getting Started
   2. Core Concepts
   3. Sequential Workflows
@@ -127,8 +127,8 @@ This is the initial production release of **`Siglo`** (v1.0.0), marking the tran
   8. Observability
   9. Testing and Replay
   10. TypeScript Reference
-  11. Migration and Compatibility
-  12. Production Operations
+  11. Production Operations
+- **Migration & Evolution Reference**: State and schema migrations documented in [Workflow Versioning](docs/workflow-versioning.md).
 - **Ecosystem Adapter Documentation**: Complete guides in [`docs/adapters/`](docs/adapters/).
 - **Formal Runtime Contracts**:
   - [Execution Semantics Contract](docs/execution-semantics.md)

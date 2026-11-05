@@ -18,8 +18,8 @@ In enterprise backend workflows, human intervention and multi-channel notificati
 | **Dormant Zombie Workflows** | Workflows suspended on approval timeouts (`waitForEvent(..., { timeout: '48h' })`) remain suspended indefinitely if processes restart. | Direct integration with `@siglo/scheduler` (`PostgresWaitPoller` with per-stack database-session locks) to awaken expired approvals deterministically across container restarts. |
 | **Tampered / Replayed Tokens** | Approval URLs in emails or Slack can be forged, manipulated, or replayed by unauthorized actors. | Native integration with `@siglo/crypto`: constant-time HMAC tokens (`timingSafeCompare`), signed nonce fields, future timestamp checks (`toleranceSeconds`), durable request claims, and `KeyRing` secret rotation. |
 | **Orphaned Cards on Failure** | When a workflow cancels or fails after sending an approval card, users can still click buttons, triggering invalid state transitions. | Integrates with Siglo's Named Saga Compensation registry (`cancelNotification`), updating Slack cards to "Workflow Cancelled" or recording token revocations in PostgreSQL. |
-| **Duplicate Alerts on Step Retries** | Transient failures in downstream steps cause upstream retries, spamming recipients with duplicate emails or alerts. | Native integration with `@siglo/core`'s `IdempotencyStore`, deduplicating dispatches using stack ID, step name, and recipient hash with configurable TTL. |
-| **PII & Credential Leaks** | Recipient emails, phone numbers, and bearer tokens leak into DevTools, OpenTelemetry traces, and server logs. | Automatic context redaction in `@siglo/core` before telemetry dispatch, combined with `@siglo/notifications`'s `NotificationMonitor` for wildcard path masking. |
+| **Duplicate Alerts on Step Retries** | Transient failures in downstream steps cause upstream retries, spamming recipients with duplicate emails or alerts. | Native integration with `siglo`'s `IdempotencyStore`, deduplicating dispatches using stack ID, step name, and recipient hash with configurable TTL. |
+| **PII & Credential Leaks** | Recipient emails, phone numbers, and bearer tokens leak into DevTools, OpenTelemetry traces, and server logs. | Automatic context redaction in `siglo` before telemetry dispatch, combined with `@siglo/notifications`'s `NotificationMonitor` for wildcard path masking. |
 
 ---
 
@@ -323,7 +323,7 @@ app.all('/api/siglo/callback', createNotificationHonoHandler({
 ## 8. Distributed Resumption, Shared Revocation & Concurrency
 
 ### Dual-Worker Atomic Claims
-When an approval link is clicked, multiple workers behind a load balancer may receive duplicate requests simultaneously. `@siglo/notifications` integrates with `@siglo/core`'s atomic `claimWaitRecord` call:
+When an approval link is clicked, multiple workers behind a load balancer may receive duplicate requests simultaneously. `@siglo/notifications` integrates with `siglo`'s atomic `claimWaitRecord` call:
 1. **Worker 1** acquires the stack session lock, persists the accepted event, and atomically updates (`WAITING` &rarr; `RESUMING`). Claim succeeds; workflow resumes.
 2. **Worker 2** cannot acquire the active session lock or finds the request already completed. Core throws a conflict exception, which the callback handler maps to HTTP `409 Conflict`.
 

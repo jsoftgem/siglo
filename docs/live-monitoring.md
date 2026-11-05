@@ -534,7 +534,7 @@ The monitor server exposes standard REST endpoints for telemetry ingestion and D
 
 ## 12. Dashboard UI Architecture (`packages/monitor/ui`)
 
-The live monitor web interface source code is located in [`packages/monitor/ui`](file:///Users/jericodeguzman/Projects/fluid-func/packages/monitor/ui) and follows an industry-standard React project structure:
+The live monitor web interface source code is located in [`packages/monitor/ui`](../packages/monitor/ui) and follows an industry-standard React project structure:
 
 - **React 18** with TypeScript and functional hooks
 - **Vite** with `vite-plugin-singlefile` bundling

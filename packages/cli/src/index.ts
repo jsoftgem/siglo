@@ -216,6 +216,9 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
                 'siglo': '^1.0.0',
             },
             devDependencies: {
+                '@siglo/testing': '^1.0.0',
+                '@types/node': '^22.0.0',
+                chai: '^5.0.0',
                 tsx: '^4.0.0',
                 typescript: '~5.7.0',
             },
@@ -231,7 +234,7 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
     }
 
     if (!fs.existsSync(testPath)) {
-        const testCode = `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { createOrderWorkflow } from './workflow';\n\ntest('Order workflow executes successfully', async () => {\n    const workflow = createOrderWorkflow();\n    const result = await workflow.run({ orderId: 'ORD-1', amount: 100 });\n    assert.equal(result.validated(), true);\n    assert.equal(result.paymentStatus(), 'CHARGED');\n});\n`;
+        const testCode = `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { createOrderWorkflow } from './workflow';\n\ntest('Order workflow executes successfully', async () => {\n    const workflow = createOrderWorkflow();\n    const result = await workflow.run({ orderId: 'ORD-1', amount: 100 });\n    assert.equal(result.validated, true);\n    assert.equal(result.paymentStatus, 'CHARGED');\n});\n`;
         fs.writeFileSync(testPath, testCode);
         filesCreated.push(testPath);
     }

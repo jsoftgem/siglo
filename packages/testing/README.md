@@ -186,5 +186,5 @@ describe('Full Harness Suite', () => {
 
 ## API Reference Links
 
-- [TypeScript Reference](./10-typescript-reference.md)
-- [CLI Reference](./01-getting-started.md#cli-scaffolding)
+- [TypeScript Reference](../../docs/10-typescript-reference.md)
+- [CLI Reference](../../docs/01-getting-started.md#cli-scaffolding)
