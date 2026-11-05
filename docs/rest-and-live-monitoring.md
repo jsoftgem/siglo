@@ -184,7 +184,7 @@ The HTTP request waits for the workflow to complete; this endpoint doesn’t enq
 
 ## 5. Inspect the Execution
 
-Select the new execution in the dashboard. Use its stack ID from the response header to identify the exact run.
+Select the new execution in the dashboard. Use its stack ID from the response header to identify the exact run. If it hasn’t appeared, click **Refresh workflows** in the top-right corner.
 
 | Question | What to inspect |
 |---|---|
@@ -194,6 +194,20 @@ Select the new execution in the dashboard. Use its stack ID from the response he
 | What data reached shipping? | Context fields such as `reservationId` and `paymentId` |
 
 The demo is fast, so you may see the completed run rather than watching each transition as it happens. Its recorded events still show the retry.
+
+These screenshots show the dashboard running the local checkout demo. Your execution IDs and timings will differ.
+
+In **Topology (DAG)**, select `chargePayment` to inspect its two attempts. The run is `COMPLETED`; the payment error shown in the step details belongs to the first attempt, before the retry succeeded.
+
+![Siglo live monitor showing a completed checkout, its four workflow steps, and chargePayment details with two attempts](assets/rest-and-live-monitoring/checkout-success.png)
+
+Switch to **Latency Waterfall** to compare the recorded step timings.
+
+![Siglo latency waterfall showing the successful checkout’s four steps and their durations](assets/rest-and-live-monitoring/checkout-waterfall.png)
+
+Open **Context & State Diff** to inspect the completed checkout’s state, including `reservationId`, `paymentId`, and `trackingId`.
+
+![Siglo context viewer showing order-1001 and the reservation, payment, and tracking IDs from the successful checkout](assets/rest-and-live-monitoring/checkout-context.png)
 
 You can also inspect executions without the browser:
 
@@ -248,6 +262,10 @@ The endpoint returns `500` with:
 ```text
 order-1002: reserve stock -> charge attempt 1 -> charge attempt 2 -> arrange shipping -> refund payment -> release stock
 ```
+
+Refresh the dashboard if needed, select the `FAILED` execution, and click `arrangeShipping` in **Topology (DAG)**. Its step details show the internal error, `No courier available`, while the public HTTP response above stays generic.
+
+![Siglo live monitor showing a failed checkout with arrangeShipping selected and the No courier available error](assets/rest-and-live-monitoring/checkout-shipping-failure.png)
 
 Refunding payment and releasing stock doesn’t turn the checkout into a successful order. The workflow remains failed because delivery was never arranged. See [Compensation and Sagas](compensation-and-sagas.md) for handling failed compensation operations as well.
 
