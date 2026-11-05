@@ -39,7 +39,7 @@ flowchart TD
 Install `@siglo/postgres` and `pg`:
 
 ```bash
-npm install Siglo @siglo/postgres pg
+npm install @siglo/core @siglo/postgres pg
 npm install --save-dev @types/pg
 ```
 
@@ -175,7 +175,7 @@ Prunes expired idempotency records (`WHERE expires_at < NOW()`).
 
 ```typescript
 import { Pool } from 'pg';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@siglo/postgres';
 
 // 1. Initialize PostgreSQL Connection Pool

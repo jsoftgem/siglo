@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from 'express';
-import { Step, flow, waitForEvent, resumeWorkflow } from 'siglo';
+import { Step, flow, waitForEvent, resumeWorkflow } from '@siglo/core';
 import { createMonitorServer } from '@siglo/monitor';
 import { sigloExpressMiddleware } from '@siglo/express';
 

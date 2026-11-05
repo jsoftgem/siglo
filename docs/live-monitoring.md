@@ -32,7 +32,7 @@ Unlike black-box execution engines, `Siglo` streams structured, strongly-typed e
 ```
 
 Observability is divided into three layers:
-1. **Event Infrastructure (`siglo`)**: Standardized typed execution events and zero-overhead `WorkflowEventEmitter` in the core runtime.
+1. **Event Infrastructure (`@siglo/core`)**: Standardized typed execution events and zero-overhead `WorkflowEventEmitter` in the core runtime.
 2. **Streaming Transports & React UI (`@siglo/monitor`)**: Built-in Server-Sent Events (SSE), WebSocket protocol, Redis pub/sub, telemetry ingestion API (`POST /api/events`), and a self-contained **React 18 + Vite + Tailwind CSS** DevTools Single Page Application (SPA).
 3. **Developer & Production Telemetry**: CLI Dev Server (`siglo monitor`), Express/Fastify/Hono middlewares, Prometheus exposition (`/metrics`), and pre-packaged Grafana dashboard templates.
 
@@ -61,10 +61,10 @@ Workflows emit 14 typed lifecycle events during execution:
 
 ### Subscribing to Events Programmatically
 
-Use `WorkflowEventEmitter` from `siglo`:
+Use `WorkflowEventEmitter` from `@siglo/core`:
 
 ```typescript
-import { Step, flow, WorkflowEventEmitter } from 'siglo';
+import { Step, flow, WorkflowEventEmitter } from '@siglo/core';
 
 const monitor = new WorkflowEventEmitter();
 
@@ -97,7 +97,7 @@ await myFlow.run({});
 You can register a global default monitor for all workflows executed within an application process:
 
 ```typescript
-import { Step, WorkflowEventEmitter } from 'siglo';
+import { Step, WorkflowEventEmitter } from '@siglo/core';
 
 const globalMonitor = new WorkflowEventEmitter();
 globalMonitor.on('flow:error', (ev) => {
@@ -121,14 +121,14 @@ Step.setDefaultMonitor(undefined);
 Install `@siglo/monitor`:
 
 ```bash
-npm install @siglo/monitor siglo
+npm install @siglo/monitor @siglo/core
 ```
 
 ### Launching the Dashboard Server
 
 ```typescript
 import { createMonitorServer } from '@siglo/monitor';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const monitor = await createMonitorServer({
     port: 4000,
@@ -181,7 +181,7 @@ Instead of creating a new HTTP server in every script or test, workflows can att
 When your monitor server is running in a different process (such as `siglo monitor --port 4000` in another terminal or Docker):
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { attachToMonitorServer } from '@siglo/monitor';
 
 const myWorkflow = flow(
@@ -203,7 +203,7 @@ If your application boots the monitor server once at startup, other modules and 
 
 ```typescript
 import { createMonitorServer, attachToMonitorServer, getMonitorEmitter } from '@siglo/monitor';
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 
 // In server bootstrap (e.g. server.ts):
 const monitor = await createMonitorServer({
@@ -235,7 +235,7 @@ For high-throughput worker fleets, serverless functions, or background queues pu
 
 ```typescript
 import { createMonitorClient } from '@siglo/monitor';
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 
 const client = createMonitorClient({
     url: 'https://monitor-service:4000',
@@ -289,7 +289,7 @@ Embed the live monitoring UI and telemetry endpoints directly into your existing
 ```typescript
 import express from 'express';
 import { createExpressMonitorMiddleware } from '@siglo/monitor';
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 const app = express();
 const monitor = createExpressMonitorMiddleware();

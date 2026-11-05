@@ -20,7 +20,7 @@ npm install @siglo/http
 ## Basic Usage
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 
 export const getUser = httpStep('getUser', {

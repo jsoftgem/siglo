@@ -1,4 +1,4 @@
-import { Step, flow, map } from 'siglo';
+import { Step, flow, map } from '@siglo/core';
 
 export interface DocumentItem {
     docId: string;

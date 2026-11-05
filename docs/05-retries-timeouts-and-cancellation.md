@@ -9,7 +9,7 @@ Enterprise systems encounter network hiccups, slow external services, and user c
 Declare retry logic per-step via `.onFail(RetryConfig)`:
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 export const callPaymentGateway = Step.create('callGateway', async (param: any) => {
     return await api.chargeCustomer(param);
@@ -49,7 +49,7 @@ const querySlowDatabase = Step.create('queryDb', async () => {
 ### Workflow-Level Timeouts
 Enforce end-to-end deadlines across the entire workflow sequence:
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 
 const checkoutWorkflow = flow(step1, step2, step3).timeout(10000); // 10s end-to-end deadline
 ```
@@ -89,7 +89,7 @@ const downloadFile = Step.create('download', async (param: any) => {
 When a multi-step transaction fails midway, `Siglo` automatically executes registered compensation handlers in reverse (LIFO) order:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const reserveHotel = Step.create('reserveHotel', async () => {
     const booking = await hotelApi.book();
@@ -120,7 +120,7 @@ export const travelBookingSaga = flow(reserveHotel, reserveFlight, chargeCard);
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 let attempts = 0;
 const flaky = Step.create('flaky', async () => {
@@ -139,7 +139,7 @@ console.log(res.recovered); // true
 ## Failure Example: Exceeded Retries & Compensation Diagnostics
 
 ```typescript
-import { Step, flow, CompensationException } from 'siglo';
+import { Step, flow, CompensationException } from '@siglo/core';
 
 const step1 = Step.create('step1', () => ({ ok: true }))
     .compensate(async () => {
@@ -169,7 +169,7 @@ try {
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 let calls = 0;
 const step = Step.create('apiCall', () => {

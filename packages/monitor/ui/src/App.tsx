@@ -89,7 +89,7 @@ export const App: React.FC = () => {
                   <span>How to attach live monitoring to workflows</span>
                 </div>
                 <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[11px] text-sky-300 font-mono overflow-x-auto leading-relaxed">
-{`import { flow } from 'siglo';
+{`import { flow } from '@siglo/core';
 import { createMonitorServer } from '@siglo/monitor';
 
 const monitor = await createMonitorServer({ port: 4000 });

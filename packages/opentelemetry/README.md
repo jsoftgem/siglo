@@ -23,7 +23,7 @@ flowchart TD
 Install `@siglo/opentelemetry` and the OpenTelemetry API:
 
 ```bash
-npm install Siglo @siglo/opentelemetry @opentelemetry/api
+npm install @siglo/core @siglo/opentelemetry @opentelemetry/api
 ```
 
 Recommended OpenTelemetry SDK packages for Node.js:
@@ -116,7 +116,7 @@ By default, **no context fields are streamed to OpenTelemetry spans**. Only fiel
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { trace } from '@opentelemetry/api';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import {
     instrumentWorkflow,
     createTelemetryStorageAdapter,

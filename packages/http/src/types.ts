@@ -1,4 +1,4 @@
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
@@ -25,7 +25,7 @@ export interface CompensationHttpConfig<TInput = any, TOutput = Record<string, a
 }
 
 export interface HttpStepOptions<TInput = any, TOutput = Record<string, any>, TRequestSchema = unknown, TResponseSchema = unknown> {
-  capture?: import('siglo').InspectionCapturePolicy;
+  capture?: import('@siglo/core').InspectionCapturePolicy;
   url: string | ((ctx: TInput) => string);
   method?: HttpMethod;
   headers?: Record<string, string> | ((ctx: TInput) => Record<string, string>);

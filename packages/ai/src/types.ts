@@ -1,4 +1,4 @@
-import type { Step } from 'siglo';
+import type { Step } from '@siglo/core';
 import type { StandardSchemaV1 } from '@siglo/http';
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'custom';
@@ -54,7 +54,7 @@ export interface AiTool<TContext = any, TArgs = any, TInput = any, TOutput = any
   mapInput: (args: TArgs, ctx: TContext) => TInput;
 }
 export interface AiStepOptions<TInput = any, TSchema extends StandardSchemaV1 = StandardSchemaV1> {
-  capture?: import('siglo').InspectionCapturePolicy;
+  capture?: import('@siglo/core').InspectionCapturePolicy;
   model: AiModelConfig<TInput>;
   fallbackModels?: AiModelConfig<TInput>[];
   prompt: string | ChatMessage[] | ((ctx: TInput) => string | ChatMessage[]);

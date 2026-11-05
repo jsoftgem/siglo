@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import Step, { flow, waitForEvent } from 'siglo';
+import Step, { flow, waitForEvent } from '@siglo/core';
 import {
     createWorkflowHarness,
     FakeClock,

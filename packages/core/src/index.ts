@@ -377,7 +377,7 @@ export {
     isObject
 };
 
-// Compatibility for both CJS require('siglo') and ESM import Siglo from 'siglo'
+// Compatibility for both CJS require('@siglo/core') and ESM import Siglo from '@siglo/core'
 /* c8 ignore next 80 */
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Object.assign(Step, {
@@ -506,6 +506,7 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 export * from './features/events/inspection';
+export type { FlowContextResult } from './features/step';
 export type { StepInspectionEvent } from './features/events/types';
 
 export * from './features/events/capture';

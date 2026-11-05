@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Step, flow, InMemoryIdempotencyStore } from 'siglo';
+import { Step, flow, InMemoryIdempotencyStore } from '@siglo/core';
 import { createSqsBatchHandler } from './index';
 
 describe('@siglo/sqs Adapter Suite', () => {

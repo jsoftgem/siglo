@@ -6,12 +6,12 @@ Visual static workflow explorer, step inspector, and developer tools for [Siglo]
 
 1. Install the plugin ZIP through **Settings / Preferences → Plugins → gear icon → Install Plugin from Disk…**, then restart the IDE if prompted. See [Building & Installing](#5-building--installing) to generate the ZIP.
 2. Open and trust your project. Ensure Node.js 18+ is available to the IDE and the analyzer is built at `packages/ide-analysis/dist/bin.js` in this repository, installed at `node_modules/@siglo/ide-analysis/dist/bin.js` in your project, or configured through `SIGLO_ANALYZER_BIN` with the absolute path to its `dist/bin.js` file.
-3. Open an existing Siglo workflow, or save the example below as `hello.workflow.ts` in your project. For a project that will run the example, install the runtime with `npm install siglo`; visualization reads the source without running it.
+3. Open an existing Siglo workflow, or save the example below as `hello.workflow.ts` in your project. For a project that will run the example, install the runtime with `npm install @siglo/core`; visualization reads the source without running it.
 4. Right-click in the editor and choose **Visualize Siglo Workflow**, or open **View → Tool Windows → Siglo Workflows**. You should see `helloWorkflow` with two connected steps: `greet` and `formatMessage`.
 5. Click `greet` to inspect its required `name` input and navigate to its definition. Change `.timeout(1000)` to `.timeout(2000)` and watch the graph update with **Auto-Reload** enabled.
 
 ```ts
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const greet = Step.create('greet', async (input: { name: string }) => ({
   message: `Hello, ${input.name}!`,

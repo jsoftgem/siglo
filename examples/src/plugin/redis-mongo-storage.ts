@@ -3,7 +3,7 @@ import {
     ContextChangeEvent,
     SerializedExecutionStack,
     Step
-} from 'siglo';
+} from '@siglo/core';
 import { IRedisClient } from "../database/redis";
 import { IMongoClient } from "../database/mongodb";
 

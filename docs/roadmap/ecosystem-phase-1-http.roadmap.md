@@ -145,7 +145,7 @@ export const bookFlightStep = httpStep('bookFlight', {
 ## 4. TypeScript API Signatures
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
@@ -221,7 +221,7 @@ export function httpStep<const TName extends string, TInput = any, TOutput = Rec
 ### Example 1: E-Commerce Payment with Refund Compensation
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 import { z } from 'zod';
 

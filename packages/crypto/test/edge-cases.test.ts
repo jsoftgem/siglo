@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import crypto from 'node:crypto';
-import { ValidationException } from 'siglo';
+import { ValidationException } from '@siglo/core';
 import {
   encryptAESGCM,
   decryptAESGCM,

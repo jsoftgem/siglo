@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import crypto from 'node:crypto';
-import { flow, ValidationException } from 'siglo';
+import { flow, ValidationException } from '@siglo/core';
 import { verifyWebhookStep } from '../src/webhooks/verify-step';
 
 describe('Webhook Verification Step (verifyWebhookStep)', () => {

@@ -1,4 +1,4 @@
-import { WorkflowEventEmitter } from 'siglo';
+import { WorkflowEventEmitter } from '@siglo/core';
 import { WorkflowExecutionStore } from '../store';
 import { SSEBroadcaster } from '../transports/sse';
 import { getDashboardHtml } from '../ui/dashboard';

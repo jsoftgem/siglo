@@ -1,4 +1,4 @@
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { sigloFastifyHandler } from '@siglo/fastify';
 import { sigloExpressMiddleware } from '@siglo/express';
 import { sigloMiddleware } from '@siglo/hono';

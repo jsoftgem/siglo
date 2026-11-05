@@ -1,4 +1,4 @@
-import { Step, flow, waitForEvent, WorkflowEventEmitter } from 'siglo';
+import { Step, flow, waitForEvent, WorkflowEventEmitter } from '@siglo/core';
 import { createMonitorServer, MonitorServerInstance } from '@siglo/monitor';
 
 export interface MonitoredOrderInput {

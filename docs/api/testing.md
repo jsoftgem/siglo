@@ -326,7 +326,7 @@ expect(result.matched).to.be.true;
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness, FakeClock } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const fetchUser = Step.create('fetchUser', async (ctx: { userId: string }) => ({
     name: 'Alice',

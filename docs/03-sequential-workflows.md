@@ -9,7 +9,7 @@ Sequential workflows are the primary building block in `Siglo`. They execute a s
 Use `Step.create(name, action)` to define an isolated step:
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 export const parseInvoice = Step.create('parseInvoice', async (param: { rawText: string }) => {
     const lines = param.rawText.split('\n');
@@ -25,7 +25,7 @@ export const parseInvoice = Step.create('parseInvoice', async (param: { rawText:
 Compose multiple steps into a sequential pipeline using `flow(...steps)`:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const validateInput = Step.create('validate', async (param: { email: string }) => {
     if (!param.email.includes('@')) throw new Error('Invalid email');
@@ -91,7 +91,7 @@ const fetchExchangeRates = Step.create('fetchRates', async () => {
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const step1 = Step.create('add', (p: { x: number }) => ({ x: p.x + 10 }));
 const step2 = Step.create('multiply', (p: { x: number }) => ({ result: p.x * 2 }));
@@ -106,7 +106,7 @@ console.log(output.result); // 30
 ## Failure Example: Handling Validation & Lifecycle Rejections
 
 ```typescript
-import { Step, flow, ValidationException } from 'siglo';
+import { Step, flow, ValidationException } from '@siglo/core';
 
 const strictStep = Step.create('strictStep', (param: { age: number }) => {
     if (param.age < 0) throw new Error('Invalid age');
@@ -132,7 +132,7 @@ try {
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('step1', () => ({ a: 'hello' }));
 const s2 = Step.create('step2', (p: { a: string }) => ({ b: `${p.a} world` }));

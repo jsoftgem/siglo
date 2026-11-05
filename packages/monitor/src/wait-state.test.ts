@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'mocha';
-import { flow, waitForEvent, Step, WorkflowEventEmitter, defaultDurableManager, resumeWorkflow } from 'siglo';
+import { flow, waitForEvent, Step, WorkflowEventEmitter, defaultDurableManager, resumeWorkflow } from '@siglo/core';
 import { MemoryWaitPoller } from '@siglo/scheduler';
 import { applyWaitEvent } from './wait-state';
 import { WorkflowExecutionStore } from './store';

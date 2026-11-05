@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@siglo/http';
 import type { AiOutput, AiStepResult, AiStepOptions } from '../src';
 import { defineAiTool, aiStep } from '../src';
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Assert<T extends true> = T;

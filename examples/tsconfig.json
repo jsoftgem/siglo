@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "siglo": ["../packages/core/src/index.ts"],
+      "@siglo/core": ["../packages/core/src/index.ts"],
       "@siglo/*": ["../packages/*/src/index.ts"]
     }
   },

@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { timingSafeCompare, KeyRing } from '@siglo/crypto';
-import { ValidationException } from 'siglo';
+import { ValidationException } from '@siglo/core';
 export interface ActionTokenPayload { stackId: string; correlationKey: string; expectedEvent: string; approved: boolean; expiresAt: number; issuedAt: number; nonce: string; kid?: string; inspection?: { stepId: string; stepName: string; attempt: number; namespace?: string } }
 export function invalidToken(message = 'Invalid approval token'): never {
   throw new ValidationException([{ field: 'token', message }], { phase: 'validation', retryable: false });

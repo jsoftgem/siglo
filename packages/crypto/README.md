@@ -29,7 +29,7 @@ npm install @siglo/crypto
 ### 1. Webhook Signature Verification
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { verifyWebhookStep } from '@siglo/crypto';
 
 interface WebhookContext {
@@ -51,7 +51,7 @@ export const processWebhook = flow(
 ### 2. Envelope Field Encryption across Durable Checkpoints
 
 ```typescript
-import { flow, waitForEvent, Step } from 'siglo';
+import { flow, waitForEvent, Step } from '@siglo/core';
 import { encryptFieldsStep, decryptFieldsStep } from '@siglo/crypto';
 
 interface UserContext {
@@ -81,7 +81,7 @@ export const sensitiveWorkflow = flow(
 ### 3. Context Redaction / Masking
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { maskFieldsStep, maskPatterns } from '@siglo/crypto';
 
 export const sanitizeWorkflow = flow(

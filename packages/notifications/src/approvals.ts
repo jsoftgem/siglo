@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { DuplicateEventException, getStorageAdapter, defaultDurableManager } from 'siglo';
+import { DuplicateEventException, getStorageAdapter, defaultDurableManager } from '@siglo/core';
 /** Acceptance and revocation must use the same lock implementation on every worker. */
 export interface ApprovalRevocationStore {
   revoke(correlationKey: string): Promise<void>;

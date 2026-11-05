@@ -17,11 +17,11 @@ Supported providers:
 ## Installation
 
 ```bash
-npm install siglo @siglo/ai @siglo/http
+npm install @siglo/core @siglo/ai @siglo/http
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 - `@siglo/http`: `^1.0.0`
 - `@opentelemetry/api`: `^1.0.0` (optional, for distributed trace context propagation)
 
@@ -30,7 +30,7 @@ Peer dependencies:
 ## Quickstart
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { aiStep } from '@siglo/ai';
 import { z } from 'zod';
 
@@ -119,7 +119,7 @@ Fatal errors (authentication `401`/`403`, client errors `400`/`422`, policy viol
 Expose existing Siglo workflow steps directly to LLMs as typed tools using `defineAiTool`:
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 import { defineAiTool, aiStep } from '@siglo/ai';
 import { z } from 'zod';
 
@@ -178,7 +178,7 @@ Computes a SHA-256 digest over `cacheVersion`, prompt, model cascade, credential
 Test AI workflows deterministically in CI with zero external network calls using `MockAiProvider`:
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { WorkflowHarness } from '@siglo/testing';
 import { MockAiProvider } from '@siglo/ai/testing';
 import { aiStep } from '@siglo/ai';

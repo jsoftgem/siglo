@@ -1,4 +1,4 @@
-import { flow, CancellationException } from 'siglo';
+import { flow, CancellationException } from '@siglo/core';
 import { step } from '../engine/step-helper';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';

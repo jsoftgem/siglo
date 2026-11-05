@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions } from 'siglo';
+import { Flow, ExecutionOptions } from '@siglo/core';
 
 export interface SigloHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (c: TReq) => Promise<TInput> | TInput;

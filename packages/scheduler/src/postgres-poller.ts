@@ -1,4 +1,4 @@
-import { resumeWorkflow, defaultDurableManager, getStorageAdapter, DuplicateEventException, WorkflowAlreadyResumedException, WorkflowSuspendedException } from 'siglo';
+import { resumeWorkflow, defaultDurableManager, getStorageAdapter, DuplicateEventException, WorkflowAlreadyResumedException, WorkflowSuspendedException } from '@siglo/core';
 import { PostgresPollerOptions, PollerReport, WaitRecord } from './types';
 
 function validateIdentifier(name: string, label: string): string {

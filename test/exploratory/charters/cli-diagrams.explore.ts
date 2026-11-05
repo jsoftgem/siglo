@@ -1,6 +1,6 @@
 import { FlowAstGenerator } from '../engine/ast-generator';
 import { RandomSource } from '../engine/property-generators';
-import { toMermaid, toDot, toGraph, validateGraph, inspectGraph } from 'siglo';
+import { toMermaid, toDot, toGraph, validateGraph, inspectGraph } from '@siglo/core';
 import { CharterResult } from './combinators.explore';
 
 export async function runCliDiagramsCharter(

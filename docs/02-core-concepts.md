@@ -17,7 +17,7 @@ In `Siglo`, a workflow is not a simple promise chain. It is an **executable Abst
 Because workflows are represented as ASTs, they can be statically inspected, validated for cycles, visualised as diagrams, and checked before runtime execution.
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('step1', async () => ({ a: 1 }));
 const s2 = Step.create('step2', async () => ({ b: 2 }));
@@ -97,7 +97,7 @@ flowchart TD
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const auditStep = Step.create('auditStep', async (param: { transactionId: string }) => {
     return {
@@ -118,7 +118,7 @@ console.log(res.status); // 'RECORDED'
 When an action or lifecycle hook throws, the runtime tags the error with the phase and step name:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const validateAge = Step.create('validateAge', (p: { age: number }) => {
     if (p.age < 18) {
@@ -144,7 +144,7 @@ try {
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('load', () => ({ val: 10 }));
 const s2 = Step.create('double', (p: { val: number }) => ({ doubled: p.val * 2 }));

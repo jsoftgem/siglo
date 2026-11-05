@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { createHmac } from 'node:crypto';
 import { FakeClock } from '@siglo/testing';
-import { Step, flow, defaultDurableManager, getCompensationHandler, WorkflowEventEmitter, emitMonitoringEvent, ExpiredWaitException } from 'siglo';
+import { Step, flow, defaultDurableManager, getCompensationHandler, WorkflowEventEmitter, emitMonitoringEvent, ExpiredWaitException } from '@siglo/core';
 import { MemoryWaitPoller } from '@siglo/scheduler';
 import { sendNotificationStep, sendInteractiveApprovalStep, registerNotificationTransport, clearNotificationTransports, getNotificationTransport, signActionToken, verifyActionToken, getApprovalRevocationStore, configureApprovalRevocationStore, InMemoryApprovalRevocationStore, PostgresApprovalRevocationStore, parseTwilioSmsReply, createNotificationExpressMiddleware, createNotificationFastifyHandler, createNotificationHonoHandler } from '../dist/index';
 import { MockNotificationTransport } from '../dist/testing';

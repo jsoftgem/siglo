@@ -1,4 +1,4 @@
-import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from 'siglo';
+import { Step, flow, InMemoryIdempotencyStore, buildIdempotencyKey } from '@siglo/core';
 
 export interface BankTransferInput {
     transactionId: string;

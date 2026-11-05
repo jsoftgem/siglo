@@ -8,7 +8,7 @@ import {
     SpanContext,
     TraceFlags
 } from '@opentelemetry/api';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import {
     SemanticAttributes,
     instrumentWorkflow,

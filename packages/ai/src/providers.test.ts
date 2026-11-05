@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { networkPolicyStorage } from 'siglo';
+import { networkPolicyStorage } from '@siglo/core';
 import { createAiProvider, AiProviderError, STRUCTURED_OUTPUT_TOOL, aiStep } from '@siglo/ai';
 import type { AiProvider, ChatMessage } from '@siglo/ai';
 

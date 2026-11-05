@@ -1,7 +1,7 @@
 import { InspectionContent } from './InspectionContent';
 import * as React from 'react';
 import { sanitizedCurl } from './curl';
-import type { EcosystemInspection } from 'siglo';
+import type { EcosystemInspection } from '@siglo/core';
 import type { StepRun } from '../../../types';
 
 function Fields({ values }: { values: Record<string, unknown> }) {

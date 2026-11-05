@@ -36,7 +36,7 @@ flowchart TD
 Install `@siglo/redis` alongside `ioredis`:
 
 ```bash
-npm install Siglo @siglo/redis ioredis
+npm install @siglo/core @siglo/redis ioredis
 ```
 
 Peer dependency matrix:
@@ -171,7 +171,7 @@ Executes an asynchronous function wrapped in single-flight protection:
 
 ```typescript
 import { Redis } from 'ioredis';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import {
     RedisStorageAdapter,
     RedisIdempotencyStore,

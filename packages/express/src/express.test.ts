@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { sigloExpressMiddleware, getErrorStatusCode } from './index';
 
 describe('@siglo/express Adapter Suite', () => {

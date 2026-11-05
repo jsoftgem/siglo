@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions } from 'siglo';
+import { Flow, ExecutionOptions } from '@siglo/core';
 
 export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;

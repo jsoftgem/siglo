@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { flow, WorkflowEventEmitter } from 'siglo';
+import { flow, WorkflowEventEmitter } from '@siglo/core';
 import { sendNotificationStep } from '../dist';
 import { MockNotificationTransport } from '../dist/testing';
 
@@ -89,7 +89,7 @@ describe('approval expiry inspection', () => {
 describe('correlated approval callback inspection', () => {
   for (const approved of [true, false]) {
     it(`records ${approved ? 'approval' : 'rejection'} against the dispatch step`, async () => {
-      const { waitForEvent, Step } = await import('siglo');
+      const { waitForEvent, Step } = await import('@siglo/core');
       const { sendInteractiveApprovalStep, handleNotificationCallback } = await import('../dist');
       const transport = new MockNotificationTransport();
       const events: any[] = [];

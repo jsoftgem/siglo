@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'siglo';
+import { Flow, ExecutionOptions, IdempotencyStore } from '@siglo/core';
 
 export interface SigloKafkaMessage {
     key?: Buffer | string | null;

@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const { flow, Step, useStorage, waitForEvent } = require('siglo');
+const { flow, Step, useStorage, waitForEvent } = require('@siglo/core');
 const { PostgresStorageAdapter } = require('@siglo/postgres');
 const { handleNotificationCallback, configureApprovalRevocationStore, PostgresApprovalRevocationStore } = require('../dist');
 const { PostgresWaitPoller } = require('@siglo/scheduler');

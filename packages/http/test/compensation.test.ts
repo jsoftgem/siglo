@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { httpStep } from '../src/step';
 import { createMockHttpServer } from '../src/testing/mock-agent';
 

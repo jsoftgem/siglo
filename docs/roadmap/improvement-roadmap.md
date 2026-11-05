@@ -111,7 +111,7 @@ If `rowCount === 0`, throw `DuplicateEventException` or `WorkflowAlreadyResumedE
 #### A. Named Serializable Compensation Registry
 Decouple compensation execution from dynamic runtime closures:
 ```typescript
-import { registerCompensationHandler } from 'siglo';
+import { registerCompensationHandler } from '@siglo/core';
 
 registerCompensationHandler('cancelStripeCharge', async ({ paymentId }, ctx) => {
     await stripe.refunds.create({ charge: paymentId });
@@ -147,7 +147,7 @@ flow.compensate(stackId, {
 #### C. Abandoned Stack Reconciliation CLI
 Introduce an operational recovery CLI command for crash detection:
 ```bash
-npx siglo reconcile --stale-threshold=10m --action=compensate
+npm exec --package=@siglo/cli -- siglo reconcile --stale-threshold=10m --action=compensate
 ```
 Identifies stacks stuck in `RUNNING` state past heartbeat windows and triggers safe rollback.
 

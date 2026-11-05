@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { flow, networkPolicyStorage, NetworkPolicyViolationException } from 'siglo';
+import { flow, networkPolicyStorage, NetworkPolicyViolationException } from '@siglo/core';
 import { httpStep } from '../src/step';
 import { createMockHttpServer } from '../src/testing/mock-agent';
 

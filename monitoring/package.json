@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@siglo/opentelemetry": "^1.0.0",
-    "siglo": "^1.0.0",
+    "@siglo/core": "^1.0.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-base": "^2.12.0",
     "@opentelemetry/sdk-trace-node": "^2.12.0",

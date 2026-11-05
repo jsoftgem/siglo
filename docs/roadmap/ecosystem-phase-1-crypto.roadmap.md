@@ -122,7 +122,7 @@ function timingSafeCompare(computed: string, provided: string, encoding: 'hex' |
 ## 4. TypeScript API Signatures
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 /** Built-in provider preset identifiers with open string autocomplete */
 export type BuiltInWebhookProvider = 'stripe' | 'github' | 'shopify' | 'slack' | 'svix' | 'generic-hmac';
@@ -211,7 +211,7 @@ export function maskFieldsStep<const TName extends string, TInput>(
 ### Example 1: Built-in Preset with Durable Checkpoint Encryption
 
 ```typescript
-import { flow, waitForEvent, Step } from 'siglo';
+import { flow, waitForEvent, Step } from '@siglo/core';
 import { verifyWebhookStep, encryptFieldsStep, decryptFieldsStep } from '@siglo/crypto';
 
 interface StripeWebhookContext {

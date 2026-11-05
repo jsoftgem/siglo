@@ -1,4 +1,4 @@
-import { Step, flow, branch, when } from 'siglo';
+import { Step, flow, branch, when } from '@siglo/core';
 
 export interface LoanApplicationInput {
     applicationId: string;

@@ -183,7 +183,7 @@ test('Ecosystem pipeline executes offline with synthetic doubles', async () => {
 
 1. **Package-Owned Testing Subpaths Retained (No Unified Re-export)**:
    - *Evaluation*: Considered re-exporting all mock utilities (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`) from `@siglo/testing`.
-   - *Decision*: Rejected. `@siglo/testing` currently depends only on `siglo`. Adding ecosystem dependencies to `@siglo/testing` would force every consumer of the test harness to install HTTP, AI, Crypto, and Notification dependencies regardless of whether they are used. Package-owned subpaths (`@siglo/http/testing`, `@siglo/ai/testing`, `@siglo/notifications/testing`) remain clean and idiomatic.
+   - *Decision*: Rejected. `@siglo/testing` currently depends only on `@siglo/core`. Adding ecosystem dependencies to `@siglo/testing` would force every consumer of the test harness to install HTTP, AI, Crypto, and Notification dependencies regardless of whether they are used. Package-owned subpaths (`@siglo/http/testing`, `@siglo/ai/testing`, `@siglo/notifications/testing`) remain clean and idiomatic.
 2. **Scripted CLI Maintained (Interactive Prompting Deferred)**:
    - *Evaluation*: Considered introducing an interactive Inquirer-style CLI prompt for step generation.
    - *Decision*: Deferred. Scripted generation using `--key=value` flags is essential for reproducible developer workflows, npm scripts, and automated agents. Interactive wizard prompts will be handled as an optional enhancement in a later release.
@@ -197,7 +197,7 @@ test('Ecosystem pipeline executes offline with synthetic doubles', async () => {
 
 All test suites and package builds pass cleanly with 100% statement and line coverage enforced in core:
 
-- **Core (`siglo`)**: 635 unit and integration tests (100% coverage check).
+- **Core (`@siglo/core`)**: 635 unit and integration tests (100% coverage check).
 - **Crypto (`@siglo/crypto`)**: 87 cryptographic and webhook verification tests.
 - **HTTP (`@siglo/http`)**: 56 client, retry, backoff, and tracing tests.
 - **AI (`@siglo/ai`)**: 38 inference, token cost, repair loop, and fallback tests.

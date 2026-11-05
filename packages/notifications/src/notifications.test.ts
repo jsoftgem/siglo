@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { Step, flow, waitForEvent, InMemoryIdempotencyStore, networkPolicyStorage } from 'siglo';
+import { Step, flow, waitForEvent, InMemoryIdempotencyStore, networkPolicyStorage } from '@siglo/core';
 import { StaticKeyRing } from '@siglo/crypto';
 import { signActionToken, verifyActionToken, sendNotificationStep, sendInteractiveApprovalStep, handleNotificationCallback, renderNotificationHtml, SlackTransport, ResendTransport, SendGridTransport, DiscordTransport, TwilioTransport, SmtpTransport, configureApprovalRevocationStore, InMemoryApprovalRevocationStore, createNotificationExpressMiddleware, createNotificationFastifyHandler, createNotificationHonoHandler } from '../dist/index';
 import { MockNotificationTransport } from '../dist/testing';

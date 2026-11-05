@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { resumeWorkflow, defaultDurableManager } from 'siglo';
+import { resumeWorkflow, defaultDurableManager } from '@siglo/core';
 import { CloudSchedulerWebhookOptions, WebhookHandler } from './types';
 
 /**

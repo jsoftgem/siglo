@@ -39,7 +39,7 @@
   },
   "homepage": "https://github.com/jsoftgem/siglo#readme",
   "dependencies": {
-    "siglo": "^1.0.0"
+    "@siglo/core": "^1.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

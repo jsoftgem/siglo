@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { useStorage, DuplicateEventException, Step, flow, defaultDurableManager } from 'siglo';
+import { useStorage, DuplicateEventException, Step, flow, defaultDurableManager } from '@siglo/core';
 import { InMemoryNotificationDispatchStore, PostgresNotificationDispatchStore, configureNotificationDispatchStore, getNotificationDispatchStore, PostgresApprovalRevocationStore, createNotificationHonoHandler, createNotificationExpressMiddleware, signActionToken, createSmsApprovalReference, PushWebhookTransport, SendGridTransport } from '../dist';
 import { publicNotificationFetch, publicNotificationLookup, isPublicNotificationAddress } from '../dist/egress';
 import dns from 'node:dns';

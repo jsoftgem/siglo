@@ -1,4 +1,4 @@
-import { WorkflowEventEmitter, WorkflowExecutionEvent, redactEvent, RedactionOptions } from 'siglo';
+import { WorkflowEventEmitter, WorkflowExecutionEvent, redactEvent, RedactionOptions } from '@siglo/core';
 import { MonitorClientOptions, MonitorClientInstance } from './types';
 import { getActiveMonitorServer, MonitorServerInstance } from './server';
 

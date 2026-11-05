@@ -1,4 +1,4 @@
-import { ValidationException, ValidationErrorDetail } from 'siglo';
+import { ValidationException, ValidationErrorDetail } from '@siglo/core';
 
 export interface ValidationResult<T = any> {
   success: boolean;

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { StorageAdapter, SerializedExecutionStack, OptimisticLockException, DuplicateEventException, ExpiredWaitException } from 'siglo';
+import { StorageAdapter, SerializedExecutionStack, OptimisticLockException, DuplicateEventException, ExpiredWaitException } from '@siglo/core';
 import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
 
 function validateIdentifier(name: string, paramName: string): string {

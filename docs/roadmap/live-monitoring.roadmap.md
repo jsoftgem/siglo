@@ -57,7 +57,7 @@ Live monitoring is not only possible for `Siglo`, but the framework is architect
 
 ### Option A: Web DevTools Dashboard (`@siglo/monitor` / CLI Dev Server)
 - **What it is**: A dedicated web dashboard (similar to Temporal Web UI, Inngest Dev Server, or Bull-Board).
-- **How it runs**: Launched via `npx siglo monitor --port 4000` or embedded as middleware in Fastify, Express, or Hono.
+- **How it runs**: Launched via `npm exec --package=@siglo/cli -- siglo monitor --port 4000` or embedded as middleware in Fastify, Express, or Hono.
 - **Features**:
   - Interactive DAG rendering (React Flow / Cytoscape) derived directly from `flow.toJSON()`.
   - Live node transitions:
@@ -68,7 +68,7 @@ Live monitoring is not only possible for `Siglo`, but the framework is architect
 
 ### Option B: Terminal UI (TUI) Dashboard
 - **What it is**: A terminal-based real-time dashboard for developers who prefer staying inside their terminal.
-- **How it runs**: `npx siglo monitor --tui` built with `ink` (React for CLI) or `blessed`.
+- **How it runs**: `npm exec --package=@siglo/cli -- siglo monitor --tui` built with `ink` (React for CLI) or `blessed`.
 - **Features**:
   - Live progress bars for active workflows and step pipelines.
   - Streaming error logs and retry alerts.

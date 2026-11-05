@@ -42,14 +42,14 @@ flowchart TD
 
 ## 3. Installation
 
-Install `@siglo/http` alongside `siglo`:
+Install `@siglo/http` alongside `@siglo/core`:
 
 ```bash
-npm install siglo @siglo/http
+npm install @siglo/core @siglo/http
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 - `@opentelemetry/api`: `^1.0.0` (optional, for distributed trace context propagation)
 
 ---
@@ -67,7 +67,7 @@ Peer dependencies:
 3. **AST Graph Governance**: When static URLs are provided, `httpStep` registers the target host into the step's metadata (`step.allowNetwork([host])`), making egress dependencies visible in `toGraph()`, `inspectGraph()`, and Mermaid diagrams.
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 
 const getExchangeRates = httpStep('getExchangeRates', {
@@ -196,7 +196,7 @@ export interface HttpMetadata {
 ### Example 1: E-Commerce Payment with Refund Compensation & Zod Validation
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 import { z } from 'zod';
 
@@ -257,7 +257,7 @@ export const checkoutOrderWorkflow = flow(
 ### Example 2: Dynamic Routing Slip with ASL Egress Governance
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 
 interface CloudMetadataContext {
@@ -290,7 +290,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { httpStep } from '@siglo/http';
 import { createMockHttpServer } from '@siglo/http/testing';
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 
 test('httpStep executes GET with mock server', async () => {
   const mockServer = createMockHttpServer('https://api.example.com');

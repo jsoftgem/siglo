@@ -1,4 +1,4 @@
-import {Step} from 'siglo';
+import {Step} from '@siglo/core';
 
 /**
  * Convenience helper to create a modern Step instance for exploratory testing.

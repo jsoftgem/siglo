@@ -1,4 +1,4 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from 'siglo';
+import { Flow, ExecutionOptions, IdempotencyStore } from '@siglo/core';
 
 export interface SigloBullMQOptions<TJob = any, TInput = any, TOutput = any> {
     input?: (job: TJob) => Promise<TInput> | TInput;

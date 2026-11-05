@@ -211,7 +211,7 @@ type StructuredResult<S extends StandardSchemaV1> =
 ### Scenario: Structured Financial Risk Assessment with Fallback Cascade
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { aiStep } from '@siglo/ai';
 import { z } from 'zod';
 

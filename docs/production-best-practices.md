@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_siglo_idempotency_expires ON siglo_idempotency_re
 If two worker nodes execute concurrent step completions or resumptions for the same `stackId`, the second update raises `OptimisticLockException`. Wrap workflow execution in an exponential backoff retry loop:
 
 ```typescript
-import { flow, OptimisticLockException } from 'siglo';
+import { flow, OptimisticLockException } from '@siglo/core';
 
 async function runWithOCCRetry<T>(workflow: any, input: any, maxAttempts = 3): Promise<T> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -175,7 +175,7 @@ In high-volume webhook endpoints (e.g., Stripe, Shopify) or distributed messagin
 Instead of rejecting duplicates immediately with 409 Conflict, enable **Wait-and-Settle**:
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 
 const idempotencyStore = new PostgresIdempotencyStore(dbPool);
@@ -204,7 +204,7 @@ When handling errors in idempotent steps, differentiate between **permanent busi
 Siglo defaults to zero-trust network boundaries when using `.networkPolicy()` or `.allowNetwork()`.
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 
 export const secureWebhookFlow = flow(
     Step.create('callPartnerWebhook', async (ctx: any) => {
@@ -240,7 +240,7 @@ flowInstance.networkPolicy({
 Never rely on in-memory closures for long-running workflows across service deployments. Register named compensation handlers:
 
 ```typescript
-import { Step, registerNamedCompensation, defaultCompensationDLQ } from 'siglo';
+import { Step, registerNamedCompensation, defaultCompensationDLQ } from '@siglo/core';
 
 // 1. Register named compensations once at application startup
 registerNamedCompensation('billing:refundCharge', async (ctx: any) => {
@@ -263,7 +263,7 @@ export const reserveInventoryStep = Step.create('reserveInventory', async (ctx: 
 Attach an external sink (SQS, Kafka, CloudWatch) to `defaultCompensationDLQ` to capture compensation failures without halting rollback:
 
 ```typescript
-import { defaultCompensationDLQ } from 'siglo';
+import { defaultCompensationDLQ } from '@siglo/core';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 const sqs = new SQSClient({ region: 'us-east-1' });
@@ -293,7 +293,7 @@ await orderFlow.run(orderInput, {
 Deploy a scheduled Kubernetes CronJob running the reconciler every 10 minutes to recover from unhandled pod crashes or OOM events:
 
 ```bash
-npx siglo reconcile --stale-threshold=10m --action=compensate
+npm exec --package=@siglo/cli -- siglo reconcile --stale-threshold=10m --action=compensate
 ```
 
 ---
@@ -359,7 +359,7 @@ Before tagging your service for production release, verify the following:
 - [ ] **Wait-and-Settle Configured**: Critical financial / billing steps configure bounded `settleTimeoutMs`.
 - [ ] **Named Compensations Registered**: All durable sagas use `registerNamedCompensation` rather than local closures.
 - [ ] **Compensation DLQ Connected**: `defaultCompensationDLQ.onEntry` forwards failed rollbacks to SQS or Kafka.
-- [ ] **Cron Reconciler Scheduled**: `npx siglo reconcile` scheduled to sweep stale stacks past heartbeat windows.
+- [ ] **Cron Reconciler Scheduled**: `npm exec --package=@siglo/cli -- siglo reconcile` scheduled to sweep stale stacks past heartbeat windows.
 - [ ] **Network Policies Enforced**: Zero-trust egress rules block RFC 1918 private IPs and container Unix sockets.
 - [ ] **Monitor Security Hardened**: DevTools server configured with authentication tokens, field redaction, and `allowRemoteResume: false`.
 - [ ] **OpenTelemetry Active**: Traceparent headers injected via `@siglo/opentelemetry` for distributed tracing.

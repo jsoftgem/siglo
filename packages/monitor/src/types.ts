@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions, EcosystemInspection } from 'siglo';
+import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions, EcosystemInspection } from '@siglo/core';
 
 export interface StepRunRecord {
     stepId: string;

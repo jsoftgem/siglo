@@ -1,6 +1,6 @@
 import { getNotificationDispatchStore } from './dispatch';
 import { createHash } from 'node:crypto';
-import { Step, observeEcosystem, captureInspection, EcosystemInspection, recordInspection, stepInspectionStorage, parseDuration, registerCompensationHandler, hasCompensationHandler, emitMonitoringEvent, redactEvent, defaultStorageManager, ValidationException } from 'siglo';
+import { Step, observeEcosystem, captureInspection, EcosystemInspection, recordInspection, stepInspectionStorage, parseDuration, registerCompensationHandler, hasCompensationHandler, emitMonitoringEvent, redactEvent, defaultStorageManager, ValidationException } from '@siglo/core';
 import { assertNetworkPolicy, validatePayload } from '@siglo/http';
 import { getNotificationTransport } from './registry';
 import { getApprovalRevocationStore } from './approvals';

@@ -16,10 +16,10 @@ Siglo makes it easy to compose complex business pipelines, sagas, parallel fan-o
 
 ## Installation
 
-Install `siglo` along with its testing harness and developer CLI:
+Install `@siglo/core` along with its testing harness and developer CLI:
 
 ```bash
-npm install siglo
+npm install @siglo/core
 npm install --save-dev @siglo/testing @siglo/cli
 ```
 
@@ -30,7 +30,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 Create a new file `src/quickstart.ts`:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // 1. Define Step 1: Input validation and enrichment
 export const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
@@ -66,7 +66,7 @@ run();
 Here is a minimal step and flow demonstrating accumulated typed context:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const greet = Step.create('greet', (p: { name: string }) => ({
     message: `Hello, ${p.name}!`
@@ -84,7 +84,7 @@ console.log(res.message); // 'Hello, World!'
 When a step fails, `Siglo` captures phase diagnostics, attaches error metadata, and cancels or recovers according to policy:
 
 ```typescript
-import { Step, flow, SigloError } from 'siglo';
+import { Step, flow, SigloError } from '@siglo/core';
 
 const riskyStep = Step.create('riskyStep', async (param: { balance: number }) => {
     if (param.balance < 0) {
@@ -147,13 +147,13 @@ Generate production-ready workflow templates using the CLI:
 
 ```bash
 # Scaffold a new project structure
-npx siglo init
+npm exec --package=@siglo/cli -- siglo init
 
 # Generate a typed workflow and mocha/chai test
-npx siglo generate workflow checkout
+npm exec --package=@siglo/cli -- siglo generate workflow checkout
 
 # Generate an isolated step and unit test
-npx siglo generate step charge-customer
+npm exec --package=@siglo/cli -- siglo generate step charge-customer
 ```
 
 ---

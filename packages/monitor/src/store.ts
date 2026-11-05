@@ -1,5 +1,5 @@
 import { applyWaitEvent } from './wait-state';
-import { WorkflowExecutionEvent, redactEvent, RedactionOptions, sanitizeInspection } from 'siglo';
+import { WorkflowExecutionEvent, redactEvent, RedactionOptions, sanitizeInspection } from '@siglo/core';
 import { WorkflowRunRecord, StepRunRecord, ContextDiffRecord } from './types';
 
 export class WorkflowExecutionStore {

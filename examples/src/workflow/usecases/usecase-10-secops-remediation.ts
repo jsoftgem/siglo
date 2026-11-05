@@ -1,4 +1,4 @@
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 export interface SecOpsIncidentInput {
     alertId: string;

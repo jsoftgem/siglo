@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import crypto from 'node:crypto';
 import { FakeClock } from '@siglo/testing';
-import { ValidationException } from 'siglo';
+import { ValidationException } from '@siglo/core';
 import { verifyWebhookStep } from '../src';
 
 describe('Replay Attack Defense & Clock Drift Simulation', () => {

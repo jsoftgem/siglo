@@ -1,5 +1,5 @@
 import { trace } from '@opentelemetry/api';
-import { emitMonitoringEvent, defaultStorageManager, stepInspectionStorage, sanitizeInspection, InspectionContent } from 'siglo';
+import { emitMonitoringEvent, defaultStorageManager, stepInspectionStorage, sanitizeInspection, InspectionContent } from '@siglo/core';
 import type { AiMetrics } from './types';
 
 export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any, content?: InspectionContent): void {

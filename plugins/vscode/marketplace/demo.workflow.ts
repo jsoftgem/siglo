@@ -1,5 +1,5 @@
 // Screenshot fixture: analyzed as source, never executed or imported.
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const validateOrder = Step.create('validateOrder', async (input: any) => input)
   .spec('orderId', { require: true, requireMessage: 'An order ID is required.' })

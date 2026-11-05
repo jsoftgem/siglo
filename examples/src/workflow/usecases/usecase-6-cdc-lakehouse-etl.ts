@@ -1,4 +1,4 @@
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 export interface DebeziumCdcEvent {
     op: 'c' | 'u' | 'd'; // create, update, delete

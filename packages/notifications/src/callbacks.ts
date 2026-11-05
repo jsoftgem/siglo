@@ -1,4 +1,4 @@
-import { recordInspection, stepInspectionStorage, resumeWorkflow, defaultDurableManager, getStorageAdapter, ValidationException, ExpiredWaitException, WorkflowAlreadyResumedException, DuplicateEventException } from 'siglo';
+import { recordInspection, stepInspectionStorage, resumeWorkflow, defaultDurableManager, getStorageAdapter, ValidationException, ExpiredWaitException, WorkflowAlreadyResumedException, DuplicateEventException } from '@siglo/core';
 import { getApprovalRevocationStore } from './approvals';
 import { CallbackHandlerOptions } from './types';
 import { ActionTokenPayload, verifyActionToken } from './tokens';

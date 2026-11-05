@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { useStorage, DuplicateEventException } from 'siglo';
+import { useStorage, DuplicateEventException } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 import { signActionToken, PostgresApprovalRevocationStore, PostgresNotificationDispatchStore } from '../dist';
 const run = promisify(execFile);

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { Step, SigloError, defaultStorageManager, recordInspection, captureInspection } from 'siglo';
-import type { CacheOptions } from 'siglo';
+import { Step, SigloError, defaultStorageManager, recordInspection, captureInspection } from '@siglo/core';
+import type { CacheOptions } from '@siglo/core';
 import { validatePayload } from '@siglo/http';
 import type { StandardSchemaV1 } from '@siglo/http';
 import { createAiResult, getExecutionSignal, shouldFallback, withAiRequest } from './execution';

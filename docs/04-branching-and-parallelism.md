@@ -9,7 +9,7 @@
 Execute multiple branches or steps concurrently:
 
 ```typescript
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const fetchCreditScore = Step.create('fetchCredit', async () => ({ creditScore: 750 }));
 const fetchBankHistory = Step.create('fetchHistory', async () => ({ hasDefaults: false }));
@@ -42,7 +42,7 @@ parallel([branchA, branchB], {
 Execute multiple alternatives concurrently and accept the fastest result:
 
 ```typescript
-import { Step, flow, race } from 'siglo';
+import { Step, flow, race } from '@siglo/core';
 
 const queryFastReplica = Step.create('queryFast', async () => ({ source: 'replica-1', price: 99.5 }));
 const queryPrimaryDb = Step.create('queryPrimary', async () => ({ source: 'primary', price: 99.5 }));
@@ -59,7 +59,7 @@ export const pricingWorkflow = flow(
 Route execution based on runtime conditions:
 
 ```typescript
-import { Step, flow, branch, when } from 'siglo';
+import { Step, flow, branch, when } from '@siglo/core';
 
 const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 }));
 const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 }));
@@ -93,7 +93,7 @@ const taxFlow = flow(
 Process collections with controlled concurrency without exhausting memory or database connections:
 
 ```typescript
-import { Step, flow, map } from 'siglo';
+import { Step, flow, map } from '@siglo/core';
 
 const processItem = Step.create('processItem', async (item: { sku: string; qty: number }) => {
     return { sku: item.sku, processed: true };
@@ -112,7 +112,7 @@ export const batchWorkflow = flow(
 ## Minimal Example
 
 ```typescript
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const s1 = Step.create('s1', () => ({ a: 10 }));
 const s2 = Step.create('s2', () => ({ b: 20 }));
@@ -129,7 +129,7 @@ console.log(res); // { a: 10, b: 20 }
 Using `allSettled` mode ensures individual step errors do not crash other concurrent operations:
 
 ```typescript
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const goodStep = Step.create('good', async () => ({ ok: true }));
 const badStep = Step.create('bad', async () => {
@@ -154,7 +154,7 @@ console.log(result);
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow, branch } from 'siglo';
+import { Step, flow, branch } from '@siglo/core';
 
 const decisionWf = flow(
     branch(

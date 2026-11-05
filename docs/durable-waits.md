@@ -11,7 +11,7 @@ Long-running workflows frequently need to pause execution for minutes, hours, or
 When a workflow runs with `{ durable: true }`, encounter of a wait node halts execution cleanly, creates a state checkpoint, records a waiting descriptor, and returns execution control:
 
 ```typescript
-import { Step, flow, waitForEvent, wait } from 'siglo';
+import { Step, flow, waitForEvent, wait } from '@siglo/core';
 
 const userRegistrationFlow = flow(
   registerAccount,

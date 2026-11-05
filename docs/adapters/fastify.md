@@ -23,7 +23,7 @@ flowchart TD
 Install `@siglo/fastify` alongside Fastify:
 
 ```bash
-npm install Siglo @siglo/fastify fastify
+npm install @siglo/core @siglo/fastify fastify
 ```
 
 Peer dependency matrix:
@@ -103,7 +103,7 @@ const queryExternalAPI = Step.create(async (param) => {
 
 ```typescript
 import Fastify from 'fastify';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { sigloFastifyHandler } from '@siglo/fastify';
 
 const fastify = Fastify({

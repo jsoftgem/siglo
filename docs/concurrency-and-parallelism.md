@@ -11,7 +11,7 @@
 Executes branches concurrently. Defaults to fail-fast mode with abort signal propagation:
 
 ```typescript
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const orderWorkflow = flow(
   validateOrder,
@@ -49,7 +49,7 @@ When branches complete, their outputs are merged into the workflow context accor
 - **Custom Function**: `(target, source, branchKey) => mergedTarget`.
 
 ```typescript
-import { parallel, FieldCollisionException } from 'siglo';
+import { parallel, FieldCollisionException } from '@siglo/core';
 
 const safeParallel = parallel([branchA, branchB], {
   mergeStrategy: 'error'
@@ -65,7 +65,7 @@ const safeParallel = parallel([branchA, branchB], {
 Executes conditional logic based on a predicate function:
 
 ```typescript
-import { Step, flow, when } from 'siglo';
+import { Step, flow, when } from '@siglo/core';
 
 const approvalWorkflow = flow(
   calculateRisk,
@@ -87,7 +87,7 @@ const approvalWorkflow = flow(
 Multi-way branching based on a selector function or context key:
 
 ```typescript
-import { branch, Step } from 'siglo';
+import { branch, Step } from '@siglo/core';
 
 const paymentBranch = branch(
   (ctx) => ctx.paymentMethod,
@@ -107,7 +107,7 @@ const paymentBranch = branch(
 The `map` combinator processes collections or streams with strict concurrency bounds:
 
 ```typescript
-import { map, flow } from 'siglo';
+import { map, flow } from '@siglo/core';
 
 const batchProcess = flow(
   map(

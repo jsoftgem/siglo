@@ -1,4 +1,4 @@
-import { Step, flow, toPOJO } from 'siglo';
+import { Step, flow, toPOJO } from '@siglo/core';
 import {
     instrumentWorkflow,
     injectTraceContext,

@@ -51,14 +51,14 @@ flowchart TD
 
 ## 3. Installation
 
-Install `@siglo/crypto` alongside `siglo`:
+Install `@siglo/crypto` alongside `@siglo/core`:
 
 ```bash
-npm install siglo @siglo/crypto
+npm install @siglo/core @siglo/crypto
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 - Node.js: `>= 18.0.0` (native `node:crypto`)
 
 ---
@@ -323,7 +323,7 @@ Unlike shallow object copying (`{ ...ctx }`), `@siglo/crypto` uses structural sh
 ## 7. TypeScript API Reference
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 // Webhook Verification Step
 export function verifyWebhookStep<const TName extends string, TInput>(

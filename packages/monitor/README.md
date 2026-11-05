@@ -53,7 +53,7 @@
 ## 2. Installation
 
 ```bash
-npm install @siglo/monitor siglo
+npm install @siglo/monitor @siglo/core
 ```
 
 For developer CLI commands (`siglo monitor`):
@@ -68,7 +68,7 @@ npm install --save-dev @siglo/cli
 Start a standalone monitor server and attach it to your workflow runs:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createMonitorServer } from '@siglo/monitor';
 
 async function main() {
@@ -102,14 +102,14 @@ Open `http://localhost:4000` in your browser to inspect the interactive DAG, ste
 
 ## 4. Attaching to an Already Running Monitor Server
 
-Instead of spinning up a new HTTP server every time, workflows can attach to a monitor server that is **already running** (e.g. launched via the CLI `npx siglo monitor`, in a Docker container, or started once at application bootstrap).
+Instead of spinning up a new HTTP server every time, workflows can attach to a monitor server that is **already running** (e.g. launched via the CLI `npm exec --package=@siglo/cli -- siglo monitor`, in a Docker container, or started once at application bootstrap).
 
 ### Scenario A: Remote / Separate Process (CLI or Dedicated Server)
 
-When your monitor server is running in a different process (such as `npx siglo monitor --port 4000` in another terminal):
+When your monitor server is running in a different process (such as `npm exec --package=@siglo/cli -- siglo monitor --port 4000` in another terminal):
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { attachToMonitorServer } from '@siglo/monitor';
 
 // Attach workflow directly to the running server by port or URL
@@ -129,7 +129,7 @@ Events are automatically dispatched asynchronously to the monitor server's `POST
 If your application starts the monitor server once during startup, other files and services can connect without creating redundant HTTP servers:
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { createMonitorServer, attachToMonitorServer, getMonitorEmitter } from '@siglo/monitor';
 
 // In server startup file (e.g., server.ts):

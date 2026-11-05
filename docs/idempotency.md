@@ -32,7 +32,7 @@ interface IdempotencyStore {
 To prevent key collisions across namespaces or versions, keys are automatically scoped:
 
 ```typescript
-import { buildIdempotencyKey } from 'siglo';
+import { buildIdempotencyKey } from '@siglo/core';
 
 const key = buildIdempotencyKey('order-1234', {
   namespace: 'tenant-a',
@@ -48,7 +48,7 @@ const key = buildIdempotencyKey('order-1234', {
 Workflow-level deduplication wraps the entire flow execution. Subsequent requests with identical idempotency keys return the prior result:
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 
 const checkoutFlow = flow(chargeCard, sendReceipt);
 
@@ -82,7 +82,7 @@ Individual steps (including array `.reduce()` steps) can declare idempotency. A 
 Fine-grained deduplication on individual steps prevents redundant side effects (e.g. charging a payment gateway twice):
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 const chargePayment = Step.create('chargePayment', async ({ invoiceId, amount }) => {
     return await paymentGateway.charge({ invoiceId, amount });

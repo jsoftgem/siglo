@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 import { createRedisClient } from './database/redis';
 import { createMongoClient } from './database/mongodb';
 import { registerRedisMongoStorage } from './plugin/redis-mongo-storage';
@@ -47,7 +47,7 @@ import {
     setupSaaSBillingInfrastructure,
     runLiveMonitoringSample
 } from './workflow/usecases';
-import {FlowContextResult} from "siglo/src/features/step";
+import {FlowContextResult} from "@siglo/core";
 
 // ============================================================================
 //   Base Storage Plugin & Order Pipeline Test

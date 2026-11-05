@@ -9,7 +9,7 @@ Durable workflows allow executions to sleep, suspend, wait for external human ap
 Use `waitForEvent()` to halt workflow execution until an external signal or webhook is received:
 
 ```typescript
-import { Step, flow, waitForEvent } from 'siglo';
+import { Step, flow, waitForEvent } from '@siglo/core';
 
 export const expenseApprovalWorkflow = flow(
     Step.create('submitExpense', async (param: { amount: number }) => ({
@@ -39,7 +39,7 @@ export const expenseApprovalWorkflow = flow(
 Pause workflow execution for a deterministic duration without blocking CPU threads:
 
 ```typescript
-import { Step, flow, wait } from 'siglo';
+import { Step, flow, wait } from '@siglo/core';
 
 export const delayedNotificationWorkflow = flow(
     Step.create('sendWelcome', () => ({ sent: true })),
@@ -55,7 +55,7 @@ export const delayedNotificationWorkflow = flow(
 When an external event occurs (e.g., an incoming webhook), resume the workflow using `resumeWorkflow()` or `flow.resume()`:
 
 ```typescript
-import { resumeWorkflow } from 'siglo';
+import { resumeWorkflow } from '@siglo/core';
 import { expenseApprovalWorkflow } from './workflows';
 
 // Webhook endpoint handler:
@@ -79,7 +79,7 @@ app.post('/api/webhooks/approval', async (req, res) => {
 Long-running workflows that span days or weeks may have their code updated while executions are sleeping. `Siglo` allows declarative state migrations:
 
 ```typescript
-import { resumeWorkflow } from 'siglo';
+import { resumeWorkflow } from '@siglo/core';
 
 const updatedWorkflow = flow(...newSteps).version('2.0.0');
 
@@ -100,7 +100,7 @@ await resumeWorkflow(updatedWorkflow, correlationKey, eventPayload, {
 ## Minimal Example
 
 ```typescript
-import { Step, flow, waitForEvent, resumeWorkflow } from 'siglo';
+import { Step, flow, waitForEvent, resumeWorkflow } from '@siglo/core';
 
 const wf = flow(
     Step.create('step1', () => ({ orderId: 'ord_123' })),
@@ -123,7 +123,7 @@ console.log(finalResult.amount);    // 150
 ## Failure Example: Expired Waits and Duplicate Resumptions
 
 ```typescript
-import { Step, flow, waitForEvent, resumeWorkflow, DuplicateEventException } from 'siglo';
+import { Step, flow, waitForEvent, resumeWorkflow, DuplicateEventException } from '@siglo/core';
 
 const wf = flow(
     waitForEvent('approval', { correlationKey: 'app-99', timeout: '1h' })
@@ -151,7 +151,7 @@ try {
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow, waitForEvent } from 'siglo';
+import { Step, flow, waitForEvent } from '@siglo/core';
 
 const durableWf = flow(
     Step.create('start', () => ({ ticketId: 't-1' })),

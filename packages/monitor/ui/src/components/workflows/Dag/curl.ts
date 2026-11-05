@@ -1,4 +1,4 @@
-import type { EcosystemInspection } from 'siglo';
+import type { EcosystemInspection } from '@siglo/core';
 
 /** Deliberately excludes path, query, credentials, headers and content. */
 export function sanitizedCurl(data: EcosystemInspection): string | undefined {

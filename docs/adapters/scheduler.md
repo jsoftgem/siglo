@@ -39,15 +39,15 @@ flowchart TD
 
 ## 2. Installation & Requirements
 
-Install `@siglo/scheduler` alongside `siglo` and `@siglo/postgres`:
+Install `@siglo/scheduler` alongside `@siglo/core` and `@siglo/postgres`:
 
 ```bash
-npm install siglo @siglo/scheduler @siglo/postgres pg
+npm install @siglo/core @siglo/scheduler @siglo/postgres pg
 npm install --save-dev @types/pg
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 - `@siglo/postgres`: `^1.0.0` (for `PostgresWaitPoller`)
 - `pg`: `^8.0.0` (or compatible PostgreSQL client with a `.query()` method)
 

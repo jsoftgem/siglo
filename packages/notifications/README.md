@@ -58,14 +58,14 @@ flowchart TD
 
 ## 2. Installation & Requirements
 
-Install `@siglo/notifications` alongside `siglo`, `@siglo/crypto`, and `@siglo/http`:
+Install `@siglo/notifications` alongside `@siglo/core`, `@siglo/crypto`, and `@siglo/http`:
 
 ```bash
-npm install @siglo/notifications @siglo/crypto @siglo/http siglo
+npm install @siglo/notifications @siglo/crypto @siglo/http @siglo/core
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 - `@siglo/crypto`: `^1.0.0`
 - `@siglo/http`: `^1.0.0`
 - `@siglo/scheduler` (optional, for background timeout polling): `^1.0.0`
@@ -77,7 +77,7 @@ Peer dependencies:
 
 ```typescript
 import express from 'express';
-import { flow, waitForEvent, Step, useStorage } from 'siglo';
+import { flow, waitForEvent, Step, useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 import { StaticKeyRing } from '@siglo/crypto';
 import {

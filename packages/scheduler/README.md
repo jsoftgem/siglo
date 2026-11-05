@@ -19,7 +19,7 @@
 ## Installation
 
 ```bash
-npm install @siglo/scheduler siglo @siglo/postgres pg
+npm install @siglo/scheduler @siglo/core @siglo/postgres pg
 ```
 
 ---
@@ -31,7 +31,7 @@ npm install @siglo/scheduler siglo @siglo/postgres pg
 ```typescript
 import { Pool } from 'pg';
 import { PostgresWaitPoller } from '@siglo/scheduler';
-import { useStorage } from 'siglo';
+import { useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 import { myFlow } from './workflows';
 

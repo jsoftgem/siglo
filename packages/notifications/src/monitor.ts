@@ -1,4 +1,4 @@
-import { WorkflowEventEmitter, WorkflowExecutionEvent, redactEvent } from 'siglo';
+import { WorkflowEventEmitter, WorkflowExecutionEvent, redactEvent } from '@siglo/core';
 import { transformFields } from '@siglo/crypto';
 
 /** A workflow monitor that masks configured event paths before any listener sees them.

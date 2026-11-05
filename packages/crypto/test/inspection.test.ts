@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { flow, WorkflowEventEmitter } from 'siglo';
+import { flow, WorkflowEventEmitter } from '@siglo/core';
 import { verifyWebhookStep } from '../src';
 import type { WebhookVerifyOptions } from '../src/types';
 

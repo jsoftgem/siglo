@@ -1,5 +1,5 @@
-import { Step, networkPolicyStorage } from 'siglo';
-import type { ExecutionOptions } from 'siglo';
+import { Step, networkPolicyStorage } from '@siglo/core';
+import type { ExecutionOptions } from '@siglo/core';
 import { validatePayload } from '@siglo/http';
 import { resolveJsonSchema } from './schema';
 import { getExecutionSignal } from './execution';

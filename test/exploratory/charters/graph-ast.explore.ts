@@ -9,7 +9,7 @@ import {
     WorkflowNodeType,
     WorkflowNode,
     NetworkPolicyConfig
-} from 'siglo';
+} from '@siglo/core';
 import { CharterResult } from './combinators.explore';
 
 export async function runGraphAstCharter(

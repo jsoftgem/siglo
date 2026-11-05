@@ -75,7 +75,7 @@ As each step executes, its output is shallow-merged into the accumulated context
 #### Example
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
     return { name: 'Alice', role: 'admin' };
@@ -113,7 +113,7 @@ export function isFlow(item: any): item is Flow;
 #### Example
 
 ```typescript
-import { flow, isFlow, Step } from 'siglo';
+import { flow, isFlow, Step } from '@siglo/core';
 
 const myStep = Step.create('noop', async () => ({}));
 const myFlow = flow(myStep);
@@ -137,7 +137,7 @@ export function toPOJO<T = any>(context: T): T;
 #### Example
 
 ```typescript
-import { toPOJO } from 'siglo';
+import { toPOJO } from '@siglo/core';
 
 const cleanData = toPOJO(rawExecutionContext);
 console.log(JSON.stringify(cleanData));
@@ -187,7 +187,7 @@ Each branch receives a deep copy of the input context. Mutating context in one b
 #### Example
 
 ```typescript
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const fetchOrders = Step.create('orders', async () => ({ orders: [1, 2, 3] }));
 const fetchInvoices = Step.create('invoices', async () => ({ invoices: ['inv_1'] }));
@@ -223,7 +223,7 @@ export function all(
 #### Example
 
 ```typescript
-import { all, Step, flow } from 'siglo';
+import { all, Step, flow } from '@siglo/core';
 
 const step1 = Step.create('s1', async () => ({ a: 1 }));
 const step2 = Step.create('s2', async () => ({ b: 2 }));
@@ -255,7 +255,7 @@ export function allSettled(
 #### Example
 
 ```typescript
-import { Step, flow, allSettled } from 'siglo';
+import { Step, flow, allSettled } from '@siglo/core';
 
 const notifySlack = Step.create('slack', async () => ({ slackSent: true }));
 const notifyPagerDuty = Step.create('pagerDuty', async () => {
@@ -289,7 +289,7 @@ export function race(
 #### Example
 
 ```typescript
-import { Step, flow, race } from 'siglo';
+import { Step, flow, race } from '@siglo/core';
 
 const primaryDns = Step.create('primaryDns', async (_p, _c, _i) => {
     return { ip: '1.1.1.1', source: 'primary' };
@@ -339,7 +339,7 @@ The output context is enriched with:
 #### Example
 
 ```typescript
-import { Step, flow, when } from 'siglo';
+import { Step, flow, when } from '@siglo/core';
 
 const applyDiscount = Step.create('applyDiscount', async (ctx: { total: number }) => ({
     discount: ctx.total * 0.1
@@ -392,7 +392,7 @@ export function branch(
 #### Example
 
 ```typescript
-import { Step, flow, branch } from 'siglo';
+import { Step, flow, branch } from '@siglo/core';
 
 const enterpriseFlow = Step.create('enterprise', async () => ({ slaTier: '24/7 Phone' }));
 const standardFlow = Step.create('standard', async () => ({ slaTier: 'Email Only' }));
@@ -459,7 +459,7 @@ The map step outputs:
 #### Example
 
 ```typescript
-import { Step, flow, map } from 'siglo';
+import { Step, flow, map } from '@siglo/core';
 
 const processOrder = Step.create('processOrder', async (ctx: { item: { id: string; amount: number } }) => {
     return { processedId: ctx.item.id, charged: ctx.item.amount };
@@ -517,7 +517,7 @@ export function waitForEvent(
 #### Example
 
 ```typescript
-import { Step, flow, waitForEvent } from 'siglo';
+import { Step, flow, waitForEvent } from '@siglo/core';
 
 export const approvalWorkflow = flow(
     Step.create('createTicket', async (ctx: { ticketId: string }) => ({ status: 'pending' })),
@@ -551,7 +551,7 @@ export function wait(
 #### Example
 
 ```typescript
-import { Step, flow, wait } from 'siglo';
+import { Step, flow, wait } from '@siglo/core';
 
 const delayedWorkflow = flow(
     Step.create('init', async () => ({ step: 1 })),
@@ -585,7 +585,7 @@ export function resumeWorkflow(
 #### Example
 
 ```typescript
-import { resumeWorkflow } from 'siglo';
+import { resumeWorkflow } from '@siglo/core';
 import { approvalWorkflow } from './approval.workflow';
 
 // Resumes the workflow where it left off, passing event payload
@@ -643,7 +643,7 @@ export function inspectGraph(item: any): GraphInspectionResult;
 #### Example
 
 ```typescript
-import { inspectGraph } from 'siglo';
+import { inspectGraph } from '@siglo/core';
 import { authFlow } from './auth';
 
 const metrics = inspectGraph(authFlow);
@@ -688,7 +688,7 @@ export function toMermaid(item: any, options?: MermaidExportOptions): string;
 #### Example
 
 ```typescript
-import { toMermaid } from 'siglo';
+import { toMermaid } from '@siglo/core';
 import { myWorkflow } from './pipeline';
 
 const diagram = toMermaid(myWorkflow, { direction: 'TD' });

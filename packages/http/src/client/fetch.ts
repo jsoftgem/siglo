@@ -1,5 +1,5 @@
-import { recordInspection, captureInspection, InspectionCapturePolicy, InspectionContent } from 'siglo';
-import { SigloError, StepTimeoutException, CancellationException } from 'siglo';
+import { recordInspection, captureInspection, InspectionCapturePolicy, InspectionContent } from '@siglo/core';
+import { SigloError, StepTimeoutException, CancellationException } from '@siglo/core';
 import { Span } from '@opentelemetry/api';
 import { HttpMethod, HttpMetadata } from '../types';
 import {

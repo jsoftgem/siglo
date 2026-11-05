@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { flow, Step, ValidationException, SigloError, StepTimeoutException, CancellationException } from 'siglo';
+import { flow, Step, ValidationException, SigloError, StepTimeoutException, CancellationException } from '@siglo/core';
 import { httpStep, HttpStep } from '../src/step';
 import { createMockHttpServer } from '../src/testing/mock-agent';
 import { executeHttpRequest } from '../src/client/fetch';

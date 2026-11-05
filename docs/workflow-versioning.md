@@ -11,7 +11,7 @@ Long-running workflows that pause for days or weeks often outlive the software r
 Assign semantic version identifiers to flows using `.version()` or execution options:
 
 ```typescript
-import { flow, Step, waitForEvent } from 'siglo';
+import { flow, Step, waitForEvent } from '@siglo/core';
 
 const invoiceWorkflow = flow(
   generateInvoice,
@@ -32,7 +32,7 @@ When resuming a workflow, `resumeWorkflow` compares the target workflow version 
 - **Mismatched Versions**: If versions differ and no migration is declared, resumption fails safely with `WorkflowVersionMismatchException`.
 
 ```typescript
-import { WorkflowVersionMismatchException } from 'siglo';
+import { WorkflowVersionMismatchException } from '@siglo/core';
 
 try {
   await v2Workflow.resume('invoice:inv-123', eventData);

@@ -106,7 +106,7 @@ export interface StorageAdapter {
 
 Registered globally via:
 ```ts
-import { useStorage } from 'siglo';
+import { useStorage } from '@siglo/core';
 
 useStorage(myCustomAdapter);
 ```

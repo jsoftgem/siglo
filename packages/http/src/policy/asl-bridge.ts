@@ -2,7 +2,7 @@ import {
   networkPolicyStorage,
   isHostAllowed,
   NetworkPolicyViolationException
-} from 'siglo';
+} from '@siglo/core';
 
 export interface HostInfo {
   hostname: string;

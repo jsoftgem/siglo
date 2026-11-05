@@ -30,7 +30,7 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@siglo/http": "^1.0.0",
-    "siglo": "^1.0.0"
+    "@siglo/core": "^1.0.0"
   },
   "devDependencies": {
     "@siglo/testing": "^1.0.0"

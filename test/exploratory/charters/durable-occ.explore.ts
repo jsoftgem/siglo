@@ -9,7 +9,7 @@ import {
     defaultStorageManager,
     DuplicateEventException,
     useStorage
-} from 'siglo';
+} from '@siglo/core';
 import { step } from '../engine/step-helper';
 import { InMemoryStorageFake } from '@siglo/testing';
 import { CharterResult } from './combinators.explore';

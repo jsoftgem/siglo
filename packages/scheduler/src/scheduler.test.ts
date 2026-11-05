@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import * as http from 'http';
-import { Step, flow, defaultDurableManager, clearStorage, useStorage } from 'siglo';
+import { Step, flow, defaultDurableManager, clearStorage, useStorage } from '@siglo/core';
 import {
     PostgresWaitPoller,
     MemoryWaitPoller,

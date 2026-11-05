@@ -6,7 +6,7 @@ import {
     when,
     branch,
     map
-} from 'siglo';
+} from '@siglo/core';
 import { step } from './step-helper';
 import { RandomSource } from './property-generators';
 

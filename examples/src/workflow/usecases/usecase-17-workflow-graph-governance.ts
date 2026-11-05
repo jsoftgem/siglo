@@ -1,4 +1,4 @@
-import { Step, flow, parallel, toGraph, validateGraph, inspectGraph, assertValidGraph } from 'siglo';
+import { Step, flow, parallel, toGraph, validateGraph, inspectGraph, assertValidGraph } from '@siglo/core';
 
 export interface DeploymentInput {
     releaseId: string;

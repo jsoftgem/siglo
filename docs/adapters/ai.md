@@ -44,14 +44,14 @@ flowchart TD
 
 ## 3. Installation & Setup
 
-Install `@siglo/ai` and `@siglo/http` alongside `siglo`:
+Install `@siglo/ai` and `@siglo/http` alongside `@siglo/core`:
 
 ```bash
-npm install siglo @siglo/ai @siglo/http
+npm install @siglo/core @siglo/ai @siglo/http
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 - `@siglo/http`: `^1.0.0` (for network perimeter and Standard Schema integration)
 - `@opentelemetry/api`: `^1.0.0` (optional, for distributed trace context propagation)
 
@@ -97,7 +97,7 @@ Credentials resolve independently for each provider. There is **no implicit cred
 - **Strict Redirect Defense**: HTTP redirects (`301`, `302`, `307`, `308`) are rejected with `redirect: 'error'` to prevent credential forwarding or egress perimeter escalation.
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { aiStep } from '@siglo/ai';
 
 export const safeAiStep = aiStep('generateInsight', {
@@ -220,7 +220,7 @@ export const resilientStep = aiStep('resilientSummary', {
 `@siglo/ai` allows standard Siglo workflow steps to be passed directly as tools to the model using `defineAiTool`:
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 import { defineAiTool, aiStep } from '@siglo/ai';
 import { z } from 'zod';
 
@@ -301,7 +301,7 @@ export const cachedSummaryStep = aiStep('cachedSummary', {
 `@siglo/ai/testing` provides `MockAiProvider` for zero-network, 100% deterministic testing:
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { WorkflowHarness } from '@siglo/testing';
 import { MockAiProvider } from '@siglo/ai/testing';
 import { aiStep } from '@siglo/ai';
@@ -346,7 +346,7 @@ const replayAdapter = MockAiProvider.replay(recording);
 ### Scenario A: Financial Loan Underwriting Pipeline with Model Fallbacks
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { aiStep } from '@siglo/ai';
 import { z } from 'zod';
 
@@ -411,7 +411,7 @@ export const loanWorkflow = flow(
 ### Scenario B: Agentic Portfolio Advisor with Compensating Tools
 
 ```typescript
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { aiStep, defineAiTool } from '@siglo/ai';
 import { z } from 'zod';
 

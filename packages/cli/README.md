@@ -35,10 +35,10 @@ Install `@siglo/cli` locally in your project or globally:
 
 ```bash
 # Local development dependency (recommended)
-npm install --save-dev @siglo/cli @siglo/testing Siglo tsx
+npm install --save-dev @siglo/cli @siglo/testing @siglo/core tsx
 
 # Or run directly via npx
-npx siglo --help
+npm exec --package=@siglo/cli -- siglo --help
 ```
 
 ---

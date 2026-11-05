@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { createHmac } from 'node:crypto';
-import { flow, Step, defaultDurableManager, useStorage } from 'siglo';
+import { flow, Step, defaultDurableManager, useStorage } from '@siglo/core';
 import { sendNotificationStep, sendInteractiveApprovalStep, SlackTransport, ResendTransport, SendGridTransport, DiscordTransport, TwilioTransport, PushWebhookTransport, renderNotificationHtml, signActionToken, verifyActionToken, parseTwilioSmsReply, handleNotificationCallback } from '../dist';
 import { MockNotificationTransport } from '../dist/testing';
 describe('notification adverse cases and dynamic resolution', () => {

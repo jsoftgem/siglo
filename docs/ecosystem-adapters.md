@@ -127,7 +127,7 @@ Each package can be installed independently as needed:
 
 ```bash
 # Core workflow orchestrator (required)
-npm install siglo
+npm install @siglo/core
 
 # Notifications & Human-in-the-Loop Approvals
 npm install @siglo/notifications @siglo/crypto @siglo/http

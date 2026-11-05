@@ -7,7 +7,7 @@
 ## 1. Installation
 
 ```bash
-npm install @siglo/monitor siglo
+npm install @siglo/monitor @siglo/core
 ```
 
 Optional developer CLI:
@@ -57,7 +57,7 @@ flowchart TD
 ## 3. Quick Start: Standalone Dev Server
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createMonitorServer } from '@siglo/monitor';
 
 // 1. Start live monitor server
@@ -84,7 +84,7 @@ await pipeline.run({ orderId: '123' });
 Attach workflows to a monitor server already running in another terminal or remote cluster:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { attachToMonitorServer } from '@siglo/monitor';
 
 const pipeline = flow(step1, step2)
@@ -104,7 +104,7 @@ When the monitor server is started once during application bootstrap:
 
 ```typescript
 import { createMonitorServer, attachToMonitorServer } from '@siglo/monitor';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // In bootstrap file:
 await createMonitorServer({
@@ -132,7 +132,7 @@ For serverless functions or worker pools pushing telemetry to a centralized moni
 
 ```typescript
 import { createMonitorClient } from '@siglo/monitor';
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 
 const client = createMonitorClient({
     url: 'https://monitor-internal:4000',
@@ -189,7 +189,7 @@ Embed the live monitoring UI and endpoints directly into your existing HTTP appl
 ```typescript
 import express from 'express';
 import { createExpressMonitorMiddleware } from '@siglo/monitor';
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 const app = express();
 const monitor = createExpressMonitorMiddleware();
@@ -227,7 +227,7 @@ For distributed worker clusters across multiple containers:
 
 ```typescript
 import { RedisMonitoringAdapter } from '@siglo/monitor';
-import { defaultWorkflowEventEmitter } from 'siglo';
+import { defaultWorkflowEventEmitter } from '@siglo/core';
 
 const adapter = new RedisMonitoringAdapter({
     publisher: redisClient,

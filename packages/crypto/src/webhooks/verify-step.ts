@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Step, ValidationException, ExecutionOptions, observeEcosystem, recordInspection, EcosystemInspection } from 'siglo';
+import { Step, ValidationException, ExecutionOptions, observeEcosystem, recordInspection, EcosystemInspection } from '@siglo/core';
 import {
   WebhookVerifyOptions,
   WebhookVerificationResult,

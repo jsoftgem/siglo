@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'mocha';
-import { stepInspectionStorage, WorkflowEventEmitter, sanitizeInspection } from 'siglo';
+import { stepInspectionStorage, WorkflowEventEmitter, sanitizeInspection } from '@siglo/core';
 import { executeHttpRequest } from '../src/client/fetch';
 import { parseRetryAfter } from '../src/client/retry';
 

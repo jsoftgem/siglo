@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { EcosystemInspection } from 'siglo';
+import type { EcosystemInspection } from '@siglo/core';
 
 /** Reconstruct only inert formatting tags; every attribute and active tag is text. */
 export function previewDocument(text: string): string {

@@ -7,7 +7,7 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "siglo": [
+      "@siglo/core": [
         "../packages/core/src/index.ts"
       ],
       "@siglo/*": [

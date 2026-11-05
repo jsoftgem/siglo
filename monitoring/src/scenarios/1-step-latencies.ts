@@ -1,4 +1,4 @@
-import { Step, flow, parallel, toPOJO } from 'siglo';
+import { Step, flow, parallel, toPOJO } from '@siglo/core';
 import { instrumentWorkflow, instrumentStep } from '@siglo/opentelemetry';
 import { initTelemetry, getRecordedSpans, clearRecordedSpans, printTraceWaterfall } from '../tracer';
 

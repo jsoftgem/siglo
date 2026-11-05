@@ -30,7 +30,7 @@ export interface StorageAdapter {
 Register an adapter globally using `useStorage(adapter)`:
 
 ```typescript
-import { useStorage } from 'siglo';
+import { useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 
 const adapter = new PostgresStorageAdapter(pgPool);
@@ -96,7 +96,7 @@ Adapters partition data by namespace, preventing cross-tenant leakage.
 ## Minimal Example
 
 ```typescript
-import { Step, flow, useStorage, StorageAdapter } from 'siglo';
+import { Step, flow, useStorage, StorageAdapter } from '@siglo/core';
 
 const customAuditAdapter: StorageAdapter = {
     name: 'console-audit',
@@ -119,7 +119,7 @@ await wf.run();
 Configure `setErrorMode()` to define behavior when storage adapters encounter network errors:
 
 ```typescript
-import { setErrorMode, StorageErrorMode } from 'siglo';
+import { setErrorMode, StorageErrorMode } from '@siglo/core';
 
 // In mission-critical environments: FAIL_CLOSED aborts workflow if audit storage fails
 setErrorMode(StorageErrorMode.FAIL_CLOSED);
@@ -137,7 +137,7 @@ Using `InMemoryStorageFake` from `@siglo/testing`:
 ```typescript
 import { expect } from 'chai';
 import { InMemoryStorageFake, createWorkflowHarness } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const wf = flow(Step.create('test', () => ({ ok: true })));
 

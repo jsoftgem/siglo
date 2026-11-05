@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { Step, flow, WorkflowEventEmitter, defaultCompensationManager, useStorage } from 'siglo';
+import { Step, flow, WorkflowEventEmitter, defaultCompensationManager, useStorage } from '@siglo/core';
 import { WorkflowHarness, InMemoryStorageFake } from '@siglo/testing';
 import type { StandardSchemaV1 } from '@siglo/http';
 import { aiStep, AiOutputValidationError, AiProviderError, AiRequestTimeoutError, defineAiTool, estimateTokenCost } from '@siglo/ai';

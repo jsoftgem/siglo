@@ -63,7 +63,7 @@ Steps can declare network permissions using intuitive chainable methods on the `
 Permits outbound requests matching specified host patterns during this step's execution:
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 // Whitelist specific domains and wildcard patterns
 const chargeCustomer = Step.create('charge', async ({ amount }) => {
@@ -109,7 +109,7 @@ The `Flow` defines the outer security perimeter governing all enclosed steps.
 Establishes the allowable perimeter for the entire workflow:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const fetchUser = Step.create('fetchUser', async () => { ... })
     .allowNetwork(['api.github.com']);
@@ -215,7 +215,7 @@ Because an unauthorized network destination is a policy failure rather than a tr
 When orchestrating parallel branches with `parallel`, `allSettled`, or `map`, each branch executes in its own isolated `AsyncLocalStorage` scope:
 
 ```typescript
-import { Step, flow, parallel } from 'siglo';
+import { Step, flow, parallel } from '@siglo/core';
 
 const callStripe = Step.create('stripe', async () => {
     return await fetch('https://api.stripe.com/v1/charges');

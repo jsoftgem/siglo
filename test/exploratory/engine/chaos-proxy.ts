@@ -4,7 +4,7 @@ import {
     ContextChangeEvent,
     CacheEvent,
     CheckpointConflictException
-} from 'siglo';
+} from '@siglo/core';
 
 export interface ChaosConfig {
     failureRate?: number; // 0.0 to 1.0 probability of injected fault

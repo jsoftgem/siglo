@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { WorkflowExecutionEvent, redactEvent, RedactionOptions } from 'siglo';
+import { WorkflowExecutionEvent, redactEvent, RedactionOptions } from '@siglo/core';
 
 export interface SSEClient {
     id: string;

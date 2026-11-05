@@ -1,4 +1,4 @@
-import { WorkflowExecutionEvent, WorkflowEventEmitter } from 'siglo';
+import { WorkflowExecutionEvent, WorkflowEventEmitter } from '@siglo/core';
 
 export class PrometheusExporter {
     private activeFlows: number = 0;

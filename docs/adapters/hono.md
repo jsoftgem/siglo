@@ -23,7 +23,7 @@ flowchart TD
 Install `@siglo/hono` and Hono:
 
 ```bash
-npm install Siglo @siglo/hono hono
+npm install @siglo/core @siglo/hono hono
 ```
 
 Peer dependency matrix:
@@ -84,7 +84,7 @@ const fetchExchangeRates = Step.create(async (param) => {
 
 ```typescript
 import { Hono } from 'hono';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { sigloMiddleware } from '@siglo/hono';
 
 const app = new Hono();
@@ -123,7 +123,7 @@ export default app;
 ```typescript
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server'; // Or run directly with `bun run server.ts`
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { sigloMiddleware } from '@siglo/hono';
 
 const app = new Hono();

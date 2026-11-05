@@ -1,4 +1,4 @@
-import { WorkflowExecutionEvent, WorkflowEventEmitter, redactEvent, RedactionOptions } from 'siglo';
+import { WorkflowExecutionEvent, WorkflowEventEmitter, redactEvent, RedactionOptions } from '@siglo/core';
 
 export interface RedisPubSubClient {
     publish(channel: string, message: string): Promise<number | any> | number | any;

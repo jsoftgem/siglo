@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'mocha';
-import { flow, WorkflowEventEmitter, InspectionCapturePolicy, installNetworkInterceptors } from 'siglo';
+import { flow, WorkflowEventEmitter, InspectionCapturePolicy, installNetworkInterceptors } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 import { createMockHttpServer } from '@siglo/http/testing';
 import { aiStep, AiProviderError } from '@siglo/ai';

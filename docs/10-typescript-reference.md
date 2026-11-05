@@ -107,7 +107,7 @@ const client = stepWithDeps.requireDependency<HttpClient>('apiClient');
 
 ```typescript
 import { z } from 'zod';
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 const UserSchema = z.object({
     username: z.string().min(3),
@@ -126,7 +126,7 @@ const validateStep = Step.create('validate', async (param) => {
 ## Minimal Example
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 interface Input {
     val: number;
@@ -165,7 +165,7 @@ const stepB = Step.create('stepB', (param: { y: string }) => ({ z: param.y.toUpp
 
 ```typescript
 import { expect } from 'chai';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create<'calc', { n: number }, { isEven: boolean }>('calc', (p) => ({
     isEven: p.n % 2 === 0

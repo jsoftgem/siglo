@@ -8,7 +8,7 @@ import {
     Flow,
     Step,
     StorageAdapter
-} from 'siglo';
+} from '@siglo/core';
 import { SemanticAttributes } from './attributes';
 import { SigloTelemetryOptions } from './types';
 

@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { maskFieldsStep, maskPatterns } from '../src';
 
 describe('Context Redaction & Masking (maskFieldsStep)', () => {

@@ -37,7 +37,7 @@ This runbook covers operational best practices, capacity planning, distributed c
 To prevent duplicate processing when workers run concurrently across multiple Kubernetes pods:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 
 const pgStore = new PostgresIdempotencyStore(pgPool);
@@ -68,7 +68,7 @@ When running workflows with parallel fan-out (`parallel([...])`) or batch mappin
 Checkpoints and audit event tables should be cleaned according to compliance retention policies:
 
 ```typescript
-import { defaultStorageManager } from 'siglo';
+import { defaultStorageManager } from '@siglo/core';
 
 // Daily maintenance job:
 async function runDailyCleanup() {
@@ -84,7 +84,7 @@ async function runDailyCleanup() {
 ```typescript
 import fastify from 'fastify';
 import { Pool } from 'pg';
-import { Step, flow, useStorage } from 'siglo';
+import { Step, flow, useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 import { createFastifyWorkflowHandler } from '@siglo/fastify';
 
@@ -127,7 +127,7 @@ try {
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness, InMemoryStorageFake } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const auditWorkflow = flow(
     Step.create('audit', () => ({ ok: true }))

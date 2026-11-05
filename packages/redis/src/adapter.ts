@@ -1,4 +1,4 @@
-import { StorageAdapter, SerializedExecutionStack } from 'siglo';
+import { StorageAdapter, SerializedExecutionStack } from '@siglo/core';
 import { RedisStorageAdapterOptions, RedisClientInterface } from './types';
 
 export class RedisStorageAdapter implements StorageAdapter {

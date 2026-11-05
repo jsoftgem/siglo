@@ -1,4 +1,4 @@
-import { Step, flow, waitForEvent } from 'siglo';
+import { Step, flow, waitForEvent } from '@siglo/core';
 
 export interface ExpenseReportInput {
     reportId: string;

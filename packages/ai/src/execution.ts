@@ -1,4 +1,4 @@
-import { SigloError } from 'siglo';
+import { SigloError } from '@siglo/core';
 import type { AiMetrics, AiStepResult } from './types';
 
 export class AiRequestTimeoutError extends SigloError {

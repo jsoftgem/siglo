@@ -47,7 +47,7 @@ Explore the 11 comprehensive guides covering architecture, design patterns, test
 ## Quickstart: Type-Safe Composable Flows
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // 1. Define modular steps with input/output contracts
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {

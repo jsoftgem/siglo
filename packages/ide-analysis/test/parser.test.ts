@@ -43,7 +43,7 @@ describe('packages/ide-analysis parser', () => {
 
   it('handles multi-byte unicode offsets safely', () => {
     const unicodePath = path.join(fixturesDir, 'order.workflow.ts');
-    const content = `// 🚀 Japanese: ワークフロー | Emoji: 🔥🎉\nimport { flow, Step } from 'siglo';\nconst s = Step.create('unicodeStep', () => {});\nflow('unicodeFlow', s);`;
+    const content = `// 🚀 Japanese: ワークフロー | Emoji: 🔥🎉\nimport { flow, Step } from '@siglo/core';\nconst s = Step.create('unicodeStep', () => {});\nflow('unicodeFlow', s);`;
     const doc = parseWorkflowFile({ uri: unicodePath, content });
 
     expect(doc.workflowName).to.equal('unicodeFlow');
@@ -58,7 +58,7 @@ describe('packages/ide-analysis parser', () => {
   });
 
   it('resolves source position to the correct AST node range', () => {
-    const sampleContent = `import { flow, Step } from 'siglo';
+    const sampleContent = `import { flow, Step } from '@siglo/core';
 const step1 = Step.create('step1', () => {});
 const step2 = Step.create('step2', () => {});
 flow('test', step1, step2);`;

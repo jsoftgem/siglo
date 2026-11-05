@@ -1,4 +1,4 @@
-import type { Step, Flow, IdempotencyStore } from 'siglo';
+import type { Step, Flow, IdempotencyStore } from '@siglo/core';
 import type { KeyRing } from '@siglo/crypto';
 import type { StandardSchemaV1 } from '@siglo/http';
 export type NotificationChannel = 'email' | 'slack' | 'discord' | 'sms' | 'push';
@@ -17,7 +17,7 @@ export interface NotificationTransport {
 }
 export type Dynamic<T, C> = T | ((ctx: C) => T);
 export interface SendNotificationOptions<TInput> {
-  capture?: import('siglo').InspectionCapturePolicy;
+  capture?: import('@siglo/core').InspectionCapturePolicy;
   channel: Dynamic<NotificationChannel, TInput>; recipient: Dynamic<string | NotificationRecipient, TInput>;
   subject?: Dynamic<string, TInput>; template: Dynamic<string, TInput>; dataSchema?: StandardSchemaV1;
   data?: (ctx: TInput) => Record<string, unknown>; deduplicationTtl?: number; compensateOnFailure?: boolean;
@@ -25,7 +25,7 @@ export interface SendNotificationOptions<TInput> {
   transport?: NotificationTransport; idempotencyStore?: IdempotencyStore;
 }
 export interface InteractiveApprovalOptions<TInput> {
-  capture?: import('siglo').InspectionCapturePolicy;
+  capture?: import('@siglo/core').InspectionCapturePolicy;
   channel: 'email' | 'slack'; recipient: Dynamic<string | NotificationRecipient, TInput>;
   title: Dynamic<string, TInput>; description?: Dynamic<string, TInput>; correlationKey: Dynamic<string, TInput>;
   timeout: string; onApproveEvent: string; onRejectEvent: string; callbackBaseUrl: string;
@@ -34,7 +34,7 @@ export interface InteractiveApprovalOptions<TInput> {
 }
 export interface CallbackHandlerOptions {
   /** Receives correlated callback inspections for tokens issued by monitored steps. */
-  monitor?: import('siglo').WorkflowEventEmitter;
+  monitor?: import('@siglo/core').WorkflowEventEmitter;
   /** Explicit opt-in to link-possession authorization. Prefer authorize for sensitive actions. */
   allowBearerApproval?: boolean;
   /** Bind the signed request to an authenticated approver. Throw or return false to deny. */

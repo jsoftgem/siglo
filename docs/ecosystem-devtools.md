@@ -2,7 +2,7 @@
 
 The Siglo Web Monitor and Developer Tools provide deep runtime diagnostics and offline testing capabilities for ecosystem steps: HTTP client calls, webhook verification, AI completions, and interactive human notifications.
 
-Ecosystem inspection operates through versioned telemetry (`EcosystemInspection` exported by `siglo`) correlated by stack ID, runtime step ID, and workflow attempt. Telemetry is non-intrusive, strictly bounded, and fail-closed: diagnostic failures never alter workflow execution outcomes.
+Ecosystem inspection operates through versioned telemetry (`EcosystemInspection` exported by `@siglo/core`) correlated by stack ID, runtime step ID, and workflow attempt. Telemetry is non-intrusive, strictly bounded, and fail-closed: diagnostic failures never alter workflow execution outcomes.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ By default, Siglo captures only metadata (origins, status codes, token usage, du
 To capture content, supply an `InspectionCapturePolicy` to `httpStep`, `aiStep`, `sendNotificationStep`, or `sendInteractiveApprovalStep`:
 
 ```typescript
-import type { InspectionCapturePolicy } from 'siglo';
+import type { InspectionCapturePolicy } from '@siglo/core';
 
 const capturePolicy: InspectionCapturePolicy = {
   // Select fields permitted for capture

@@ -158,7 +158,7 @@ What happens if Server 1 is executing **Step 6** of 10 and the process crashes?
 Install `@siglo/kafka` and `kafkajs`:
 
 ```bash
-npm install Siglo @siglo/kafka kafkajs
+npm install @siglo/core @siglo/kafka kafkajs
 ```
 
 Peer dependency matrix:
@@ -228,7 +228,7 @@ $$\text{idempKey} = \text{kafka}:\langle\text{topic}\rangle:\langle\text{key} \l
 
 ```typescript
 import { Kafka } from 'kafkajs';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createKafkaMessageHandler } from '@siglo/kafka';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 import { Pool } from 'pg';

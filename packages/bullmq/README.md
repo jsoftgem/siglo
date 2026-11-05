@@ -26,7 +26,7 @@ flowchart TD
 Install `@siglo/bullmq` alongside `Siglo`. BullMQ and ioredis are declared as optional peer dependencies so you control the exact version:
 
 ```bash
-npm install Siglo @siglo/bullmq bullmq ioredis
+npm install @siglo/core @siglo/bullmq bullmq ioredis
 ```
 
 Peer dependency matrix:
@@ -102,7 +102,7 @@ function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
 
 ```typescript
 import { Worker, Job } from 'bullmq';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createBullMQProcessor } from '@siglo/bullmq';
 import { Redis } from 'ioredis';
 
@@ -177,7 +177,7 @@ In high-concurrency environments with Redis clusters, duplicate job events or wo
 
 ```typescript
 import { Worker } from 'bullmq';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createBullMQProcessor } from '@siglo/bullmq';
 import { RedisIdempotencyStore, RedisStorageAdapter } from '@siglo/redis';
 import { Redis } from 'ioredis';

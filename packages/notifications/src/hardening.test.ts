@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
-import { Step, flow, waitForEvent, defaultDurableManager, InMemoryIdempotencyStore } from 'siglo';
+import { Step, flow, waitForEvent, defaultDurableManager, InMemoryIdempotencyStore } from '@siglo/core';
 import { signActionToken, createNotificationExpressMiddleware, createNotificationFastifyHandler, createNotificationHonoHandler, handleNotificationCallback, configureApprovalRevocationStore, InMemoryApprovalRevocationStore, sendInteractiveApprovalStep, ResendTransport, createSmsApprovalReference, validateSmsApprovalReply } from '../dist';
 import { publicNotificationFetch, isPublicNotificationAddress } from '../dist/egress';
 

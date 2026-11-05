@@ -1,4 +1,4 @@
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@siglo/postgres';
 import { RedisStorageAdapter, RedisIdempotencyStore, RedisLock } from '@siglo/redis';
 

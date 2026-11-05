@@ -82,7 +82,7 @@ export function useStorage(adapter: StorageAdapter): void;
 #### Example
 
 ```typescript
-import { useStorage } from 'siglo';
+import { useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 
 const postgresAdapter = new PostgresStorageAdapter({
@@ -129,7 +129,7 @@ export function getErrorMode(): StorageErrorMode;
 #### Example
 
 ```typescript
-import { setErrorMode } from 'siglo';
+import { setErrorMode } from '@siglo/core';
 
 // Enforce strict persistence in production environments
 if (process.env.NODE_ENV === 'production') {
@@ -185,7 +185,7 @@ export function getCheckpoint(
 #### Example
 
 ```typescript
-import { getCheckpoint } from 'siglo';
+import { getCheckpoint } from '@siglo/core';
 
 const cp = await getCheckpoint('stack_abc123');
 if (cp) {
@@ -228,7 +228,7 @@ export function cleanExpiredCheckpoints(): number;
 #### Example
 
 ```typescript
-import { cleanExpiredCheckpoints } from 'siglo';
+import { cleanExpiredCheckpoints } from '@siglo/core';
 
 // Scheduled cron job running every hour
 setInterval(() => {

@@ -88,7 +88,7 @@ Explore the 11 comprehensive guides covering architecture, design patterns, test
 
 ```bash
 # Core workflow runtime
-npm install siglo
+npm install @siglo/core
 
 # Optional testing harness & CLI developer tooling
 npm install --save-dev @siglo/testing @siglo/cli
@@ -98,7 +98,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 
 | Package | Description |
 |---|---|
-| [`siglo`](packages/core) | Core workflow engine and runtime |
+| [`@siglo/core`](packages/core) | Core workflow engine and runtime |
 | [`@siglo/testing`](packages/testing) | Deterministic test harness, fake clocks, step spies, mocks, and replay tooling |
 | [`@siglo/cli`](packages/cli) | Developer CLI for scaffolding, diagram export, validation, and fixture replay |
 | [`@siglo/postgres`](packages/postgres) | PostgreSQL durable storage adapter and transactional idempotency store |
@@ -122,7 +122,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 ## Quickstart: Type-Safe Composable Flows
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // 1. Define modular steps with input/output contracts
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
@@ -155,7 +155,7 @@ main();
 Export any workflow directly to Mermaid diagrams, Graphviz DOT, or JSON AST:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('loadData', async () => ({ data: [1, 2, 3] })).timeout(3000);
 const s2 = Step.create('process', async () => ({ done: true }))
@@ -227,24 +227,24 @@ describe('Order Workflow Suite', () => {
 
 ```bash
 # Initialize a new TypeScript workflow project
-npx siglo init
+npm exec --package=@siglo/cli -- siglo init
 
 # Scaffold a typed workflow and harness test
-npx siglo generate workflow checkout
+npm exec --package=@siglo/cli -- siglo generate workflow checkout
 
 # Scaffold a typed step and unit test
-npx siglo generate step charge-card
+npm exec --package=@siglo/cli -- siglo generate step charge-card
 
 # Export workflow diagrams from the command line
-npx siglo export src/workflow.ts --format=mermaid
-npx siglo export src/workflow.ts --format=dot
-npx siglo export src/workflow.ts --format=json
+npm exec --package=@siglo/cli -- siglo export src/workflow.ts --format=mermaid
+npm exec --package=@siglo/cli -- siglo export src/workflow.ts --format=dot
+npm exec --package=@siglo/cli -- siglo export src/workflow.ts --format=json
 
 # Statically validate workflow definitions for cycles
-npx siglo validate src/workflow.ts
+npm exec --package=@siglo/cli -- siglo validate src/workflow.ts
 
 # Replay an execution against a recorded test fixture
-npx siglo replay fixtures/failed-order.json src/workflow.ts
+npm exec --package=@siglo/cli -- siglo replay fixtures/failed-order.json src/workflow.ts
 ```
 
 ---
@@ -252,7 +252,7 @@ npx siglo replay fixtures/failed-order.json src/workflow.ts
 ## Concurrency & Parallel Execution (`parallel`, `all`, `allSettled`, `race`)
 
 ```typescript
-import { Step, flow, parallel, allSettled, race } from 'siglo';
+import { Step, flow, parallel, allSettled, race } from '@siglo/core';
 
 const checkInventory = Step.create('inventory', async () => ({ inStock: true }));
 const checkFraud = Step.create('fraud', async () => ({ fraudScore: 0.02 }));
@@ -279,7 +279,7 @@ const fastestResult = flow(
 ## Dynamic Branching & Routing (`when`, `branch`)
 
 ```typescript
-import { Step, flow, when, branch } from 'siglo';
+import { Step, flow, when, branch } from '@siglo/core';
 
 // Conditional If-Then-Else
 const discountFlow = flow(
@@ -305,7 +305,7 @@ const routingFlow = flow(
 ## Sagas & LIFO Compensations (`step.compensate`)
 
 ```typescript
-import { Step, flow, CompensationException } from 'siglo';
+import { Step, flow, CompensationException } from '@siglo/core';
 
 const reserveHotel = Step.create('reserveHotel', async () => {
     const booking = await hotelApi.book();
@@ -328,7 +328,7 @@ const bookingFlow = flow(reserveHotel, chargeCard);
 ## Durable Waits & External Event Resumption
 
 ```typescript
-import { Step, flow, waitForEvent, wait, resumeWorkflow } from 'siglo';
+import { Step, flow, waitForEvent, wait, resumeWorkflow } from '@siglo/core';
 
 const orderWorkflow = flow(
     createOrderStep,
@@ -356,7 +356,7 @@ const finalResult = await resumeWorkflow(orderWorkflow, 'ord_999', { paymentId: 
 Enforce least-privilege network access per step or flow. Siglo intercepts outbound requests across `globalThis.fetch`, `node:http`/`node:https`, and raw `node:net.Socket` using `AsyncLocalStorage`, preventing cross-talk between concurrent steps.
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // 1. Whitelist specific domains on a step
 const chargeCustomer = Step.create('charge', async ({ amount }) => {
@@ -393,10 +393,10 @@ await orderFlow.run(payload, {
 Stream workflow execution events in real time to a modern React 18 + Vite + Tailwind CSS DevTools dashboard, SSE clients, WebSockets, or Prometheus metrics:
 
 ```typescript
-import { Step, flow } from "siglo";
+import { Step, flow } from "@siglo/core";
 import { createMonitorServer, attachToMonitorServer } from "@siglo/monitor";
 
-// 1. Launch standalone monitor server (or CLI: npx siglo monitor)
+// 1. Launch standalone monitor server (or CLI: npm exec --package=@siglo/cli -- siglo monitor)
 const monitor = await createMonitorServer({ port: 4000 });
 
 // 2. Attach workflows to monitor
@@ -417,7 +417,7 @@ Open `http://localhost:4000` to inspect the dynamic DAG topology, step latency w
 Implement end-to-end cryptographic defense in your pipelines using zero-dependency, native `node:crypto` primitives. `@siglo/crypto` provides drop-in workflow steps for multi-provider webhook verification with atomic replay prevention, tenant-isolated AEAD envelope field encryption with `KeyRing` rotation, and structural copy-on-write PII masking.
 
 ```typescript
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import {
   verifyWebhookStep,
   encryptFieldsStep,

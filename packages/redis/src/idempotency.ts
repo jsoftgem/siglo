@@ -1,4 +1,4 @@
-import { IdempotencyStore } from 'siglo';
+import { IdempotencyStore } from '@siglo/core';
 import { RedisIdempotencyOptions, RedisClientInterface } from './types';
 
 const COMPLETED_PREFIX = 'COMPLETED:';

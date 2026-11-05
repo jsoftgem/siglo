@@ -1,4 +1,4 @@
-import { Step, ExecutionOptions } from 'siglo';
+import { Step, ExecutionOptions } from '@siglo/core';
 import { MaskFieldsOptions } from '../types';
 import { transformFields } from './paths';
 

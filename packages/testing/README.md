@@ -106,7 +106,7 @@ console.log(replayResult.discrepancies); // List of mismatches if any
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('add', (p: { x: number }) => ({ res: p.x + 5 }));
 const wf = flow(s1);
@@ -123,7 +123,7 @@ harness.assertStepExecuted('add', 1);
 
 ```typescript
 import { replayExecution } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // Modified workflow with a bug: calculates 10% tax instead of 5%
 const buggyWf = flow(
@@ -154,7 +154,7 @@ if (!result.matched) {
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('fetchUser', () => ({ user: 'Alice' }));
 const s2 = Step.create('emailUser', (p: any) => ({ sent: true }));

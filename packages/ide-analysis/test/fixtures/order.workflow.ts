@@ -1,4 +1,4 @@
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 import { sendNotificationStep } from '@siglo/notifications';
 import { aiStep } from '@siglo/ai';

@@ -9,7 +9,7 @@ Observability is a first-class citizen in `Siglo`. Workflows can export their to
 Every workflow can export its AST directly:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 const s1 = Step.create('fetchUser', async () => ({ user: 'Alice' })).timeout(3000);
 const s2 = Step.create('charge', async () => ({ charged: true })).onFail({ maxRetries: 3, delay: 100 });
@@ -88,7 +88,7 @@ const extractedSpanContext = extractTraceContext({ traceparent });
 In addition to OpenTelemetry distributed tracing, Siglo provides a real-time monitoring engine with a built-in **React 18 + Vite + Tailwind CSS** web dashboard, SSE/WebSocket streaming, and Prometheus metrics via `@siglo/monitor`:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createMonitorServer, attachToMonitorServer } from '@siglo/monitor';
 
 // 1. Launch monitor server (or attach to an existing one via CLI `siglo monitor`)
@@ -132,7 +132,7 @@ This demo:
 ## 5. Minimal Example
 
 ```typescript
-import { Step, flow, toMermaid } from 'siglo';
+import { Step, flow, toMermaid } from '@siglo/core';
 
 const s1 = Step.create('start', () => ({ ok: true })).timeout(5000);
 const wf = flow(s1);
@@ -149,7 +149,7 @@ console.log(toMermaid(wf));
 When an error occurs, `@siglo/opentelemetry` records the exception and marks the span status as `ERROR`:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { instrumentWorkflow } from '@siglo/opentelemetry';
 
 const failingStep = Step.create('flakyCall', () => {
@@ -174,7 +174,7 @@ try {
 
 ```typescript
 import { expect } from 'chai';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { instrumentWorkflow } from '@siglo/opentelemetry';
 
 describe('OpenTelemetry Integration Test', () => {

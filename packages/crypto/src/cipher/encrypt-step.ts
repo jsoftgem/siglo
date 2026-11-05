@@ -1,4 +1,4 @@
-import { Step, ValidationException, ExecutionOptions } from 'siglo';
+import { Step, ValidationException, ExecutionOptions } from '@siglo/core';
 import { FieldCipherOptions, KeyRing } from '../types';
 import { encryptAESGCM, isEncryptedEnvelope } from './aes-gcm';
 import { isKeyRing } from './key-ring';

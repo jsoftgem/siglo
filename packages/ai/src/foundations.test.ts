@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { Step, flow, defaultCompensationManager, networkPolicyStorage } from 'siglo';
+import { Step, flow, defaultCompensationManager, networkPolicyStorage } from '@siglo/core';
 import { validatePayload, assertNetworkPolicy } from '@siglo/http';
 import type { StandardSchemaV1 } from '@siglo/http';
 import { AiProviderError, AiRequestTimeoutError, shouldFallback, withAiRequest, getExecutionSignal,

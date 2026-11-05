@@ -378,7 +378,7 @@ export function normalizeError(
 #### Example
 
 ```typescript
-import { normalizeError, SigloError } from 'siglo';
+import { normalizeError, SigloError } from '@siglo/core';
 
 try {
     throw 'Connection reset';
@@ -404,7 +404,7 @@ import {
     ValidationException,
     CompensationException,
     SigloError
-} from 'siglo';
+} from '@siglo/core';
 
 try {
     await orderWorkflow.run(orderInput);

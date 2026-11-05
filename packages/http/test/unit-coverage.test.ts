@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { validatePayload } from '../src/schema/validator';
 import { extractHostInfo, extractStaticHostname, assertNetworkPolicy } from '../src/policy/asl-bridge';
 import { createMockHttpServer } from '../src/testing/mock-agent';
-import { ValidationException, SigloError } from 'siglo';
+import { ValidationException, SigloError } from '@siglo/core';
 import { httpStep } from '../src';
 import { getActiveTraceId } from '../src/client/trace';
 import { executeHttpRequest } from '../src/client/fetch';

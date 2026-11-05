@@ -246,7 +246,7 @@ await orderFlow.run(payload, {
 ## Comprehensive Production Example
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { RedisStorageAdapter } from '@siglo/redis';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 

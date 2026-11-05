@@ -29,7 +29,7 @@ flowchart TD
 Install `@siglo/sqs`:
 
 ```bash
-npm install Siglo @siglo/sqs
+npm install @siglo/core @siglo/sqs
 npm install --save-dev @types/aws-lambda
 ```
 
@@ -111,7 +111,7 @@ When this is enabled, returning `{ batchItemFailures: [{ itemIdentifier: 'msg-01
 
 ```typescript
 import { SQSEvent, SQSBatchResponse, Context } from 'aws-lambda';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createSqsBatchHandler } from '@siglo/sqs';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 import { Pool } from 'pg';

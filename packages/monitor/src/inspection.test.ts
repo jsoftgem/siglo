@@ -1,6 +1,6 @@
 import { describe, it } from 'mocha';
 import assert from 'node:assert/strict';
-import { flow, Step, WorkflowEventEmitter, stepInspectionStorage, observeEcosystem, sanitizeInspection, redactEvent, setDefaultMonitor } from 'siglo';
+import { flow, Step, WorkflowEventEmitter, stepInspectionStorage, observeEcosystem, sanitizeInspection, redactEvent, setDefaultMonitor } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 import { createMockHttpServer } from '@siglo/http/testing';
 import { verifyWebhookStep } from '@siglo/crypto';
@@ -8,7 +8,7 @@ import { aiStep } from '@siglo/ai';
 import { MockAiProvider } from '@siglo/ai/testing';
 import { sendNotificationStep } from '@siglo/notifications';
 import { MockNotificationTransport } from '@siglo/notifications/testing';
-import { installNetworkInterceptors } from 'siglo';
+import { installNetworkInterceptors } from '@siglo/core';
 import { WorkflowExecutionStore } from './store';
 import { createMonitorServer } from './server';
 

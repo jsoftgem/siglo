@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import * as http from 'http';
 import * as net from 'net';
 import * as crypto from 'crypto';
-import { flow, Step, WorkflowEventEmitter, waitForEvent } from 'siglo';
+import { flow, Step, WorkflowEventEmitter, waitForEvent } from '@siglo/core';
 import {
     WorkflowExecutionStore,
     SSEBroadcaster,

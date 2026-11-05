@@ -19,7 +19,7 @@ Options use `--key=value`; interactive prompting is not implemented.
 ## Consumer dependencies
 
 Use Node.js `^22.13.0 || >=24`, TypeScript 5.7+, `tsx`, and `@types/node`.
-Install `siglo` and the package selected by the template (`@siglo/http`,
+Install `@siglo/core` and the package selected by the template (`@siglo/http`,
 `@siglo/crypto`, `@siglo/notifications`, or `@siglo/ai`) as runtime dependencies.
 Tests import each package's testing subpath; no separate mock package is needed.
 The crypto test uses Node's built-in HMAC implementation: crypto has no testing

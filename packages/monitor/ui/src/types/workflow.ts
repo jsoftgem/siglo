@@ -1,4 +1,4 @@
-import type { EcosystemInspection } from 'siglo';
+import type { EcosystemInspection } from '@siglo/core';
 export type WorkflowStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SUSPENDED' | 'SKIPPED';
 export type StepStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING' | 'SUSPENDED' | 'RETRYING' | 'PENDING';
 

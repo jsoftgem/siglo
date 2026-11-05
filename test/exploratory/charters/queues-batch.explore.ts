@@ -1,4 +1,4 @@
-import { flow } from 'siglo';
+import { flow } from '@siglo/core';
 import { step } from '../engine/step-helper';
 import { createSqsBatchHandler, SigloSqsRecord } from '@siglo/sqs';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';

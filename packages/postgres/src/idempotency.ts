@@ -1,4 +1,4 @@
-import { IdempotencyStore } from 'siglo';
+import { IdempotencyStore } from '@siglo/core';
 import { PostgresIdempotencyOptions, PostgresClientInterface } from './types';
 
 function validateIdentifier(name: string, paramName: string = 'tableName'): string {

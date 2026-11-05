@@ -46,7 +46,7 @@ npm install --save-dev @siglo/testing
 ```
 
 Peer dependencies:
-- `siglo`: `^1.0.0`
+- `@siglo/core`: `^1.0.0`
 
 ---
 
@@ -54,7 +54,7 @@ Peer dependencies:
 
 ```typescript
 import { expect } from 'chai';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { createWorkflowHarness } from '@siglo/testing';
 
 const validateUser = Step.create('validate', async (param: { email: string }) => {

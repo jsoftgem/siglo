@@ -51,7 +51,7 @@ type WorkflowNode =
 Any `Step`, `Flow`, nested array, function, or combinator can be converted to a `WorkflowNode`:
 
 ```typescript
-import { Step, flow, parallel, toGraph } from 'siglo';
+import { Step, flow, parallel, toGraph } from '@siglo/core';
 
 const workflow = flow(
   Step.create('validate'),
@@ -74,7 +74,7 @@ const graph = toGraph(workflow);
 Graph validation executes statically prior to execution, detecting structural defects, missing identifiers, empty branches, or cyclic dependencies:
 
 ```typescript
-import { validateGraph, assertValidGraph, GraphValidationException } from 'siglo';
+import { validateGraph, assertValidGraph, GraphValidationException } from '@siglo/core';
 
 const result = validateGraph(graph);
 
@@ -102,7 +102,7 @@ assertValidGraph(graph);
 For visualization, developer tools, and analytics, `inspectGraph` produces a flattened summary with nodes, directed edges, entry points, and terminal exits:
 
 ```typescript
-import { inspectGraph } from 'siglo';
+import { inspectGraph } from '@siglo/core';
 
 const inspection = inspectGraph(workflow);
 // Or: workflow.inspect();

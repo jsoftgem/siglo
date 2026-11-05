@@ -9,7 +9,7 @@ Distributed workflows frequently require undoing partial side effects when a dow
 Compensations are attached directly to steps that produce external side effects:
 
 ```typescript
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 
 // Step 1: Reserve Inventory (with compensation)
 const reserveInventory = Step.create('reserveInventory', async ({ item, quantity }) => {
@@ -76,7 +76,7 @@ step.compensate(releaseInventory, {
 If one or more compensations fail and exhaust all retries, `Siglo` throws a `CompensationException`:
 
 ```typescript
-import { CompensationException } from 'siglo';
+import { CompensationException } from '@siglo/core';
 
 try {
   await orderSaga.execute(payload);

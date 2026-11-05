@@ -103,7 +103,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 #### Example
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 
 interface UserInput {
     userId: string;
@@ -136,7 +136,7 @@ step.schema<TSchema = any>(schemaObj: TSchema): Step<TInput, TOutput, TName>;
 #### Example with Zod
 
 ```typescript
-import { Step } from 'siglo';
+import { Step } from '@siglo/core';
 import { z } from 'zod';
 
 const OrderInputSchema = z.object({
@@ -309,7 +309,7 @@ step.timeout(ms: number): Step<TInput, TOutput, TName>;
 #### Example
 
 ```typescript
-import { Step, StepTimeoutException } from 'siglo';
+import { Step, StepTimeoutException } from '@siglo/core';
 
 const callExternalVendor = Step.create('vendorApi', async (param, _curr, _idx) => {
     const res = await fetch('https://api.vendor.com/data');

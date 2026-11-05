@@ -1,4 +1,4 @@
-import { Step, flow, parallel, race, allSettled } from 'siglo';
+import { Step, flow, parallel, race, allSettled } from '@siglo/core';
 
 export interface CloudAssetInput {
     assetId: string;

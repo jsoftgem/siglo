@@ -275,7 +275,7 @@ test/exploratory/
 
 ```typescript
 // test/exploratory/engine/ast-generator.ts
-import { flow, step, parallel, race, allSettled, when, branch, map } from 'siglo';
+import { flow, step, parallel, race, allSettled, when, branch, map } from '@siglo/core';
 
 export interface FuzzedFlowConfig {
     maxDepth: number;

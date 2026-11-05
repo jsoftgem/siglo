@@ -111,7 +111,7 @@ Siglo executes steps through a formal 5-phase lifecycle: `BEFORE` &rarr; `VALIDA
 ## 4. Complete TypeScript API Signatures
 
 ```typescript
-import { Step, Flow } from 'siglo';
+import { Step, Flow } from '@siglo/core';
 import type { KeyRing } from '@siglo/crypto';
 import { StandardSchemaV1 } from '@siglo/http';
 
@@ -229,7 +229,7 @@ export function createNotificationHonoHandler(options: CallbackHandlerOptions): 
 ### Scenario: Multi-Stage Production Deployment with Slack Approval & Schedulers
 
 ```typescript
-import { flow, waitForEvent, Step } from 'siglo';
+import { flow, waitForEvent, Step } from '@siglo/core';
 import { sendInteractiveApprovalStep } from '@siglo/notifications';
 import { StaticKeyRing } from '@siglo/crypto';
 

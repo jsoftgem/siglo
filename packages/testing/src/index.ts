@@ -5,7 +5,7 @@ import {
     useStorage,
     toPOJO,
     resumeWorkflow
-} from 'siglo';
+} from '@siglo/core';
 
 export interface StepTraceRecord {
     stepName: string;

@@ -1,4 +1,4 @@
-import { Step, observeEcosystem, recordInspection } from 'siglo';
+import { Step, observeEcosystem, recordInspection } from '@siglo/core';
 import {
   HttpMethod,
   HttpStepOptions,

@@ -1,4 +1,4 @@
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { instrumentWorkflow } from '@siglo/opentelemetry';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { initTelemetry, getRecordedSpans, clearRecordedSpans, printTraceWaterfall } from '../tracer';

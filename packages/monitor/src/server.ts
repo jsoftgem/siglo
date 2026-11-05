@@ -1,5 +1,5 @@
 import * as http from 'http';
-import {sanitizeInspection, redactEvent, RedactionOptions, redactValue, resumeWorkflow, WorkflowEventEmitter} from 'siglo';
+import {sanitizeInspection, redactEvent, RedactionOptions, redactValue, resumeWorkflow, WorkflowEventEmitter} from '@siglo/core';
 import {MonitorServerAuthOptions, MonitorServerCorsOptions, MonitorServerOptions} from './types';
 import {WorkflowExecutionStore} from './store';
 import {SSEBroadcaster} from './transports/sse';

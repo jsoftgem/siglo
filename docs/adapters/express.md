@@ -23,7 +23,7 @@ flowchart TD
 Install `@siglo/express` and `Siglo`:
 
 ```bash
-npm install Siglo @siglo/express express
+npm install @siglo/core @siglo/express express
 npm install --save-dev @types/express
 ```
 
@@ -108,7 +108,7 @@ If the client terminates the connection while the fetch is pending, the HTTP req
 
 ```typescript
 import express, { Request, Response } from 'express';
-import { Step, flow } from 'siglo';
+import { Step, flow } from '@siglo/core';
 import { sigloExpressMiddleware } from '@siglo/express';
 
 const app = express();

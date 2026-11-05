@@ -1,4 +1,4 @@
-import { flow, Step } from 'siglo';
+import { flow, Step } from '@siglo/core';
 
 // Fixture with multi-byte unicode characters and emojis: 🚀 🌟 ⚡
 export const unicodeFlow = flow('🚀_international_workflow')

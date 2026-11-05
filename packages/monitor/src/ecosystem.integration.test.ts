@@ -2,7 +2,7 @@
 import { describe, it } from 'mocha';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { Step, flow, waitForEvent, defaultDurableManager, installNetworkInterceptors } from 'siglo';
+import { Step, flow, waitForEvent, defaultDurableManager, installNetworkInterceptors } from '@siglo/core';
 import { createWorkflowHarness, replayExecution } from '@siglo/testing';
 import { httpStep } from '@siglo/http';
 import { createMockHttpServer } from '@siglo/http/testing';

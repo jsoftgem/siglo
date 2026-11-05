@@ -5,7 +5,7 @@ import {
     PostgresClientInterface,
     PostgresQueryResult
 } from './index';
-import { OptimisticLockException, DuplicateEventException } from 'siglo';
+import { OptimisticLockException, DuplicateEventException } from '@siglo/core';
 
 class MockPostgresClient implements PostgresClientInterface {
     public queries: { text: string; values?: any[] }[] = [];
