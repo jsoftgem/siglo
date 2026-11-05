@@ -631,10 +631,11 @@ Analyzes workflow AST topology and returns structural metrics including node cou
 
 ```typescript
 export interface GraphInspectionResult {
-    nodeCount: number;
-    depth: number;
+    totalNodes: number;
+    entryNodeId: string;
+    exitNodeIds: string[];
+    nodes: any[];
     edges: GraphInspectionEdge[];
-    types: Record<string, number>;
 }
 
 export function inspectGraph(item: any): GraphInspectionResult;
@@ -647,16 +648,16 @@ import { inspectGraph } from '@siglo/core';
 import { authFlow } from './auth';
 
 const metrics = inspectGraph(authFlow);
-console.log(`Nodes: ${metrics.nodeCount}, Max Depth: ${metrics.depth}`);
+console.log(`Total Nodes: ${metrics.totalNodes}, Entry: ${metrics.entryNodeId}`);
 ```
 
 ---
 
-### `validateGraph(node)` and `assertValidGraph(node)`
+### `validateGraph(node)`
 
-Validates graph structure, checking for cycles and unreachable nodes.
+Validates graph structure, checking for cycles and unreachable nodes without throwing.
 
-#### Signatures
+#### Signature
 
 ```typescript
 export interface GraphValidationResult {
@@ -665,6 +666,17 @@ export interface GraphValidationResult {
 }
 
 export function validateGraph(node: WorkflowNode | Flow | Step): GraphValidationResult;
+```
+
+---
+
+### `assertValidGraph(node)`
+
+Asserts graph validity, throwing `GraphValidationException` if any cycles or structural defects are detected. Note that `flow.run()` does not automatically run graph assertions at runtime; validation is an explicit utility.
+
+#### Signature
+
+```typescript
 export function assertValidGraph(node: WorkflowNode | Flow | Step): void; // Throws GraphValidationException
 ```
 
@@ -697,10 +709,15 @@ console.log(diagram);
 
 ---
 
-### `toDot(item, options?)` and `toJSON(item)`
+### `toDot(item, options?)`
 
-- `toDot(item, options?)`: Exports Graphviz DOT representation (`options.graphName`).
-- `toJSON(item)`: Serializes the entire workflow AST into a clean JSON string.
+Exports Graphviz DOT representation (`options.graphName`).
+
+---
+
+### `toJSON(item)`
+
+Serializes the entire workflow AST into a clean JSON string.
 
 ---
 

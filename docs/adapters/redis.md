@@ -113,8 +113,8 @@ import { RedisIdempotencyStore } from '@siglo/redis';
    - Overwrites key with `COMPLETED:${JSON.stringify(result)}`.
 3. **`fail(key, error)`**:
    - Deletes the key if it is currently `'in-progress'`, freeing the lock so subsequent retries can proceed.
-4. **`getResult(key)`**:
-   - Returns the deserialized result for completed keys.
+4. **`get(key)` / `getResult(key)`**:
+   - Returns the deserialized result for completed keys (`get` is an alias delegating to `getResult`).
 
 ---
 

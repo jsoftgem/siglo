@@ -189,13 +189,14 @@ Embed the live monitoring UI and endpoints directly into your existing HTTP appl
 ```typescript
 import express from 'express';
 import { createExpressMonitorMiddleware } from '@siglo/monitor';
-import { Step } from '@siglo/core';
+import { WorkflowEventEmitter, Step } from '@siglo/core';
 
 const app = express();
-const monitor = createExpressMonitorMiddleware();
+const emitter = new WorkflowEventEmitter();
+const monitor = createExpressMonitorMiddleware({ emitter });
 
 app.use('/_siglo', monitor);
-Step.setDefaultMonitor(monitor.emitter);
+Step.setDefaultMonitor(emitter);
 
 app.listen(3000);
 ```
@@ -223,19 +224,25 @@ app.use('/_siglo/*', honoMonitorMiddleware());
 
 ## 7. Distributed Redis Pub/Sub
 
-For distributed worker clusters across multiple containers:
+For distributed worker clusters across multiple containers, separate publisher and subscriber wiring to avoid republishing received events:
 
 ```typescript
 import { RedisMonitoringAdapter } from '@siglo/monitor';
 import { defaultWorkflowEventEmitter } from '@siglo/core';
 
-const adapter = new RedisMonitoringAdapter({
+// In Worker: publishes events to Redis
+const workerAdapter = new RedisMonitoringAdapter({
     publisher: redisClient,
-    subscriber: redisSubClient,
-    emitter: defaultWorkflowEventEmitter
+    channel: 'siglo:monitor:events'
 });
+workerAdapter.attachToEmitter(defaultWorkflowEventEmitter);
 
-adapter.attachToEmitter(defaultWorkflowEventEmitter);
+// In Central Monitor Server: receives events from Redis into server's emitter
+const serverAdapter = new RedisMonitoringAdapter({
+    subscriber: redisSubClient,
+    channel: 'siglo:monitor:events',
+    emitter: monitorServer.emitter
+});
 ```
 
 ---

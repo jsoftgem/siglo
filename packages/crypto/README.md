@@ -68,7 +68,10 @@ export const sensitiveWorkflow = flow(
   }),
 
   // State in checkpoint storage (PostgreSQL/Redis) is encrypted at rest!
-  waitForEvent('USER_VERIFIED', { timeout: '24h' }),
+  waitForEvent('USER_VERIFIED', {
+    correlationKey: (ctx: UserContext) => ctx.userId,
+    timeout: '24h'
+  }),
 
   // Decrypt fields back into plaintext upon workflow resumption
   decryptFieldsStep('unprotectPii', {

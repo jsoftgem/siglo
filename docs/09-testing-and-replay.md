@@ -58,7 +58,7 @@ harness.mockStep('callStripe', async (param) => {
 
 ## 4. Fake Clock & Virtual Timers
 
-Control virtual time for delays, timeouts, and expirations without `setTimeout` delays in tests:
+Control virtual timestamps for harness trace records without `setTimeout` delays in tests. Note that `FakeClock` advances its own timestamp counter and `tick()` flushes pending microtasks via `setImmediate`; it does not mock Node's global `Date.now` or `setTimeout`.
 
 ```typescript
 import { FakeClock, createWorkflowHarness } from '@siglo/testing';
@@ -66,7 +66,7 @@ import { FakeClock, createWorkflowHarness } from '@siglo/testing';
 const clock = new FakeClock(1000);
 const harness = createWorkflowHarness(workflow, { clock });
 
-// Advance virtual clock
+// Advance virtual clock timestamp
 clock.advanceTime(5000);
 
 // Advance virtual clock and flush microtask loop
@@ -187,4 +187,4 @@ describe('Full Harness Suite', () => {
 ## API Reference Links
 
 - [TypeScript Reference](./10-typescript-reference.md)
-- [CLI Reference](./01-getting-started.md#cli-scaffolding)
+- [CLI Reference](./adapters/cli.md)

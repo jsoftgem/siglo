@@ -30,6 +30,13 @@ Peer dependency matrix:
 - `Siglo`: `*` (v1.0.0+)
 - `hono`: `^3.0.0 || ^4.0.0`
 
+> [!IMPORTANT]
+> **Edge Runtime Compatibility (`nodejs_compat`)**:
+> `@siglo/core` relies on `node:async_hooks` (for context propagation and `networkPolicy` AsyncLocalStorage perimeter tracking) and `node:net` (for socket egress checks). When deploying to edge environments like Cloudflare Workers, ensure Node.js compatibility is enabled in `wrangler.toml`:
+> ```toml
+> compatibility_flags = [ "nodejs_compat" ]
+> ```
+
 ---
 
 ## 3. API Reference

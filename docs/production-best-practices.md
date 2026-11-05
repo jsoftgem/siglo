@@ -19,7 +19,7 @@
 │  - Siglo Runtime (Deterministic Concurrency)           │     │  - Siglo Runtime (Deterministic Concurrency)           │
 │  - Zero-Trust Network Perimeter (DNS IP Pinning)       │     │  - Zero-Trust Network Perimeter (DNS IP Pinning)       │
 │  - Named Compensation Registry                         │     │  - Named Compensation Registry                         │
-│  - PostgresWaitPoller (FOR UPDATE SKIP LOCKED)         │     │  - PostgresWaitPoller (FOR UPDATE SKIP LOCKED)         │
+│  - PostgresWaitPoller (Advisory Selection & Locks)     │     │  - PostgresWaitPoller (Advisory Selection & Locks)     │
 └───────────────────────────┬────────────────────────────┘     └───────────────────────────┬────────────────────────────┘
                             │                                                              │
                             └─────────────────────────────┬────────────────────────────────┘
@@ -40,7 +40,7 @@
 ### A. PostgreSQL Schema Setup
 When running multi-pod Kubernetes or ECS workloads, you must enable **Optimistic Concurrency Control (OCC)** to prevent Last-Write-Wins (LWW) state clobbering across concurrent worker nodes.
 
-Run the following DDL migration:
+Run the following DDL migration (or use `adapter.ensureTables()`):
 
 ```sql
 -- Checkpoints with Optimistic Concurrency Control
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS siglo_wait_records (
     data JSONB,
     locked_by VARCHAR(255),
     locked_at TIMESTAMPTZ,
+    resume_payload JSONB,
     resumed_by VARCHAR(255),
     resumed_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ,
@@ -178,7 +179,7 @@ Instead of rejecting duplicates immediately with 409 Conflict, enable **Wait-and
 import { Step } from '@siglo/core';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 
-const idempotencyStore = new PostgresIdempotencyStore(dbPool);
+const idempotencyStore = new PostgresIdempotencyStore({ client: dbPool });
 
 export const chargeCardStep = Step.create('chargeCard', async (ctx: any) => {
     return await paymentGateway.charge({ amount: ctx.amount, customerId: ctx.customerId });
@@ -201,30 +202,26 @@ When handling errors in idempotent steps, differentiate between **permanent busi
 ## 4. Zero-Trust Network Perimeter & SSRF Hardening
 
 ### A. Pre-Flight DNS Resolution & IP Pinning
-Siglo defaults to zero-trust network boundaries when using `.networkPolicy()` or `.allowNetwork()`.
+Siglo enforces declarative network egress boundaries when using `.networkPolicy()` on flows or `.allowNetwork()` on steps.
 
 ```typescript
 import { flow, Step } from '@siglo/core';
 
-export const secureWebhookFlow = flow(
-    Step.create('callPartnerWebhook', async (ctx: any) => {
-        const res = await fetch(ctx.webhookUrl, { method: 'POST', body: JSON.stringify(ctx.payload) });
-        return await res.json();
-    })
-)
-.allowNetwork(['api.partner.com', 'hooks.slack.com'])
+const partnerStep = Step.create('callPartnerWebhook', async (ctx: any) => {
+    const res = await fetch(ctx.webhookUrl, { method: 'POST', body: JSON.stringify(ctx.payload) });
+    return await res.json();
+}).allowNetwork(['api.partner.com', 'hooks.slack.com']);
+
+export const secureWebhookFlow = flow(partnerStep)
 .networkPolicy({
-    // Reject internal networks even if DNS resolves to private IP (SSRF & Rebinding defense)
-    blockPrivateIps: true,
-    // Strictly forbid container socket access
-    allowUnixSockets: false,
-    // Re-evaluate policies across 301/302 redirects
-    maxRedirects: 3
+    defaultPolicy: 'deny',
+    allowedHosts: ['api.partner.com', 'hooks.slack.com'],
+    allowLocalhost: false
 });
 ```
 
 ### B. Unix Domain Socket Hardening
-Siglo strictly disables Unix domain socket connections (`/var/run/docker.sock`, `/var/run/containerd.sock`) by default. If your workflow requires access to a local daemon socket, explicitly whitelist the path:
+By default when network policy is active, Unix domain sockets are disallowed unless explicitly listed in `allowUnixSockets`:
 
 ```typescript
 flowInstance.networkPolicy({
@@ -240,14 +237,14 @@ flowInstance.networkPolicy({
 Never rely on in-memory closures for long-running workflows across service deployments. Register named compensation handlers:
 
 ```typescript
-import { Step, registerNamedCompensation, defaultCompensationDLQ } from '@siglo/core';
+import { Step, registerCompensationHandler } from '@siglo/core';
 
 // 1. Register named compensations once at application startup
-registerNamedCompensation('billing:refundCharge', async (ctx: any) => {
+registerCompensationHandler('billing:refundCharge', async (output, input, ctx) => {
     await stripe.refunds.create({ charge: ctx.chargeId });
 });
 
-registerNamedCompensation('inventory:releaseHold', async (ctx: any) => {
+registerCompensationHandler('inventory:releaseHold', async (output, input, ctx) => {
     await inventoryService.release(ctx.reservationId);
 });
 
@@ -260,32 +257,26 @@ export const reserveInventoryStep = Step.create('reserveInventory', async (ctx: 
 ```
 
 ### B. Best-Effort Compensations & Persistent DLQ Sink
-Attach an external sink (SQS, Kafka, CloudWatch) to `defaultCompensationDLQ` to capture compensation failures without halting rollback:
+Provide a `deadLetterQueue` sink with a `send` method through `CompensationRunOptions` to capture compensation failures:
 
 ```typescript
-import { defaultCompensationDLQ } from '@siglo/core';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 const sqs = new SQSClient({ region: 'us-east-1' });
 
-defaultCompensationDLQ.onEntry(async (entry) => {
-    await sqs.send(new SendMessageCommand({
-        QueueUrl: process.env.COMPENSATION_DLQ_URL,
-        MessageBody: JSON.stringify({
-            stackId: entry.stackId,
-            stepName: entry.stepName,
-            error: entry.error.message,
-            timestamp: entry.timestamp,
-            state: entry.state
-        })
-    }));
-});
-```
+const deadLetterQueue = {
+    send: async (entry: any) => {
+        await sqs.send(new SendMessageCommand({
+            QueueUrl: process.env.COMPENSATION_DLQ_URL,
+            MessageBody: JSON.stringify(entry)
+        }));
+    }
+};
 
-Run workflows in best-effort mode:
-```typescript
-await orderFlow.run(orderInput, {
-    bestEffortCompensation: true
+// Execute best-effort saga rollback with DLQ sink:
+await orderFlow.compensate('stack-id-to-rollback', {
+    mode: 'best-effort',
+    deadLetterQueue
 });
 ```
 
@@ -313,15 +304,18 @@ orderFlow.resumeSchema = z.object({
     approved: z.boolean(),
     approverId: z.string().uuid(),
     comments: z.string().max(500).optional()
-}).strict(); // .strict() drops unknown keys and prevents prototype pollution
+}).strict(); // .strict() rejects unknown keys with validation errors
 
 const monitorServer = await createMonitorServer({
     port: 4000,
+    workflows: {
+        orderFlow
+    },
     // Disable remote resumptions in production (read-only monitoring)
     allowRemoteResume: process.env.NODE_ENV !== 'production',
     auth: {
-        readToken: process.env.MONITOR_READ_TOKEN,
-        controlKey: process.env.MONITOR_CONTROL_KEY
+        apiKey: process.env.MONITOR_API_KEY,
+        adminKey: process.env.MONITOR_ADMIN_KEY
     },
     security: {
         // Redact PII and secrets in SSE, WebSockets, and GET endpoints
@@ -344,7 +338,7 @@ const monitorServer = await createMonitorServer({
 |---|---|---|
 | **PostgreSQL Pool `max`** | `(workerConcurrency * 2) + 10` | Accommodates step execution, OCC checkpoints, and wait claims without connection starvation. |
 | **Node.js Memory Flag** | `--max-old-space-size=2048` | Prevents V8 heap exhaustion when buffering large payloads or batch pipelines. |
-| **Scheduler `lockTimeoutMs`** | `60000` (60s) | Protects against duplicate resumption while allowing sufficient headroom for external API calls. |
+| **Scheduler `pollIntervalMs`** | `1000` (1s) | Balances timely pickup of due timers with database polling query overhead. |
 | **Idempotency `settleTimeoutMs`** | `3000` (3s) | Matches typical p95 API latency to cleanly resolve concurrent webhook duplicate races. |
 | **Batch `map` Concurrency** | `{ concurrency: 10 }` | Prevents runaway event loop lag and downstream HTTP socket exhaustion. |
 

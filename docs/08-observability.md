@@ -55,10 +55,12 @@ import { instrumentWorkflow } from '@siglo/opentelemetry';
 import { myWorkflow } from './workflows';
 
 // Wraps workflow to emit root workflow spans and child step spans
+// Note: context fields in spans are allowlisted via allowContextFields
 const tracedWorkflow = instrumentWorkflow(myWorkflow, {
-    tracerName: 'orders-service',
+    serviceName: 'orders-service',
     allowNamespace: true,
-    redactContextKeys: ['password', 'cardNumber']
+    allowContextFields: ['orderId', 'userId'],
+    redactHook: (key, value) => (key === 'cardNumber' ? '***' : value)
 });
 
 const result = await tracedWorkflow.run({ orderId: '123' });

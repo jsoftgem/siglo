@@ -146,18 +146,22 @@ console.log(res.doubled); // 42
 
 ---
 
-## Failure Example: Compile-Time Type Mismatches
+## Compile-Time Checking & Inference Boundaries
 
-If a step requires a property not provided by previous steps, TypeScript flags it during compilation:
+When steps declare explicit input generic types (`Step.create<MyInput, ...>`), TypeScript verifies whether upstream outputs provide the required properties:
 
 ```typescript
 const stepA = Step.create('stepA', () => ({ x: 10 }));
 
-// stepB requires 'y: string' which does not exist in context!
-const stepB = Step.create('stepB', (param: { y: string }) => ({ z: param.y.toUpperCase() }));
-
-// TypeScript compile error if types are strictly parameterized!
+// stepB requires 'y: string' which does not exist in upstream output
+const stepB = Step.create<{ y: string }, { z: string }, 'stepB'>('stepB', (param) => ({
+    z: param.y.toUpperCase()
+}));
 ```
+
+> [!NOTE]
+> **Inference Limits with Combinators & Long Pipelines**:
+> Type inference works seamlessly across sequential chains. However, across dynamic combinators (`branch`, `when`, `map`) or deep pipelines (5+ steps), TypeScript's conditional type evaluation may widen accumulated intersection types or infer optional properties. For ironclad parameter validation across complex combinators and untrusted ingress boundaries, pair TypeScript definitions with runtime schema assertions (`step.schema()` or `step.spec()`).
 
 ---
 

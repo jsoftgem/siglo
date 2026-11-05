@@ -208,7 +208,7 @@ Node.js itself is located by probing IDE-configured interpreters, `$PATH`, and s
 ### "Node.js (>= 18.0.0) is not found" Notification
 - Ensure Node.js 18+ is installed on your system.
 - If using NVM, ensure default alias is set (`nvm alias default <version>`) or launch IntelliJ from a shell with Node in `PATH`.
-- Alternatively, configure `SIGLO_ANALYZER_BIN` pointing directly to `node /path/to/bin.js`.
+- Alternatively, configure `SIGLO_ANALYZER_BIN` pointing directly to the analyzer file path (e.g. `/path/to/dist/bin.js`, not `node /path/to/bin.js`).
 
 ### JCEF Disabled / Showing AST Tree Fallback
 - Certain JetBrains runtimes (e.g. customized headless or remote development agents) disable JCEF. The plugin automatically switches to a native Swing `JBTree` view, allowing full node exploration and click-to-navigation without crashing.

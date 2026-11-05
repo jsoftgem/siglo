@@ -6,7 +6,9 @@
 
 ## 1. Overview & Architecture
 
-In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@siglo/kafka` adapter handles incoming messages, ensures exactly-once semantics via an `IdempotencyStore`, and executes the workflow within configured timeout bounds:
+In an event-driven architecture, Kafka delivers partitioned event streams to consumer groups. The `@siglo/kafka` adapter handles incoming messages with at-least-once processing semantics, coordinates deduplication via an `IdempotencyStore`, and executes the workflow within configured timeout bounds.
+
+> **Note on Guarantees**: Claims and cached results do not make external side-effects atomic with record completion. When a Kafka message is delivered, the whole workflow executes from the beginning; it does not automatically resume at the last successful step. A crash after an external effect (e.g. payment charge) succeeds but before claim completion leaves an in-progress claim until expiry, which may repeat the external effect upon message redelivery. Workflows must design external effects to be idempotent or supply provider-level deduplication keys.
 
 ```mermaid
 flowchart TD
@@ -41,24 +43,21 @@ flowchart TD
     S10 --> Commit["Commit Kafka Offset"]
 ```
 
-### Why In-Process Execution is Vastly Superior for 90%+ of Workloads
+### In-Process Execution Architectural Trade-offs
 
-| Dimension | In-Process Orchestration (`Siglo`) | Distributed Step Orchestration (Temporal / Step Functions) |
+| Dimension | In-Process Orchestration (`Siglo`) | Distributed Step Orchestration |
 | :--- | :--- | :--- |
-| **Step-to-Step Latency** | **Microseconds** ($\approx 1\text{–}5\ \mu\text{s}$) &mdash; Direct async promise resolution. | **Milliseconds** ($\approx 15\text{–}100\ \text{ms}$) &mdash; Every step requires network RPC, queue write, and DB commit. |
-| **End-to-End Latency (10 Steps)** | $\approx \mathbf{5\text{–}20\ \text{ms}}$ (pure business logic time) | $\approx \mathbf{200\text{–}1000\ \text{ms}}$ (dominated by orchestration network latency) |
-| **Throughput per Node** | **10,000+ msgs/sec** (bounded only by CPU and I/O) | Typically 500–2,000 ops/sec (queue/database bottlenecks) |
-| **Payload Limitations** | **None** &mdash; Pass TypeScript domain models, Buffers, Maps, or Streams in memory. | **Strict Limits** &mdash; Payloads must serialize to JSON (e.g., SQS 256 KB, Temporal 2 MB limits). |
-| **Infrastructure Overhead** | **Zero** &mdash; Runs directly inside your application container. | **Heavy** &mdash; Requires external clusters (History, Matching, Frontend engines, Cassandra/Postgres). |
-| **Debugging & Local Testing** | **Trivial** &mdash; Set standard debugger breakpoints stepping from Step 1 to Step 2. | **Difficult** &mdash; Requires cross-machine distributed trace correlation and event replay. |
-| **Saga Rollback Latency** | **Immediate** &mdash; Atomic reverse rollback in local memory if Step 8 fails. | **Delayed** &mdash; Rollback messages queue behind other cluster tasks. |
+| **Step-to-Step Invocation** | Direct in-memory async promise chaining. | Every step requires network RPC, queue write, and external coordination. |
+| **Execution Boundary** | Runs full workflow in-process on consumer node. | Dispatches individual steps across cluster workers. |
+| **Payload Handling** | Pass rich domain models, Buffers, Maps, or Streams directly in memory. | Payloads must be serialized to JSON across each step boundary. |
+| **Infrastructure Overhead** | Runs directly inside your application container with no extra engine servers. | Requires external orchestrator clusters and database infrastructure. |
+| **Debugging & Local Testing** | Standard debugger breakpoints stepping directly between steps. | Requires cross-machine distributed trace correlation and event replay. |
+| **Saga Compensation** | Immediate in-process reverse rollback if downstream step fails. | Rollback messages queue behind other cluster tasks. |
 
-#### 1. The "10 Network Hops" Tax
-In systems that distribute every individual step to different servers:
-$$\text{Total Overhead} = 10 \times (\text{JSON Serialization} + \text{Queue Network Write} + \text{Broker Scheduling} + \text{Queue Network Read} + \text{Deserialization})$$
-In such systems, **95% of total workflow duration is spent waiting for network hops and queue contention**, and only 5% executing real code. In `Siglo`, Step 1 immediately yields to Step 2 in memory with zero serialization penalty.
+#### 1. In-Process vs. Multi-Hop Step Orchestration
+In systems that distribute every individual step to different servers across a network, each step boundary incurs serialization, broker scheduling, and network transfer overhead. In `Siglo`, Step 1 yields to Step 2 directly in memory with zero network latency.
 
-#### 2. How High-Throughput Scaling Actually Works
+#### 2. Horizontally Scaling via Partitions
 Work is scaled horizontally by **Kafka Partitions (Message-Level Distribution)**, not by splitting individual steps across machines:
 
 ```mermaid
@@ -202,7 +201,7 @@ export interface SigloKafkaMessage {
 | `input` | `(message: SigloKafkaMessage) => Promise<TInput> \| TInput` | JSON parser on `message.value` | Custom transformer converting Kafka record into workflow input. |
 | `output` | `(result: any, message: SigloKafkaMessage) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor formatting the workflow output. |
 | `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to prevent duplicate processing. |
-| `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for idempotency claim lock. |
+| `idempotencyTtlMs` | `number` | `undefined` | Time-to-live for idempotency claim lock. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
 | `timeout` | `number` | `undefined` | SLA execution timeout in milliseconds. |
 | `namespace` | `string \| ((message: SigloKafkaMessage) => string \| undefined)` | `message.headers['x-namespace']` | Namespace identifier for tenant partitioning. |
 

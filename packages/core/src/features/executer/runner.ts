@@ -265,7 +265,11 @@ export class Runner {
                         if (!isSubStack) {
                             this.deleteStack(stackId);
                         }
-                        const stored = await idempotencyStore.get(idempotencyKeyScoped);
+                        const stored = typeof idempotencyStore.get === 'function'
+                            ? await idempotencyStore.get(idempotencyKeyScoped)
+                            : typeof (idempotencyStore as any).getResult === 'function'
+                                ? await (idempotencyStore as any).getResult(idempotencyKeyScoped)
+                                : undefined;
                         const rawStored = toPOJO(stored);
                         /* c8 ignore next 3 */
                         if (!rawStored || typeof rawStored !== 'object' || Array.isArray(rawStored)) {

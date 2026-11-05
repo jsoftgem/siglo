@@ -283,23 +283,30 @@ When scaling workflows across multiple worker processes or Kubernetes pods, aggr
 
 ```typescript
 import { RedisMonitoringAdapter, createMonitorServer } from '@siglo/monitor';
+import { WorkflowEventEmitter } from '@siglo/core';
+import Redis from 'ioredis';
 
-const redisAdapter = new RedisMonitoringAdapter({
-    redisUrl: 'redis://localhost:6379',
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+
+// 1. In Worker Process: Publish events to Redis
+const publisher = new Redis(redisUrl);
+const workerAdapter = new RedisMonitoringAdapter({
+    publisher,
     channel: 'siglo:monitor:events'
 });
 
-// 1. In Worker Process: Publish events to Redis
 emitter.on('*', (event) => {
-    redisAdapter.publish(event);
+    workerAdapter.publish(event);
 });
 
-// 2. In Central Monitor Server: Subscribe and broadcast to web dashboard
+// 2. In Central Monitor Server: Ingest events via subscriber and deliver to server emitter
+const subscriber = new Redis(redisUrl);
 const monitor = await createMonitorServer({ port: 4000 });
 
-redisAdapter.subscribe((event) => {
-    monitor.store.addEvent(event);
-    monitor.sse.broadcast(event);
+const serverAdapter = new RedisMonitoringAdapter({
+    subscriber,
+    channel: 'siglo:monitor:events',
+    emitter: monitor.emitter // Automatically routes incoming Redis events to monitor store & SSE
 });
 ```
 

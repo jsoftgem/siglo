@@ -61,6 +61,10 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
                     processedCount++;
                     continue;
                 }
+                if (status === 'in-progress') {
+                    batchItemFailures.push({ itemIdentifier: record.messageId });
+                    continue;
+                }
             }
 
             try {

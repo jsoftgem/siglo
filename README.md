@@ -76,7 +76,7 @@ Explore the 11 comprehensive guides covering architecture, design patterns, test
 - 🧪 **Deterministic Test Harness (`@siglo/testing`)** &mdash; Zero-flake test harness with virtual clocks (`FakeClock`), step spies, mocking, trace snapshots, and failure replay.
 - 💉 **Runtime Dependency Injection** &mdash; Inject services and repositories explicitly via `options.services` or step-level `step.withDependencies()`.
 - 🔀 **Parallel Execution Combinators** &mdash; Run branches concurrently with `parallel`, `all`, `allSettled`, and `race`, equipped with branch context isolation and configurable merge strategies.
-- 🌿 **Conditional Branching & Routing** &mdash; Dynamic decision routing via `when(predicate, thenStep).otherwise(elseStep)` and multi-branch selectors via `branch({...})`.
+- 🌿 **Conditional Branching & Routing** &mdash; Dynamic decision routing via `when(predicate, thenStep, elseStep)` and multi-branch selectors via `branch(selectorFn, branchesMap, defaultBranch)`.
 - 🔄 **Dynamic Mapping & Bounded Concurrency** &mdash; Process arrays with `map(items, step, { concurrency })`, order preservation, and error aggregation.
 - 🔑 **Scoped Idempotency & Deduplication** &mdash; Protect workflows and individual steps (`step.idempotent()`) with deterministic hash keys and TTL stores.
 - ⏪ **Sagas & LIFO Compensations** &mdash; Attach rollback handlers (`step.compensate(handler)`) that run automatically in reverse execution order upon failure.
@@ -390,7 +390,7 @@ const orderFlow = flow(calculateDiscounts, chargeCustomer)
     .networkPolicy({
         defaultPolicy: 'deny',
         allowedHosts: ['api.stripe.com'],
-        allowLocalhost: true // Default: true (localhost, 127.0.0.1, ::1, 0.0.0.0, Unix sockets)
+        allowLocalhost: false // Default: false when policy is active (localhost, 127.0.0.1, ::1, 0.0.0.0, Unix sockets)
     });
 
 // 4. Per-run policy override:
@@ -457,12 +457,12 @@ const keyRing = new StaticKeyRing({
 
 // 2. Distributed replay defense store (or InMemoryNonceStore)
 const redis = new Redis(process.env.REDIS_URL!);
-const dedupStore = new RedisNonceStore(redis);
+const dedupStore = new RedisNonceStore({ client: redis });
 
 // 3. Compose secure webhook ingestion & storage pipeline
 export const secureOrderPipeline = flow(
   // Step 1: Verify Stripe/GitHub/Shopify signature & block intra-window replays
-  verifyWebhookStep({
+  verifyWebhookStep('verifyWebhook', {
     provider: 'stripe',
     secret: process.env.STRIPE_WEBHOOK_SECRET!,
     toleranceSeconds: 300,
@@ -471,7 +471,7 @@ export const secureOrderPipeline = flow(
   }),
 
   // Step 2: Encrypt sensitive PII using AES-256-GCM + tenant AAD + HKDF
-  encryptFieldsStep({
+  encryptFieldsStep('encryptFields', {
     keyRing,
     fields: ['body.customer.ssn', 'body.payment.creditCard'],
     aad: (ctx) => `tenant:${ctx.body.tenantId}`,
@@ -481,7 +481,7 @@ export const secureOrderPipeline = flow(
   }),
 
   // Step 3: Deep copy-on-write structural redaction for audit logging
-  maskFieldsStep({
+  maskFieldsStep('maskFields', {
     fields: ['body.customer.ssn', 'body.payment.*'],
     strategy: 'redact',
   })
@@ -520,7 +520,7 @@ export const secureOrderPipeline = flow(
 | `allSettled(steps, options?)` | Runs branches concurrently and collects all outcomes without failing fast (`$settled`, `$branches`). |
 | `race(steps, options?)` | Settles as soon as the first branch completes; cancels losing branches via `AbortSignal`. |
 | `when(predicate, thenStep, elseStep?)` | Conditional branch combinator running `thenStep` when predicate returns true, or optional `elseStep`. |
-| `branch({ selector, branches, defaultBranch? })` | Dynamic multi-path router selecting a branch based on selector function or context key. |
+| `branch(selector, branches, defaultBranch?)` | Dynamic multi-path router selecting a branch based on selector function. |
 | `map(items, step, options?)` | Maps a collection through a step or subflow with bounded concurrency and optional error aggregation. |
 | `waitForEvent(eventName, options)` | Suspends workflow execution until an external event arrives or timeout expires. |
 | `wait(duration)` | Pauses workflow execution for a duration string (`'10m'`, `'1h'`, `'2d'`) or milliseconds. |
@@ -562,7 +562,7 @@ export const secureOrderPipeline = flow(
 | `Step.create<TIn, TOut, TName>(name?, action)` | Instantiates a new typed `Step` execution unit with input/output contracts. |
 | `Step.setDefaultMonitor(monitor)` | Sets global default event emitter for all workflow runs in the process. |
 | `Step.getDefaultMonitor()` | Returns the active default workflow event emitter. |
-| `step.allowNetwork(hosts, allowLocalhost?)` | Configures allowed outbound network hosts/patterns for this step. |
+| `step.allowNetwork(hosts)` | Configures allowed outbound network hosts/patterns for this step. |
 | `step.denyNetwork()` | Shorthand for strictly disallowing all external network egress. |
 | `step.networkPolicy(policy)` | Configures full step-level network egress policy. |
 | `step.withDependencies(deps)` | Attaches explicit runtime dependencies/services to the step. |
@@ -574,7 +574,7 @@ export const secureOrderPipeline = flow(
 | `step.cache(ms \| options)` | Caches step results with namespace-aware partition keys and configurable TTL. |
 | `step.spec(field, options)` | Declares parameter validation, default values, transforms, and translations. |
 | `step.schema(schema)` | Validates context against Standard Schema (`~standard`), Zod, Valibot, or ArkType contracts. |
-| `step.strict()` | Enforces strict parameter contract validation; rejects extra undeclared keys. |
+| `step.strict()` | Filters input context to declared spec fields rather than throwing validation error on extra fields. |
 | `step.onBefore(hook)` | Pre-execution guard hook; returning `false` skips step execution. |
 | `step.onSkip(hook)` | Fallback hook executed when `onBefore` skips the step. |
 | `step.onAfter(hook)` | Post-execution hook enriching or transforming the output context. |
@@ -597,11 +597,11 @@ export const secureOrderPipeline = flow(
 | `durable` | `boolean` | Enables durable execution state tracking and checkpoint persistence upon wait/suspend. |
 | `workflowVersion` | `string \| number` | Declared workflow version for schema migration verification upon checkpoint resumption. |
 | `workflowId` | `string` | Custom workflow identifier attached to telemetry, logs, and checkpoints. |
-| `namespace` | `string` | Multi-tenant partition namespace isolating checkpoints, caches, and idempotency keys. |
+| `namespace` | `string` | Logical partition namespace scoping checkpoints, caches, and idempotency keys (requires application authorization). |
 | `idempotencyKey` | `string \| ((ctx) => string)` | Workflow-level idempotency deduplication key or generator function. |
 | `idempotencyStore` | `IdempotencyStore` | Custom idempotency store adapter (e.g. `PostgresIdempotencyStore`, `RedisIdempotencyStore`). |
-| `idempotencyTtlMs` | `number` | Retention TTL for idempotency records in milliseconds (default: 24h). |
-| `migrations` | `Record<string, (state) => any>` | State transformation functions keyed by target version for upgrading suspended checkpoints. |
+| `idempotencyTtlMs` | `number` | Retention TTL for idempotency records in milliseconds (Redis/Postgres default: 24h; InMemory has no default expiration unless ttlMs is specified). |
+| `migrations` | `Record<string, (fromVersion, toVersion, state) => any>` | State transformation functions keyed by version transitions (e.g. `'v1->v2'`) for upgrading suspended checkpoints. |
 
 ### 💾 [Storage & Persistence Utilities](docs/api/storage-and-persistence.md)
 
@@ -655,7 +655,7 @@ export const secureOrderPipeline = flow(
 | `harness.assertStepFailed(name, errorPattern?)` | Asserts that a step failed, optionally matching against an error string or regex. |
 | `harness.exportExecutionRecord(options?)` | Exports a sanitized execution record fixture with sensitive credentials redacted. |
 | `replayExecution(record, flow, options?)` | Replays a recorded test fixture against a workflow to verify output parity and detect regressions. |
-| `FakeClock` | Deterministic virtual clock providing `.advanceTime(ms)`, `.tick(ms)`, and `.now()`. |
+| `FakeClock` | Deterministic virtual clock providing `.advanceTime(ms)`, `.tick(ms)`, and `.now()` to advance its internal timestamp counter without replacing global timers. |
 | `InMemoryStorageFake` | In-memory storage adapter tracking context changes and checkpoints for zero-dependency testing. |
 
 ---

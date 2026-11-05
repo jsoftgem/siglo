@@ -13,7 +13,7 @@ This runbook covers operational best practices, capacity planning, distributed c
 - Node.js API servers (Express, Fastify, Hono, NestJS)
 - Background queue workers (BullMQ, AWS SQS)
 - Stream consumers (Apache Kafka, RabbitMQ)
-- Serverless / Edge functions (AWS Lambda, Google Cloud Run, Cloudflare Workers)
+- Serverless / Edge functions (AWS Lambda, Google Cloud Run, Cloudflare Workers with Node.js compatibility enabled)
 
 ### When to Run In-Process vs Dedicated Workers
 - **Synchronous Low-Latency APIs (< 5s)**: Execute workflows directly inside your HTTP route handlers using `@siglo/fastify` or `@siglo/express`.
@@ -40,7 +40,7 @@ To prevent duplicate processing when workers run concurrently across multiple Ku
 import { Step, flow } from '@siglo/core';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 
-const pgStore = new PostgresIdempotencyStore(pgPool);
+const pgStore = new PostgresIdempotencyStore({ client: pgPool });
 
 export const idempotentBillingStep = Step.create('billCustomer', async (param: { invoiceId: string }) => {
     return await stripe.invoices.pay(param.invoiceId);
@@ -48,8 +48,7 @@ export const idempotentBillingStep = Step.create('billCustomer', async (param: {
 .idempotent((ctx) => ctx.invoiceId, {
     store: pgStore,
     ttlMs: 86400000 // 24 hours
-})
-;
+});
 ```
 
 ---

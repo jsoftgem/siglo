@@ -84,7 +84,7 @@ const approvalWorkflow = flow(
 
 ### `branch(selector, branchesMap, defaultBranch?)`
 
-Multi-way branching based on a selector function or context key:
+Multi-way branching based on a selector function:
 
 ```typescript
 import { branch, Step } from '@siglo/core';

@@ -69,4 +69,8 @@ export class RedisIdempotencyStore implements IdempotencyStore {
         }
         return undefined;
     }
+
+    async get(key: string): Promise<unknown | undefined> {
+        return this.getResult(key);
+    }
 }

@@ -381,23 +381,30 @@ For distributed clusters where workflows execute across multiple serverless func
 
 ```typescript
 import { RedisMonitoringAdapter, createMonitorServer } from '@siglo/monitor';
+import { WorkflowEventEmitter } from '@siglo/core';
+import Redis from 'ioredis';
 
-const redisAdapter = new RedisMonitoringAdapter({
-    redisUrl: 'redis://localhost:6379',
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+
+// 1. In Worker Process: Publish events to Redis
+const publisher = new Redis(redisUrl);
+const workerAdapter = new RedisMonitoringAdapter({
+    publisher,
     channel: 'siglo:monitor:events'
 });
 
-// In Worker Process: Publish events to Redis
 emitter.on('*', (event) => {
-    redisAdapter.publish(event);
+    workerAdapter.publish(event);
 });
 
-// In Central Monitor Server: Subscribe and broadcast to web dashboard
+// 2. In Central Monitor Server: Subscribe to Redis and deliver into server's emitter
+const subscriber = new Redis(redisUrl);
 const monitor = await createMonitorServer({ port: 4000 });
 
-redisAdapter.subscribe((event) => {
-    monitor.store.addEvent(event);
-    monitor.sse.broadcast(event);
+const serverAdapter = new RedisMonitoringAdapter({
+    subscriber,
+    channel: 'siglo:monitor:events',
+    emitter: monitor.emitter // Automatically routes incoming Redis events to monitor store & SSE
 });
 ```
 

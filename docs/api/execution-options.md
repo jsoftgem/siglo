@@ -29,10 +29,10 @@ The `ExecutionOptions` object configures runtime execution behavior across `flow
 
 ```typescript
 export interface ExecutionOptions {
-    /** Strip internal proxy wrappers and return clean plain JavaScript objects (default: true). */
+    /** Strip internal proxy wrappers and return clean plain JavaScript objects (default: true). Output path always normalizes via toPOJO. */
     pojo?: boolean;
 
-    /** Execution return mode: 'pojo' (recommended) or 'wrapped' (legacy context). */
+    /** Compatibility option for return format: 'pojo' (default) or 'wrapped'. */
     mode?: 'pojo' | 'wrapped';
 
     /** Cooperative cancellation signal aborting in-flight async steps and retry delays. */
@@ -49,13 +49,16 @@ export interface ExecutionOptions {
     /** Enables durable checkpoint persistence upon wait/suspend. */
     durable?: boolean;
 
+    /** Explicit checkpoint capture flag. */
+    checkpoint?: boolean;
+
     /** Workflow schema version for migration verification upon resumption. */
     workflowVersion?: string | number;
 
-    /** State migration functions keyed by target version for upgrading suspended checkpoints. */
-    migrations?: Record<string, (state: any) => any>;
+    /** State migration map (e.g. { 'v1->v2': (from, to, state) => newState }) or single migration function. */
+    migrations?: Record<string, (fromVersion: any, toVersion: any, state: any) => any> | ((fromVersion: any, toVersion: any, state: any) => any);
 
-    /** Multi-tenant partition namespace isolating checkpoints, caches, and idempotency keys. */
+    /** Multi-tenant partition namespace scoping checkpoints, caches, and idempotency keys. */
     namespace?: string;
 
     /** Workflow-level idempotency deduplication key or generator function. */
@@ -64,14 +67,33 @@ export interface ExecutionOptions {
     /** Custom idempotency store adapter. */
     idempotencyStore?: IdempotencyStore;
 
-    /** Retention TTL for idempotency records in milliseconds (default: 86400000 / 24h). */
+    /** Retention TTL for idempotency records in milliseconds (Postgres/Redis default: 24h; InMemory: no expiry unless set). */
     idempotencyTtlMs?: number;
+
+    /** Settle polling timeout and interval for concurrent in-progress idempotency claims. */
+    settleTimeoutMs?: number;
+    pollIntervalMs?: number;
+
+    /** Custom predicate for classifying permanent non-retryable business errors. */
+    isPermanentError?: (err: any) => boolean;
 
     /** Custom workflow identifier attached to telemetry, logs, and checkpoints. */
     workflowId?: string;
 
     /** Explicit caller-supplied execution stack ID. */
     stackId?: string;
+
+    /** Internal flag indicating resumption execution. */
+    isResume?: boolean;
+
+    /** Dynamic network egress policy config for this run. */
+    networkPolicy?: NetworkPolicyConfig;
+
+    /** Live monitoring event emitter or callback. */
+    monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
+
+    /** Optional pre-compiled workflow AST. */
+    ast?: WorkflowNode;
 }
 ```
 
@@ -81,10 +103,10 @@ export interface ExecutionOptions {
 
 ### `pojo` and `mode`
 
-Controls whether the workflow output returns clean, plain JavaScript objects (POJOs) or legacy tracked context wrappers.
+Controls output normalization for the workflow result:
 
-- `pojo: true` *(default in v1.0)*: Automatically strips internal proxy wrappers, getters, and execution internals, returning clean JSON-serializable objects.
-- `mode: 'pojo' | 'wrapped'`: Explicitly configures POJO output mode (`'pojo'`) or legacy wrapped mode (`'wrapped'`).
+- `pojo: true` *(default in v1.0)*: Automatically strips internal proxy wrappers and execution internals, returning clean plain objects. The runtime output path always applies `toPOJO` normalization.
+- `mode: 'pojo' | 'wrapped'`: Compatibility configuration. Note that reserved context history accessors remain getter functions, and native types like `BigInt` are not automatically JSON-serializable.
 
 ```typescript
 const result = await myFlow.run(input, { pojo: true });
@@ -97,8 +119,8 @@ console.log(result); // Clean plain object
 
 An `AbortSignal` instance used for cooperative cancellation.
 
-- **Propagation**: Passed to every step action via `param.$signal`.
-- **In-Flight Cancellation**: When aborted, pending retry backoff delays and parallel sibling branches are aborted immediately.
+- **Propagation**: Passed to every step action via `param.signal` (native `AbortSignal`) and `param.$signal()` (callable compatibility accessor).
+- **In-Flight Cancellation**: When aborted, pending retry backoff delays and parallel sibling branches are aborted. Note that asynchronous work inside step actions must cooperate with `param.signal` (e.g. passing it to `fetch({ signal })`).
 - **Exception**: Throws `CancellationException` with the abort reason.
 
 ```typescript
@@ -159,39 +181,43 @@ await myFlow.run({ amount: 50 }, {
 ### `durable`
 
 When set to `true`, enables durable workflow state management:
-- When a workflow encounters `waitForEvent()` or `wait()`, Siglo suspends the workflow, serializes the current context into a checkpoint, persists it to the configured `StorageAdapter`, and throws a `WorkflowSuspendedException`.
+- When a workflow encounters `waitForEvent()` or `wait()`, Siglo suspends the workflow, serializes the current execution context into a checkpoint, persists it to the configured `StorageAdapter`, and resolves with an execution descriptor containing `{ status: 'waiting', stackId, waitKey }`.
 - Allows workflows to pause for hours, days, or months and resume safely upon external event delivery via `resumeWorkflow()`.
 
 ```typescript
-await myFlow.run({ orderId: 'ord_123' }, { durable: true });
+const result = await myFlow.run({ orderId: 'ord_123' }, { durable: true });
+if (result.status === 'waiting') {
+    console.log(`Workflow suspended with stackId: ${result.stackId}`);
+}
 ```
 
 ---
 
 ### `workflowVersion`
 
-Declares the schema version of the workflow definition (e.g. `'v1'`, `'v2.0'`).
+Declares the schema version of the workflow definition (e.g. `'v1'`, `'v2'`).
 
 - Used during durable workflow resumption to detect code changes between when the checkpoint was created and when it was resumed.
-- If the checkpoint's version differs from `workflowVersion` and no matching migration is provided in `migrations`, `WorkflowVersionMismatchException` is thrown.
+- When resuming via `resumeWorkflow(targetFlow, key, payload, options)`, the target version is selected from `options.targetVersion`, falling back to `targetFlow.workflowVersion`, then the checkpoint's recorded version.
+- If the checkpoint's version differs from the target version and no matching migration is provided in `migrations`, `WorkflowVersionMismatchException` is thrown.
 
 ---
 
 ### `migrations`
 
-A map of transformation functions keyed by target version to migrate suspended checkpoint state when workflow definitions evolve.
+A migration map or migration function for upgrading suspended checkpoint state when workflow definitions evolve. Transition keys use `'fromVersion->toVersion'` format and receive `(fromVersion, toVersion, state) => newState`:
 
 ```typescript
 const migrations = {
     // Migrates checkpoint created under v1 to v2 schema
-    'v2': (oldState: any) => ({
+    'v1->v2': (fromVersion: string, toVersion: string, oldState: any) => ({
         ...oldState,
         customerFullName: `${oldState.firstName} ${oldState.lastName}`
     })
 };
 
-await resumeWorkflow(orderWorkflow, correlationKey, eventPayload, {
-    workflowVersion: 'v2',
+await resumeWorkflow(orderWorkflowV2, correlationKey, eventPayload, {
+    targetVersion: 'v2',
     migrations
 });
 ```
@@ -200,10 +226,11 @@ await resumeWorkflow(orderWorkflow, correlationKey, eventPayload, {
 
 ### `namespace`
 
-A string partition key used for multi-tenant isolation.
+A string partition key used for multi-tenant metadata scoping and storage key partitioning.
 
-- Enforces strict isolation of checkpoints, cached step outputs, and idempotency locks.
-- Restoring a checkpoint into a different namespace throws `NamespaceMismatchException`.
+- Partitions checkpoint keys, cached step outputs, and wait records to prevent key collisions across tenants.
+- `restoreCheckpoint` checks an explicitly supplied expected namespace when both values exist.
+- **Security Note**: Namespace scoping is logical key partitioning, not an enforced authenticated tenant boundary. Application-level tenant authentication and explicit validation are still required.
 
 ```typescript
 await tenantFlow.run(tenantPayload, {
@@ -229,17 +256,30 @@ await orderFlow.run(payload, {
 
 ---
 
-### `idempotencyStore` and `idempotencyTtlMs`
+### `idempotencyStore`
 
-- `idempotencyStore`: Custom adapter implementing the `IdempotencyStore` interface (e.g. `PostgresIdempotencyStore`, `RedisIdempotencyStore`, or `InMemoryIdempotencyStore`).
-- `idempotencyTtlMs`: Retention window for idempotency records in milliseconds (default: `86400000` / 24 hours).
+Custom adapter implementing the `IdempotencyStore` interface (e.g. `PostgresIdempotencyStore`, `RedisIdempotencyStore`, or `InMemoryIdempotencyStore`).
 
 ---
 
-### `workflowId` and `stackId`
+### `idempotencyTtlMs`
 
-- `workflowId`: Human-readable workflow identifier attached to telemetry, logs, and checkpoints.
-- `stackId`: Explicit caller-provided execution stack ID. If omitted, Siglo automatically generates a unique UUID.
+Retention window for idempotency records in milliseconds:
+- **Redis / PostgreSQL stores**: Default to `86400000` (24 hours).
+- **In-Memory store**: No expiration by default (`expiresAt` remains undefined unless `ttlMs` is explicitly supplied; TTL starts at claim time).
+- **Queue adapters** (Kafka, BullMQ, SQS): Pass `undefined` through to the store when `idempotencyTtlMs` is omitted.
+
+---
+
+### `workflowId`
+
+Human-readable workflow identifier attached to telemetry, logs, and checkpoints.
+
+---
+
+### `stackId`
+
+Explicit caller-provided execution stack ID. If omitted, Siglo automatically generates a unique UUID.
 
 ---
 

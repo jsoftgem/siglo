@@ -86,7 +86,7 @@ const updatedWorkflow = flow(...newSteps).version('2.0.0');
 await resumeWorkflow(updatedWorkflow, correlationKey, eventPayload, {
     targetVersion: '2.0.0',
     migrations: {
-        '1.0.0': (oldState: any) => ({
+        '1.0.0->2.0.0': (fromVersion: string, toVersion: string, oldState: any) => ({
             ...oldState,
             schemaVersion: 2,
             userEmail: oldState.email // Field rename migration

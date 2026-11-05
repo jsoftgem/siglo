@@ -74,10 +74,10 @@ try {
 }
 ```
 
-Steps can access the active abort signal via `param.$signal`:
+Steps can access the active abort signal via `param.signal` (native `AbortSignal`) or `param.$signal()` (callable compatibility accessor):
 ```typescript
 const downloadFile = Step.create('download', async (param: any) => {
-    const signal = param.$signal;
+    const signal = param.signal;
     return await fetch('https://example.com/file', { signal });
 });
 ```

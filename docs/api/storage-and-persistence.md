@@ -32,36 +32,31 @@ Custom persistence adapters (such as `@siglo/postgres` and `@siglo/redis`) imple
 
 ```typescript
 export interface StorageAdapter {
-    /** Unique adapter identifier (e.g. 'postgres', 'redis', 'in-memory'). */
     readonly name: string;
 
-    /** Hook called whenever step context changes during execution. */
-    onContextChange?: (event: ContextChangeEvent) => Promise<void> | void;
+    // 1. Context & Event Streaming
+    onContextChange?(entry: ContextChangeEvent): Promise<void> | void;
 
-    /** Persists a full serialized execution checkpoint snapshot. */
-    saveCheckpoint?: (checkpoint: SerializedExecutionStack) => Promise<void>;
+    // 2. Checkpointing & Durability
+    saveCheckpoint?(checkpoint: SerializedExecutionStack): Promise<void>;
+    getCheckpoint?(stackId: string): Promise<SerializedExecutionStack | undefined>;
+    cleanExpiredCheckpoints?(): Promise<number> | number | void;
 
-    /** Retrieves a persisted execution checkpoint by stack ID. */
-    getCheckpoint?: (stackId: string) => Promise<SerializedExecutionStack | undefined>;
+    // 3. Durable Wait Persistence
+    saveWaitRecord?(record: any): Promise<void> | void;
+    getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
+    claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
+    completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
+    withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
+    cancelWaitRecord?(correlationKey: string): Promise<void>;
+    cancelWorkflow?(stackId: string): Promise<void>;
 
-    /** Deletes an execution checkpoint upon completion or cleanup. */
-    deleteCheckpoint?: (stackId: string) => Promise<void>;
+    // 4. Distributed Caching
+    getCachedStep?(key: string): Promise<any | undefined>;
+    setCachedStep?(key: string, value: any, ttlMs: number): Promise<void>;
 
-    /** Lists checkpoints matching optional status or namespace filters. */
-    listCheckpoints?: (filter?: {
-        namespace?: string;
-        status?: string;
-        limit?: number;
-    }) => Promise<SerializedExecutionStack[]>;
-
-    /** Retrieves cached step output by partition key. */
-    getCachedStep?: (key: string) => Promise<any>;
-
-    /** Stores cached step output with TTL. */
-    setCachedStep?: (key: string, val: any, ttlMs?: number) => Promise<void>;
-
-    /** Prunes expired checkpoints from persistent storage. */
-    cleanExpiredCheckpoints?: () => Promise<number> | number;
+    // 5. Cache & Telemetry Events
+    onCacheEvent?(event: CacheEvent): Promise<void> | void;
 }
 ```
 
@@ -84,10 +79,11 @@ export function useStorage(adapter: StorageAdapter): void;
 ```typescript
 import { useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
+import { Pool } from 'pg';
 
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const postgresAdapter = new PostgresStorageAdapter({
-    connectionString: process.env.DATABASE_URL,
-    schema: 'siglo_workflows'
+    client: pool
 });
 
 useStorage(postgresAdapter);
@@ -107,24 +103,23 @@ export function getStorageAdapter(): StorageAdapter | undefined;
 
 ---
 
-### `setErrorMode(mode)` and `getErrorMode()`
+### `setErrorMode(mode)`
 
 Configures how Siglo responds when storage adapter operations fail (e.g. database disconnect during checkpoint save).
 
-#### Signatures
+#### Signature
 
 ```typescript
 export type StorageErrorMode = 'best-effort' | 'warn' | 'strict';
 
 export function setErrorMode(mode: StorageErrorMode): void;
-export function getErrorMode(): StorageErrorMode;
 ```
 
 #### Modes
 
 1. `'best-effort'` *(default)*: Catches storage errors silently; execution continues without interrupting the running workflow.
 2. `'warn'`: Logs warnings to `console.warn` when a storage operation fails, but allows workflow execution to continue.
-3. `'strict'`: Immediately throws `StorageAdapterException`, aborting the workflow to prevent running without verified persistence.
+3. `'strict'`: Rejects unhandled storage promises and throws `StorageAdapterException` when `StorageManager.saveCheckpoint` is awaited. Note that inline `checkpoint()` calls capture snapshots synchronously and attach background rejection handlers; distinguish synchronous snapshot capture from awaited checkpoint persistence before assuming fail-closed execution.
 
 #### Example
 
@@ -135,6 +130,18 @@ import { setErrorMode } from '@siglo/core';
 if (process.env.NODE_ENV === 'production') {
     setErrorMode('strict');
 }
+```
+
+---
+
+### `getErrorMode()`
+
+Returns the active `StorageErrorMode`.
+
+#### Signature
+
+```typescript
+export function getErrorMode(): StorageErrorMode;
 ```
 
 ---
@@ -312,11 +319,12 @@ Siglo uses optimistic concurrency control to prevent multiple distributed worker
 
 ---
 
-## Namespace Isolation
+## Namespace Scoping & Partitioning
 
-All storage APIs enforce partition isolation:
-- Steps running under `options.namespace = 'tenant_a'` cannot read or modify checkpoints or cached keys belonging to `'tenant_b'`.
-- Attempting to restore a checkpoint with a conflicting expected namespace immediately throws `NamespaceMismatchException`.
+`namespace` provides key partitioning and scoping metadata across storage adapters:
+- Scopes cache keys, checkpoints, and wait records to prevent key collisions across tenants.
+- `restoreCheckpoint` checks the supplied expected namespace against the stored checkpoint namespace when both are explicitly provided.
+- **Important**: Namespace scoping is logical key partitioning, not an enforced authenticated tenant boundary. Application-level authorization and explicit validation are required to prevent unauthorized resumption or cross-tenant access.
 
 ---
 

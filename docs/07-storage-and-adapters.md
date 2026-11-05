@@ -18,11 +18,20 @@ export interface StorageAdapter {
     getCheckpoint?(stackId: string): Promise<SerializedExecutionStack | undefined>;
     cleanExpiredCheckpoints?(): Promise<number> | number | void;
 
-    // 3. Distributed Caching
+    // 3. Durable Wait Persistence & Workflow Locking
+    saveWaitRecord?(record: any): Promise<void> | void;
+    getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
+    claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
+    completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
+    withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
+    cancelWaitRecord?(correlationKey: string): Promise<void>;
+    cancelWorkflow?(stackId: string): Promise<void>;
+
+    // 4. Distributed Caching
     getCachedStep?(key: string): Promise<any | undefined>;
     setCachedStep?(key: string, value: any, ttlMs: number): Promise<void>;
 
-    // 4. Cache & Telemetry Events
+    // 5. Cache & Telemetry Events
     onCacheEvent?(event: CacheEvent): Promise<void> | void;
 }
 ```
@@ -33,7 +42,7 @@ Register an adapter globally using `useStorage(adapter)`:
 import { useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 
-const adapter = new PostgresStorageAdapter(pgPool);
+const adapter = new PostgresStorageAdapter({ client: pgPool });
 useStorage(adapter);
 ```
 
@@ -49,7 +58,7 @@ import { Pool } from 'pg';
 import { PostgresStorageAdapter, PostgresIdempotencyStore } from '@siglo/postgres';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const storage = new PostgresStorageAdapter(pool);
+const storage = new PostgresStorageAdapter({ client: pool });
 await storage.ensureTables();
 useStorage(storage);
 ```
@@ -62,14 +71,14 @@ import { Redis } from 'ioredis';
 import { RedisStorageAdapter, RedisLock } from '@siglo/redis';
 
 const redis = new Redis(process.env.REDIS_URL);
-const storage = new RedisStorageAdapter(redis, { ttlMs: 86400000 });
+const storage = new RedisStorageAdapter({ client: redis, ttlMs: 86400000 });
 useStorage(storage);
 ```
 
 ### Event & Transport Adapters
 - `@siglo/express`: HTTP route handler adapter.
 - `@siglo/fastify`: High-performance Fastify route handler adapter.
-- `@siglo/hono`: Edge-ready Web Standards (Cloudflare Workers, Deno, Node) adapter.
+- `@siglo/hono`: Web Standards (`Request`/`Response`) adapter (requires Node runtime APIs such as `node:async_hooks` and `node:net` or polyfilled Node compatibility mode).
 - `@siglo/kafka`: High-throughput Kafka consumer partition batch processor.
 - `@siglo/bullmq`: Resilient Redis background queue job runner.
 - `@siglo/sqs`: AWS SQS batch consumer with partial failure reporting.
@@ -89,7 +98,7 @@ await workflow.run(input, {
 });
 ```
 
-Adapters partition data by namespace, preventing cross-tenant leakage.
+Adapters partition keys by namespace to prevent key collisions across tenants. Note that namespace scoping is logical key partitioning; application authorization and explicit validation are still required to ensure secure multi-tenant isolation.
 
 ---
 
@@ -116,16 +125,16 @@ await wf.run();
 
 ## Failure Example: Handling Storage Adapter Outages
 
-Configure `setErrorMode()` to define behavior when storage adapters encounter network errors:
+Configure `setErrorMode()` (`'best-effort' | 'warn' | 'strict'`) to define behavior when storage adapters encounter errors:
 
 ```typescript
-import { setErrorMode, StorageErrorMode } from '@siglo/core';
+import { setErrorMode } from '@siglo/core';
 
-// In mission-critical environments: FAIL_CLOSED aborts workflow if audit storage fails
-setErrorMode(StorageErrorMode.FAIL_CLOSED);
+// In mission-critical environments: 'strict' rejects unhandled storage failures on awaited persistence
+setErrorMode('strict');
 
-// In resilient latency-sensitive pipelines: FAIL_OPEN logs warnings and continues
-setErrorMode(StorageErrorMode.FAIL_OPEN);
+// In resilient latency-sensitive pipelines: 'warn' logs warnings and continues
+setErrorMode('warn');
 ```
 
 ---

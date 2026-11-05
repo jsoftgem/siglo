@@ -184,9 +184,9 @@ const sanitizeInput = Step.create('sanitizeInput', async (param: any) => {
 .spec('email', {
     require: true,
     requireMessage: 'Customer email is mandatory.',
-    validate: (v: string) => v.includes('@'),
-    transform: (v: string) => v.trim().toLowerCase(),
-    translate: 'userEmail' // Renames param.email -> param.userEmail
+    validate: async (v: string) => v.includes('@'),
+    transform: async (v: string) => v.trim().toLowerCase(),
+    translate: async (param: any, value: string) => { param.userEmail = value; }
 })
 .spec('newsletterOptIn', {
     default: false
@@ -197,7 +197,7 @@ const sanitizeInput = Step.create('sanitizeInput', async (param: any) => {
 
 ### `step.strict()`
 
-Enforces strict validation on incoming parameters, rejecting contexts that contain undeclared properties.
+Enforces strict parameter filtering on incoming parameters, selecting only declared spec fields and filtering out undeclared properties before the action executes.
 
 #### Signature
 
@@ -208,12 +208,15 @@ step.strict(): Step<TInput, TOutput, TName>;
 #### Example
 
 ```typescript
-const strictStep = Step.create('createAccount', async (param: { username: string }) => ({ id: '1' }))
-    .spec('username', { require: true })
-    .strict();
+const strictStep = Step.create('createAccount', async (param: any) => {
+    // Only declared spec fields ('username') are present in param; extra keys are filtered
+    return { created: param.username, hasExtra: 'extraField' in param };
+})
+.spec('username', { require: true })
+.strict();
 
-// Throws ValidationException: Extra undeclared keys detected
-await strictStep.run({ username: 'alice', extraField: 'not allowed' } as any);
+const result = await strictStep.run({ username: 'alice', extraField: 'filtered out' } as any);
+console.log(result.hasExtra); // false
 ```
 
 ---
@@ -330,12 +333,11 @@ Configures structured retry policies or custom error fallback handlers when the 
 export interface RetryConfig {
     maxRetries?: number;
     delay?: number;
-    backoff?: 'fixed' | 'linear' | 'exponential';
-    jitter?: boolean;
+    backoff?: 'fixed' | 'linear' | 'exponential' | ((attempt: number) => number);
+    jitter?: boolean | ((delay: number) => number);
     maxDelay?: number;
-    retryable?: (err: any) => boolean;
-    onRetry?: (error: any, attempt: number) => void;
-    fallback?: (error: any, param: any) => any;
+    retryIf?: (err: any, attempt: number) => boolean;
+    onRetry?: (error: any, attempt: number, delayMs?: number) => void;
 }
 
 export type OnFailCallback = (
@@ -359,9 +361,25 @@ const resilientFetch = Step.create('fetchData', async () => {
     backoff: 'exponential',
     jitter: true,
     maxDelay: 5000,
-    retryable: (err) => err.status >= 500, // Only retry 5xx server errors
-    onRetry: (err, attempt) => console.warn(`Retry attempt ${attempt} due to ${err.message}`),
-    fallback: (err) => ({ fallbackData: true }) // Graceful fallback on complete failure
+    retryIf: (err) => err.status >= 500, // Only retry 5xx server errors
+    onRetry: (err, attempt) => console.warn(`Retry attempt ${attempt} due to ${err.message}`)
+});
+```
+
+#### Example with OnFail Fallback
+
+To provide a graceful fallback return value when errors occur, use the callback form:
+
+```typescript
+const resilientFetchWithFallback = Step.create('fetchData', async () => {
+    return await externalService.call();
+})
+.onFail((err, retry, reject) => {
+    if (err.status >= 500) {
+        retry({ fallbackData: true }); // Resolves step with fallback data
+    } else {
+        reject(err);
+    }
 });
 ```
 
@@ -377,8 +395,7 @@ Registers a saga compensation rollback handler. If downstream steps in the workf
 export interface CompensationOptions {
     maxRetries?: number;
     delay?: number;
-    backoff?: 'fixed' | 'linear' | 'exponential';
-    timeout?: number;
+    retryIf?: (err: any, attempt: number) => boolean;
 }
 
 step.compensate(
@@ -419,7 +436,12 @@ step.idempotent(
 
 #### Semantics
 
-1. **Claiming**: Before execution, attempts to claim the key in the configured `IdempotencyStore`.\n2. **Conflict**: If already in-progress, throws `IdempotencyConflictException`.\n3. **Cache Hit**: If previously completed and within TTL, returns cached output without re-executing.\n4. **Completion**: Upon successful execution, records output and marks status `COMPLETED`.\n\n#### Example
+1. **Claiming**: Before execution, attempts to claim the key in the configured `IdempotencyStore`.
+2. **Conflict**: If already in-progress, throws `IdempotencyConflictException`.
+3. **Cache Hit**: If previously completed and within TTL, returns cached output without re-executing.
+4. **Completion**: Upon successful execution, records output and marks status `COMPLETED`.
+
+#### Example
 
 ```typescript
 const chargeCard = Step.create('chargeCard', async (ctx: { idempotencyToken: string; amount: number }) => {
@@ -439,8 +461,10 @@ Caches step output in memory or persistent storage (`StorageAdapter`) based on i
 ```typescript
 export interface CacheOptions {
     ttl?: number;
-    key?: string | ((param: any) => string);
-    namespace?: string;
+    staleWhileRevalidate?: number;
+    swr?: boolean | number;
+    keySerializer?: (stepId: string, param: any, namespace?: string) => string;
+    stampedeProtection?: boolean;
 }
 
 step.cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, TName>;
@@ -535,20 +559,19 @@ The network policy boundary wraps the **entire step execution lifecycle** via `A
 - **Global Plugins (`executeBefore`, `executeAfter`)**: Engine-level plugins execute **outside** this boundary to ensure system observability, tracing, and metric reporting (e.g., OpenTelemetry, Datadog) remain unaffected.
 - **Compensations (`step.compensate`)**: Sagas rollback in an independent scope with their own execution perimeter.
 
-### `step.allowNetwork(hosts, allowLocalhost?)`
+### `step.allowNetwork(hosts)`
 
 Declares an allowlist of target hosts, wildcard subdomains, ports, or regular expressions permitted for network calls during this step.
 
 #### Signatures
 
 ```typescript
-step.allowNetwork(hosts: (string | RegExp)[], allowLocalhost?: boolean): this;
+step.allowNetwork(hosts: (string | RegExp)[] | string | RegExp): this;
 ```
 
 #### Parameters
 
-- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\\.internal$/`).
-- `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Whether loopback addresses and Unix sockets are permitted.
+- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\\.internal$/`). (To configure localhost or Unix sockets, configure `step.networkPolicy({ allowLocalhost: true, allowUnixSockets: [...] })`).
 
 #### Example
 

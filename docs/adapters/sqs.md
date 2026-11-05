@@ -8,7 +8,9 @@
 
 When AWS Lambda is triggered by an SQS queue, it passes a batch of records (`SQSEvent`). If one message in the batch fails, returning an uncaught exception causes the entire batch to be retried by AWS, resulting in duplicate processing of previously successful messages.
 
-`@siglo/sqs` solves this using AWS SQS Partial Batch Responses:
+Furthermore, when concurrent Lambda invocations receive duplicate messages while execution is already underway, `@siglo/sqs` queries the `IdempotencyStore`. If an in-progress claim is detected, the adapter marks the message as a batch item failure. This causes SQS to retry the message after the visibility timeout expires rather than executing duplicate concurrent workflows.
+
+`@siglo/sqs` handles this using AWS SQS Partial Batch Responses:
 
 ```mermaid
 flowchart TD
@@ -16,10 +18,12 @@ flowchart TD
     Lambda --> Handler["createSqsBatchHandler<br/>• Iterates event.Records<br/>• Checks IdempotencyStore<br/>• Parses JSON Record Body<br/>• Executes Siglo"]
     Handler --> Split{Record Result}
     Split -->|Success Message| SSuccess["• Complete Idemp Key<br/>• Increment Count"]
+    Split -->|In-Progress Claim| SInProg["• Yield to SQS Retry<br/>• Append to batchItemFailures"]
     Split -->|Failed Message| SFail["• Fail Idemp Key<br/>• Append to batchItemFailures"]
     SSuccess --> BatchRes["Return Batch Result<br/>{ batchItemFailures: [...] }"]
+    SInProg --> BatchRes
     SFail --> BatchRes
-    BatchRes --> Final["SQS deletes succeeded records<br/>SQS retries only failed items"]
+    BatchRes --> Final["SQS deletes succeeded records<br/>SQS retries failed and in-progress items"]
 ```
 
 ---
@@ -82,7 +86,7 @@ export interface SqsBatchResponse {
 | `input` | `(record: SigloSqsRecord) => Promise<TInput> \| TInput` | `JSON.parse(record.body)` | Custom mapper transforming an SQS record into workflow parameters. |
 | `output` | `(result: any, record: SigloSqsRecord) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor for step result. |
 | `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store to deduplicate across re-deliveries. |
-| `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for idempotency lock. |
+| `idempotencyTtlMs` | `number` | `undefined` | Time-to-live for idempotency lock in milliseconds. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
 | `timeout` | `number` | `undefined` | SLA execution timeout per record in milliseconds. |
 | `namespace` | `string \| ((record: SigloSqsRecord) => string \| undefined)` | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation. |
 

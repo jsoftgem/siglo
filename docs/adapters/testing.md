@@ -20,12 +20,12 @@ flowchart TD
     subgraph Harness["@siglo/testing Harness"]
         WH["createWorkflowHarness(flow, options)"]
         Clock["FakeClock<br/>• advanceTime()<br/>• tick()"]
-        Spy["StepSpy<br/>• spyOnStep()<br/>• mockStep()"]
+        Spy["StepSpy<br/>• spyStep()<br/>• mockStep()"]
         FakeStore["InMemoryStorageFake<br/>• saveCheckpoint()<br/>• getCheckpoint()"]
     end
 
     subgraph Assertions["Test Assertions"]
-        A1["assertStepCompleted(name)"]
+        A1["assertStepExecuted(name)"]
         A2["assertStepFailed(name)"]
         A3["assertStepRetried(name, count)"]
     end
@@ -73,7 +73,7 @@ describe('User Onboarding Workflow', () => {
         const harness = createWorkflowHarness(onboardingFlow);
 
         // Spy on individual steps
-        const emailSpy = harness.spyOnStep('sendEmail');
+        const emailSpy = harness.spyStep('sendEmail');
 
         const result = await harness.run({ email: 'alice@example.com' });
 
@@ -82,8 +82,8 @@ describe('User Onboarding Workflow', () => {
         expect(emailSpy.callCount).to.equal(1);
 
         // Assertion helpers
-        harness.assertStepCompleted('validate');
-        harness.assertStepCompleted('sendEmail');
+        harness.assertStepExecuted('validate');
+        harness.assertStepExecuted('sendEmail');
     });
 });
 ```
@@ -117,18 +117,18 @@ it('mocks payment step and verifies compensation rollback', async () => {
 
 ## 5. Virtual Clocks (`FakeClock`)
 
-Fast-forward through time without waiting for real wall-clock delays:
+Control virtual timestamps for harness trace records without waiting for real wall-clock delays. Note that `FakeClock` only advances its own timestamp counter and `tick()` flushes microtasks via `setImmediate`; it does not override Node's global `Date.now` or `setTimeout`:
 
 ```typescript
 import { FakeClock } from '@siglo/testing';
 
 const clock = new FakeClock();
 
-// Advance time by 1 hour
+// Advance virtual timestamp by 1 hour
 clock.advanceTime(60 * 60 * 1000);
 
-// Tick next microtask
-await clock.tick();
+// Advance virtual clock and flush microtask loop
+await clock.tick(1000);
 ```
 
 ---
@@ -141,7 +141,7 @@ Record workflow executions in production, sanitize PII, and replay them in CI/CD
 import { 
     createWorkflowHarness, 
     sanitizeExecutionRecord, 
-    replayWorkflowRecord 
+    replayExecution 
 } from '@siglo/testing';
 
 it('replays a recorded execution and validates deterministic parity', async () => {
@@ -149,13 +149,13 @@ it('replays a recorded execution and validates deterministic parity', async () =
     const result = await harness.run({ orderId: '1001', amount: 150 });
 
     // 1. Export execution trace record
-    const record = harness.getExecutionRecord();
+    const record = harness.exportExecutionRecord();
 
     // 2. Sanitize sensitive keys
-    const sanitized = sanitizeExecutionRecord(record, ['creditCard', 'cvv']);
+    const sanitized = sanitizeExecutionRecord(record, { excludeKeys: ['creditCard', 'cvv'] });
 
     // 3. Replay against workflow definition
-    const replay = await replayWorkflowRecord(orderPipeline, sanitized);
+    const replay = await replayExecution(sanitized, orderPipeline);
 
     expect(replay.matched).to.be.true;
     expect(replay.discrepancies).to.have.length(0);
@@ -169,11 +169,14 @@ it('replays a recorded execution and validates deterministic parity', async () =
 ### `WorkflowHarness`
 - `run(input?, options?): Promise<any>`
 - `mockStep(stepName: string, implementation: Function): this`
-- `spyOnStep(stepName: string): StepSpy`
-- `assertStepCompleted(stepName: string): void`
+- `spyStep(stepName: string): StepSpy`
+- `assertStepExecuted(stepName: string, expectedCount?: number): void`
 - `assertStepFailed(stepName: string, expectedError?: string | RegExp): void`
 - `assertStepRetried(stepName: string, expectedAttempts: number): void`
-- `getExecutionRecord(): ExecutionRecord`
+- `exportExecutionRecord(options?: { excludeKeys?: string[] }): ExecutionRecord`
+- `injectEvent(eventName: string, correlationKey: string, payload?: any): Promise<any>`
+
+> **Note on Harness Scope**: `WorkflowHarness.run()` instruments top-level workflow steps. It does not recursively replace nested branches or mapping children, and `injectEvent()` resumes the workflow definition directly.
 
 ### `InMemoryStorageFake`
 - `saveCheckpoint(cp): Promise<void>`
@@ -185,3 +188,4 @@ it('replays a recorded execution and validates deterministic parity', async () =
 - `advanceTime(ms: number): number`
 - `tick(ms?: number): Promise<void>`
 - `reset(toTime?: number): void`
+

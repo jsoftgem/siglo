@@ -162,7 +162,7 @@ export class CancellationException extends SigloError {
 
 ### `ValidationException`
 
-Thrown when incoming parameters fail `step.schema()` or `step.spec()` contracts, or when undeclared fields are passed in `step.strict()` mode.
+Thrown when incoming parameters fail `step.schema()` or `step.spec()` validation contracts. (Note: `step.strict()` filters out undeclared fields rather than throwing `ValidationException`).
 
 ```typescript
 export interface ValidationErrorDetail {

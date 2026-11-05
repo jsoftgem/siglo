@@ -71,7 +71,7 @@ const graph = toGraph(workflow);
 
 ## 3. Graph Validation (`validateGraph`, `assertValidGraph`)
 
-Graph validation executes statically prior to execution, detecting structural defects, missing identifiers, empty branches, or cyclic dependencies:
+Graph validation detects structural defects, missing identifiers, empty branches, or cyclic dependencies prior to execution. Note that `flow.run()` does not validate graphs automatically at runtime; validation is an explicit static check:
 
 ```typescript
 import { validateGraph, assertValidGraph, GraphValidationException } from '@siglo/core';

@@ -25,7 +25,7 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 | **`@siglo/hono`** | HTTP Ingress | [Hono Adapter Guide](adapters/hono.md) | Web Standards (`Request`/`Response`), Cloudflare Workers, Deno, Bun, Node.js |
 | **`@siglo/fastify`** | HTTP Ingress | [Fastify Adapter Guide](adapters/fastify.md) | Low-overhead Node.js HTTP route handler, raw abort signals, schema support |
 | **`@siglo/express`** | HTTP Ingress | [Express Adapter Guide](adapters/express.md) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
-| **`@siglo/scheduler`** | Background Schedulers & Timers | [Scheduler Adapter Guide](adapters/scheduler.md) | PostgreSQL row-level poller (`FOR UPDATE SKIP LOCKED`), memory poller, and cloud webhook dispatchers (AWS EventBridge, GCP Cloud Tasks) |
+| **`@siglo/scheduler`** | Background Schedulers & Timers | [Scheduler Adapter Guide](adapters/scheduler.md) | PostgreSQL advisory poller with session locks, memory poller, and cloud webhook dispatchers (AWS EventBridge, GCP Cloud Tasks) |
 | **`@siglo/testing`** | Testing & Deterministic Replay | [Testing Adapter Guide](adapters/testing.md) | Virtual clocks (`FakeClock`), step spies, step mocks, harness assertions, and failure replay |
 | **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`), AST visualizer (`visualize`), live monitor dev server (`monitor`), cycle validator (`validate`), fixture replay |
 

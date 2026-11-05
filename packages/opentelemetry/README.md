@@ -156,8 +156,7 @@ const chargePayment = Step.create('chargePayment', async (param: any) => {
     }
     return { paymentStatus: 'CHARGED', cardLast4: '4242' };
 })
-    .retry({ maxRetries: 2, delayMs: 100 })
-    ;
+    .onFail({ maxRetries: 2, delay: 100 });
 
 const orderWorkflow = flow(validateOrder, chargePayment);
 

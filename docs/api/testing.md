@@ -224,7 +224,7 @@ harness.assertStepFailed('unauthorizedStep', /access denied/i);
 
 ## Virtual Clock (`FakeClock`)
 
-`FakeClock` controls execution time deterministically, eliminating `setTimeout` sleeps and test flakiness.
+`FakeClock` controls timestamps recorded in harness execution traces deterministically. Note that `FakeClock` only advances its own timestamp counter and `tick()` waits for `setImmediate`; it does not mock Node's global `Date.now`, `setTimeout`, or runtime sleep loops:
 
 ```typescript
 export class FakeClock {
@@ -321,6 +321,31 @@ expect(result.matched).to.be.true;
 
 ---
 
+### `sanitizeExecutionRecord(record, options?)`
+
+Sanitizes an `ExecutionRecord` by recursively redacting sensitive keys (e.g. passwords, API keys, tokens, credit card numbers) from `input`, `output`, and `trace` steps.
+
+#### Signature
+
+```typescript
+export function sanitizeExecutionRecord(
+    record: ExecutionRecord,
+    options?: { excludeKeys?: string[] }
+): ExecutionRecord;
+```
+
+#### Example
+
+```typescript
+import { sanitizeExecutionRecord } from '@siglo/testing';
+
+const cleanRecord = sanitizeExecutionRecord(rawRecord, {
+    excludeKeys: ['internalSecret', 'customToken']
+});
+```
+
+---
+
 ## Full Test Suite Example
 
 ```typescript
@@ -368,4 +393,4 @@ describe('Checkout Workflow Test Suite', () => {
 
 - [09. Testing and Replay](../09-testing-and-replay.md)
 - [02. Core Concepts](../02-core-concepts.md)
-- [CLI Developer Tooling](../ecosystem-adapters.md#cli-developer-tooling-siglocli)
+- [CLI Developer Tooling](../adapters/cli.md)

@@ -8,13 +8,13 @@ In workflow orchestration systems, governing external network egress and side-ef
 
 ## 1. Core Principles & Guarantees
 
-1. **Default Deny Stance**: Flows default to denying external outbound network access unless explicitly authorized by step-level or flow-level allowlists.
+1. **Policy Activation & Default Deny**: Unconfigured workflows have no egress enforcement (unrestricted). When a network policy is declared on a flow or step, enforcement activates and defaults to denying external outbound network access unless explicitly authorized by step-level or flow-level allowlists.
 2. **Flow Supersedes Step (Outer Envelope Narrowing)**: The Flow defines the outer security perimeter. A Step can only **narrow** permissions within what the Flow permits; it cannot unilaterally expand or bypass the Flow allowlist.
 3. **Multi-Layer Egress Interception**: Outbound requests are governed across three distinct runtime layers:
    - Native `globalThis.fetch` (Fetch API, Undici)
    - `node:http` and `node:https` (`request` and `get`, Axios, Got, legacy clients)
    - `node:net.Socket.prototype.connect` (Raw TCP/TLS connections)
-4. **Default Localhost & Loopback Exemption**: Loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are permitted by default, preserving local database pools, test mock servers, and container-local sidecars.
+4. **Localhost & Loopback Configuration**: When network policy is active, `allowLocalhost` defaults to `false`. When enabled (`allowLocalhost: true`), loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC (`allowUnixSockets`) are permitted, preserving local database pools, test mock servers, and container-local sidecars.
 5. **Zero Concurrency Cross-Talk**: Handled via `AsyncLocalStorage`. When steps execute concurrently in `parallel`, `allSettled`, or `map`, each step runs in its own isolated ASL context. Background host operations (e.g. server health checks, connection pool pings) remain unaffected.
 
 ---
@@ -59,7 +59,7 @@ flowchart TD
 
 Steps can declare network permissions using intuitive chainable methods on the `Step` builder.
 
-### 3.1 `step.allowNetwork(hosts, allowLocalhost?)`
+### 3.1 `step.allowNetwork(hosts)`
 Permits outbound requests matching specified host patterns during this step's execution:
 
 ```typescript
@@ -95,7 +95,7 @@ const syncProfile = Step.create('sync', async ({ userId }) => {
 }).networkPolicy({
     allowedHosts: ['api.github.com'],
     defaultPolicy: 'deny',
-    allowLocalhost: true
+    allowLocalhost: false // Defaults to false when policy is active
 });
 ```
 
@@ -121,7 +121,7 @@ export const onboardingFlow = flow(fetchUser, chargeCard)
     .networkPolicy({
         defaultPolicy: 'deny',
         allowedHosts: ['api.github.com', 'api.stripe.com'],
-        allowLocalhost: true
+        allowLocalhost: false
     });
 ```
 

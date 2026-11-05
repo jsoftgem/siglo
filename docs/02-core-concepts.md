@@ -87,9 +87,9 @@ flowchart TD
 | `$attempt` | Current retry attempt index (1-based) | `number` |
 | `$retryDelay` | Current backoff delay applied before retry in ms | `number` |
 | `$services` / `$deps` | Injected service containers and mock clients | `Record<string, any>` |
-| `$signal` | AbortSignal for step or workflow cancellation | `AbortSignal` |
+| `$signal` | Callable accessor returning AbortSignal (native signal on `param.signal`) | `(() => AbortSignal) & AbortSignal` |
 | `$stackId` | Unique execution instance identifier | `string` |
-| `$namespace` | Multi-tenant tenant/workspace isolation tag | `string` |
+| `$namespace` | Logical key partitioning and storage scoping tag (requires app auth) | `string` |
 | `$isDurable` | Flag indicating if durable storage is active | `boolean` |
 
 ---

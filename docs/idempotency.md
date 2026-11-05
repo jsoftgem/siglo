@@ -13,10 +13,13 @@ interface IdempotencyStore {
   claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'>;
   complete(key: string, result: unknown): Promise<void>;
   fail(key: string, error: unknown): Promise<void>;
-  get(key: string): Promise<unknown>;
+  get?(key: string): Promise<unknown>;
+  getResult?(key: string): Promise<unknown>;
   clear?(): void;
 }
 ```
+
+Both `get(key)` and `getResult(key)` are supported for reading completed results across store implementations (e.g. `RedisIdempotencyStore`, `PostgresIdempotencyStore`, `InMemoryIdempotencyStore`).
 
 ### Claim States
 - **`'claimed'`**: Key was successfully acquired. Execution may proceed.

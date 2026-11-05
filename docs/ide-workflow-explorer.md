@@ -100,7 +100,7 @@ const crypto = encryptFieldsStep({ name: 'protectData', fields: ['ssn', 'card'] 
 ### Installing from Prebuilt Distribution:
 1. Open IntelliJ IDEA $\rightarrow$ **Settings / Preferences** (`⌘,` on macOS, `Ctrl+Alt+S` on Linux/Windows).
 2. Go to **Plugins** $\rightarrow$ Click ⚙️ $\rightarrow$ **Install Plugin from Disk...**.
-3. Select `siglo-intellij-plugin-1.0.0.zip` (located in `plugins/intellij/build/distributions/`).
+3. Select `siglo-intellij-plugin-1.0.1.zip` (located in `plugins/intellij/build/distributions/`).
 4. Click **Restart IDE**.
 5. Access the **Siglo Workflows** tool window from the right-hand stripe.
 

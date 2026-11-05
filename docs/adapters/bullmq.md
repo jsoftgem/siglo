@@ -8,6 +8,8 @@
 
 When executing distributed workflows across worker clusters, BullMQ distributes asynchronous jobs backed by Redis. The `@siglo/bullmq` adapter wraps workflow execution within a standard BullMQ worker processor function (`(job: Job) => Promise<any>`).
 
+> **Note on Guarantees**: Processing operates with at-least-once delivery semantics. On job delivery, the entire workflow executes from the beginning; it does not automatically resume at the last completed step. Claims and cached results do not make external side-effects atomic with job completion. A worker crash after an external effect (e.g., charge or API call) but before claim completion leaves an in-progress claim until TTL expiry, which can repeat the external effect on retry. Workflows must ensure external effects are idempotent or supply provider-level deduplication keys.
+
 ```mermaid
 flowchart TD
     Queue["Redis Queue (BullMQ)"] -->|Job Polling| Worker["BullMQ Worker"]
@@ -61,8 +63,8 @@ function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
 | :--- | :--- | :--- | :--- |
 | `input` | `(job: TJob) => Promise<TInput> \| TInput` | `(job) => job.data` | Custom mapper to transform the BullMQ `Job` into workflow inputs. |
 | `output` | `(result: any, job: TJob) => Promise<TOutput> \| TOutput` | `(result) => result` | Custom mapper to format or filter the workflow result before returning to BullMQ. |
-| `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to guarantee exactly-once processing. |
-| `idempotencyTtlMs` | `number` | `86400000` (24h) | Time-to-live for the idempotency claim in milliseconds. |
+| `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to provide distributed deduplication and claim locking. |
+| `idempotencyTtlMs` | `number` | `undefined` | Time-to-live for the idempotency claim in milliseconds. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
 | `timeout` | `number` | `undefined` | SLA deadline in milliseconds for workflow execution. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded. |
 | `namespace` | `string \| ((job: TJob) => string \| undefined)` | `job.data?.namespace` | Target namespace for state partitioning and checkpoint isolation. |
 

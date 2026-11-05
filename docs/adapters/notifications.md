@@ -468,15 +468,18 @@ console.log(mockTransport.messages[0].interactiveActions?.approveUrl);
 ```
 
 ### Fast-Forwarding Timeouts with `FakeClock`
-To test 24-hour approval timeouts deterministically:
+To test approval timeouts deterministically:
 
 ```typescript
 import { FakeClock } from '@siglo/testing';
 
 const clock = new FakeClock();
-// Advance virtual time by 24 hours without real delays
-clock.tick(24 * 60 * 60 * 1000);
+// Advance virtual timestamp by 24 hours
+clock.advanceTime(24 * 60 * 60 * 1000);
 ```
+
+> [!NOTE]
+> `FakeClock` advances its own internal virtual timestamp counter (`clock.now()`). Calling `clock.tick()` flushes microtasks via `setImmediate` without replacing global Node.js `Date.now` or `setTimeout`.
 
 ---
 

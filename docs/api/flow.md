@@ -80,7 +80,6 @@ flow.run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
 A Promise resolving to `TOutput`, which contains:
 - All fields accumulated across step outputs.
 - `$steps`: Typed record containing outputs of every named step (e.g. `result.$steps.fetchUser`).
-- `$timing`: Total workflow execution duration in milliseconds.
 
 #### Example
 
@@ -101,9 +100,15 @@ console.log(output.$steps.calculate);  // { total: 99.95 }
 
 ---
 
-### `flow.execute(param?, options?)` and `flow.start(param?, options?)`
+### `flow.execute(param?, options?)`
 
-Direct aliases for `flow.run()`. Provided for functional style preferences or backwards compatibility.
+Direct alias for `flow.run()`. Provided for functional style preferences or backwards compatibility.
+
+---
+
+### `flow.start(param?, options?)`
+
+Direct alias for `flow.run()`. Starts asynchronous execution of the workflow.
 
 ---
 
@@ -201,8 +206,9 @@ Returns the `flow` instance for fluent chaining.
 
 - `policy`: `NetworkPolicyConfig`
   - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Outer permissible hosts or wildcard patterns.
-  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Outer perimeter default policy.
-  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback and Unix socket exemption.
+  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Outer perimeter default policy when policy is active. (When no policy is declared on flow or step, network enforcement is inactive).
+  - `allowLocalhost`: `boolean` *(optional, default: `false`)* &mdash; Loopback exemption (`localhost`, `127.0.0.1`, `::1`).
+  - `allowUnixSockets`: `string[]` *(optional)* &mdash; Explicit permitted Unix domain socket filesystem paths.
 
 #### Precedence & Narrowing Rules
 
@@ -319,12 +325,13 @@ console.log(ast.children);
 
 ### `flow.inspect()`
 
-Analyzes the workflow graph and returns structural metrics including node count, depth, and directed edges.
+Analyzes the workflow graph and returns structural metrics including `totalNodes`, `entryNodeId`, `exitNodeIds`, `nodes`, and directed `edges`. Note that `run()` builds an AST for monitoring but does not run `assertValidGraph` automatically; validation is an explicit utility.
 
 ```typescript
 const metrics = flow.inspect();
-console.log(metrics.nodeCount); // 5
-console.log(metrics.depth);     // 3
+console.log(metrics.totalNodes);   // 5
+console.log(metrics.entryNodeId);  // 'node_0'
+console.log(metrics.exitNodeIds);  // ['node_4']
 ```
 
 ---

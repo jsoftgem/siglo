@@ -29,11 +29,12 @@ Configure merge behavior using `ParallelOptions`:
 
 ```typescript
 parallel([branchA, branchB], {
-    mode: 'all', // 'all' (Promise.all), 'allSettled', or 'race'
-    mergeStrategy: 'shallow', // 'shallow', 'deep', 'namespace', or custom merge fn
-    concurrency: 5 // Max active concurrent workers
+    mode: 'fail-fast', // 'fail-fast', 'allSettled', or 'race'
+    mergeStrategy: 'shallow' // 'shallow', 'deep', 'namespace', or custom merge fn
 });
 ```
+
+Branches execute concurrently and merge in branch-list order. Context metadata exposes `$branches` and `$settled`. For bounded worker concurrency across collections, use `map()` below.
 
 ---
 
@@ -61,12 +62,13 @@ Route execution based on runtime conditions:
 ```typescript
 import { Step, flow, branch, when } from '@siglo/core';
 
+// Multi-way routing with branch(selectorFn, branchesMap, defaultBranch?)
 const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 }));
 const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 }));
 const handleGlobalCustomer = Step.create('globalTax', async () => ({ taxRate: 0.00 }));
 
 export const checkoutRouting = flow(
-    when('country', {
+    branch((param) => param.country, {
         US: handleUsCustomer,
         DE: handleEuCustomer,
         FR: handleEuCustomer
@@ -74,11 +76,11 @@ export const checkoutRouting = flow(
 );
 ```
 
-Or using dynamic boolean predicates with `branch(predicate, ifTrue, ifFalse?)`:
+Or using boolean decisions with `when(predicate, thenStep, elseStep?)`:
 
 ```typescript
 const taxFlow = flow(
-    branch(
+    when(
         (param) => param.amount > 10000,
         Step.create('flagHighValue', () => ({ reviewRequired: true })),
         Step.create('autoApprove', () => ({ reviewRequired: false }))
@@ -95,14 +97,15 @@ Process collections with controlled concurrency without exhausting memory or dat
 ```typescript
 import { Step, flow, map } from '@siglo/core';
 
-const processItem = Step.create('processItem', async (item: { sku: string; qty: number }) => {
-    return { sku: item.sku, processed: true };
+// Steps used as mappers receive an envelope: { item, index, total, signal, ... }
+const processItem = Step.create('processItem', async (ctx: { item: { sku: string; qty: number } }) => {
+    return { sku: ctx.item.sku, processed: true };
 });
 
 export const batchWorkflow = flow(
     map((param) => param.orderItems, processItem, {
         concurrency: 4, // Max 4 concurrent items
-        collectErrors: true // Aggregate errors without immediate halt
+        stopOnError: false // Continue processing remaining items on failure
     })
 );
 ```

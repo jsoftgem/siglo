@@ -76,7 +76,7 @@ const getExchangeRates = httpStep('getExchangeRates', {
 });
 
 const workflow = flow(getExchangeRates)
-  .allowNetwork(['api.exchangerates.io']); // Enforces egress perimeter
+  .networkPolicy({ allowedHosts: ['api.exchangerates.io'] }); // Enforces egress perimeter
 ```
 
 ### 4.2 W3C Distributed Trace Context Propagation
@@ -276,7 +276,7 @@ export const fetchClusterHealth = httpStep('fetchClusterHealth', {
 
 export const clusterHealthWorkflow = flow(fetchClusterHealth)
   // Lock down egress: only allow designated internal control planes
-  .allowNetwork(['*.k8s-control.internal']);
+  .networkPolicy({ allowedHosts: ['*.k8s-control.internal'] });
 ```
 
 ---
@@ -293,14 +293,12 @@ import { createMockHttpServer } from '@siglo/http/testing';
 import { flow } from '@siglo/core';
 
 test('httpStep executes GET with mock server', async () => {
-  const mockServer = createMockHttpServer('https://api.example.com');
+  const mockServer = createMockHttpServer();
 
-  mockServer.intercept({
+  mockServer.get('https://api.example.com').intercept({
     path: '/users/42',
-    method: 'GET',
-    responseStatus: 200,
-    responseBody: { id: '42', name: 'Ada Lovelace' }
-  });
+    method: 'GET'
+  }).reply(200, { id: '42', name: 'Ada Lovelace' });
 
   const getUser = httpStep('getUser', {
     url: 'https://api.example.com/users/42',
@@ -329,26 +327,25 @@ import { httpStep } from '@siglo/http';
 import { createMockHttpServer } from '@siglo/http/testing';
 
 const clock = new FakeClock();
-const mockServer = createMockHttpServer('https://api.example.com');
+const mockServer = createMockHttpServer();
 
-mockServer.intercept({
+const originClient = mockServer.get('https://api.example.com');
+originClient.intercept({
   path: '/rate-limited',
-  method: 'GET',
-  responseStatus: 429,
-  responseHeaders: { 'retry-after': '60' }
-});
+  method: 'GET'
+}).reply(429, null, { headers: { 'retry-after': '60' } });
 
-mockServer.intercept({
+originClient.intercept({
   path: '/rate-limited',
-  method: 'GET',
-  responseStatus: 200,
-  responseBody: { success: true }
-});
+  method: 'GET'
+}).reply(200, { success: true });
 
 const step = httpStep('rateLimitedCall', {
   url: 'https://api.example.com/rate-limited',
   method: 'GET',
   clock,
-  sleep: async (ms) => clock.advanceTime(ms) // Instant simulated delay!
+  sleep: async (ms) => {
+    clock.advanceTime(ms); // returns Promise<void>
+  }
 });
 ```

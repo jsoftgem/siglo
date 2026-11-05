@@ -14,7 +14,7 @@ Siglo workflows operate in-process without requiring a central coordinator daemo
 flowchart TD
     subgraph Schedulers["Dispatcher Topologies"]
         direction LR
-        P1["PostgresWaitPoller<br/>• Row-level FOR UPDATE SKIP LOCKED<br/>• Atomic CAS Resumption<br/>• Automatic Recovery from Stale Locks"]
+        P1["PostgresWaitPoller<br/>• Advisory Selection & Session Locks<br/>• Atomic CAS Resumption<br/>• Accepted-Event & Due Timer Recovery"]
         P2["MemoryWaitPoller<br/>• Zero-Daemon In-Memory Poller<br/>• Local Dev & Unit Test Environments<br/>• defaultDurableManager Integration"]
         P3["createSchedulerWebhookHandler<br/>• Cloud-Native Webhook Receiver<br/>• AWS EventBridge Scheduler<br/>• Google Cloud Tasks / Cloudflare"]
     end
@@ -55,7 +55,7 @@ Peer dependencies:
 
 ## 3. Database Schema & Row-Level Locking
 
-`PostgresWaitPoller` relies on the `siglo_wait_records` table. It provides an automated DDL initialization method: `poller.ensureTable()`.
+`PostgresWaitPoller` relies on the `siglo_wait_records` table. It provides an automated DDL initialization method: `poller.ensureTable()`. Prefer running migrations or `poller.ensureTable()` over manual table creation.
 
 ### DDL Schema
 
@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS siglo_wait_records (
     continuation_step_index INT NOT NULL DEFAULT 0,
     version VARCHAR(50),
     data JSONB,
+    resume_payload JSONB,
     locked_by VARCHAR(255),
     locked_at TIMESTAMPTZ,
     resumed_by VARCHAR(255),
@@ -83,33 +84,23 @@ CREATE INDEX IF NOT EXISTS idx_siglo_wait_records_due
     ON siglo_wait_records(status, expires_at);
 ```
 
-### The `SKIP LOCKED` Resumption Query
+### The Advisory Resumption Query & Session Locking
 
-To eliminate dual-worker split-brain executions across concurrent Kubernetes pods, `PostgresWaitPoller` executes an atomic Common Table Expression (CTE) with row-level locking:
+To coordinate execution across concurrent worker pods, `PostgresWaitPoller` executes an advisory selection query to find due timers and accepted events:
 
 ```sql
 WITH due_records AS (
-    SELECT correlation_key 
-    FROM siglo_wait_records
-    WHERE (
-        status = 'WAITING' 
-        OR (status = 'RESUMING' AND locked_at < NOW() - INTERVAL '60 seconds')
-    )
-    AND expires_at IS NOT NULL 
-    AND expires_at <= NOW()
-    ORDER BY expires_at ASC
+    SELECT * FROM siglo_wait_records
+    WHERE (status = 'WAITING' AND expires_at IS NOT NULL AND expires_at <= NOW())
+       OR (status = 'RESUMING' AND resume_payload IS NOT NULL)
+    ORDER BY updated_at ASC
     LIMIT $1
-    FOR UPDATE SKIP LOCKED
-)
-UPDATE siglo_wait_records r
-SET status = 'RESUMING', locked_at = NOW(), locked_by = $2, updated_at = NOW()
-FROM due_records d
-WHERE r.correlation_key = d.correlation_key
-RETURNING r.*;
+) SELECT * FROM due_records
 ```
 
-- **`FOR UPDATE SKIP LOCKED`**: Concurrently running poller pods skip rows locked by peers, avoiding transaction deadlocks and lock contention.
-- **Lock Expiration Window**: If a pod crashes mid-resumption (SIGKILL, OOM), surviving workers reclaim the orphaned record after `lockTimeoutMs` elapses.
+- **Advisory Selection & Session Locks**: Selection is advisory. The storage adapter serializes execution using a database-session lock (`withWorkflowLock`), claiming and completing wait records atomically. If a worker pod crashes mid-resumption, PostgreSQL automatically releases the session lock upon connection disconnect.
+- **Accepted-Event Recovery**: Records with `status = 'RESUMING'` and a non-null `resume_payload` represent accepted resume events that survived process termination and will be picked up by surviving workers.
+- **Lock Deprecation**: `lockTimeoutMs` is deprecated for `PostgresStorageAdapter` as lock lifecycles are tied to database sessions rather than manual timeout windows.
 
 ---
 
@@ -136,7 +127,6 @@ const poller = new PostgresWaitPoller({
     waitRecordsTable: 'siglo_wait_records',
     pollIntervalMs: 1000,   // Poll every 1 second
     batchSize: 50,          // Claim up to 50 due records per batch
-    lockTimeoutMs: 60000,   // Reclaim abandoned locks after 60 seconds
     workerId: `worker-${process.env.HOSTNAME || process.pid}`,
     flowLookup: (workflowId, stackId) => {
         // Resolve workflow by ID, or fallback based on stack prefix

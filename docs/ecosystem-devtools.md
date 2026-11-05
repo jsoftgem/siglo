@@ -368,7 +368,7 @@ test('Order pipeline executes offline with synthetic test doubles', async () => 
     // Verify all mock interactions were satisfied
     http.assertDone();
     ai.assertDone();
-    assert.equal(notifications.sentMessages.length, 1);
+    assert.equal(notifications.messages.length, 1);
   } finally {
     // Always clean up HTTP fetch mock in finally
     http.close();

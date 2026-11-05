@@ -14,7 +14,7 @@ Enterprise workflows ingest untrusted external events (webhooks) and process hig
 | **Missing Timestamp Checks** | Enables **Replay Attacks**: attackers re-transmit previously intercepted valid webhook requests hours or days later. | Automatically parses header timestamps (e.g. `t=...`) and enforces configurable clock drift tolerances (`toleranceSeconds: 300`). |
 | **Intra-Window Replay Storms** | Intercepted webhooks re-transmitted within the 5-minute tolerance window duplicate charges or state transitions. | Integrated **`WebhookDedupStore`** with in-memory bucketed ring buffers (`InMemoryNonceStore`) and distributed Redis locks (`RedisNonceStore`). |
 | **JSON Serialization Skew** | Verifying signatures over `JSON.stringify(req.body)` fails due to key reordering, spacing differences, or number formatting. | Guarantees verification strictly over the original raw `Buffer`, unparsed payload string, or streaming chunks in the `BEFORE` phase. |
-| **Memory DoS from Large Payloads** | 50MB–200MB webhooks cause heap exhaustion (OOM) when buffered in memory. | Progressive **Streaming HMAC** over `AsyncIterable<Buffer>`, `maxBodyBytes` guard, and ephemeral disk spooling (`payloadRef`). |
+| **Memory DoS from Large Payloads** | 50MB–200MB webhooks cause heap exhaustion (OOM) when buffered in memory. | Progressive stream ingestion with `maxBodyBytes` guard and disk spooling (`payloadRef`). |
 | **Rigid Hardcoded Protocols** | Traditional libraries hardcode Stripe or GitHub, failing on modern protocols (Svix, Slack, Shopify, or asymmetric Ed25519 signatures). | Pluggable **`WebhookProtocol` Strategy Pattern** supporting presets, inline custom protocols, asymmetric cryptography, and dynamic runtime resolution. |
 | **Plaintext Checkpoint Leaks** | Siglo serializes accumulated context to PostgreSQL or Redis checkpoints. Storing raw SSNs or card tokens violates GDPR, HIPAA, and PCI-DSS. | In-place **Envelope Encryption** (AES-256-GCM) secures sensitive context keys before storage write operations. |
 | **Key Rotation Checkpoint Failures** | Long-running workflows pausing across quarterly key rotations fail to decrypt older checkpoints. | Multi-key **`KeyRing`** architecture with `kid` envelope headers, historical key resolution, and lazy checkpoint re-keying. |
@@ -115,13 +115,13 @@ export const verifyStripe = verifyWebhookStep('verifyStripe', {
 });
 ```
 
-### 4.3 Streaming Payloads & Ephemeral Spooling
+### 4.3 Streaming Payloads & Ephemeral Disk Spooling
 
 When ingesting large webhooks (e.g. 50MB–200MB multi-part files or bulk syncs), buffering contiguous payloads in memory causes Node.js heap exhaustion (OOM).
 
 `verifyWebhookStep` natively supports streams and async iterables with memory guardrails:
-- **Streaming HMAC**: Computes HMAC chunk-by-chunk over `NodeJS.ReadableStream` or `AsyncIterable<Buffer>`.
-- **Payload Size Limits (`maxBodyBytes`)**: Rejects oversized payloads exceeding limits (default: 10MB) with an HTTP 413 `ValidationException`.
+- **Disk Spooling Protection**: Large streams are spooled to temporary files under `os.tmpdir()` to prevent heap memory exhaustion during receipt. Note that protocol verification subsequently reads the spooled file into memory as a `Buffer` before HMAC calculation rather than performing a bounded-memory streaming HMAC.
+- **Payload Size Limits (`maxBodyBytes`)**: Rejects oversized payloads exceeding limits (default: 10MB) by throwing a non-retryable `ValidationException` (which web adapters map to HTTP 400 Bad Request by default).
 - **Disk Spooling (`spoolThresholdBytes`)**: Streams exceeding the threshold (default: 5MB) are automatically spooled to temporary disk storage. The step outputs a compact `{ payloadRef: { storage: 'file', path: '...', bytes: ... } }` reference, keeping durable database checkpoints small and fast.
 
 ```typescript
