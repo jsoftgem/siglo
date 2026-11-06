@@ -119,7 +119,7 @@ describe('@siglo/kafka Adapter Suite', () => {
         const flowInstance = flow(step);
 
         const handler = createKafkaMessageHandler(flowInstance, {
-            idempotencyStore: store
+            groupId: 'test', idempotencyStore: store
         });
 
         const successPayload = {
@@ -164,7 +164,7 @@ describe('@siglo/kafka Adapter Suite', () => {
     it('handles non-JSON string values and null/undefined values gracefully', async () => {
         const step = Step.create('rawStep', async (param: any) => ({ ...param }));
         const flowInstance = flow(step);
-        const handler = createKafkaMessageHandler(flowInstance);
+        const handler = createKafkaMessageHandler(flowInstance, { invalidJson: 'raw', tombstone: 'process' });
 
         const invalidJsonPayload = {
             topic: 't',

@@ -121,3 +121,25 @@ jobs:
       - name: Test, Build & Verify Plugin
         working-directory: plugins/intellij
         run: ./gradlew test buildPlugin verifyPlugin
+
+  kafka-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace=@siglo/core
+      - name: Start isolated Kafka and outbox database
+        run: docker compose -p siglo-kafka-recovery-tests -f packages/kafka/integration/compose.yaml up -d --wait --wait-timeout 120
+      - name: Run Kafka recovery and transactional outbox tests
+        run: npm run test:integration --workspace=@siglo/kafka
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose -p siglo-kafka-recovery-tests -f packages/kafka/integration/compose.yaml logs --no-color --tail 200
+      - name: Remove test services
+        if: always()
+        run: docker compose -p siglo-kafka-recovery-tests -f packages/kafka/integration/compose.yaml down -v
