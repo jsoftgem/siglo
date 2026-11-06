@@ -151,6 +151,14 @@ curl -i http://127.0.0.1:3001/api/checkouts \
 
 This returns `200 OK`, `X-Instance-Id: api-b`, and `X-Idempotent-Replay: true`. The body and workflow stack ID match the first response. No checkout steps run for the replay, so the monitor contains one execution for that order.
 
+### One Execution, Even After Replay Through B
+
+The screenshots in this tutorial were captured using the [optional host workflow](#7-run-node-processes-on-the-host-optional): separate API A, API B, and monitor processes sharing real PostgreSQL and Redis. Your execution IDs and timings will differ.
+
+API A created this checkout, and API B returned its saved response with the same stack ID. The dashboard still contains just one execution. All five steps completed; selecting `chargePayment` shows **2 attempts** beside the graph. The retained gateway error records the first failed attempt, while **COMPLETED** confirms that its retry succeeded.
+
+![Shared live monitor showing one completed five-step checkout after replay through the other API, with chargePayment selected and two attempts in the right-hand details panel](assets/distributed-rest-and-live-monitoring/checkout-and-replay.png)
+
 The route explicitly calls `PostgresIdempotencyStore.claim` using `distributed-checkout:v1:<orderId>`:
 
 - `claimed`: run the workflow, drain checkpoint writes, then save the public response with `complete`.
@@ -194,6 +202,18 @@ docker compose -f examples/distributed-checkout/docker-compose.yml logs api-a ap
 ```
 
 Only the first cold lookup logs `catalog lookup for coffee-kit`. Both workflows still execute reservation, payment, and shipping.
+
+### Compare the Cold Lookup with the Shared Cache Hit
+
+On the first request to API A, the latency waterfall makes the deliberately slow `loadCatalog` step stand out: its cold lookup takes roughly 750 ms. The payment row also shows two attempts.
+
+![Shared monitor latency waterfall for API A's first checkout, showing the roughly 750 ms cold catalog lookup and two payment attempts](assets/distributed-rest-and-live-monitoring/catalog-cold.png)
+
+A new order sent to API B with the same SKU reuses the label from Redis. Its catalog step takes only a few milliseconds in this capture. Both executions appear in the same sidebar, and the new checkout still runs validation, stock reservation, payment, and shipping. The saved response replay from section 4 never created an extra workflow.
+
+![Shared monitor showing two completed executions and API B's latency waterfall, with a fast cached catalog lookup while all remaining checkout steps still execute](assets/distributed-rest-and-live-monitoring/catalog-cached.png)
+
+The HTTP `X-Instance-Id` response header identifies which API handled each request; the monitor identifies executions by stack ID. The timing comparison shows a cache optimization, not a guarantee of identical timings on every machine.
 
 Subscribe before sending another request to see new events from either API:
 
@@ -244,6 +264,12 @@ curl -i 'http://127.0.0.1:3001/api/checkouts?failShipping=true' \
 ```
 
 The response is `500` with a generic error. The central dashboard shows the failed run; B's logs show refund followed by stock release. Because the fake services compensate on failure, this demo releases the failed claim to allow a new attempt. Successful business execution followed by a persistence failure instead returns `503` and retains the claim for reconciliation.
+
+### Inspect a Failure Without Leaving the Shared Monitor
+
+The failed checkout from B appears alongside the successful runs. Selecting the red `arrangeShipping` step opens **No courier available** and its stack trace on the right, while the graph keeps the completed preceding steps visible. Refund and stock release are confirmed in B's service logs; they are not additional step nodes in this graph.
+
+![Shared live monitor showing a failed checkout from API B alongside two successful executions, with arrangeShipping highlighted red and No courier available in its right-hand error details](assets/distributed-rest-and-live-monitoring/shipping-failure.png)
 
 ### Run the Smoke Checks
 

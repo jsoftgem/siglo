@@ -481,6 +481,12 @@ At this moment:
 - The workflow has suspended at `awaitApproval`.
 - No HTTP request or in-process timer needs to remain open for this order; the durable state is in PostgreSQL.
 
+The live monitor makes that pause visible: `reserveStock` and `chargePayment` are complete, the approval wait is amber, and `arrangeShipping` has not run. Selecting the wait opens its **waiting** state and UTC deadline in the right-hand details panel.
+
+These screenshots were captured from separate local API and monitor processes using this example's real PostgreSQL and Redis services. Execution IDs, deadlines, and timings will differ in your run.
+
+![Durable checkout live monitor showing the suspended approval wait in amber, completed reservation and payment steps, unexecuted shipping, and the wait state and UTC deadline in the right-hand panel](assets/durable-distributed-checkout/waiting-for-approval.png)
+
 ### Step 2: Inspect PostgreSQL State
 
 Verify the wait record directly in PostgreSQL:
@@ -545,6 +551,10 @@ docker compose -f examples/durable-distributed-checkout/docker-compose.yml exec 
 
 The wait record now has `status: RESUMED` with the claimant ID recorded. The checkpoint has `status: completed`.
 
+The same execution now displays **COMPLETED** in the shared monitor. In this capture, both API processes were restarted before API B received approval. The latency view retains the earlier reservation and payment steps, marks the wait complete, and shows the subsequent `arrangeShipping` execution under the original stack ID. Its step timings do not represent the time spent awaiting human approval.
+
+![Shared durable checkout monitor showing the original execution completed after approval on API B, with reservation, payment, approval wait, and shipping all completed in the latency waterfall](assets/durable-distributed-checkout/resumed-on-api-b.png)
+
 ### Step 5: Test Duplicate Delivery Protection
 
 Send the exact same approval webhook again to API B:
@@ -576,7 +586,7 @@ Content-Type: application/json; charset=utf-8
 
 As in [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md), a separate dashboard observes checkout execution. This example uses port **4100** to avoid the previous tutorial's monitor port.
 
-monitor registers the checkout workflow and connects to the same PostgreSQL storage as both API replicas. Unlike the previous tutorial's observation-only monitor, this local dashboard enables **interactive resumption**:
+The monitor registers the checkout workflow and connects to the same PostgreSQL storage as both API replicas. Unlike the previous tutorial's observation-only monitor, this local dashboard enables **interactive resumption**:
 
 1. Open **http://127.0.0.1:4100** in your browser.
 2. Select the execution by its `stackId`.
@@ -591,6 +601,16 @@ monitor registers the checkout workflow and connects to the same PostgreSQL stor
    }
    ```
 7. Click **Dispatch Signal**. The dashboard dispatches `POST /api/workflows/:stackId/resume`, and the live DAG immediately transitions: `arrangeShipping` executes on screen and the workflow completes.
+
+### Approve Directly from the Dashboard
+
+Use a fresh submitted order to try this route after the webhook walkthrough. The Resume dialog pre-fills the selected stack ID and `order.approved` signal. Replace the default JSON with the approval payload above before dispatching it.
+
+![Live monitor Resume Suspended Flow dialog with a waiting stack ID, the order.approved event signal, an approved true JSON payload, and the Dispatch Signal button](assets/durable-distributed-checkout/dashboard-resume-dialog.png)
+
+After dispatch, open **Live Events**, filter to `step:complete`, and expand `arrangeShipping`. The captured completion event contains `status: "confirmed"`, the tracking ID, and `approvedBy: "dashboard-operator@shop.com"`. The run is **COMPLETED**, and the original webhook-resumed checkout remains visible alongside it.
+
+![Durable checkout live monitor showing a completed dashboard-resumed execution and its expanded arrangeShipping completion event with confirmed status, tracking ID, and dashboard operator approval](assets/durable-distributed-checkout/dashboard-approved-event.png)
 
 ---
 
@@ -614,6 +634,10 @@ curl -i http://127.0.0.1:3101/api/webhooks/orders/order-5002/approval \
    - `refund(paymentId)` is called.
    - `release(reservationId)` is called.
 4. The fake services have refunded the payment and released stock. The API returns `422` for rejection. Because a fresh process does not reconstruct earlier compensation handlers, the example performs this post-resume cleanup explicitly. Production provider operations must be idempotent for recovery attempts.
+
+The monitor distinguishes delivery of the reviewer's decision from business approval: the wait completes because a signal arrived, but `arrangeShipping` fails because that signal rejected the order. The run turns red while earlier completed operations remain visible. Refund and stock release are explicit service calls inside the continuation, not separate nodes in this view.
+
+![Durable checkout monitor showing a reviewer-rejected execution marked failed, a completed approval wait, and a failed arrangeShipping row beside the earlier successful executions](assets/durable-distributed-checkout/reviewer-rejected.png)
 
 ### Scenario B: SLA Expiration
 
