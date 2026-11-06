@@ -40,7 +40,7 @@ export class SSEBroadcaster {
         this.clients.add(client);
 
         // Send connected handshake
-        res.write(`: connected\\n\\n`);
+        res.write(`: connected\n\n`);
 
         res.on('close', () => {
             this.removeClient(client);
@@ -62,7 +62,7 @@ export class SSEBroadcaster {
 
         const sanitized = redactEvent(event, this.redaction);
         const data = JSON.stringify(sanitized);
-        const message = `event: ${sanitized.type}\\ndata: ${data}\\n\\n`;
+        const message = `event: ${sanitized.type}\ndata: ${data}\n\n`;
 
         for (const client of Array.from(this.clients)) {
             if (client.namespace && sanitized.namespace && client.namespace !== sanitized.namespace) {
@@ -79,7 +79,7 @@ export class SSEBroadcaster {
     sendHeartbeat(): void {
         for (const client of Array.from(this.clients)) {
             try {
-                client.res.write(':keepalive\\n\\n');
+                client.res.write(':keepalive\n\n');
             } catch {
                 this.removeClient(client);
             }

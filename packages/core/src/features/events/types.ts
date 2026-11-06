@@ -2,6 +2,7 @@ import type { EcosystemInspection } from './inspection';
 import { WorkflowNode } from '../graph';
 
 export type WorkflowExecutionEventType =
+    | 'branch:selected'
     | 'flow:start'
     | 'flow:complete'
     | 'flow:error'
@@ -90,6 +91,17 @@ export interface StepCompleteEvent {
     stepName: string;
     durationMs: number;
     outputSummary?: any;
+    timestamp: number;
+    namespace?: string;
+}
+
+/** Control-flow metadata, independent of captured step output. */
+export interface BranchSelectedEvent {
+    type: 'branch:selected';
+    stackId: string;
+    stepId: string;
+    stepName: string;
+    route: string;
     timestamp: number;
     namespace?: string;
 }
@@ -198,6 +210,7 @@ export interface StepInspectionEvent {
 }
 
 export type WorkflowExecutionEvent =
+    | BranchSelectedEvent
     | StepInspectionEvent
     | FlowStartEvent
     | FlowCompleteEvent
@@ -217,6 +230,7 @@ export type WorkflowExecutionEvent =
     | AiCompleteEvent;
 
 export interface WorkflowExecutionEventMap {
+    'branch:selected': BranchSelectedEvent;
     'step:inspection': StepInspectionEvent;
     'ai:complete': AiCompleteEvent;
     'notification:dispatched': NotificationDispatchedEvent;

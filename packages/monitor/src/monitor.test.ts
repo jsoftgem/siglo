@@ -134,6 +134,7 @@ describe('@siglo/monitor Suite', () => {
 
             // Initial connected message sent
             expect(writtenChunks.some(c => c.includes('connected'))).to.be.true;
+            expect(writtenChunks[0]).to.equal(': connected\n\n');
 
             // Broadcast matching event with sensitive context field
             sse.broadcast({
@@ -149,6 +150,7 @@ describe('@siglo/monitor Suite', () => {
             expect(eventChunk).to.not.be.undefined;
             expect(eventChunk).to.include('[REDACTED]');
             expect(eventChunk).to.not.include('secret123');
+            expect(eventChunk).to.match(/^event: context:change\ndata: [^\n]+\n\n$/);
 
             // Broadcast non-matching namespace
             const countBefore = writtenChunks.length;

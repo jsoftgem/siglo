@@ -162,7 +162,7 @@ export const WorkflowDetail: React.FC<WorkflowDetailProps> = ({
 
       {/* Tab Panels */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
-        {activeTab === 'dag' && <DagView steps={run.steps} />}
+        {activeTab === 'dag' && <DagView steps={run.steps} ast={run.ast} />}
         {activeTab === 'waterfall' && (
           <WaterfallView steps={run.steps} totalDurationMs={run.durationMs} />
         )}

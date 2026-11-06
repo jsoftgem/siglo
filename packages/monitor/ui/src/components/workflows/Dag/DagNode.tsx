@@ -4,13 +4,14 @@ import { CheckCircle2, XCircle, Clock, RotateCw, PauseCircle } from 'lucide-reac
 
 interface DagNodeProps {
   step: StepRun;
+  kind?: string;
   isSelected: boolean;
   onSelect: (stepId: string) => void;
 }
 
-export const DagNode: React.FC<DagNodeProps> = ({ step, isSelected, onSelect }) => {
+export const DagNode: React.FC<DagNodeProps> = ({ step, kind, isSelected, onSelect }) => {
   const getNodeStyles = (status: StepStatus, selected: boolean) => {
-    let base = 'relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer min-w-[200px] max-w-[260px] ';
+    let base = 'relative h-full flex flex-col p-4 rounded-xl border transition-all cursor-pointer min-w-[200px] max-w-[260px] ';
     if (selected) {
       base += 'ring-2 ring-sky-400 ring-offset-2 ring-offset-slate-900 ';
     }
@@ -66,10 +67,11 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, isSelected, onSelect }) 
       <div className="font-semibold text-sm text-slate-100 truncate mb-1">
         {step.stepName || step.stepId}
       </div>
+      {kind && <div className="text-[10px] uppercase tracking-wide text-slate-400">{kind}</div>}
 
       <div className="flex items-center justify-between text-xs text-slate-400 mt-2 pt-2 border-t border-slate-800/80">
         <span className="font-mono text-[11px]">
-          {step.durationMs !== undefined ? `${step.durationMs}ms` : 'In progress...'}
+          {step.durationMs !== undefined ? `${step.durationMs}ms` : step.status === 'PENDING' ? 'Not observed' : step.status.toLowerCase()}
         </span>
         {step.attempts && step.attempts > 1 && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium">

@@ -51,6 +51,9 @@ export class WorkflowExecutionStore {
         }
 
         switch (event.type) {
+            case 'branch:selected':
+                this.getOrCreateStep(run, event.stepId, event.stepName).selectedRoute = event.route;
+                break;
             case 'step:inspection':
             case 'ai:complete': {
                 const data = sanitizeInspection(event.inspection);
@@ -65,7 +68,8 @@ export class WorkflowExecutionStore {
             case 'flow:start':
                 run.flowName = event.flowName || run.flowName;
                 run.version = event.version || run.version;
-                run.ast = event.ast || run.ast;
+                // Nested flows share a stack ID; keep the first (root) definition.
+                run.ast = run.ast || event.ast;
                 run.namespace = event.namespace || run.namespace;
                 run.startTime = event.timestamp || run.startTime;
                 run.status = 'RUNNING';
@@ -74,6 +78,7 @@ export class WorkflowExecutionStore {
             case 'step:start': {
                 const step = this.getOrCreateStep(run, event.stepId, event.stepName);
                 step.status = 'RUNNING';
+                step.selectedRoute = undefined;
                 step.attempts = event.attempt || 1;
                 step.startTime = event.timestamp;
                 break;

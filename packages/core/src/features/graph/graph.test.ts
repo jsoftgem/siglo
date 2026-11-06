@@ -66,14 +66,17 @@ describe('Workflow Graph Model Unit Tests', () => {
         const p = parallel(s1, Step.create('p2'));
         const gp = toGraph(p);
         expect(gp.type).to.equal('parallel');
+        expect(gp.metadata?.runtimeStepId).to.equal(p.$stepId);
 
         const w = when(() => true, s1);
         const gw = toGraph(w);
         expect(gw.type).to.equal('branch');
+        expect(gw.metadata?.runtimeStepId).to.equal(w.$stepId);
 
         const m = map([1, 2], s1);
         const gm = toGraph(m);
         expect(gm.type).to.equal('map');
+        expect(gm.metadata?.runtimeStepId).to.equal(m.$stepId);
 
         const waitStep = waitForEvent('test.event', { correlationKey: 'k1' });
         const gWait = toGraph(waitStep);

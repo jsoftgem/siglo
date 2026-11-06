@@ -1,6 +1,7 @@
 import { SigloEventType } from '../types/events';
 
 export const SIGLO_EVENT_TYPES: SigloEventType[] = [
+  'branch:selected',
   'step:inspection',
   'ai:complete',
   'notification:dispatched',

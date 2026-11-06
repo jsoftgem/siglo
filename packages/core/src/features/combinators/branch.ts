@@ -2,6 +2,15 @@ import {Step, flow} from '../step';
 import {toPOJO} from '../context';
 import {generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType, safeClone} from '../../shared';
 import {BranchNode, WorkflowNode, toGraph} from '../graph';
+import {emitMonitoringEvent, stepInspectionStorage} from '../events';
+
+function reportRoute(route: string): void {
+    const scope = stepInspectionStorage.getStore();
+    if (scope) emitMonitoringEvent({monitor: scope.monitor}, {
+        type: 'branch:selected', stackId: scope.stackId, stepId: scope.stepId,
+        stepName: scope.stepName, namespace: scope.namespace, route, timestamp: Date.now()
+    });
+}
 
 export type BranchPredicate = (ctx: any, meta?: any) => boolean | Promise<boolean>;
 export type BranchSelector = (ctx: any, meta?: any) => string | Promise<string>;
@@ -81,6 +90,7 @@ export function when(
         };
 
         const isTrue = await predicate(toPOJO(param), meta);
+        reportRoute(isTrue ? BranchRoute.THEN : BranchRoute.ELSE);
 
         if (isTrue) {
             const result = await executeBranchTarget(thenStep, param, signal);
@@ -156,6 +166,7 @@ export function branch(
 
         const chosenKey = await selector(toPOJO(param), meta);
         const target = branches[chosenKey] || fallback;
+        reportRoute(branches[chosenKey] ? chosenKey : BranchRoute.DEFAULT);
         const allKeys = Object.keys(branches);
         const skippedBranches = allKeys.filter(k => k !== chosenKey);
 

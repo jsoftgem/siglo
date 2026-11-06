@@ -20,24 +20,24 @@ export const StepDetailCard: React.FC<StepDetailCardProps> = ({ step, onClose })
   };
 
   return (
-    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs animate-in fade-in duration-200">
-      <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
-        <div className="flex items-center gap-2">
-          <Eye className="w-4 h-4 text-sky-400" />
+    <div className="min-w-0 break-words p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs animate-in fade-in duration-200">
+      <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-800 mb-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <Eye className="w-4 h-4 shrink-0 text-sky-400" />
           <span className="font-semibold text-slate-200 text-sm">
             Step Details: {step.stepName || step.stepId}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="text-slate-500 hover:text-slate-300 transition-colors"
+          className="shrink-0 text-slate-500 hover:text-slate-300 transition-colors"
         >
           Close
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-3">
-        <div>
+      <div className="grid grid-cols-2 gap-4 mb-3">
+        <div className="col-span-2 min-w-0">
           <div className="text-slate-500 text-[11px]">Step ID</div>
           <div className="font-mono text-slate-200 font-medium">{step.stepId}</div>
         </div>

@@ -2,6 +2,7 @@ import * as http from 'http';
 import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions, EcosystemInspection } from '@siglo/core';
 
 export interface StepRunRecord {
+    selectedRoute?: string;
     stepId: string;
     stepName: string;
     status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'RETRYING' | 'SUSPENDED' | 'WAITING';

@@ -309,7 +309,9 @@ docker compose -f examples/kafka-order-routing/docker-compose.yml exec worker-a 
 
 For the standard order, inspect the selected `order.placed` route, the fulfillment path, and the absent `wrapGift` action. For the review order, inspect `queueReview` and confirm that payment and shipping did not execute. Use the `gift` scenario to compare the optional step's true path.
 
-The outcome's `actions` array provides a simple, persisted record of the demo path. The dashboard adds runtime steps, timing, branch selection metadata, and errors. This example enables observation but disables remote resumption; it has no suspended runs to resume.
+The monitor's graph shows the complete workflow definition: labeled `branch` routes and `when` then/else paths, including the skip path. Selected routes are green and untaken routes are dimmed; a false `when` without an else action highlights “Continue without action” before continuing to the next step. Conditional routes reconnect directly without an extra join card. Executed steps display their live status and timing. Click an executed step for its details. The same view shows parallel fan-out and fan-in, race joins labeled “First result,” and map item processing templates.
+
+The outcome's `actions` array provides a simple, persisted record of the demo path. Graph connections describe possible control flow, not proof that every route ran. This example enables observation but disables remote resumption; it has no suspended runs to resume. Rebuild the Compose image after updating the monitor UI or runtime so workers and the dashboard use the updated graph metadata.
 
 Kafka offsets and PostgreSQL claims survive worker restarts. The monitor's run history is held in memory, and Redis Pub/Sub does not replay old monitoring events after a monitor restart.
 

@@ -24,7 +24,10 @@ export function toGraph(item: any): WorkflowNode {
     }
 
     if (item.workflowNode && isWorkflowNode(item.workflowNode)) {
-        return item.workflowNode;
+        return {
+            ...item.workflowNode,
+            metadata: { ...item.workflowNode.metadata, runtimeStepId: item.$stepId }
+        };
     }
 
     if (Array.isArray(item)) {

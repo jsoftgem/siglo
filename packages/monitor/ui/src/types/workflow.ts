@@ -3,6 +3,7 @@ export type WorkflowStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SUSPENDED' | 
 export type StepStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING' | 'SUSPENDED' | 'RETRYING' | 'PENDING';
 
 export interface StepRun {
+  selectedRoute?: string;
   stepId: string;
   stepName?: string;
   status: StepStatus;

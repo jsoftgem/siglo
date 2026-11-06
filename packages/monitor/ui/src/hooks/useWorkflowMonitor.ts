@@ -51,9 +51,15 @@ export function useWorkflowMonitor({
       const updated = { ...existing };
 
       switch (ev.type) {
+        case 'branch:selected':
+          if (ev.stepId) {
+            const step = updated.steps[ev.stepId] || { stepId: ev.stepId, stepName: ev.stepName, status: 'PENDING' as const };
+            updated.steps = { ...updated.steps, [ev.stepId]: { ...step, selectedRoute: ev.route } };
+          }
+          break;
         case 'flow:start':
           updated.flowName = ev.flowName || updated.flowName;
-          updated.ast = ev.ast || updated.ast;
+          updated.ast = updated.ast || ev.ast;
           updated.status = 'RUNNING';
           break;
         case 'flow:complete':
@@ -92,6 +98,7 @@ export function useWorkflowMonitor({
                 stepId: ev.stepId,
                 stepName: ev.stepName || step.stepName,
                 status: 'RUNNING',
+                selectedRoute: undefined,
                 attempts: ev.attempt || 1,
                 startTime: ev.timestamp
               }
