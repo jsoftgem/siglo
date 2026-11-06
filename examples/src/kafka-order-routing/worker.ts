@@ -4,6 +4,7 @@ import { WorkflowEventEmitter, setDefaultMonitor } from '@siglo/core';
 import { createKafkaMessageHandler, getKafkaRecordId } from '@siglo/kafka';
 import { PostgresIdempotencyStore } from '@siglo/postgres';
 import { RedisMonitoringAdapter } from '@siglo/monitor';
+import { handlePublishEvent } from './event-api';
 import { createOrderRoutingWorkflow, validateOrderEvent, UnsupportedOrderEvent, type OrderEvent } from './workflow';
 import { channel, database, deadLetterTopic, groupId, kafka, outcomeWriter, pubsubClient, redisUrl, topic } from './infrastructure';
 
@@ -61,7 +62,9 @@ async function main() {
         response.setHeader('Content-Type', 'application/json');
         try {
             const path = new URL(request.url || '/', 'http://localhost').pathname;
-            if (path === '/health') {
+            if (path === '/events') {
+                await handlePublishEvent(request, response, producer);
+            } else if (path === '/health') {
                 response.statusCode = ready ? 200 : 503;
                 response.end(JSON.stringify({ instance, ready, assignedPartitions }));
             } else if (path === '/results') {
