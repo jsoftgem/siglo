@@ -311,6 +311,34 @@ For the standard order, inspect the selected `order.placed` route, the fulfillme
 
 The monitor's graph shows the complete workflow definition: labeled `branch` routes and `when` then/else paths, including the skip path. Selected routes are green and untaken routes are dimmed; a false `when` without an else action highlights “Continue without action” before continuing to the next step. Conditional routes reconnect directly without an extra join card. Executed steps display their live status and timing. Click an executed step for its details. The same view shows parallel fan-out and fan-in, race joins labeled “First result,” and map item processing templates.
 
+These screenshots show real events processed by the Docker example through Kafka, the workers, PostgreSQL, and Redis. Each view focuses on the relevant decision, with the selected step's details visible on the right. Execution IDs and timings will differ on your machine.
+
+### Standard: Skip Gift Wrapping and Ship
+
+The optional `when` takes its green `else` path through **Continue without action** to `shipOrder`. The dimmed `wrapGift` step is marked **Not taken**, while the details panel confirms that shipping completed.
+
+![Live monitor showing a standard order taking the green else bypass around gift wrapping and completing shipOrder, with shipping details on the right](assets/kafka-order-routing/standard.png)
+
+### Gift: Take the Optional Step
+
+With `giftWrap: true`, the same decision takes the green `then` path through `wrapGift` before shipping. Selecting `wrapGift` keeps its status, duration, and attempt count beside the graph.
+
+![Live monitor showing a gift order taking the green then route through wrapGift to shipOrder, with wrapGift selected and its details on the right](assets/kafka-order-routing/gift.png)
+
+### Review: Route a High-Value Order Away from Fulfillment
+
+The `order.placed` route reaches the first `when`, which selects `queueReview`. Payment and shipping remain on the dimmed, untaken fulfillment path. This run completes with `review-required`; it is not suspended for approval.
+
+![Live monitor showing a high-value order routed through order.placed and then to queueReview, with fulfillment dimmed and review step details on the right](assets/kafka-order-routing/review.png)
+
+### Cancel: Choose a Different Event Branch
+
+An `order.cancelled` event goes directly to `recordCancellation`. The placed-order decision tree stays dimmed because none of its fulfillment steps run.
+
+![Live monitor showing the green order.cancelled branch reaching recordCancellation, with the placed-order tree dimmed and cancellation details on the right](assets/kafka-order-routing/cancel.png)
+
+The [unsupported-event screenshot below](#6-unsupported-events-invalid-input-and-dead-letters) shows how the same graph exposes a failed fallback and its error details.
+
 The outcome's `actions` array provides a simple, persisted record of the demo path. Graph connections describe possible control flow, not proof that every route ran. This example enables observation but disables remote resumption; it has no suspended runs to resume. Rebuild the Compose image after updating the monitor UI or runtime so workers and the dashboard use the updated graph metadata.
 
 Kafka offsets and PostgreSQL claims survive worker restarts. The monitor's run history is held in memory, and Redis Pub/Sub does not replay old monitoring events after a monitor restart.
@@ -379,6 +407,16 @@ docker compose -f examples/kafka-order-routing/docker-compose.yml exec kafka \
 With a fresh stack and the two commands above, expect one unsupported-event record with `attempts: 1` and one malformed-JSON record with `attempts: 0`. On a reused stack, the command can also show earlier dead letters.
 
 The unsupported event creates a failed workflow run in the monitor even though its Kafka record is later quarantined successfully. Malformed JSON does not create a workflow run because parsing fails first.
+
+### Unsupported: Inspect the Failed Fallback
+
+The green `default` connection identifies the selected route; the red `rejectUnsupported` step and failed run status identify its outcome. Its details panel shows `UnsupportedOrderEvent: Unsupported event type: order.refunded`. Selecting a route does not mean that its action succeeded.
+
+![Live monitor showing an unsupported order.refunded event taking the default route into the failed rejectUnsupported step, with its error and stack trace in the right-hand details panel](assets/kafka-order-routing/unsupported.png)
+
+### Invalid: Rejected Before a Workflow Exists
+
+The `invalid` scenario sends malformed JSON. There is no DAG or step-details screenshot for this case: the adapter rejects the record before starting the workflow, so the monitor's run count does not increase. Inspect `/dead-letters` or `tutorial.orders.dead-letter` instead; the record has `attempts: 0`. This differs from the unsupported event above, whose workflow starts and fails with `attempts: 1`.
 
 ---
 
