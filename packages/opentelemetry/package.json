@@ -1,6 +1,6 @@
 {
   "name": "@siglo/opentelemetry",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "OpenTelemetry observability integration for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

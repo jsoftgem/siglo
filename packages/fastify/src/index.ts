@@ -4,6 +4,7 @@ export interface SigloFastifyOptions<TReq = any, TInput = any, TOutput = any> {
     input?: (req: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, reply: any) => Promise<any> | any;
     timeout?: number;
+    durable?: boolean | ((req: TReq) => boolean);
     namespace?: string | ((req: TReq) => string | undefined);
     onError?: (err: any, reply: any) => Promise<any> | any;
     correlationIdHeader?: string;
@@ -88,6 +89,7 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 signal: abortSignal,
                 timeout: options.timeout,
                 namespace,
+                durable: typeof options.durable === 'function' ? options.durable(request) : options.durable,
             };
 
             const rawResult: any = await workflow.run(inputData, execOptions);
@@ -105,6 +107,9 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 return await options.output(cleanResult, reply);
             }
 
+            if (cleanResult?.status === 'waiting') {
+                reply.status(202);
+            }
             return cleanResult;
         } catch (err: any) {
             if (options.onError) {

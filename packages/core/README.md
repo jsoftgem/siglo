@@ -5,7 +5,7 @@
 # Siglo Core
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/siglo)
+[![NPM Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)

@@ -4,7 +4,7 @@
 
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://www.npmjs.com/package/siglo)
+[![NPM Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -36,6 +36,9 @@ For approvals that wait on people, imports that need bounded concurrency, and ev
 **Practical tutorial:** [Serve a REST Endpoint and Watch It Run Live](docs/rest-and-live-monitoring.md) — connect an Express checkout endpoint to the dashboard, inspect retries, and diagnose failed requests.
 
 **Continue the tutorial:** [Distributed Checkout with PostgreSQL and Redis](docs/distributed-rest-and-live-monitoring.md) — run two API instances with shared persistence, caching, and a separate live monitor using Docker Compose.
+
+**Durable workflows tutorial:** [Suspend Checkout for Approval and Resume Across Servers](docs/durable-distributed-checkout.md) — suspend long-running orders for external webhooks or human approvals, survive server restarts, and resume across replicas.
+
 
 Explore the 11 comprehensive guides covering architecture, design patterns, testing, and production operations:
 

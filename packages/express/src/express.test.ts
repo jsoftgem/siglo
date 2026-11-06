@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Step, flow } from '@siglo/core';
+import { Step, flow, waitForEvent, wait, clearStorage, defaultDurableManager } from '@siglo/core';
 import { sigloExpressMiddleware, getErrorStatusCode } from './index';
 
 describe('@siglo/express Adapter Suite', () => {
@@ -131,5 +131,101 @@ describe('@siglo/express Adapter Suite', () => {
 
         expect(sentStatus).to.equal(504);
         expect(sentJson.error).to.equal('Request deadline exceeded');
+    });
+});
+
+
+describe('@siglo/express durable HTTP responses', () => {
+    beforeEach(() => {
+        clearStorage();
+        defaultDurableManager.clear();
+    });
+
+    afterEach(() => {
+        clearStorage();
+        defaultDurableManager.clear();
+    });
+
+    function responseHarness() {
+        const response = {
+            statusCode: 200,
+            body: undefined as any,
+            headers: {} as Record<string, string>,
+            header(name: string, value: string) { this.headers[name] = value; },
+            setHeader(name: string, value: string) { this.headers[name] = value; },
+            status(code: number) { this.statusCode = code; return this; },
+            json(body: any, status?: number) {
+                if (status !== undefined) this.statusCode = status;
+                this.body = body;
+                return body;
+            },
+            send(body: any) { this.body = body; return body; },
+        };
+        return {
+            response,
+            async invoke(handler: any) {
+                return handler({ body: {}, headers: {} }, response, (err?: any) => { if (err) throw err; });
+            },
+        };
+    }
+
+    for (const kind of ['event', 'timer']) {
+        it(`returns 202 and the suspension descriptor for a durable ${kind} wait`, async () => {
+            let continued = false;
+            let errorHandled = false;
+            const waitStep = kind === 'event'
+                ? waitForEvent('approval', { correlationKey: 'order-202', timeout: '1h' })
+                : wait('1h');
+            const workflow = flow(waitStep, Step.create(() => { continued = true; return { done: true }; }));
+            const { response, invoke } = responseHarness();
+            const result = await invoke(sigloExpressMiddleware(workflow, {
+                durable: true,
+                onError: () => { errorHandled = true; },
+            }));
+
+            expect(response.statusCode).to.equal(202);
+            expect(result.status).to.equal('waiting');
+            expect(result.stackId).to.equal(response.headers['X-Workflow-Stack-Id']);
+            expect(result.stackId).to.be.a('string');
+            expect(result.correlationKey).to.be.a('string');
+            expect(result.expiresAt).to.be.a('number');
+            expect(continued).to.equal(false);
+            expect(errorHandled).to.equal(false);
+        });
+    }
+
+    for (const enabled of [true, false, undefined]) {
+        it(`resolves per-request durable=${enabled} and preserves 200 for non-durable waits`, async () => {
+            const { response, invoke } = responseHarness();
+            const workflow = flow(waitForEvent('approval', { correlationKey: 'order-option' }));
+            let requestSeen: any;
+            const result = await invoke(sigloExpressMiddleware(workflow, {
+                durable: enabled === undefined ? undefined : (request: any) => {
+                    requestSeen = request;
+                    return enabled;
+                },
+            }));
+            if (enabled !== undefined) expect(requestSeen).to.exist;
+            expect(response.statusCode).to.equal(enabled ? 202 : 200);
+            if (enabled) expect(result.status).to.equal('waiting');
+            else expect(result.waited).to.equal(true);
+        });
+    }
+
+    it('leaves the response status under custom output control for a waiting workflow', async () => {
+        const { response, invoke } = responseHarness();
+        const result = await invoke(sigloExpressMiddleware(flow(waitForEvent('approval', { correlationKey: 'order-custom' })), {
+            durable: true,
+            output: (result: any, res: any) => res.status(201).json(result),
+        }));
+        expect(response.statusCode).to.equal(201);
+        expect(result.status).to.equal('waiting');
+    });
+
+    it('returns 200 when a durable workflow completes without waiting', async () => {
+        const { response, invoke } = responseHarness();
+        const result = await invoke(sigloExpressMiddleware(flow(Step.create(() => ({ done: true }))), { durable: true }));
+        expect(response.statusCode).to.equal(200);
+        expect(result.done).to.equal(true);
     });
 });

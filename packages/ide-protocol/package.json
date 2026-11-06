@@ -1,6 +1,6 @@
 {
   "name": "@siglo/ide-protocol",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Shared JSON-RPC 2.0 schemas, interfaces, and protocol types for Siglo IDE extensions",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@siglo/notifications",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Multi-channel notifications and durable human approvals for Siglo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

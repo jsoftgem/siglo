@@ -13,6 +13,7 @@ flowchart TD
     Req["Fastify HTTP Request"] --> Handler["sigloFastifyHandler<br/>• Extract request.body / query<br/>• Extract request.raw.signal (Native AbortSignal)<br/>• Mirror X-Correlation-Id<br/>• Resolve Tenant Namespace"]
     Handler --> WF["Siglo Workflow<br/>• Typed Input Parameters<br/>• Timeout Deadlines<br/>• Subgraph Step Execution"]
     WF -->|Success| Success["Set Stack ID<br/>Return JSON"]
+    WF -->|Waiting| Waiting["Set Stack ID<br/>202 Accepted / Suspension JSON"]
     WF -->|Error| Error["getErrorStatusCode(err)<br/>reply.status(code).send()"]
 ```
 
@@ -54,11 +55,14 @@ function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
 | `input` | `(req: TReq) => Promise<TInput> \| TInput` | `request.body \|\| request.query` | Function transforming incoming Fastify request into workflow parameters. |
 | `output` | `(result: TOutput, reply: FastifyReply) => Promise<any> \| any` | `result` | Function formatting the final response. If omitted, Fastify serializes the clean result. |
 | `timeout` | `number` | `undefined` | Execution timeout in milliseconds. |
+| `durable` | `boolean \| ((req: TReq) => boolean)` | `undefined` | Enables durable suspension, either for every request or through a request-specific resolver. |
 | `namespace` | `string \| ((req: TReq) => string \| undefined)` | `undefined` | Namespace identifier or extractor function for tenant partitioning. |
 | `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
 | `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
 | `onError` | `(err: any, reply: FastifyReply) => Promise<any> \| any` | Default JSON error handler | Custom error responder. If omitted, maps status codes and returns sanitized `{ error: message }`. |
 | `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name for correlation propagation. |
+
+Without a custom `output` callback, a workflow result with `status: 'waiting'` returns **202 Accepted** with the suspension descriptor as JSON. Completed workflows use the normal **200 OK** response. Suspension is a successful result and does not invoke `onError`. A custom `output` callback controls both the response body and status.
 
 ---
 
@@ -185,3 +189,50 @@ const start = async () => {
 
 start();
 ```
+
+
+---
+
+## 8. Durable Workflows and Automatic HTTP Responses
+
+Enable `durable: true` so `waitForEvent()` or `wait()` can suspend execution. The adapter automatically returns **202 Accepted** when the result has `status: 'waiting'`, including the suspension descriptor and `X-Workflow-Stack-Id` header. A workflow that completes uses **200 OK** by default.
+
+```typescript
+import Fastify from 'fastify';
+import { Step, flow, waitForEvent, resumeWorkflow } from '@siglo/core';
+import { sigloFastifyHandler } from '@siglo/fastify';
+
+const app = Fastify();
+
+const approvalWorkflow = flow(
+    waitForEvent('order.approved', {
+        correlationKey: (input: { orderId: string }) => `order:${input.orderId}`,
+        timeout: '24h'
+    }),
+    Step.create('confirmOrder', () => ({ status: 'confirmed' }))
+);
+
+// POST JSON: { "orderId": "order-5001" }
+// Returns 202 with status: 'waiting'; no output callback is required.
+app.post('/api/orders', sigloFastifyHandler(approvalWorkflow, {
+    durable: true,
+    namespace: 'orders'
+}));
+
+// In a separate approval webhook handler, resume the existing execution:
+// await resumeWorkflow(approvalWorkflow, 'order:order-5001', { approved: true });
+```
+
+The waiting JSON includes `status`, `stackId`, `stepId`, `correlationKey`, `eventName`, `expiresAt` (a Unix timestamp in milliseconds when a timeout is set), and `continuationStepIndex`. Suspension is a successful result, so it does not invoke `onError`. Calling the submission handler again starts a new execution; approval webhooks must call `resumeWorkflow()` to continue the suspended one.
+
+For request-specific control, replace `durable: true` with `durable: (req) => req.headers['x-durable'] === 'true'`. Headers, query parameters, and JSON fields do not automatically enable durable mode in this adapter. Explicit `durable: false` disables suspension; wait nodes then use their non-durable behavior.
+
+| Workflow outcome | Default HTTP response |
+| :--- | :--- |
+| Suspended at `waitForEvent()` or `wait()` | `202 Accepted` with the waiting descriptor |
+| Completed | `200 OK` with the clean workflow result |
+| Failed | Existing error-to-status mapping, or custom `onError` |
+
+A custom `output` callback takes full control of the response body and status, including for waiting results. If you supply one, handle `result.status === 'waiting'` explicitly when you want to preserve the `202` response.
+
+The HTTP adapter does not supply persistence. Configure a shared storage adapter that supports checkpoints and wait records to survive process restarts and resume across replicas. Timer waits also need a scheduler to resume them when due. See [Durable Workflows](../../docs/06-durable-workflows.md), [Storage and Adapters](../../docs/07-storage-and-adapters.md), and [the distributed checkout tutorial](../../docs/durable-distributed-checkout.md).

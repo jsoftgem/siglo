@@ -13,7 +13,7 @@ import { SemanticAttributes } from './attributes';
 import { SigloTelemetryOptions } from './types';
 
 const DEFAULT_TRACER_NAME = '@siglo/opentelemetry';
-const DEFAULT_TRACER_VERSION = '1.0.0';
+const DEFAULT_TRACER_VERSION = '1.0.3';
 
 /**
  * Returns an OpenTelemetry tracer based on configuration.

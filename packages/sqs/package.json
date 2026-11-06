@@ -1,6 +1,6 @@
 {
   "name": "@siglo/sqs",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "AWS SQS message batch processor and event consumer adapter for Siglo workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

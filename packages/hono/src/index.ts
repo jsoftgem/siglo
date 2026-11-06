@@ -4,6 +4,7 @@ export interface SigloHonoMiddlewareOptions<TReq = any, TInput = any, TOutput = 
     input?: (c: TReq) => Promise<TInput> | TInput;
     output?: (result: TOutput, c: TReq) => Promise<any> | any;
     timeout?: number;
+    durable?: boolean | ((c: TReq) => boolean);
     namespace?: string | ((c: TReq) => string | undefined);
     onError?: (err: any, c: TReq) => Promise<any> | any;
     correlationIdHeader?: string;
@@ -97,6 +98,7 @@ export function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
                 signal: abortSignal,
                 timeout: options.timeout,
                 namespace,
+                durable: typeof options.durable === 'function' ? options.durable(c) : options.durable,
             };
 
             const rawResult: any = await workflow.run(inputData, execOptions);
@@ -115,6 +117,9 @@ export function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
             }
 
             if (c.json) {
+                if (cleanResult?.status === 'waiting') {
+                    return c.json(cleanResult, 202);
+                }
                 return c.json(cleanResult);
             }
 

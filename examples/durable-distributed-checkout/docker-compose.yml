@@ -1,0 +1,85 @@
+name: siglo-durable-checkout
+
+x-app: &app
+  image: siglo-durable-checkout:local
+  build:
+    context: ../..
+    dockerfile: examples/durable-distributed-checkout/Dockerfile
+  init: true
+  environment: &environment
+    PORT: "3000"
+    MONITOR_PORT: "4000"
+    DATABASE_URL: postgres://siglo:siglo@postgres:5432/checkout
+    REDIS_URL: redis://redis:6379
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: siglo
+      POSTGRES_PASSWORD: siglo
+      POSTGRES_DB: checkout
+    ports: ["127.0.0.1:5434:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siglo -d checkout"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6381:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  init-db:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/durable-distributed-checkout/infrastructure.ts"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  monitor:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/durable-distributed-checkout/monitor.ts"]
+    ports: ["127.0.0.1:${DURABLE_MONITOR_PORT:-4100}:4000"]
+    depends_on:
+      init-db: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/workflows').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api-a:
+    <<: *app
+    environment:
+      <<: *environment
+      INSTANCE_ID: api-a
+    ports: ["127.0.0.1:${DURABLE_API_A_PORT:-3100}:3000"]
+    depends_on:
+      init-db: { condition: service_completed_successfully }
+      monitor: { condition: service_healthy }
+    healthcheck: &api-health
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api-b:
+    <<: *app
+    environment:
+      <<: *environment
+      INSTANCE_ID: api-b
+    ports: ["127.0.0.1:${DURABLE_API_B_PORT:-3101}:3000"]
+    depends_on:
+      init-db: { condition: service_completed_successfully }
+      monitor: { condition: service_healthy }
+    healthcheck: *api-health
+
+volumes:
+  postgres-data:

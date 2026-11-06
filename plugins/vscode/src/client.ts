@@ -81,7 +81,7 @@ export class AnalyzerClient {
     child.stdin.on('error', err => { failed(err); child.kill(); });
     try {
       await this.send(PROTOCOL_METHODS.INITIALIZE, {
-        clientName: 'siglo-vscode', clientVersion: '1.0.1', rootUri: this.rootUri(), capabilities: { dynamicRefresh: true },
+        clientName: 'siglo-vscode', clientVersion: '1.0.3', rootUri: this.rootUri(), capabilities: { dynamicRefresh: true },
       });
       this.failures = 0;
     } catch (error) {

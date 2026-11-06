@@ -309,3 +309,5 @@ docker compose -f examples/distributed-checkout/docker-compose.yml down
 ```
 
 To deliberately delete this demo's PostgreSQL history and saved responses, add `--volumes` to that command. Redis data is ephemeral in this setup.
+
+Continue the tutorial with [Suspend Checkout for Approval and Resume Across Servers](durable-distributed-checkout.md) to pause checkout at durable event waits, survive process restarts, and resume across replicas with webhooks.

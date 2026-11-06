@@ -1,6 +1,6 @@
 {
   "name": "@siglo/ai",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Resilient multi-provider AI steps, structured outputs and tool execution for Siglo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

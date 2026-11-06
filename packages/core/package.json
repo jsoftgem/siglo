@@ -1,6 +1,6 @@
 {
   "name": "@siglo/core",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

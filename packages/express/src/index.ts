@@ -120,6 +120,9 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
             }
 
             if (res.json) {
+                if (cleanResult?.status === 'waiting' && res.status) {
+                    res.status(202);
+                }
                 return res.json(cleanResult);
             }
 

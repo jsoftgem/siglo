@@ -1,6 +1,6 @@
 {
   "name": "@siglo/testing",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Deterministic test utilities, workflow harness, mocks, fake clock, and replay tooling for Siglo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
