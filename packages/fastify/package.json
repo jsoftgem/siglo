@@ -1,7 +1,7 @@
 {
   "name": "@siglo/fastify",
   "version": "1.0.3",
-  "description": "Fastify route handler adapter for executing Siglo workflows",
+  "description": "Fastify route handler adapter for running Siglo TypeScript workflows in Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/fastify#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -57,5 +57,14 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "fastify",
+    "http",
+    "nodejs",
+    "route-handler"
+  ]
 }

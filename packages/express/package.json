@@ -1,7 +1,7 @@
 {
   "name": "@siglo/express",
   "version": "1.0.3",
-  "description": "Express middleware and route handler adapter for executing Siglo workflows",
+  "description": "Express middleware and route handler adapter for running Siglo TypeScript workflows in Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/express#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -57,5 +57,15 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "express",
+    "middleware",
+    "http",
+    "nodejs",
+    "route-handler"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@siglo/notifications",
   "version": "1.0.3",
-  "description": "Multi-channel notifications and durable human approvals for Siglo",
+  "description": "Multi-channel notification steps and durable human-in-the-loop approvals for Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -43,7 +43,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/notifications#readme",
   "dependencies": {
     "@siglo/crypto": "^1.0.0",
     "@siglo/http": "^1.0.0",
@@ -62,5 +62,17 @@
     "tsx": "^4.23.15",
     "typescript": "~5.7.0",
     "@siglo/postgres": "^1.0.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "notifications",
+    "human-in-the-loop",
+    "approval",
+    "email",
+    "slack",
+    "sms",
+    "webhook"
+  ]
 }

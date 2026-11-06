@@ -35,6 +35,8 @@ To call checkout over HTTP and inspect it in the dashboard, follow [REST Integra
 
 The demo shows a recovered payment failure and a shipping failure that triggers a refund and stock release. The tests also cover invalid input, permanent payment failure, and duplicate requests.
 
+Continue with [Kafka Order Routing](../docs/kafka-order-routing.md) and the [ready-made two-consumer example](kafka-order-routing/README.md) to explore `@siglo/kafka`, shared `@siglo/postgres` idempotency, `branch`, and `when`.
+
 ---
 
 ## Architecture Overview

@@ -1,7 +1,7 @@
 {
   "name": "@siglo/ai",
   "version": "1.0.3",
-  "description": "Resilient multi-provider AI steps, structured outputs and tool execution for Siglo",
+  "description": "Multi-provider AI workflow steps for TypeScript with structured outputs, tool calling, retries, and model fallbacks for Siglo.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -38,5 +38,27 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "ai",
+    "llm",
+    "ai-workflow",
+    "structured-output",
+    "tool-calling",
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
+    "directory": "packages/ai"
+  },
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/ai#readme",
+  "bugs": {
+    "url": "https://github.com/jsoftgem/siglo/issues"
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@siglo/opentelemetry",
   "version": "1.0.3",
-  "description": "OpenTelemetry observability integration for Siglo workflows",
+  "description": "OpenTelemetry distributed tracing and trace context propagation for Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/opentelemetry#readme",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@siglo/core": "^1.0.0"
@@ -50,5 +50,15 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "opentelemetry",
+    "otel",
+    "tracing",
+    "distributed-tracing",
+    "observability"
+  ]
 }

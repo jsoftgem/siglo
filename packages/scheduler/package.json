@@ -1,7 +1,7 @@
 {
   "name": "@siglo/scheduler",
   "version": "1.0.3",
-  "description": "Background durable timer poller and cloud scheduler dispatcher for Siglo workflows",
+  "description": "Durable workflow timer polling and cloud scheduler webhook dispatch for Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/scheduler#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -49,5 +49,16 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "scheduler",
+    "scheduling",
+    "timer",
+    "durable-execution",
+    "webhook",
+    "background-jobs"
+  ]
 }

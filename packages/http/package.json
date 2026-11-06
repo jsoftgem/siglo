@@ -1,7 +1,7 @@
 {
   "name": "@siglo/http",
   "version": "1.0.3",
-  "description": "Resilient, W3C-traced HTTP client step package with ASL network egress enforcement, status retry backoff, and saga compensations for Siglo workflows",
+  "description": "HTTP client steps for Siglo TypeScript workflows with retries, trace propagation, network policies, and saga compensation.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -43,7 +43,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/http#readme",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@standard-schema/spec": "^1.1.0",
@@ -58,5 +58,16 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "http",
+    "http-client",
+    "retry",
+    "backoff",
+    "distributed-tracing",
+    "saga"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@siglo/ide-analysis",
   "version": "1.0.3",
-  "description": "Static TypeScript AST analysis daemon and JSON-RPC service for Siglo IDE extensions",
+  "description": "Static TypeScript workflow analysis and JSON-RPC service for Siglo IDE extensions and workflow visualization.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -49,5 +49,21 @@
     "chai": "^3.5.0",
     "mocha": "^12.0.3",
     "tsx": "^4.23.15"
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "static-analysis",
+    "ast",
+    "json-rpc",
+    "developer-tools",
+    "workflow-visualizer",
+    "vscode",
+    "intellij"
+  ],
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/ide-analysis#readme",
+  "bugs": {
+    "url": "https://github.com/jsoftgem/siglo/issues"
   }
 }

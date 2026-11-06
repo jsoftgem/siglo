@@ -1,7 +1,7 @@
 {
   "name": "@siglo/cli",
   "version": "1.0.3",
-  "description": "Developer CLI and workflow visualizer/inspector for Siglo workflows",
+  "description": "Command-line tools for scaffolding, visualizing, inspecting, and replaying Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -41,7 +41,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/cli#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0",
     "@siglo/monitor": "^1.0.0"
@@ -54,5 +54,16 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "cli",
+    "developer-tools",
+    "scaffolding",
+    "workflow-visualizer",
+    "static-analysis",
+    "replay"
+  ]
 }

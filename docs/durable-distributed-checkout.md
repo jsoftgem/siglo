@@ -749,6 +749,7 @@ When operating durable workflows in production:
 
 | Topic | Document |
 |---|---|
+| Continue with Kafka integration and conditional routing | [Kafka Order Routing with `branch` and `when`](kafka-order-routing.md) |
 | Core durable concepts and wait combinators | [06. Durable Workflows](06-durable-workflows.md) |
 | PostgreSQL checkpoint and wait table contracts | [Storage and Persistence Contract](storage-contract.md) |
 | Distributed storage adapters and multi-tenant namespaces | [Storage and Adapters](07-storage-and-adapters.md) |

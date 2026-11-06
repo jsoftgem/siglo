@@ -39,6 +39,7 @@ For approvals that wait on people, imports that need bounded concurrency, and ev
 
 **Durable workflows tutorial:** [Suspend Checkout for Approval and Resume Across Servers](docs/durable-distributed-checkout.md) — suspend long-running orders for external webhooks or human approvals, survive server restarts, and resume across replicas.
 
+**Kafka routing tutorial:** [Route Kafka Order Events with `branch` and `when`](docs/kafka-order-routing.md) — consume events across two workers, route fulfillment decisions, share PostgreSQL idempotency, and inspect the live monitor.
 
 Explore the 11 comprehensive guides covering architecture, design patterns, testing, and production operations:
 

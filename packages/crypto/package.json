@@ -1,7 +1,7 @@
 {
   "name": "@siglo/crypto",
   "version": "1.0.3",
-  "description": "Zero-dependency cryptographic step package for Siglo workflows: timing-safe webhook verification, AEAD envelope field encryption, and context redaction",
+  "description": "Cryptographic steps for Siglo TypeScript workflows: webhook signature verification, field encryption, and context redaction.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/crypto#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -50,5 +50,16 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "cryptography",
+    "webhook",
+    "signature-verification",
+    "hmac",
+    "encryption",
+    "redaction"
+  ]
 }

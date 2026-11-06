@@ -4,6 +4,14 @@ Shared JSON-RPC 2.0 wire protocol, data models, and serialization helpers for Si
 
 ---
 
+## Installation
+
+Install the shared protocol when building a Siglo IDE integration:
+
+```bash
+npm install @siglo/ide-protocol
+```
+
 ## 1. Overview
 
 `@siglo/ide-protocol` establishes a formal, host-agnostic contract between IDE client hosts (written in Kotlin for IntelliJ IDEA, or TypeScript for VS Code) and the Siglo background language analysis service (`@siglo/ide-analysis`).

@@ -1,3 +1,20 @@
+# @siglo/ide-analysis
+
+Static TypeScript workflow analysis and a JSON-RPC service for Siglo IDE extensions. Discovers workflow definitions and produces workflow graphs without executing application code.
+
+## Installation
+
+Install the analysis service when building a Siglo IDE integration:
+
+```bash
+npm install @siglo/ide-analysis
+```
+
+Start the JSON-RPC service over standard input and output:
+
+```bash
+npx siglo-ide-analysis
+```
 
 ## Static step coverage
 

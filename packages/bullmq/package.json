@@ -1,7 +1,7 @@
 {
   "name": "@siglo/bullmq",
   "version": "1.0.3",
-  "description": "BullMQ job queue consumer and worker adapter for Siglo workflows",
+  "description": "BullMQ job queue consumer and worker adapter for TypeScript workflows with Siglo.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/bullmq#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -57,5 +57,15 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "bullmq",
+    "job-queue",
+    "worker",
+    "redis",
+    "background-jobs"
+  ]
 }

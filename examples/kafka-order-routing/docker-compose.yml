@@ -1,0 +1,113 @@
+name: siglo-kafka-order-routing
+
+x-app: &app
+  image: siglo-kafka-order-routing:local
+  build:
+    context: ../..
+    args:
+      NODE_IMAGE: ${KAFKA_NODE_IMAGE:-node:24-alpine}
+    dockerfile: examples/kafka-order-routing/Dockerfile
+  init: true
+  environment: &environment
+    PORT: "3000"
+    MONITOR_PORT: "4000"
+    KAFKA_BROKERS: kafka:9092
+    DATABASE_URL: postgres://siglo:siglo@postgres:5432/kafka_orders
+    REDIS_URL: redis://redis:6379
+
+services:
+  kafka:
+    image: ${KAFKA_IMAGE:-confluentinc/cp-kafka:8.1.1}
+    ports: ["127.0.0.1:29092:29092"]
+    volumes: ["kafka-data:/var/lib/kafka/data"]
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://127.0.0.1:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: siglo
+      POSTGRES_PASSWORD: siglo
+      POSTGRES_DB: kafka_orders
+    ports: ["127.0.0.1:5435:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siglo -d kafka_orders"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6382:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  init-topics:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/kafka-order-routing/infrastructure.ts"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  monitor:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/kafka-order-routing/monitor.ts"]
+    ports: ["127.0.0.1:${KAFKA_MONITOR_PORT:-4300}:4000"]
+    depends_on:
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/workflows').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  worker-a:
+    <<: *app
+    environment:
+      <<: *environment
+      INSTANCE_ID: worker-a
+    ports: ["127.0.0.1:${KAFKA_WORKER_A_PORT:-3300}:3000"]
+    depends_on:
+      init-topics: { condition: service_completed_successfully }
+      monitor: { condition: service_healthy }
+    healthcheck: &worker-health
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  worker-b:
+    <<: *app
+    environment:
+      <<: *environment
+      INSTANCE_ID: worker-b
+    ports: ["127.0.0.1:${KAFKA_WORKER_B_PORT:-3301}:3000"]
+    depends_on:
+      init-topics: { condition: service_completed_successfully }
+      monitor: { condition: service_healthy }
+    healthcheck: *worker-health
+
+volumes:
+  kafka-data:
+  postgres-data:

@@ -1,7 +1,7 @@
 {
   "name": "@siglo/core",
   "version": "1.0.3",
-  "description": "Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.",
+  "description": "TypeScript workflow orchestration with durable checkpoints, retries, saga compensation, and live DevTools.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -41,10 +41,14 @@
   "keywords": [
     "siglo",
     "workflow",
+    "typescript",
+    "workflow-engine",
+    "workflow-orchestration",
+    "durable-execution",
     "orchestrator",
     "pipeline",
     "saga",
-    "typescript",
+    "retry",
     "asynchronous",
     "functional",
     "chain"
@@ -54,7 +58,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/core#readme",
   "devDependencies": {
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",

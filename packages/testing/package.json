@@ -1,7 +1,7 @@
 {
   "name": "@siglo/testing",
   "version": "1.0.3",
-  "description": "Deterministic test utilities, workflow harness, mocks, fake clock, and replay tooling for Siglo",
+  "description": "Deterministic testing utilities for Siglo TypeScript workflows with mocks, fake timers, execution traces, and failure replay.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/testing#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -49,5 +49,16 @@
     "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "testing",
+    "test-harness",
+    "mock",
+    "fake-timers",
+    "replay",
+    "deterministic"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@siglo/kafka",
   "version": "1.0.3",
-  "description": "Kafka consumer message handler and event streaming adapter for Siglo workflows",
+  "description": "Apache Kafka consumer and event streaming adapter for running Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -39,7 +39,7 @@
   "bugs": {
     "url": "https://github.com/jsoftgem/siglo/issues"
   },
-  "homepage": "https://github.com/jsoftgem/siglo#readme",
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/kafka#readme",
   "dependencies": {
     "@siglo/core": "^1.0.0"
   },
@@ -62,5 +62,16 @@
     "pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0"
-  }
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "typescript",
+    "kafka",
+    "apache-kafka",
+    "kafkajs",
+    "event-streaming",
+    "consumer",
+    "event-driven"
+  ]
 }

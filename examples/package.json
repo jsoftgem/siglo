@@ -23,7 +23,8 @@
     "ioredis": "^6.0.0",
     "mongodb": "^7.7.0",
     "@siglo/monitor": "^1.0.0",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "kafkajs": "^2.2.4"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1"

@@ -1,8 +1,15 @@
-# 09. Testing and Replay
+# @siglo/testing — Testing and Replay
 
 `@siglo/testing` provides a comprehensive, zero-flake test harness for deterministic execution, step mocking, spy inspection, virtual timers, execution trace snapshots, and production failure replay.
 
 ---
+
+## Installation
+
+```bash
+npm install @siglo/core
+npm install --save-dev @siglo/testing
+```
 
 ## 1. The Workflow Harness
 
