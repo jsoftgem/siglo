@@ -1,4 +1,5 @@
 import { stepInspectionStorage } from '../../events/inspection';
+import { stepExecutionHookStorage, StepExecutionContext } from '../hooks';
 import AddSpecToContext from './Helpers/AddSpecToContext';
 import AddInitialParam from './Helpers/AddInitialParam';
 import ConvertParamFromSpec from './Helpers/ConvertParamFromSpec';
@@ -542,7 +543,22 @@ export default class StartChain {
                                                             ? cache(stackId, cacheKey, actionParam, chain.cachedLast, chain.action, options?.namespace, chain.cacheOptions)
                                                             : chain.action(actionParam);
 
-                                                        rawAction = runAction();
+                                                        const activeHook = options?.stepExecutionHook || stepExecutionHookStorage.getStore();
+                                                        if (activeHook) {
+                                                            const stepContext: StepExecutionContext = {
+                                                                step: chain,
+                                                                stepName: chainName,
+                                                                stepId: chain.$stepId || chainName,
+                                                                stackId,
+                                                                attempt: (initialParam?.[ATTEMPT] ? (typeof initialParam[ATTEMPT] === 'function' ? initialParam[ATTEMPT]() : initialParam[ATTEMPT]) : 0) + 1,
+                                                                namespace: options?.namespace,
+                                                                param: actionParam,
+                                                                options
+                                                            };
+                                                            rawAction = activeHook(stepContext, runAction);
+                                                        } else {
+                                                            rawAction = runAction();
+                                                        }
                                                     } catch (actionErr: any) {
                                                         if (stepIdempKey) {
                                                             if (isPermanentBusinessError(actionErr, chain.idempotencyOptions)) {

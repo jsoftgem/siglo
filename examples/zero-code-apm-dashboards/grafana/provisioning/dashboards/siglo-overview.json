@@ -1,0 +1,357 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "uid": "siglo-apm",
+  "links": [
+    {
+      "title": "Workflow metrics",
+      "type": "link",
+      "url": "http://localhost:3000/d/siglo-live-monitoring",
+      "targetBlank": true
+    },
+    {
+      "title": "Worker A traces",
+      "type": "link",
+      "url": "http://localhost:16686/search?service=worker-a",
+      "targetBlank": true
+    },
+    {
+      "title": "Worker B traces",
+      "type": "link",
+      "url": "http://localhost:16686/search?service=worker-b",
+      "targetBlank": true
+    },
+    {
+      "title": "Prometheus targets",
+      "type": "link",
+      "url": "http://localhost:9090/targets",
+      "targetBlank": true
+    },
+    {
+      "title": "Live monitor",
+      "type": "link",
+      "url": "http://127.0.0.1:4400",
+      "targetBlank": true
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Completed Workflow Executions",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(siglo_flows_total{status=\"completed\"})",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "title": "Failed Workflow Executions",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(siglo_flows_total{status=\"failed\"})",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "title": "Workflow Metrics Endpoint",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"siglo-monitor\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "SCRAPE UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 4,
+      "title": "Workflow Executions by Status",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (status) (siglo_flows_total)",
+          "instant": true,
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Workflow executions",
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 5,
+      "title": "Follow an event across Kafka",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "### Publisher → Kafka → Worker A or Worker B\n\nPublish a fresh order, copy its **traceId**, and open [Jaeger](http://localhost:16686). Expand **kafka:process apm.orders → workflow:KafkaOrderRouting** to inspect its actions.\n\n**[Worker A traces](http://localhost:16686/search?service=worker-a)** · **[Worker B traces](http://localhost:16686/search?service=worker-b)** · **[Publisher traces](http://localhost:16686/search?service=kafka-order-publisher)**\n\nEach record runs on one consumer. Its trace links the publisher to the worker that handled that event.\n\n### Metrics and routing\n\n**[Workflow metrics](http://localhost:3000/d/siglo-live-monitoring)** — duration, throughput, completions, failures, and retries across both workers.\n\n**[Prometheus targets](http://localhost:9090/targets)** — verify the monitor is UP. **[Live monitor](http://127.0.0.1:4400)** — routing graphs and context."
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 6,
+      "title": "Kafka routing: what to look for",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "| Event | Inspect in the selected worker’s trace |\n|---|---|\n| Standard | `reserveStock → chargePayment → shipOrder`; gift wrapping is skipped |\n| Gift | `reserveStock → chargePayment → wrapGift → shipOrder` |\n| Review | `queueReview`; payment and shipping do not run |\n| Cancellation | `recordCancellation`; the fulfillment route does not run |\n| Unsupported | Failed `rejectUnsupported` and workflow spans; adapter quarantines the record |\n| Invalid JSON | Consumer handling span, with no workflow span; parsing fails before execution |\n| Duplicate event | Consumer handling span, with no new workflow span; PostgreSQL returns the completed claim |\n\n**Continuity across replicas:** the same trace ID follows each published record to its assigned worker. Replaying a completed event can land on either replica without repeating fulfillment. The shared metrics count workflow lifecycle events, including nested flows; they do not identify individual workers or measure Kafka consumer lag."
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [
+    "siglo",
+    "apm",
+    "tracing",
+    "opentelemetry"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "siglo Workflow APM Overview",
+  "version": 7,
+  "weekStart": "",
+  "description": "Kafka order routing across worker-a and worker-b. Workflow metrics aggregate both replicas through the shared Redis-backed monitor."
+}

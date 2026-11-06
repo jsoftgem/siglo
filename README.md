@@ -4,7 +4,7 @@
 
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://www.npmjs.com/package/siglo)
+[![NPM Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -32,6 +32,8 @@ For approvals that wait on people, imports that need bounded concurrency, and ev
 ---
 
 ## Documentation & Topic Guides
+
+**APM tutorial:** [Zero-Code APM Dashboards](docs/zero-code-apm-dashboards.md) — run an isolated Kafka APM example and trace events from producer to consumer and inspect shared workflow metrics with Jaeger, Grafana, and Prometheus.
 
 **Practical tutorial:** [Serve a REST Endpoint and Watch It Run Live](docs/rest-and-live-monitoring.md) — connect an Express checkout endpoint to the dashboard, inspect retries, and diagnose failed requests.
 

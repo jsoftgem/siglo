@@ -75,11 +75,11 @@ Browser-only VS Code and virtual workspaces are unsupported. Building from sourc
 
 ## Install in VS Code
 
-Use the generated archive at `plugins/vscode/siglo-workflow-explorer-1.0.3.vsix`. If it is missing, follow [Build and package](#build-and-package) first.
+Use the generated archive at `plugins/vscode/siglo-workflow-explorer-1.1.0.vsix`. If it is missing, follow [Build and package](#build-and-package) first.
 
 1. Open VS Code's **Extensions** view (`Cmd+Shift+X` on macOS; `Ctrl+Shift+X` on Windows/Linux).
 2. Click **…** in the Extensions view, then select **Install from VSIX…**.
-3. Select `siglo-workflow-explorer-1.0.3.vsix` from this repository's `plugins/vscode` directory.
+3. Select `siglo-workflow-explorer-1.1.0.vsix` from this repository's `plugins/vscode` directory.
 4. Reload VS Code if prompted.
 5. Open your project folder and trust the workspace to enable workflow analysis.
 
@@ -102,7 +102,7 @@ npm test --workspace=@siglo/vscode
 npm run package --workspace=@siglo/vscode
 ```
 
-Output: `plugins/vscode/siglo-workflow-explorer-1.0.3.vsix`.
+Output: `plugins/vscode/siglo-workflow-explorer-1.1.0.vsix`.
 
 The root explicitly registers `plugins/vscode` as an npm workspace. The build bundles the extension host and analyzer (including TypeScript) and copies the shared single-file HTML UI. Installation needs neither a separate Node executable nor workspace npm dependencies. The analyzer runs using the extension host executable in Node mode, also on remote hosts.
 
@@ -128,6 +128,6 @@ Full manual verification of navigation, trust transitions, sidebar layout, crash
 
 ### Blank visualizer after installing an earlier VSIX
 
-An earlier 1.0.0 archive incorrectly inserted CSP nonces into tag-like strings inside React's bundled JavaScript, preventing the UI from starting. The rebuilt archive preserves script contents. Reinstall the current `plugins/vscode/siglo-workflow-explorer-1.0.3.vsix` using **Install from VSIX…**, then run **Developer: Reload Window** from the Command Palette to load the fix. The current archive version is 1.0.3.
+An earlier 1.0.0 archive incorrectly inserted CSP nonces into tag-like strings inside React's bundled JavaScript, preventing the UI from starting. The rebuilt archive preserves script contents. Reinstall the current `plugins/vscode/siglo-workflow-explorer-1.1.0.vsix` using **Install from VSIX…**, then run **Developer: Reload Window** from the Command Palette to load the fix. The current archive version is 1.1.0.
 
 If analysis fails, inspect **Output → Siglo Workflow Explorer**. Trust the workspace if analysis is blocked. On failure, the last graph remains visible; manual Reload retries analysis. A scan covers only its first 100 matching files; open a source file directly to inspect workflows outside that limit.

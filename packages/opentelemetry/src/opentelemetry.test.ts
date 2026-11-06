@@ -8,7 +8,7 @@ import {
     SpanContext,
     TraceFlags
 } from '@opentelemetry/api';
-import { Step, flow } from '@siglo/core';
+import { Step, flow, branch, when, parallel } from '@siglo/core';
 import {
     SemanticAttributes,
     instrumentWorkflow,
@@ -227,9 +227,226 @@ describe('@siglo/opentelemetry Integration Suite', () => {
             const wfSpan = mockTracer.spans.find(s => s.name === 'workflow:secure-workflow');
             expect(wfSpan?.attributes[SemanticAttributes.NAMESPACE]).to.be.undefined;
         });
+
+        it('automatically traces nested branch and when combinators without explicit step instrumentation', async () => {
+            const reserveStock = Step.create('reserveStock', async () => ({ reserved: true }));
+            const chargePayment = Step.create('chargePayment', async () => ({ charged: true }));
+            const wrapGift = Step.create('wrapGift', async () => ({ wrapped: true }));
+            const shipOrder = Step.create('shipOrder', async () => ({ shipped: true }));
+            const queueReview = Step.create('queueReview', async () => ({ review: true }));
+            const cancelOrder = Step.create('recordCancellation', async () => ({ cancelled: true }));
+            const saveOutcome = Step.create('saveOutcome', async () => ({ saved: true }));
+
+            const fulfillment = flow(
+                reserveStock,
+                chargePayment,
+                when((o: any) => o.giftWrap === true, wrapGift),
+                shipOrder,
+            );
+            const placedOrder = when(
+                (o: any) => o.amountCents >= 100000,
+                queueReview,
+                fulfillment,
+            );
+            const myWorkflow = flow(
+                branch((e: any) => e.type, {
+                    'order.placed': placedOrder,
+                    'order.cancelled': cancelOrder,
+                }),
+                saveOutcome,
+            );
+
+            const instrumented = instrumentWorkflow(myWorkflow, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'NestedOrderWorkflow',
+            });
+
+            // 1. Run standard order (placed, amount < 100k, no gift)
+            await instrumented.run({ type: 'order.placed', amountCents: 5000, giftWrap: false });
+
+            const stepNames1 = mockTracer.spans
+                .filter(s => s.attributes[SemanticAttributes.STEP_NAME])
+                .map(s => s.attributes[SemanticAttributes.STEP_NAME]);
+
+            expect(stepNames1).to.include('reserveStock');
+            expect(stepNames1).to.include('chargePayment');
+            expect(stepNames1).to.include('shipOrder');
+            expect(stepNames1).to.include('saveOutcome');
+            // Untaken routes must not produce action spans:
+            expect(stepNames1).to.not.include('wrapGift');
+            expect(stepNames1).to.not.include('queueReview');
+            expect(stepNames1).to.not.include('recordCancellation');
+
+            mockTracer.spans.length = 0;
+
+            // 2. Run gift order (placed, amount < 100k, gift true)
+            await instrumented.run({ type: 'order.placed', amountCents: 5000, giftWrap: true });
+            const stepNames2 = mockTracer.spans
+                .filter(s => s.attributes[SemanticAttributes.STEP_NAME])
+                .map(s => s.attributes[SemanticAttributes.STEP_NAME]);
+
+            expect(stepNames2).to.include('reserveStock');
+            expect(stepNames2).to.include('chargePayment');
+            expect(stepNames2).to.include('wrapGift');
+            expect(stepNames2).to.include('shipOrder');
+            expect(stepNames2).to.include('saveOutcome');
+            expect(stepNames2).to.not.include('queueReview');
+            expect(stepNames2).to.not.include('recordCancellation');
+
+            mockTracer.spans.length = 0;
+
+            // 3. Run high-value review order (placed, amount >= 100k)
+            await instrumented.run({ type: 'order.placed', amountCents: 200000 });
+            const stepNames3 = mockTracer.spans
+                .filter(s => s.attributes[SemanticAttributes.STEP_NAME])
+                .map(s => s.attributes[SemanticAttributes.STEP_NAME]);
+
+            expect(stepNames3).to.include('queueReview');
+            expect(stepNames3).to.include('saveOutcome');
+            expect(stepNames3).to.not.include('reserveStock');
+            expect(stepNames3).to.not.include('chargePayment');
+            expect(stepNames3).to.not.include('shipOrder');
+
+            mockTracer.spans.length = 0;
+
+            // 4. Run cancelled order
+            await instrumented.run({ type: 'order.cancelled' });
+            const stepNames4 = mockTracer.spans
+                .filter(s => s.attributes[SemanticAttributes.STEP_NAME])
+                .map(s => s.attributes[SemanticAttributes.STEP_NAME]);
+
+            expect(stepNames4).to.include('recordCancellation');
+            expect(stepNames4).to.include('saveOutcome');
+            expect(stepNames4).to.not.include('queueReview');
+            expect(stepNames4).to.not.include('reserveStock');
+        });
+
+        it('supports run, execute, and start entry points consistently without duplicate workflow spans', async () => {
+            const step = Step.create('testStep', async () => ({ ok: true }));
+            const wf = flow(step);
+            const instrumented = instrumentWorkflow(wf, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'EntryPointsTest',
+            });
+
+            // execute
+            await instrumented.execute({});
+            let wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
+            expect(wfSpans).to.have.lengthOf(1);
+
+            mockTracer.spans.length = 0;
+
+            // start
+            await instrumented.start({});
+            wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
+            expect(wfSpans).to.have.lengthOf(1);
+
+            mockTracer.spans.length = 0;
+
+            // run
+            await instrumented.run({});
+            wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
+            expect(wfSpans).to.have.lengthOf(1);
+        });
+
+        it('prevents duplicate spans when mixing explicit instrumentStep and workflow instrumentation', async () => {
+            const explicitStep = Step.create('explicitStep', async () => ({ explicit: true }));
+            // Step is explicitly instrumented BEFORE workflow composition
+            instrumentStep(explicitStep, { tracer: mockTracer as unknown as Tracer });
+
+            const normalStep = Step.create('normalStep', async () => ({ normal: true }));
+            const wf = flow(explicitStep, normalStep);
+
+            // Workflow is instrumented
+            const instrumented = instrumentWorkflow(wf, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'MixedInstrumentation',
+            });
+
+            await instrumented.run({});
+
+            // Check that explicitStep only produced ONE span!
+            const explicitSpans = mockTracer.spans.filter(s => s.attributes[SemanticAttributes.STEP_NAME] === 'explicitStep');
+            expect(explicitSpans).to.have.lengthOf(1);
+
+            const normalSpans = mockTracer.spans.filter(s => s.attributes[SemanticAttributes.STEP_NAME] === 'normalStep');
+            expect(normalSpans).to.have.lengthOf(1);
+        });
+
+        it('prevents duplicate spans when instrumentWorkflow is called multiple times', async () => {
+            const step = Step.create('dupStep', async () => ({ val: 1 }));
+            const wf = flow(step);
+
+            const instrumented1 = instrumentWorkflow(wf, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'DupWf',
+            });
+            const instrumented2 = instrumentWorkflow(instrumented1, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'DupWf',
+            });
+
+            expect(instrumented2).to.equal(instrumented1);
+
+            await instrumented2.run({});
+
+            const wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:DupWf');
+            expect(wfSpans).to.have.lengthOf(1);
+
+            const stepSpans = mockTracer.spans.filter(s => s.attributes[SemanticAttributes.STEP_NAME] === 'dupStep');
+            expect(stepSpans).to.have.lengthOf(1);
+        });
+
+        it('prevents duplicate wrappers when instrumentStep is called multiple times', async () => {
+            const step = Step.create('multiStep', async () => ({ val: 1 }));
+            const s1 = instrumentStep(step, { tracer: mockTracer as unknown as Tracer });
+            const s2 = instrumentStep(s1, { tracer: mockTracer as unknown as Tracer });
+            expect(s2).to.equal(s1);
+
+            const wf = flow(s2);
+            await wf.run({});
+
+            const spans = mockTracer.spans.filter(s => s.attributes[SemanticAttributes.STEP_NAME] === 'multiStep');
+            expect(spans).to.have.lengthOf(1);
+        });
+
+        it('handles concurrent branches without leaking context', async () => {
+            const task1 = Step.create('task1', async () => ({ t1: true }));
+            const task2 = Step.create('task2', async () => ({ t2: true }));
+            const wf = flow(parallel(task1, task2));
+
+            const instrumented = instrumentWorkflow(wf, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'ParallelWorkflow',
+            });
+
+            await instrumented.run({});
+
+            const stepNames = mockTracer.spans
+                .filter(s => s.attributes[SemanticAttributes.STEP_NAME])
+                .map(s => s.attributes[SemanticAttributes.STEP_NAME]);
+
+            expect(stepNames).to.include('parallel');
+            expect(stepNames).to.include('task1');
+            expect(stepNames).to.include('task2');
+        });
     });
 
     describe('instrumentStep & Retry Handling', () => {
+        it('starts at attempt one when the same workflow handles another record', async () => {
+            const workflow = instrumentWorkflow(flow(Step.create('handleRecord', async () => ({ ok: true }))), {
+                tracer: mockTracer as unknown as Tracer,
+            });
+            await workflow.run({ record: 1 });
+            await workflow.run({ record: 2 });
+            const steps = mockTracer.spans.filter(span => span.attributes[SemanticAttributes.STEP_NAME] === 'handleRecord');
+            expect(steps).to.have.length(2);
+            for (const step of steps) {
+                expect(step.name).to.equal('step:handleRecord');
+                expect(step.attributes[SemanticAttributes.STEP_ATTEMPT]).to.equal(1);
+            }
+        });
+
         it('records retry attempts with incremented attempt numbers', async () => {
             let attempts = 0;
             const flaky = Step.create('flakyService', async () => {
@@ -256,6 +473,11 @@ describe('@siglo/opentelemetry Integration Suite', () => {
             expect(retrySpan).to.exist;
             expect(retrySpan?.attributes[SemanticAttributes.STEP_ATTEMPT]).to.equal(2);
             expect(retrySpan?.status?.code).to.equal(SpanStatusCode.OK);
+        });
+
+        it('handles non-object step input gracefully', () => {
+            expect(instrumentStep(null as any)).to.be.null;
+            expect(instrumentStep(undefined as any)).to.be.undefined;
         });
     });
 

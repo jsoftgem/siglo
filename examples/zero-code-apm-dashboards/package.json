@@ -1,0 +1,45 @@
+{
+  "name": "siglo-apm-monitoring",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Zero-code APM dashboard setup for Siglo workflows using OpenTelemetry, Jaeger, and Grafana",
+  "main": "src/order-routing/worker.ts",
+  "scripts": {
+    "start": "tsx src/order-routing/worker.ts",
+    "demo": "tsx src/index.ts",
+    "demo:latencies": "tsx src/scenarios/1-step-latencies.ts",
+    "demo:retries": "tsx src/scenarios/2-retries.ts",
+    "demo:sagas": "tsx src/scenarios/3-saga-rollback.ts",
+    "demo:distributed": "tsx src/scenarios/4-distributed-calls.ts",
+    "test": "tsx --test src/*.test.ts src/order-routing/*.test.ts",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "demo:live": "tsx src/live.ts",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "publish": "tsx src/order-routing/publish.ts",
+    "test:tutorial": "tsx --test src/order-routing/*.test.ts",
+    "smoke": "sh smoke.sh"
+  },
+  "dependencies": {
+    "@siglo/opentelemetry": "^1.0.0",
+    "@siglo/core": "^1.0.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/sdk-trace-node": "^2.12.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@siglo/monitor": "^1.0.0",
+    "@siglo/kafka": "^1.0.0",
+    "@siglo/postgres": "^1.0.0",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.23.1",
+    "ioredis": "^6.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.0",
+    "@types/pg": "^8.23.1"
+  }
+}

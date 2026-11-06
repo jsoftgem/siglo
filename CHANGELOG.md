@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-11-07
+
+### Added
+- Kafka order-routing tutorial with scenario publishing, live workflow monitoring, and an optional OpenTelemetry dashboard stack.
+- Kafka recovery and transactional outbox integration coverage, including consumer crashes and rebalancing.
+- Monitoring scenarios that export OTLP traces and expose workflow and retry metrics to Prometheus.
+
+### Fixed
+- Live monitor route visualization and step details beside the workflow graph.
+- Graph metadata now links combinators to runtime step IDs without mutating reusable graph nodes.
+- OpenTelemetry retry attempt counts now reset for each execution of a reused step.
+- Standalone monitoring scenarios flush traces before exit and honor OTLP endpoint and header settings.
+
+### Changed
+- Run every example test file in the example test suite, including Kafka telemetry and durable checkout coverage.
+- Align exploratory graph checks with runtime step metadata enrichment and verify graph immutability.
+- Synchronize package, CLI, telemetry, and IDE plugin versions at `1.1.0`.
+
 ## [1.0.0] - 2026-10-27
 
 ### General Availability Release

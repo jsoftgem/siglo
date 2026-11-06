@@ -1,6 +1,6 @@
 {
   "name": "@siglo/redis",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Redis adapter for Siglo TypeScript workflows with distributed caching, durable checkpoints, locking, and idempotency.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

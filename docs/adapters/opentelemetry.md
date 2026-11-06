@@ -66,7 +66,7 @@ function instrumentWorkflow<TInput = any, TOutput = any>(
 ```
 
 #### Options (`SigloTelemetryOptions`):
-- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@siglo/opentelemetry', '1.0.3')`.
+- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@siglo/opentelemetry', '1.1.0')`.
 - `serviceName` (`string`): Tracer service name identifier.
 - `workflowName` (`string`): Override workflow span label.
 - `workflowVersion` (`string`): Workflow version (default: `'1.0.0'`).

@@ -4,6 +4,7 @@ import {generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType
 import {ParallelNode, WorkflowNode, toGraph} from '../graph';
 import {FieldCollisionException, CollisionDetail} from '../executer';
 import {combineAbortSignals} from '../executer/signals';
+import {stepExecutionHookStorage} from '../executer/hooks';
 
 export const ParallelMergeStrategy = {
     SHALLOW: 'shallow',
@@ -115,7 +116,8 @@ function executeBranch(branch: any, input: any, signal?: AbortSignal): Promise<a
     const isolatedInput = safeClone(toPOJO(input));
     const parentStackId = typeof input?.$stackId === 'function' ? input.$stackId() : (input?.$stackId || input?.stackId);
     const namespace = typeof input?.$namespace === 'function' ? input.$namespace() : (input?.$namespace || input?.namespace);
-    const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace};
+    const hook = stepExecutionHookStorage.getStore();
+    const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace, ...(hook ? {stepExecutionHook: hook} : {})};
 
     if (typeof branch === 'function') {
         return Promise.resolve(branch(isolatedInput, branchOptions));

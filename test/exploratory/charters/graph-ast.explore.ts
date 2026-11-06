@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { RandomSource } from '../engine/property-generators';
 import {
     Step,
@@ -148,11 +149,18 @@ export async function runGraphAstCharter(
                 errors.push(`Iteration ${i}: toGraph on already converted WorkflowNode did not return identical reference!`);
             }
 
-            // Object containing .workflowNode property
-            const wrappedNode = { workflowNode: firstPass };
-            const unwrappedRef = toGraph(wrappedNode);
-            if (unwrappedRef !== firstPass) {
-                errors.push(`Iteration ${i}: toGraph({ workflowNode }) did not return the enclosed WorkflowNode!`);
+            // Wrappers add runtime identity without mutating the reusable graph node.
+            const originalMetadata = { ...firstPass.metadata };
+            for (const runtimeStepId of [undefined, `runtime_step_${i}`]) {
+                const wrappedNode = { workflowNode: firstPass, $stepId: runtimeStepId };
+                const unwrappedNode = toGraph(wrappedNode);
+                assert.notStrictEqual(unwrappedNode, firstPass);
+                assert.deepStrictEqual(unwrappedNode, {
+                    ...firstPass,
+                    metadata: { ...originalMetadata, runtimeStepId }
+                });
+                assert.deepStrictEqual(firstPass.metadata, originalMetadata);
+                assert.strictEqual(toGraph(unwrappedNode), unwrappedNode);
             }
 
             // =========================================================================

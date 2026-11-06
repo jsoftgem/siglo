@@ -3,7 +3,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    files: ['packages/*/src/**/*.ts', 'examples/src/**/*.ts', 'test/**/*.ts'],
+    files: ['packages/*/src/**/*.ts', 'examples/src/**/*.ts', 'examples/zero-code-apm-dashboards/src/order-routing/**/*.ts', 'test/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -21,7 +21,7 @@ export default [
     },
   },
   {
-    files: ['packages/*/src/**/*.test.ts', 'examples/src/**/*.test.ts', 'test/**/*.ts'],
+    files: ['packages/*/src/**/*.test.ts', 'examples/src/**/*.test.ts', 'examples/zero-code-apm-dashboards/src/order-routing/**/*.test.ts', 'test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-expressions': 'off',
       '@typescript-eslint/no-unused-vars': 'off',

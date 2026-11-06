@@ -257,7 +257,7 @@ const serverAdapter = new RedisMonitoringAdapter({
 - `siglo_steps_total{status="..."}`: Step outcome counter
 
 Ready-to-import Grafana template:
-`monitoring/grafana/provisioning/dashboards/siglo-live-monitoring.json`
+`examples/zero-code-apm-dashboards/grafana/provisioning/dashboards/siglo-live-monitoring.json`
 
 ---
 

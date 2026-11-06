@@ -3,6 +3,7 @@ import {toPOJO} from '../context';
 import {generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType, safeClone} from '../../shared';
 import {BranchNode, WorkflowNode, toGraph} from '../graph';
 import {emitMonitoringEvent, stepInspectionStorage} from '../events';
+import {stepExecutionHookStorage} from '../executer/hooks';
 
 function reportRoute(route: string): void {
     const scope = stepInspectionStorage.getStore();
@@ -44,7 +45,8 @@ function executeBranchTarget(target: any, input: any, signal?: AbortSignal): Pro
     const isolatedInput = safeClone(toPOJO(input));
     const parentStackId = isFunction(input?.$stackId) ? input.$stackId() : (input?.$stackId || input?.stackId);
     const namespace = isFunction(input?.$namespace) ? input.$namespace() : (input?.$namespace || input?.namespace);
-    const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace};
+    const hook = stepExecutionHookStorage.getStore();
+    const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace, ...(hook ? {stepExecutionHook: hook} : {})};
 
     if (isFunction(target)) {
         return Promise.resolve(target(isolatedInput, branchOptions));

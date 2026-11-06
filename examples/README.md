@@ -37,6 +37,8 @@ The demo shows a recovered payment failure and a shipping failure that triggers 
 
 Continue with [Kafka Order Routing](../docs/kafka-order-routing.md) and the [ready-made two-consumer example](kafka-order-routing/README.md) to explore `@siglo/kafka`, shared `@siglo/postgres` idempotency, `branch`, and `when`.
 
+Continue with [Zero-Code APM Dashboards](../docs/zero-code-apm-dashboards.md) and its [self-contained example](zero-code-apm-dashboards/README.md) for traced publisher-to-worker execution and provisioned Grafana metrics. It runs independently of the Kafka routing tutorial.
+
 ---
 
 ## Architecture Overview

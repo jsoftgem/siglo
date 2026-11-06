@@ -1,6 +1,6 @@
 {
   "name": "@siglo/kafka",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Apache Kafka consumer and event streaming adapter for running Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

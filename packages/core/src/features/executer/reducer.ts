@@ -1,4 +1,5 @@
 import { toPOJO } from "../context";
+import { stepExecutionHookStorage } from "./hooks";
 export class Reducer {
     private array: any[];
     private param: any;
@@ -31,7 +32,19 @@ export class Reducer {
             try {
                 if (this.array && this.array.length > index) {
                     const currentValue = this.array[index];
-                    const action = this.chain.action(Object.assign({}, this.param, accumulated), currentValue, index);
+                    const runItemAction = () => this.chain.action(Object.assign({}, this.param, accumulated), currentValue, index);
+                    const activeHook = stepExecutionHookStorage.getStore();
+                    const action = activeHook
+                        ? activeHook({
+                            step: this.chain,
+                            stepName: this.chain.func || this.chain.name || '',
+                            stepId: this.chain.$stepId || this.chain.func || this.chain.name || '',
+                            stackId: this.stackId || '',
+                            attempt: 1,
+                            param: Object.assign({}, this.param, accumulated),
+                            index
+                        }, runItemAction)
+                        : runItemAction();
                     if (action !== undefined) {
                         if (action instanceof Promise) {
                             action.then(props => {

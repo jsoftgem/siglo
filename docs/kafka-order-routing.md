@@ -451,4 +451,6 @@ The smoke check uses fresh event IDs and verifies actual Kafka delivery, four su
 
 The result table's `executions` field is a demo audit counter, not an exactly-once business-effects mechanism. For database changes that must reliably publish follow-up Kafka events, use an application transaction and an outbox. Built-in outbox support and a separate tutorial are [recorded for later](roadmap/kafka-outbox.roadmap.md).
 
+For producer-to-consumer traces and provisioned Grafana metrics using a separate APM example with the same routing model, continue with [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
+
 Continue with the [Kafka adapter reference](adapters/kafka.md), [branching and parallelism guide](04-branching-and-parallelism.md), or the [durable checkout tutorial](durable-distributed-checkout.md) when an event path needs a persisted wait.

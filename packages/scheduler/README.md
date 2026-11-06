@@ -2,7 +2,7 @@
 
 > Background timer polling, distributed lock claiming, and cloud-native webhook dispatchers for Siglo durable workflows.
 
-[![NPM Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://www.npmjs.com/package/@siglo/scheduler)
+[![NPM Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://www.npmjs.com/package/@siglo/scheduler)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---

@@ -1,6 +1,6 @@
 {
   "name": "siglo-monorepo",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "private": true,
   "description": "Monorepo for Siglo workflow runtime and ecosystem integration packages",
   "workspaces": [
@@ -8,13 +8,13 @@
     "packages/*",
     "plugins/vscode",
     "examples",
-    "monitoring",
+    "examples/zero-code-apm-dashboards",
     "packages/monitor/ui"
   ],
   "scripts": {
     "build": "npm run build --workspace=@siglo/core && npm run build --workspace=@siglo/http && npm run build --workspace=@siglo/ide-protocol && npm run build:ui --workspace=@siglo/monitor && npm run build --workspace=@siglo/monitor && npm run build --workspaces --if-present",
     "compile": "npm run build",
-    "lint": "eslint packages/*/src examples/src test",
+    "lint": "eslint packages/*/src examples/src examples/zero-code-apm-dashboards/src/order-routing test",
     "test": "npm run build --workspace=@siglo/core && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
     "test:packages": "mocha 'packages/*/src/**/*.test.ts' 'packages/http/test/**/*.test.ts' 'packages/crypto/test/**/*.test.ts' --exit",
     "test:ide": "npm test --workspace=@siglo/ide-protocol && npm test --workspace=@siglo/ide-analysis && npm test --workspace=@siglo/vscode",
@@ -23,7 +23,8 @@
     "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
     "explore": "tsx test/exploratory/runner.ts",
     "publish:core": "npm publish --workspace=@siglo/core --registry https://registry.npmjs.org/",
-    "test:monitoring": "npm test --workspace=siglo-apm-monitoring"
+    "test:monitoring": "npm test --workspace=siglo-apm-monitoring",
+    "test:apm": "npm run test:tutorial --workspace=siglo-apm-monitoring"
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,6 @@
 {
   "name": "@siglo/opentelemetry",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "OpenTelemetry distributed tracing and trace context propagation for Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

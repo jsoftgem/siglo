@@ -45,3 +45,5 @@ docker compose -f examples/kafka-order-routing/docker-compose.yml down
 ```
 
 Named Kafka and PostgreSQL volumes survive `down`. Add `--volumes` to reset only this example's data. `KAFKA_WORKER_A_PORT`, `KAFKA_WORKER_B_PORT`, and `KAFKA_MONITOR_PORT` override the HTTP host ports; `KAFKA_IMAGE` overrides the broker image. `KAFKA_NODE_IMAGE` can select a compatible Node.js 24 base image from a local cache when Docker Hub is unavailable.
+
+For producer-to-consumer traces and Grafana metrics, continue with [Zero-Code APM Dashboards](../../docs/zero-code-apm-dashboards.md). That tutorial has independent code and infrastructure in [`../zero-code-apm-dashboards`](../zero-code-apm-dashboards), with separate ports and volumes.

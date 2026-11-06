@@ -158,8 +158,15 @@ import {
     tagErrorPhase,
     isReservedKey,
     isFunction,
-    isObject
+    isObject,
 } from './features/step';
+import {
+    StepExecutionContext,
+    StepExecutionHook,
+    stepExecutionHookStorage,
+    withStepExecutionHook,
+    getStepExecutionHook
+} from './features/executer/hooks';
 
 import {
     StorageManager,
@@ -374,7 +381,12 @@ export {
     tagErrorPhase,
     isReservedKey,
     isFunction,
-    isObject
+    isObject,
+    StepExecutionContext,
+    StepExecutionHook,
+    stepExecutionHookStorage,
+    withStepExecutionHook,
+    getStepExecutionHook
 };
 
 // Compatibility for both CJS require('@siglo/core') and ESM import Siglo from '@siglo/core'
@@ -501,7 +513,10 @@ if (typeof module !== 'undefined' && module.exports) {
         ParallelMode,
         isReservedKey,
         isFunction,
-        isObject
+        isObject,
+        stepExecutionHookStorage,
+        withStepExecutionHook,
+        getStepExecutionHook
     });
 }
 

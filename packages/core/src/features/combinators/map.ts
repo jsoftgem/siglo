@@ -3,6 +3,7 @@ import {toPOJO} from '../context';
 import {generateUUID, isReservedKey, VALUE, Status, isFunction, isObject, WorkflowNodeType} from '../../shared';
 import {toGraph, MapNode} from '../graph';
 import {combineAbortSignals} from '../executer/signals';
+import {stepExecutionHookStorage} from '../executer/hooks';
 
 export interface MapOptions {
     name?: string;
@@ -52,7 +53,8 @@ function executeItem(processItem: any, item: any, meta: {
         return Promise.resolve(processItem(item, meta));
     }
     const input = {item, ...meta};
-    const branchOptions: any = {signal: meta.signal, pojo: true, stackId: meta.stackId, namespace: meta.namespace};
+    const hook = stepExecutionHookStorage.getStore();
+    const branchOptions: any = {signal: meta.signal, pojo: true, stackId: meta.stackId, namespace: meta.namespace, ...(hook ? {stepExecutionHook: hook} : {})};
     let p: Promise<any>;
     if (processItem && isFunction(processItem.execute)) {
         p = processItem.execute(input, branchOptions);

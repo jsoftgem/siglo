@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Run npm run demo:live in examples/zero-code-apm-dashboards/ on the host.
+  - job_name: siglo-monitor
+    static_configs:
+      - targets: ['host.docker.internal:4000']

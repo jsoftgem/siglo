@@ -41,6 +41,13 @@ export {
     normalizeError
 } from './exceptions';
 export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';
+export {
+    StepExecutionContext,
+    StepExecutionHook,
+    stepExecutionHookStorage,
+    withStepExecutionHook,
+    getStepExecutionHook
+} from './hooks';
 
 export class Executer {
     start(param: any, chains: any, options?: any): Promise<any> | undefined {

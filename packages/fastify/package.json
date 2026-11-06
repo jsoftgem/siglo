@@ -1,6 +1,6 @@
 {
   "name": "@siglo/fastify",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Fastify route handler adapter for running Siglo TypeScript workflows in Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

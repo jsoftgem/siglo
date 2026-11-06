@@ -10,6 +10,7 @@ import {
     useStorage
 } from '../storage';
 import {Executer, RetryConfig, UnresolvableCompensationException} from '../executer';
+import {StepExecutionHook, stepExecutionHookStorage, withStepExecutionHook, getStepExecutionHook} from '../executer/hooks';
 import Spec, {SpecData} from '../spec';
 import Configurator from '../configurator';
 import {generateUUID, isFunction, isObject, isReservedKey} from '../../shared';
@@ -165,6 +166,13 @@ export {
     RetryConfig,
     RetryPredicate
 } from '../executer';
+export {
+    StepExecutionContext,
+    StepExecutionHook,
+    stepExecutionHookStorage,
+    withStepExecutionHook,
+    getStepExecutionHook
+} from '../executer/hooks';
 
 export {
     SerializedExecutionStack,
@@ -319,6 +327,7 @@ export interface ExecutionOptions {
     // Live Monitoring
     monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
     ast?: WorkflowNode;
+    stepExecutionHook?: StepExecutionHook;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
@@ -348,6 +357,8 @@ export interface Flow<TInput = any, TOutput = any> {
     networkPolicyConfig?: NetworkPolicyConfig;
     monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
     monitorEmitter?: any;
+    hook: (h: StepExecutionHook) => Flow<TInput, TOutput>;
+    stepExecutionHook?: StepExecutionHook;
 }
 
 export type FlowItem<TIn = any, TOut = any> =
@@ -465,6 +476,7 @@ export function flow<TInput = any, TOutput = any>(
     let declaredVersion: string | number | undefined;
     let flowPolicyConfig: NetworkPolicyConfig | undefined;
     let flowMonitor: any;
+    let flowHook: StepExecutionHook | undefined;
 
     const runFn = (param: any = {}, options?: ExecutionOptions) => {
         let resolvedNetworkPolicy = options?.networkPolicy;
@@ -477,10 +489,16 @@ export function flow<TInput = any, TOutput = any>(
             ...(defaultTimeoutMs !== undefined ? { timeout: defaultTimeoutMs } : {}),
             ...(declaredVersion !== undefined ? { workflowVersion: declaredVersion } : {}),
             ...(flowMonitor !== undefined ? { monitor: flowMonitor } : {}),
+            ...(flowHook !== undefined ? { stepExecutionHook: flowHook } : {}),
             ast: flowObj.toGraph(),
             ...options,
             ...(resolvedNetworkPolicy !== undefined ? { networkPolicy: resolvedNetworkPolicy } : {})
         };
+        if (effectiveOptions.stepExecutionHook && !stepExecutionHookStorage.getStore()) {
+            return withStepExecutionHook(effectiveOptions.stepExecutionHook, () =>
+                Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>
+            );
+        }
         return Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>;
     };
 
@@ -590,7 +608,13 @@ export function flow<TInput = any, TOutput = any>(
             flowObj.monitorEmitter = emitter;
             return flowObj;
         },
-        monitorEmitter: undefined
+        monitorEmitter: undefined,
+        hook(h: StepExecutionHook) {
+            flowHook = h;
+            flowObj.stepExecutionHook = h;
+            return flowObj;
+        },
+        stepExecutionHook: undefined
     };
     return flowObj;
 }
@@ -714,6 +738,9 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static setErrorMode = setErrorMode;
     static getErrorMode = getErrorMode;
     static cleanExpiredCheckpoints = cleanExpiredCheckpoints;
+    static withStepExecutionHook = withStepExecutionHook;
+    static getStepExecutionHook = getStepExecutionHook;
+    static stepExecutionHookStorage = stepExecutionHookStorage;
 
     // Phase 2 static helpers
     static parallel = parallel;

@@ -18,6 +18,7 @@ import { defaultStorageManager } from '../storage';
 import { defaultCompensationManager } from '../compensation';
 import { defaultIdempotencyStore, buildIdempotencyKey, isPermanentBusinessError } from '../idempotency';
 import { emitMonitoringEvent } from '../events/emitter';
+import { stepExecutionHookStorage } from './hooks';
 
 export class Runner {
     private getChain: any;
@@ -458,6 +459,9 @@ export class Runner {
                 }
             };
 
+            if (rawOptions?.stepExecutionHook && !stepExecutionHookStorage.getStore()) {
+                return stepExecutionHookStorage.run(rawOptions.stepExecutionHook, () => runFlowExecution());
+            }
             return runFlowExecution();
         }
         return undefined;
