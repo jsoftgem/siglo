@@ -1,4 +1,4 @@
-# 09. Testing and Replay
+# Testing and Replay
 
 `@siglo/testing` provides a comprehensive, zero-flake test harness for deterministic execution, step mocking, spy inspection, virtual timers, execution trace snapshots, and production failure replay.
 

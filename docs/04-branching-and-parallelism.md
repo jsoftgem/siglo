@@ -1,4 +1,4 @@
-# 04. Branching and Parallelism
+# Branching and Parallelism
 
 `Siglo` provides high-performance combinators for concurrent fan-out, competitive racing, conditional routing, and bounded batch processing.
 

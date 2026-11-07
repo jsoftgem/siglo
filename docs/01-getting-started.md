@@ -1,4 +1,4 @@
-# 01. Getting Started: Build a Checkout That Handles Failure
+# Getting Started: Build a Checkout That Handles Failure
 
 An online shop needs to reserve stock, charge a customer, and arrange delivery. The happy path is three service calls. The difficult part starts when a payment gateway is temporarily unavailable or a courier rejects a shipment after the customer has paid.
 

@@ -1,4 +1,4 @@
-# 08. Observability
+# Observability
 
 For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
 

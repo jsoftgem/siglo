@@ -1,4 +1,4 @@
-# 10. TypeScript Reference
+# TypeScript Reference
 
 `Siglo` is built from the ground up for modern TypeScript (strict mode, noImplicitAny, exactOptionalPropertyTypes).
 

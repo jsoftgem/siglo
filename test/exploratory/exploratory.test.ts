@@ -8,6 +8,10 @@ import { runQueuesBatchCharter } from './charters/queues-batch.explore';
 import { runHttpAbortCharter } from './charters/http-abort.explore';
 import { runCliDiagramsCharter } from './charters/cli-diagrams.explore';
 import { runGraphAstCharter } from './charters/graph-ast.explore';
+import { runOpenTelemetryCharter } from './charters/opentelemetry.explore';
+import { runAiCharter } from './charters/ai.explore';
+import { runNotificationsCharter } from './charters/notifications.explore';
+import { runClusterFailoverCharter } from './charters/cluster-failover.explore';
 
 describe('Automated Exploratory Testing Suite', function () {
     // Generative and chaos tests require slightly more timeout headroom
@@ -73,6 +77,38 @@ describe('Automated Exploratory Testing Suite', function () {
         const result = await runGraphAstCharter(20, 808);
         if (!result.passed) {
             expect.fail(`Charter 8 failed with errors:\n${result.errors.join('\n')}`);
+        }
+        expect(result.passed).to.be.true;
+    });
+
+    it('Charter 9: Observability, W3C Trace Context & Metric Fidelity', async () => {
+        const result = await runOpenTelemetryCharter(15, 909);
+        if (!result.passed) {
+            expect.fail(`Charter 9 failed with errors:\n${result.errors.join('\n')}`);
+        }
+        expect(result.passed).to.be.true;
+    });
+
+    it('Charter 10: Agentic AI Orchestration & Token Budget Stress', async () => {
+        const result = await runAiCharter(15, 1010);
+        if (!result.passed) {
+            expect.fail(`Charter 10 failed with errors:\n${result.errors.join('\n')}`);
+        }
+        expect(result.passed).to.be.true;
+    });
+
+    it('Charter 11: Notification Dispatch Cascades & Provider Failover', async () => {
+        const result = await runNotificationsCharter(15, 1111);
+        if (!result.passed) {
+            expect.fail(`Charter 11 failed with errors:\n${result.errors.join('\n')}`);
+        }
+        expect(result.passed).to.be.true;
+    });
+
+    it('Charter 12: Distributed Multi-Node Worker Failover & Split-Brain Contention', async () => {
+        const result = await runClusterFailoverCharter(15, 1212);
+        if (!result.passed) {
+            expect.fail(`Charter 12 failed with errors:\n${result.errors.join('\n')}`);
         }
         expect(result.passed).to.be.true;
     });

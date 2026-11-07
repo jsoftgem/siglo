@@ -6,6 +6,10 @@ import { runQueuesBatchCharter } from './charters/queues-batch.explore';
 import { runHttpAbortCharter } from './charters/http-abort.explore';
 import { runCliDiagramsCharter } from './charters/cli-diagrams.explore';
 import { runGraphAstCharter } from './charters/graph-ast.explore';
+import { runOpenTelemetryCharter } from './charters/opentelemetry.explore';
+import { runAiCharter } from './charters/ai.explore';
+import { runNotificationsCharter } from './charters/notifications.explore';
+import { runClusterFailoverCharter } from './charters/cluster-failover.explore';
 
 export interface ExploratoryRunOptions {
     iterations?: number;
@@ -34,7 +38,11 @@ export async function runAllExploratoryCharters(
         () => runQueuesBatchCharter(iterations, seed + 5),
         () => runHttpAbortCharter(iterations, seed + 6),
         () => runCliDiagramsCharter(iterations, seed + 7),
-        () => runGraphAstCharter(iterations, seed + 8)
+        () => runGraphAstCharter(iterations, seed + 8),
+        () => runOpenTelemetryCharter(iterations, seed + 9),
+        () => runAiCharter(iterations, seed + 10),
+        () => runNotificationsCharter(iterations, seed + 11),
+        () => runClusterFailoverCharter(iterations, seed + 12)
     ];
 
     const results: CharterResult[] = [];

@@ -1,4 +1,4 @@
-# 06. Durable Workflows
+# Durable Workflows
 
 Durable workflows allow executions to sleep, suspend, wait for external human approvals or webhooks, survive process restarts, and resume safely days or months later.
 

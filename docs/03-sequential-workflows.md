@@ -1,4 +1,4 @@
-# 03. Sequential Workflows
+# Sequential Workflows
 
 Sequential workflows are the primary building block in `Siglo`. They execute a series of steps in strict order, passing accumulated context forward.
 

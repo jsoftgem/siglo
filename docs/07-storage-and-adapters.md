@@ -1,4 +1,4 @@
-# 07. Storage and Adapters
+# Storage and Adapters
 
 `Siglo` features a decoupled storage architecture: the workflow runtime operates cleanly in memory, while state persistence, distributed caching, audit trails, and idempotency claims are delegated to pluggable `StorageAdapter` implementations.
 

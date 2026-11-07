@@ -6,7 +6,7 @@
 
 ## 1. Executive Summary & Vision
 
-`Siglo` is a high-performance, in-process workflow orchestrator engineered for zero-daemon operational simplicity, sub-millisecond execution, and resilient enterprise semantics (Sagas, OCC checkpointing, bounded dynamic mapping, durable event waits, and distributed ecosystem adapters).
+`Siglo` is a high-performance, in-process workflow orchestrator engineered for zero-daemon operational simplicity, sub-millisecond execution, and resilient enterprise semantics (Sagas, OCC checkpointing, bounded dynamic mapping, durable event waits, network egress policy enforcement, agentic AI pipelines, distributed clustering, and ecosystem adapters).
 
 While the core runtime achieves 100% statement and line coverage under deterministic unit tests, **traditional scripted tests only verify known paths and predictable sequences**. Complex workflow runtimes fail in the "unknown unknowns":
 - High-concurrency race conditions during parallel branching and distributed lock claims.
@@ -14,36 +14,45 @@ While the core runtime achieves 100% statement and line coverage under determini
 - State-space corruption under transient storage disconnects or deserialization drifts.
 - Edge-case thread starvation or timer drift during two-tier timeout preemption.
 - Partial batch failure drops or duplicate executions across streaming and queue consumers.
+- Graph AST cycle false-positives or unauthorized network egress across dynamic task invocations.
+- Distributed trace context truncation and orphan spans across multi-branch executions.
+- LLM non-determinism, schema repair exhaustion, and token budget timeouts in agentic loops.
+- Multi-channel notification delivery race conditions and cryptographic token tampering.
+- Multi-node worker split-brain state corruption and distributed lock stealing under network partition.
 
-This **Automated Exploratory Testing (AET) Plan** establishes an autonomous, generative, and chaos-driven exploratory framework. Instead of static unit assertions, autonomous exploration engines continuously synthesize arbitrary workflow topologies, inject chaotic environmental faults, stress asynchronous concurrency, and verify **formal system invariants** (oracles) across all 11 packages in the monorepo.
+This **Automated Exploratory Testing (AET) Plan** establishes an autonomous, generative, and chaos-driven exploratory framework. Instead of static unit assertions, autonomous exploration engines continuously synthesize arbitrary workflow topologies, inject chaotic environmental faults, stress asynchronous concurrency, and verify **formal system invariants** (oracles) across all 21 packages in the monorepo ecosystem.
 
 ```mermaid
 flowchart TD
     subgraph GenerativeEngines["1. Generative & Mutation Engines"]
         ASTGen["Flow Topology AST Generator\n(Randomized Nesting & Combinators)"]
-        PBTGen["Property-Based Input Generator\n(fast-check Fuzzing)"]
+        PBTGen["Property-Based Input Generator\n(fast-check & Seeded RNG)"]
         ChaosGen["Chaos & Fault Injector\n(Network, Latency, Storage Drops)"]
         MutateGen["State & Checkpoint Mutator\n(Schema Drift, Bit Flips, Version Drift)"]
     end
 
-    subgraph TargetPlatform["2. Execution Runtime & Monorepo Matrix"]
-        Core["packages/core\n(Runner, Context, Combinators, Sagas)"]
-        Adapters["Adapters\n(Postgres, Redis, Kafka, BullMQ, SQS)"]
-        WebEdge["Web / Edge\n(Express, Fastify, Hono)"]
-        Observability["Observability & CLI\n(OpenTelemetry, CLI)"]
+    subgraph TargetPlatform["2. Execution Runtime & Monorepo Matrix (21 Packages)"]
+        Core["packages/core\n(Runner, Context, Combinators, Sagas, Graph AST)"]
+        Adapters["Adapters & Queues\n(Postgres, Redis, Kafka, BullMQ, SQS)"]
+        WebEdge["Web / Edge & Transport\n(Express, Fastify, Hono, HTTP)"]
+        Intelligent["Intelligence & Schedulers\n(AI, Notifications, Scheduler, Crypto)"]
+        Observability["Observability, CLI & DevTools\n(OpenTelemetry, CLI, IDE Protocol, Monitor)"]
     end
 
-    subgraph InvariantOracles["3. Autonomous Invariant Oracles"]
+    subgraph InvariantOracles["3. Autonomous Invariant Oracles (10 Axioms)"]
         InvContext["Context Immutability\n& Prototype Isolation"]
         InvLIFO["Saga LIFO Rollback\nStrict Ordering"]
         InvOCC["Durable Checkpoint\nIdempotency & OCC"]
         InvCancel["Cooperative Cancellation\n& Resource Cleanup"]
         InvBatch["Partial Batch Failure\nIsolation (Kafka/SQS)"]
+        InvGraph["Graph AST & Network\nPolicy Containment"]
+        InvOtel["Distributed Trace\nSpan Hierarchy Continuity"]
+        InvCluster["Cluster Split-Brain\n& Lock Theft Prevention"]
     end
 
     subgraph Triaging["4. Triage & Shrinking Engine"]
-        Shrinker["AST & Input Shrinker\n(Delta Debugging)"]
-        Replay["Deterministic Replay Harness\n(@siglo/testing)"]
+        Shrinker["AST & Input Shrinker\n(Delta Debugging / Trace Minimization)"]
+        Replay["Deterministic Replay Harness\n(@siglo/testing & JSON Fixtures)"]
         Alert["Issue Report & Diagram Generation\n(Mermaid AST + Trace Snapshot)"]
     end
 
@@ -59,21 +68,27 @@ flowchart TD
 
 ---
 
-## 2. System Attack Surface & Component Decomposition
+## 2. System Attack Surface & Monorepo Ecosystem Matrix
 
-The exploratory matrix targets all layers of the `Siglo` monorepo:
+The exploratory matrix targets all layers across the 21 packages of the `Siglo` monorepo:
 
 | Component | Package Path | Primary Attack Surface & Exploratory Focus |
 |---|---|---|
-| **Core Runtime** | [`packages/core`](../packages/core) | Dynamic flow AST execution, accumulated context immutability, 5-phase step lifecycle, combinators (`parallel`, `allSettled`, `race`, `when`, `branch`, `map`), two-tier timeouts, cooperative `AbortSignal`, saga LIFO compensations, durable `wait`/`waitForEvent`, idempotency locks. |
+| **Core Runtime & Graph** | [`packages/core`](../packages/core) | Dynamic flow AST execution, context immutability, 5-phase step lifecycle, combinators (`parallel`, `allSettled`, `race`, `when`, `branch`, `map`), two-tier timeouts, cooperative `AbortSignal`, saga LIFO compensations, durable `wait`/`waitForEvent`, idempotency locks, graph serialization (`toGraph`), cycle detection, and network policy egress enforcement (`allowNetwork`/`denyNetwork`). |
 | **Testing Harness** | [`packages/testing`](../packages/testing) | Virtual clock (`FakeClock`) drift, step spies, trace recording accuracy, mocking fidelity, deterministic replay of failure fixtures. |
 | **Developer CLI** | [`packages/cli`](../packages/cli) | Scaffolding robustness, AST parsing of malformed user code, Mermaid/DOT/JSON visual export fidelity, fixture replay validation. |
 | **PostgreSQL Storage** | [`packages/postgres`](../packages/postgres) | Connection pool exhaustion, transaction rollbacks during checkpoints, optimistic concurrency conflicts (OCC `version`), advisory lock collisions, JSONB state serialization limits. |
 | **Redis Storage** | [`packages/redis`](../packages/redis) | Key eviction policies under OOM, Redis cluster failover, Redlock distributed lock expiration, pipeline batching desynchronization, pub/sub event drops. |
 | **BullMQ Worker** | [`packages/bullmq`](../packages/bullmq) | Stalled job recovery, backpressure overflow, lock renewal timeouts during long-running workflows, worker graceful shutdown mid-step. |
-| **Kafka Streaming** | [`packages/kafka`](../packages/kafka) | Partition rebalance during in-flight batch execution, out-of-order offsets, poison-pill isolation, commit semantics (`at-least-once` vs `at-most-once`). |
+| **Kafka Streaming** | [`packages/kafka`](../packages/kafka) | Partition rebalance during in-flight batch execution, out-of-order offsets, poison-pill isolation, commit semantics (`at-least-once` vs `at-most-once`), transactional outbox crash recovery. |
 | **AWS SQS Consumer** | [`packages/sqs`](../packages/sqs) | Visibility timeout expiration mid-flow, `batchItemFailures` partial acknowledgement accuracy, message deduplication ID race conditions. |
 | **HTTP Frameworks** | [`packages/express`](../packages/express), [`packages/fastify`](../packages/fastify), [`packages/hono`](../packages/hono) | Client disconnection (`req.on('close')`) triggering workflow cancellation, streaming backpressure, payload schema mismatch error codes, header injection attacks. |
+| **HTTP Client Transport** | [`packages/http`](../packages/http) | Request timeout preemption, connection keep-alive exhaustion, retry exponential backoff jitter, chunked transfer boundary truncation. |
+| **Agentic AI Execution** | [`packages/ai`](../packages/ai) | Non-deterministic LLM response schemas, token budget timeout preemption, recursive agentic tool-calling loops, streaming output stalls, prompt injection sanitization. |
+| **Multi-Channel Notifications** | [`packages/notifications`](../packages/notifications) | Provider failover cascades (Email -> Slack -> Webhook), rate-limit backoff handling, message deduplication, template variable interpolation failures. |
+| **Distributed Scheduler** | [`packages/scheduler`](../packages/scheduler) | Virtual clock drift, cron boundary jitter, leap seconds, recurring workflow duplicate trigger deduplication under clustered execution. |
+| **Payload & Checkpoint Crypto** | [`packages/crypto`](../packages/crypto) | Envelope encryption drift, key rotation across paused/resumed checkpoints, ciphertext tampering detection, zeroization of sensitive credentials. |
+| **DevTools & IDE Protocol** | [`packages/ide-protocol`](../packages/ide-protocol), [`packages/ide-analysis`](../packages/ide-analysis), [`packages/ide-ui`](../packages/ide-ui), [`packages/monitor`](../packages/monitor) | Real-time WebSocket trace streaming, schema drift in protocol messages, AST cycle extraction, UI thread saturation during 10,000+ step events. |
 | **OpenTelemetry** | [`packages/opentelemetry`](../packages/opentelemetry) | Span context leaks across concurrent branches, missing parent-child spans during parallel fan-out/fan-in, baggage propagation across durable resume boundaries. |
 
 ---
@@ -84,17 +99,17 @@ Autonomous exploratory testing requires automated **oracles** that evaluate whet
 
 ```mermaid
 classDiagram
-    class InvariantOracles {
-        +verifyContextImmutability(before, after, branches)
-        +verifySagaLIFOOrdering(executionTrace, compensationTrace)
-        +verifyIdempotencyExclusivity(executions, outcomes)
-        +verifyCancellationPromptness(abortSignal, unhandledTimers)
-        +verifyCheckpointEquivalence(resumedState, expectedState)
-        +verifyBoundedConcurrency(activeWorkers, limit)
-        +verifyPartialBatchAccounting(batchInput, ackList, nackList)
-        +verifyNoPrototypePollution(context)
-        +verifyTelemetryCompleteness(traceTree)
-        +verifyZeroResourceLeaks(eventListeners, openHandles)
+    class InvariantEvaluator {
+        +assertContextImmutability(beforeSnapshot, afterContext, canaryKey)
+        +assertSagaLIFO(completedSteps, compensatedSteps)
+        +assertOptimisticConcurrency(results)
+        +assertCancellationPromptness(durationMs, maxExpectedMs, activeTimers)
+        +assertBoundedConcurrency(highWaterMark, maxAllowed)
+        +assertCombinatorSoundness(combinatorType, branchOutcomes, finalOutcome)
+        +assertBatchPartition(allItemIds, ackedIds, nackedIds)
+        +assertTimeoutType(error, expectedType)
+        +assertSpanContinuity(spans)
+        +assertNoListenerLeak(emitter, eventName, initialCount, maxAllowedGrowth)
     }
 ```
 
@@ -135,7 +150,7 @@ classDiagram
 
 ### 4.1 Generative Flow Topology Synthesis (The "Random Flow Fuzzer")
 
-We build an automated AST generator that constructs randomized, deeply nested workflows with arbitrary topological depth:
+We build an automated AST generator (`FlowAstGenerator`) that constructs randomized, deeply nested workflows with arbitrary topological depth:
 
 ```mermaid
 graph TD
@@ -153,10 +168,10 @@ graph TD
 #### Fuzzer Configuration Parameters:
 - **Max Depth:** 1 to 6 levels of nesting (e.g. `parallel` containing `map` containing `branch`).
 - **Combinator Pool:** `parallel`, `allSettled`, `race`, `when`, `branch`, `map`.
-- **Modifiers Pool:** `.timeout(ms)`, `.compensate(fn)`, `.retry({ maxAttempts, backoff })`, `.idempotent()`, `.onBefore(fn)`, `.onAfter(fn)`, `.onSkip(fn)`, `.spec(schema)`.
+- **Modifiers Pool:** `.timeout(ms)`, `.compensate(fn)`, `.retry({ maxAttempts, backoff })`, `.idempotent()`, `.onBefore(fn)`, `.onAfter(fn)`, `.onSkip(fn)`, `.spec(schema)`, `.allowNetwork(hosts)`, `.denyNetwork(hosts)`.
 - **Action Injections:** Randomized return values, deliberate error throwing, async delays, AbortSignal queries, context reading/writing.
 
-### 4.2 Property-Based Testing (PBT) with `fast-check`
+### 4.2 Property-Based Testing (PBT) with `RandomSource` & `fast-check`
 
 Generates arbitrary inputs and edge-case data to stress-test schema translation, context proxies, and serialization:
 - **Data Edge Cases:** Circular references, symbols, `BigInt`, prototype poisoning strings (`__proto__`, `constructor`), huge buffers, unicode glyphs, NaN, Infinity, -0, sparse arrays.
@@ -164,7 +179,7 @@ Generates arbitrary inputs and edge-case data to stress-test schema translation,
 
 ### 4.3 Fault Injection & Chaos Engine
 
-An automated chaos proxy intercepts storage adapters, timers, and messaging channels:
+An automated chaos proxy (`ChaosProxy`) intercepts storage adapters, timers, and messaging channels:
 - **Storage Chaos:** Randomized `ECONNRESET`, transaction deadlocks, latency spikes (50ms - 2000ms), partial JSON truncation in checkpoints.
 - **Worker Chaos:** Sudden process kill simulation (`SIGTERM`/`SIGKILL`), thread pool saturation, worker crash during step 2 of a 4-step saga.
 - **Clock Chaos:** Virtual time leaps, reverse jitter, micro-skips simulating NTP sync jumps.
@@ -181,217 +196,169 @@ Explores durable workflow recovery resilience:
 
 ---
 
-## 5. Component-by-Component Exploratory Charters
+## 5. Active Exploratory Charters (12 Active Suites)
 
-### Charter 1: Core Combinator & Parallelism Stress
+The suite is organized into 12 modular exploratory charters located in [`test/exploratory/charters/`](../test/exploratory/charters):
+
+#### Charter 1: Core Combinator & Parallelism Stress
 - **Target:** `parallel()`, `allSettled()`, `race()`, `map()`, `branch()`, `when()`.
-- **Exploration Mission:** Explore high concurrency fan-outs, branch cancellation propagation, race condition losers, and memory consumption under 100+ concurrent branches.
-- **Technique:**
-  - Generate randomized race topologies where 5 branches compete with varying random delay (1ms - 50ms) and one throws an error. Verify that the winner resolves immediately and losers are cancelled without unhandled rejections.
-  - Stress `map()` with 1,000 array elements, random concurrency ($C \in [1, 50]$), and randomized step failure at element index $K$. Verify error aggregation and bounded concurrency limits.
+- **Runner:** [`test/exploratory/charters/combinators.explore.ts`](../test/exploratory/charters/combinators.explore.ts)
+- **Invariants Checked:** Oracle 1 (Context Immutability), Oracle 5 (Bounded Concurrency), Oracle 6 (Combinator Soundness).
+- **Technique:** Generates randomized race topologies where branches compete with varying delay and error injections. Asserts clean settlement, cancellation propagation to losers, and bounded concurrency in `map()`.
 
-### Charter 2: Saga Rollbacks & Cascading Failure Chaos
+#### Charter 2: Saga Rollbacks & Cascading Failure Chaos
 - **Target:** Step compensations (`step.compensate()`), nested sagas, compensation errors.
-- **Exploration Mission:** Force failures at arbitrary lifecycle stages (inside `prepare`, `execute`, `onAfter`, or during another compensation).
-- **Technique:**
-  - Create a 10-step pipeline where each step has a compensation. Fail step 7.
-  - In addition, inject a failure into the compensation of step 4.
-  - Verify: Sagas must execute in strict LIFO order ($6 \to 5 \to 4 \to 3 \to 2 \to 1$); the secondary error in compensation 4 must be captured into a multi-error or aggregate error without halting the remaining compensations ($3 \to 2 \to 1$).
+- **Runner:** [`test/exploratory/charters/sagas.explore.ts`](../test/exploratory/charters/sagas.explore.ts)
+- **Invariants Checked:** Oracle 2 (Saga LIFO Ordering).
+- **Technique:** Creates pipelines up to 10 steps deep with compensations. Randomly injects failures in intermediate steps and secondary failures within compensations. Asserts strict LIFO execution without abandoning remaining compensations.
 
-### Charter 3: Durable Waits & Checkpoint Resumption Under OCC Contention
+#### Charter 3: Durable Waits & Checkpoint Resumption Under OCC Contention
 - **Target:** `waitForEvent()`, `wait()`, checkpoint storage, `resumeWorkflow()`.
-- **Exploration Mission:** Explore simultaneous resume calls from multiple workers on the same paused workflow checkpoint.
-- **Technique:**
-  - Pause a workflow on `waitForEvent('order_paid')`.
-  - Concurrently dispatch 50 identical resume requests using both Redis and Postgres adapters.
-  - Verify Oracle 3: Exactly 1 worker transitions the state to running; the remaining 49 receive optimistic concurrency lock errors or idempotently yield the cached output.
+- **Runner:** [`test/exploratory/charters/durable-occ.explore.ts`](../test/exploratory/charters/durable-occ.explore.ts)
+- **Invariants Checked:** Oracle 3 (Optimistic Concurrency & Idempotency).
+- **Technique:** Suspends workflows on synthetic events and concurrently fires dozens of simultaneous resume requests across worker threads. Asserts exactly one winner and proper conflict handling on losers.
 
-### Charter 4: Idempotency Key Collisions & TTL Expiry
-- **Target:** `@siglo/redis`, `@siglo/postgres`, in-memory idempotency store.
-- **Exploration Mission:** Bombard idempotent steps with simultaneous identical requests with jittered execution durations.
-- **Technique:**
-  - Simulate an idempotent step taking 150ms.
-  - Fire 20 concurrent invocations across 5 clustered worker processes.
-  - Test TTL expiration boundary: Trigger a call at $T = TTL - 1\text{ms}$ and $T = TTL + 1\text{ms}$. Verify clean claim lock release and subsequent re-execution.
+#### Charter 4: Idempotency Key Collisions & TTL Expiry
+- **Target:** In-memory, Redis, and Postgres idempotency stores.
+- **Runner:** [`test/exploratory/charters/idempotency.explore.ts`](../test/exploratory/charters/idempotency.explore.ts)
+- **Invariants Checked:** Oracle 3 (Idempotency Exclusivity).
+- **Technique:** Bombards idempotent steps with concurrent identical requests with jittered durations. Probes TTL boundary conditions ($T = TTL - 1\text{ms}$ and $T = TTL + 1\text{ms}$) to verify lock release and safe re-execution.
 
-### Charter 5: Streaming & Message Queue Batch Processing
+#### Charter 5: Streaming & Message Queue Batch Processing
 - **Target:** `@siglo/sqs`, `@siglo/kafka`, `@siglo/bullmq`.
-- **Exploration Mission:** Explore partial batch failures, out-of-order execution, and queue worker crashes.
-- **Technique:**
-  - Feed SQS/Kafka adapters batches of 20 messages where messages at indices [3, 7, 18] trigger fatal workflow failures, [2, 11] trigger retryable timeouts, and the rest succeed.
-  - Invalidate worker heartbeat mid-batch.
-  - Verify Oracle 7: `batchItemFailures` strictly reports [3, 7, 18]; no successful messages are re-processed upon redrive.
+- **Runner:** [`test/exploratory/charters/queues-batch.explore.ts`](../test/exploratory/charters/queues-batch.explore.ts)
+- **Invariants Checked:** Oracle 7 (Batch Partition Precision).
+- **Technique:** Feeds batch consumers randomized arrays of messages with mixed fatal, retryable, and successful outcomes. Asserts exact partition math: $\text{ACKed} \cap \text{NACKed} = \emptyset$ and $\text{ACKed} \cup \text{NACKed} = \text{AllMessages}$.
 
-### Charter 6: Web / Edge Adapter Disconnects & Abort Propagation
+#### Charter 6: Web / Edge Adapter Disconnects & Abort Propagation
 - **Target:** `@siglo/express`, `@siglo/fastify`, `@siglo/hono`.
-- **Exploration Mission:** Abruptly drop client HTTP connections while long-running or durable workflows are executing.
-- **Technique:**
-  - Start an HTTP request that launches a 5-step flow.
-  - Client sends `RST` or closes socket during Step 2.
-  - Verify: AbortSignal fires immediately; Step 2 and subsequent steps abort; active timers clear; no memory leaks or unhandled stream write errors occur on closed sockets.
+- **Runner:** [`test/exploratory/charters/http-abort.explore.ts`](../test/exploratory/charters/http-abort.explore.ts)
+- **Invariants Checked:** Oracle 4 (Cancellation Promptness), Oracle 10 (Zero Listener Leaks).
+- **Technique:** Dispatches synthetic HTTP requests launching multi-step workflows, abruptly triggers socket `close`/`RST` events mid-flight, and verifies prompt step preemption with zero open handles or lingering listeners.
 
-### Charter 7: CLI Tooling, Diagram Export & Validation
-- **Target:** `@siglo/cli`.
-- **Exploration Mission:** Fuzz the CLI with corrupted workflow files, circular references, invalid syntax, and extreme graph topologies.
-- **Technique:**
-  - Generate 500-node workflow ASTs and pass to `siglo export --format=mermaid` and `--format=dot`.
-  - Validate that exported Mermaid/DOT diagrams parse cleanly without syntax errors using Mermaid CLI / Graphviz validator.
-  - Feed malformed JSON ASTs to `siglo validate` and assert structured error reporting with line/column references.
+#### Charter 7: CLI Tooling, Diagram Export & Validation
+- **Target:** `@siglo/cli`, diagram generators (`toMermaid`, `toDot`).
+- **Runner:** [`test/exploratory/charters/cli-diagrams.explore.ts`](../test/exploratory/charters/cli-diagrams.explore.ts)
+- **Invariants Checked:** Oracle 6 (Graph Structure Soundness).
+- **Technique:** Synthesizes arbitrary deep workflow trees and validates that exported Mermaid diagrams start with proper flowchart declarations, avoid unclosed bracket label corruption, and DOT headers match graph definitions.
 
-### Charter 8: Observability, W3C Trace Context & Metric Fidelity
+#### Charter 8: Graph AST Generation & Network Policy Reflection
+- **Target:** `@siglo/core` (`toGraph`, `validateGraph`, `inspectGraph`, Network Policy).
+- **Runner:** [`test/exploratory/charters/graph-ast.explore.ts`](../test/exploratory/charters/graph-ast.explore.ts)
+- **Invariants Checked:** Oracle 1 (Network Egress Containment), Oracle 6 (Graph Validation Soundness).
+- **Technique:** Fuzzes complex graph nodes against `validateGraph()`, verifying that tree-structured workflows produce zero false-positive cycle errors. Evaluates declarative network egress policies (`.allowNetwork()`, `.denyNetwork()`, `NetworkPolicyConfig`) to ensure unauthorized hosts are rejected while allowed domains pass.
+
+#### Charter 9: Observability, W3C Trace Context & Metric Fidelity
 - **Target:** `@siglo/opentelemetry`.
-- **Exploration Mission:** Validate span parenting, distributed context propagation across durable suspension, and baggage preservation.
-- **Technique:**
-  - Suspend a workflow with an active OpenTelemetry trace. Persist to Postgres.
-  - Resume the workflow in a completely different process after 5 minutes with a synthetic trace carrier.
-  - Verify: Resumed steps link back to the parent trace via `traceparent` link; span attributes contain execution phase, step names, attempt counts, and error metadata.
+- **Runner:** [`test/exploratory/charters/opentelemetry.explore.ts`](../test/exploratory/charters/opentelemetry.explore.ts)
+- **Invariants Checked:** Oracle 9 (Distributed Tracing & Span Continuity).
+- **Technique:** Instruments generative flow topologies (`instrumentWorkflow`, `instrumentStep`), validating that all child step spans retain valid parent IDs matching the root workflow span, trace context headers (`traceparent`) survive serialization, and failing steps record `SpanStatusCode.ERROR`.
+
+#### Charter 10: Agentic AI Orchestration & Token Budget Stress
+- **Target:** `@siglo/ai`.
+- **Runner:** [`test/exploratory/charters/ai.explore.ts`](../test/exploratory/charters/ai.explore.ts)
+- **Invariants Checked:** Oracle 1 (Context Immutability), Oracle 2 (Saga LIFO on Tool Calls), Oracle 4 (Cancellation Promptness).
+- **Technique:** Fuzzes structured output parsing with schema mismatches and malformed JSON, asserting bounded auto-repair attempts (`maxRepairAttempts`) and accurate token metrics (`promptTokens`, `completionTokens`). Injects HTTP 429 and timeouts to verify fallback cascades across secondary models (`fallbackModels`). Validates compensating tool rollbacks upon downstream flow failure.
+
+#### Charter 11: Notification Dispatch Cascades & Provider Failover
+- **Target:** `@siglo/notifications`, `@siglo/crypto`.
+- **Runner:** [`test/exploratory/charters/notifications.explore.ts`](../test/exploratory/charters/notifications.explore.ts)
+- **Invariants Checked:** Oracle 1 (Scope & Token Tampering Resistance), Oracle 3 (Idempotency Exclusivity).
+- **Technique:** Bombards notification steps across Email, SMS, and Slack channels with concurrent identical requests under `InMemoryIdempotencyStore`. Fuzzes cryptographic action tokens (`verifyActionToken`) with tampered signatures, bit flips, and expired timestamps across rotated keys (`StaticKeyRing`). Tests concurrent callback resolutions to assert single-winner atomic approval semantics.
+
+#### Charter 12: Distributed Multi-Node Worker Failover & Split-Brain Contention
+- **Target:** `@siglo/redis`, `@siglo/postgres`, `@siglo/core`.
+- **Runner:** [`test/exploratory/charters/cluster-failover.explore.ts`](../test/exploratory/charters/cluster-failover.explore.ts)
+- **Invariants Checked:** Oracle 2 (Saga LIFO on Worker Crash), Oracle 3 (Split-Brain OCC & Distributed Lock Exclusivity), Oracle 5 (Cluster Bounded Concurrency).
+- **Technique:** Simulates distributed cluster workers competing for paused workflow resumption across network partitions. Validates that partitioned nodes waking up with stale state are strictly rejected with `DuplicateEventException`. Probes distributed lock lease boundaries (`RedisLock`) to verify that unfreezing nodes cannot steal or release locks acquired by healthy standby nodes. Verifies multi-node mid-saga crash recovery retains strict reverse LIFO compensation order.
 
 ---
 
 ## 6. Implementation Blueprint: Autonomous Exploratory Engine
 
-To execute this plan systematically, we design a modular test engine in `packages/testing` or a dedicated test harness:
+The exploratory testing engine is organized directly under [`test/exploratory/`](../test/exploratory):
 
 ```
 test/exploratory/
-├── engine/
-│   ├── ast-generator.ts         # Generates randomized flow graphs
-│   ├── property-generators.ts   # fast-check arbitraries for steps & payloads
-│   ├── chaos-proxy.ts           # Intercepts DB, Redis, and network calls
-│   ├── invariant-evaluator.ts   # Evaluates all 10 Oracles
-│   └── shrinker.ts              # Minimizes failing flow trees to minimal repro
 ├── charters/
-│   ├── combinators.explore.ts   # Charter 1 runner
-│   ├── sagas.explore.ts         # Charter 2 runner
-│   ├── durable-occ.explore.ts   # Charter 3 runner
-│   ├── idempotency.explore.ts   # Charter 4 runner
-│   ├── queues-batch.explore.ts  # Charter 5 runner
-│   ├── http-abort.explore.ts    # Charter 6 runner
-│   └── cli-diagrams.explore.ts  # Charter 7 runner
-└── runner.ts                    # Orchestrates iterations, logs, and failure artifacts
-```
-
-### 6.1 Flow AST Generator Prototype
-
-```typescript
-// test/exploratory/engine/ast-generator.ts
-import { flow, step, parallel, race, allSettled, when, branch, map } from '@siglo/core';
-
-export interface FuzzedFlowConfig {
-    maxDepth: number;
-    errorProbability: number;
-    timeoutProbability: number;
-    compensationProbability: number;
-}
-
-export function generateRandomFlow(name: string, depth: number, config: FuzzedFlowConfig): any {
-    if (depth <= 0) {
-        return createFuzzedStep(`leaf_${name}_${Math.random().toString(36).slice(2, 7)}`, config);
-    }
-
-    const constructType = pickRandom([
-        'sequential',
-        'parallel',
-        'race',
-        'allSettled',
-        'when',
-        'map'
-    ]);
-
-    switch (constructType) {
-        case 'parallel':
-            return parallel(
-                generateRandomFlow(`${name}_p1`, depth - 1, config),
-                generateRandomFlow(`${name}_p2`, depth - 1, config)
-            );
-        case 'race':
-            return race(
-                generateRandomFlow(`${name}_r1`, depth - 1, config),
-                generateRandomFlow(`${name}_r2`, depth - 1, config)
-            );
-        case 'map':
-            return map(
-                [1, 2, 3],
-                generateRandomFlow(`${name}_map`, depth - 1, config),
-                { concurrency: Math.floor(Math.random() * 3) + 1 }
-            );
-        case 'when':
-            return when((ctx: any) => Boolean(ctx && Math.random() > 0.5),
-                generateRandomFlow(`${name}_then`, depth - 1, config)
-            ).otherwise(
-                generateRandomFlow(`${name}_else`, depth - 1, config)
-            );
-        case 'sequential':
-        default:
-            return flow(`seq_${name}`)
-                .use(createFuzzedStep(`${name}_s1`, config))
-                .use(generateRandomFlow(`${name}_sub`, depth - 1, config));
-    }
-}
-```
-
-### 6.2 Invariant Evaluator Prototype
-
-```typescript
-// test/exploratory/engine/invariant-evaluator.ts
-export class InvariantEvaluator {
-    static assertContextImmutability(initialContext: any, currentContext: any): void {
-        if (Object.prototype.hasOwnProperty('canary')) {
-            throw new Error('Invariant 1 Violated: Prototype pollution detected on Object.prototype!');
-        }
-    }
-
-    static assertSagaLIFO(completedSteps: string[], compensatedSteps: string[]): void {
-        const expectedOrder = [...completedSteps].reverse();
-        for (let i = 0; i < compensatedSteps.length; i++) {
-            if (compensatedSteps[i] !== expectedOrder[i]) {
-                throw new Error(
-                    `Invariant 2 Violated: Saga out-of-order compensation! Expected ${expectedOrder[i]}, got ${compensatedSteps[i]}`
-                );
-            }
-        }
-    }
-
-    static assertBoundedConcurrency(highWaterMark: number, maxAllowed: number): void {
-        if (highWaterMark > maxAllowed) {
-            throw new Error(
-                `Invariant 5 Violated: Concurrency limit exceeded! Limit: ${maxAllowed}, Recorded: ${highWaterMark}`
-            );
-        }
-    }
-}
+│   ├── ai.explore.ts               # Charter 10: AI agentic loops & token budget stress
+│   ├── cli-diagrams.explore.ts     # Charter 7: CLI diagrams & export verification
+│   ├── cluster-failover.explore.ts # Charter 12: Split-brain & multi-node worker failover
+│   ├── combinators.explore.ts      # Charter 1: Parallel, race, map, combinator stress
+│   ├── durable-occ.explore.ts      # Charter 3: Durable checkpoint & OCC contention
+│   ├── graph-ast.explore.ts        # Charter 8: Graph AST & network policy reflection
+│   ├── http-abort.explore.ts       # Charter 6: Web adapter socket drops & abort signals
+│   ├── idempotency.explore.ts      # Charter 4: Idempotency collisions & TTL expiry
+│   ├── notifications.explore.ts    # Charter 11: Notification idempotency & approval races
+│   ├── opentelemetry.explore.ts    # Charter 9: OpenTelemetry spans & W3C traceparent
+│   ├── queues-batch.explore.ts     # Charter 5: SQS/Kafka batch partial failure math
+│   └── sagas.explore.ts            # Charter 2: Saga LIFO rollback & compensation chaos
+├── engine/
+│   ├── ast-generator.ts            # FlowAstGenerator: randomized workflow synthesis
+│   ├── chaos-proxy.ts              # Fault injector (network, latency, connection drops)
+│   ├── invariant-evaluator.ts      # Evaluates all 10 Oracles (throws InvariantViolation)
+│   ├── property-generators.ts      # Seeded RandomSource & fast-check edge-case data
+│   ├── shrinker.ts                 # FailureShrinker: delta debugging & fixture serialization
+│   └── step-helper.ts              # Step.create() wrapper for generative synthesis
+├── exploratory.test.ts             # Mocha test suite (executed in CI pipeline)
+└── runner.ts                       # Standalone CLI runner with parameter flags
 ```
 
 ---
 
 ## 7. Execution Matrix & Continuous Pipeline
 
-Exploratory testing is scheduled across continuous phases to catch regressions early while deeply fuzzing overnight:
+Exploratory testing is executed across different cadences to catch regressions early while deeply fuzzing during soak intervals:
 
-| Cadence | Suite | Focus & Parameters | Output Artifact |
+| Cadence | Suite & Trigger | Parameters & Scope | Command / Runner |
 |---|---|---|---|
-| **Per Pull Request** (Smoke Fuzz) | 5-minute Generative Smoke | 100 randomized flows, depth $\le 3$, zero external dependencies (in-memory storage). | Pass/Fail badge, minimized repro fixture if violated. |
-| **Nightly Build** (Chaos Soak) | 2-hour Distributed Exploratory Run | 5,000 randomized flows, depth $\le 5$, with real Postgres/Redis/BullMQ docker containers, network latency injection, high OCC contention. | Trend metrics, memory growth slope, coverage delta. |
-| **Weekly Soak** (Longevity & Leak) | 12-hour Stress Test | 100,000 sustained workflow executions, continuous durable pause/resumes, client abort flooding. | Memory heap profiles, event listener leak audit, latency percentiles ($p95, p99$). |
+| **Per PR / Push** | CI Regression Gate | 12–20 iterations per charter (12 charters), seed-locked, in-memory mocks. Fast (~3s). | `npm run test:exploratory` |
+| **Local CLI Run** | On-Demand Developer Run | Configurable iterations and seed, targeted charter filtering. | `npm run explore -- --iterations=50 --seed=123` |
+| **Nightly Build** | Scheduled Chaos Soak ([`nightly-soak.yml`](../.github/workflows/nightly-soak.yml)) | 200+ iterations per charter with Postgres and Redis service containers. | Triggered daily at 03:00 UTC |
+| **Weekly Soak** | Longevity & Leak Detection | 50,000 sustained workflow executions, durable pause/resumes, client abort flooding. | Memory heap differential & listener leak audit |
+
+### Running the Exploratory Tests:
+
+```bash
+# Run all 12 charters in the Mocha CI test suite
+npm run test:exploratory
+
+# Run via standalone exploratory runner with custom parameters
+npm run explore -- --iterations=25 --seed=9999
+
+# Filter by charter name
+npm run explore -- --charter=cluster-failover
+npm run explore -- --charter=ai
+npm run explore -- --charter=notifications
+npm run explore -- --charter=opentelemetry
+npm run explore -- --charter=graph-ast
+```
 
 ---
 
 ## 8. Failure Triaging, Shrinking & Automated Reporting
 
-When an invariant violation is discovered by the exploratory fuzzer:
+When an invariant violation is discovered by an exploratory fuzzer:
 1. **Delta Debugging / AST Shrinking:**
-   - The engine automatically eliminates unused steps, collapses parallel branches, and simplifies inputs to find the **minimal failing sub-flow**.
+   - [`FailureShrinker`](../test/exploratory/engine/shrinker.ts) automatically slices and minimizes the executed step trace to find the **minimal failing sub-flow**.
 2. **Replay Fixture Generation:**
-   - The minimal failure is serialized into a `@siglo/testing` JSON replay fixture (`test/fixtures/fuzzed-crash-<id>.json`).
+   - The minimal failure is serialized into a JSON replay fixture under `test/fixtures/failure_<charter>_<seed>_<timestamp>.json`.
 3. **Automated Reproduction Test:**
-   - Generates an executable test file reproducing the bug with `flow.toMermaid()` visualization embedded into the report.
+   - Produces a reproduction script embedding the failing seed, input payload, and Mermaid AST diagram for immediate debugging.
 
 ---
 
-## 9. Next Steps & Implementation Milestones
+## 9. Implementation Milestones & Roadmap
 
-- [ ] **Milestone 1:** Implement core Invariant Oracles (`ContextImmutability`, `SagaLIFO`, `BoundedConcurrency`) in `packages/testing`.
-- [ ] **Milestone 2:** Implement the AST Flow Topology Synthesizer & fast-check parameter fuzzer.
-- [ ] **Milestone 3:** Create dockerized chaos harnesses for `@siglo/postgres` and `@siglo/redis` verifying OCC and idempotency collisions.
-- [ ] **Milestone 4:** Add batch permutation fuzzing for `@siglo/sqs` and `@siglo/kafka`.
-- [ ] **Milestone 5:** Wire the PR smoke fuzz runner and nightly chaos job into `.github/workflows`.
+- [x] **Milestone 1:** Implement core Invariant Oracles (`ContextImmutability`, `SagaLIFO`, `BoundedConcurrency`, `BatchPartition`, `SpanContinuity`) in `test/exploratory/engine/invariant-evaluator.ts`.
+- [x] **Milestone 2:** Implement `FlowAstGenerator`, `RandomSource`, and fast-check edge case generators.
+- [x] **Milestone 3:** Implement Core and Storage charters (Combinators, Sagas, Durable OCC, Idempotency).
+- [x] **Milestone 4:** Implement Queue Batch and Web Abort charters (`queues-batch.explore.ts`, `http-abort.explore.ts`).
+- [x] **Milestone 5:** Implement Graph AST & Network Policy charter (`graph-ast.explore.ts`) and CLI diagram validation (`cli-diagrams.explore.ts`).
+- [x] **Milestone 6:** Wire the PR smoke fuzz runner into `.github/workflows/ci.yml` (`npm run test:exploratory`).
+- [x] **Milestone 7:** Implement Charter 9 for `@siglo/opentelemetry` (Span Hierarchy & Distributed W3C Trace Context) in [`test/exploratory/charters/opentelemetry.explore.ts`](../test/exploratory/charters/opentelemetry.explore.ts).
+- [x] **Milestone 8:** Implement Charter 10 for `@siglo/ai` (Agentic Loops, Token Budget Preemption & Tool Calling Fuzzing) in [`test/exploratory/charters/ai.explore.ts`](../test/exploratory/charters/ai.explore.ts).
+- [x] **Milestone 9:** Implement Charter 11 for `@siglo/notifications` (Provider Failover Cascades & Rate Limit Backoff) in [`test/exploratory/charters/notifications.explore.ts`](../test/exploratory/charters/notifications.explore.ts).
+- [x] **Milestone 10:** Create a dedicated GitHub Actions Nightly Soak workflow with Docker service containers and failure fixture artifact upload in [`.github/workflows/nightly-soak.yml`](../.github/workflows/nightly-soak.yml).
+- [x] **Milestone 11:** Implement Charter 12 for Distributed Multi-Node Worker Failover & Split-Brain Contention in [`test/exploratory/charters/cluster-failover.explore.ts`](../test/exploratory/charters/cluster-failover.explore.ts).
+- [ ] **Milestone 12 (Future):** Automated Mutation Testing Score evaluation via Stryker for the generative test harnesses.

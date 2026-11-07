@@ -1,4 +1,4 @@
-# 05. Retries, Timeouts, and Cancellation
+# Retries, Timeouts, and Cancellation
 
 Enterprise systems encounter network hiccups, slow external services, and user cancellations. `Siglo` provides built-in fault tolerance without requiring external cron daemons.
 

@@ -1,4 +1,4 @@
-# 02. Core Concepts
+# Core Concepts
 
 This chapter outlines the fundamental mental model and architecture of `Siglo`.
 
