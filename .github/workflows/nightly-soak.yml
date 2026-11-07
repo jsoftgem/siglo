@@ -15,7 +15,7 @@ on:
         required: false
         default: '42'
       charter:
-        description: 'Optional charter filter (e.g. combinators, ai, queues)'
+        description: 'Optional charter filter (e.g. combinators, ai, queues, cluster-failover)'
         required: false
         default: ''
 
@@ -66,7 +66,7 @@ jobs:
       - name: Run Core unit test coverage gate
         run: npm test
 
-      - name: Run Automated Exploratory Soak Suite (11 Charters)
+      - name: Run Automated Exploratory Soak Suite (12 Charters)
         run: |
           ITERATIONS="${{ github.event.inputs.iterations || '200' }}"
           SEED="${{ github.event.inputs.seed || '42' }}"
@@ -83,10 +83,21 @@ jobs:
           SIGLO_TEST_POSTGRES_URL: postgres://siglo:siglo_test@localhost:5432/siglo_soak_test
           SIGLO_TEST_REDIS_URL: redis://:redispassword@localhost:6379
 
+      - name: Run Stryker Mutation Testing Score Evaluation
+        run: npm run test:mutation
+
       - name: Upload Repro Fixtures on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: exploratory-failure-fixtures
           path: test/fixtures/
+          if-no-files-found: ignore
+
+      - name: Upload Mutation Testing HTML/JSON Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-testing-reports
+          path: reports/mutation/
           if-no-files-found: ignore
