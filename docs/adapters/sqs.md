@@ -1,3 +1,8 @@
+---
+title: "AWS SQS Adapter"
+description: "AWS SQS batch consumer adapter for Lambda event source mappings and long-polling workers with partial batch failure handling."
+---
+
 # @siglo/sqs Adapter Guide
 
 `@siglo/sqs` provides an AWS SQS batch consumer adapter for executing `Siglo` workflows. It is optimized for AWS Lambda event source mappings and standalone long-polling worker processes, implementing AWS partial batch failure protocols (`ReportBatchItemFailures`), message deduplication, and tenant namespace extraction.

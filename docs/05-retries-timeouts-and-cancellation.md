@@ -1,3 +1,8 @@
+---
+title: "Retries, Timeouts, and Cancellation"
+description: "Fault tolerance patterns in Siglo: exponential backoff retries with jitter, step and workflow deadlines, AbortSignal cooperative cancellation, and automatic Saga rollbacks."
+---
+
 # Retries, Timeouts, and Cancellation
 
 Enterprise systems encounter network hiccups, slow external services, and user cancellations. `Siglo` provides built-in fault tolerance without requiring external cron daemons.
@@ -45,7 +50,6 @@ const querySlowDatabase = Step.create('queryDb', async () => {
 > [!NOTE]
 > Step timeouts encompass the entire step lifecycle—including `Step.spec` validation, transformers, translators, `onBefore` plugins, the step action, and `onAfter` hooks. If any phase hangs or exceeds the deadline, the step aborts and rejects with `StepTimeoutException` tagged with its active execution phase.
 
-
 ### Workflow-Level Timeouts
 Enforce end-to-end deadlines across the entire workflow sequence:
 ```typescript
@@ -58,9 +62,11 @@ const checkoutWorkflow = flow(step1, step2, step3).timeout(10000); // 10s end-to
 
 ## 3. Cooperative Cancellation with `AbortSignal`
 
-Pass an `AbortController.signal` into `workflow.run()`:
+Pass an standard `AbortController.signal` into `workflow.run()`:
 
 ```typescript
+import { CancellationException } from '@siglo/core';
+
 const controller = new AbortController();
 
 setTimeout(() => {
@@ -70,7 +76,9 @@ setTimeout(() => {
 try {
     await workflow.run({ orderId: '123' }, { signal: controller.signal });
 } catch (err: any) {
-    console.log(err.name); // 'CancellationException'
+    if (err instanceof CancellationException || err.name === 'CancellationException') {
+        console.log('Workflow cancelled:', err.message);
+    }
 }
 ```
 
@@ -158,6 +166,7 @@ try {
     if (err instanceof CompensationException) {
         console.error('Original Error:', err.originalError.message);
         console.error('Failed Compensations:', err.compensationErrors);
+        console.error('Successfully Compensated Steps:', err.completedCompensations);
     }
 }
 ```
@@ -197,11 +206,13 @@ describe('Retry Fault Tolerance Suite', () => {
 
 1. **Compensations Must Be Idempotent**: Compensation handlers may be retried if network interruptions occur during rollback. Ensure cleanup functions (e.g., refunding payments) can be called multiple times safely.
 2. **Backoff Jitter**: Always enable `jitter: true` on retries targeting shared downstream dependencies to prevent synchronized waves of retry requests.
+3. **Cancellation Propagation**: In steps that invoke long-running I/O or child processes, always pass `param.signal` downstream to ensure execution halts promptly upon workflow cancellation.
 
 ---
 
 ## API Reference Links
 
 - [Core Concepts Guide](./02-core-concepts.md)
+- [Sequential Workflows](./03-sequential-workflows.md)
 - [Durable Workflows](./06-durable-workflows.md)
 - [Testing & Replay Reference](./09-testing-and-replay.md)

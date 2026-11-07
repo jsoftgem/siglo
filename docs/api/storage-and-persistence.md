@@ -1,3 +1,8 @@
+---
+title: "Storage & Persistence Utilities"
+description: "API reference for Siglo storage adapters and persistence utilities: useStorage, getStorageAdapter, checkpoints, OCC, serialization, and cleanExpiredCheckpoints."
+---
+
 # API Reference: Storage & Persistence Utilities
 
 The Storage & Persistence API in **Siglo** provides durable checkpointing, execution stack snapshots, optimistic concurrency control (OCC), multi-tenant namespace isolation, and pluggable storage adapters for distributed backends (e.g. PostgreSQL, Redis).
@@ -12,17 +17,17 @@ The Storage & Persistence API in **Siglo** provides durable checkpointing, execu
   - [`getStorageAdapter()`](#getstorageadapter)
   - [`setErrorMode(mode)`](#seterrormodemode)
   - [`getErrorMode()`](#geterrormode)
-- [Checkpointing & Resumption](#checkpointing--resumption)
+- [Checkpointing and Resumption](#checkpointing-and-resumption)
   - [`checkpoint(stackId, options?)`](#checkpointstackid-options)
   - [`getCheckpoint(stackId)`](#getcheckpointstackid)
   - [`restoreCheckpoint(data, options?)`](#restorecheckpointdata-options)
   - [`cleanExpiredCheckpoints()`](#cleanexpiredcheckpoints)
-- [Serialization & Hydration](#serialization--hydration)
+- [Serialization and Hydration](#serialization-and-hydration)
   - [`serializeState(stackId?)`](#serializestatestackid)
   - [`hydrateState(serialized, options?)`](#hydratestateserialized-options)
 - [Checkpoint Schema v2.0.0](#checkpoint-schema-v200)
 - [Optimistic Concurrency Control (OCC)](#optimistic-concurrency-control-occ)
-- [Namespace Isolation](#namespace-isolation)
+- [Namespace Scoping and Partitioning](#namespace-scoping-and-partitioning)
 
 ---
 
@@ -146,7 +151,7 @@ export function getErrorMode(): StorageErrorMode;
 
 ---
 
-## Checkpointing & Resumption
+## Checkpointing and Resumption
 
 ### `checkpoint(stackId, options?)`
 
@@ -246,7 +251,7 @@ setInterval(() => {
 
 ---
 
-## Serialization & Hydration
+## Serialization and Hydration
 
 ### `serializeState(stackId?)`
 
@@ -319,7 +324,7 @@ Siglo uses optimistic concurrency control to prevent multiple distributed worker
 
 ---
 
-## Namespace Scoping & Partitioning
+## Namespace Scoping and Partitioning
 
 `namespace` provides key partitioning and scoping metadata across storage adapters:
 - Scopes cache keys, checkpoints, and wait records to prevent key collisions across tenants.
@@ -332,5 +337,6 @@ Siglo uses optimistic concurrency control to prevent multiple distributed worker
 
 - [06. Durable Workflows](../06-durable-workflows.md)
 - [07. Storage and Adapters](../07-storage-and-adapters.md)
-- [Storage & Checkpoint Contract](../storage-contract.md)
+- [Storage and Checkpoint Contract](../storage-contract.md)
+- [Durable Waits Contract](../durable-waits.md)
 - [Ecosystem Adapters Overview](../ecosystem-adapters.md)

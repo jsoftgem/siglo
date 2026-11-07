@@ -1,3 +1,8 @@
+---
+title: "PostgreSQL Adapter"
+description: "Enterprise ACID persistence, context mutation audit logging, OCC versioning, advisory locks, and idempotency store for Siglo workflows."
+---
+
 # @siglo/postgres Adapter Guide
 
 `@siglo/postgres` provides an enterprise ACID-compliant persistence, event auditing, distributed locking, and idempotency coordination layer for `Siglo` workflows using PostgreSQL. It is engineered for mission-critical transactional workflows requiring zero state loss across crashes, network partitions, and multi-node worker clusters.
@@ -49,6 +54,12 @@ Install `@siglo/postgres` alongside `@siglo/core` and the `pg` driver:
 npm install @siglo/core @siglo/postgres pg
 npm install --save-dev @types/pg
 ```
+
+> [!WARNING]
+> **Connection Pooling & Session Advisory Locks (PgBouncer)**:
+> `PostgresStorageAdapter` uses PostgreSQL session-level advisory locks (`pg_try_advisory_lock`) to coordinate single-flight workflow execution across distributed worker nodes. These locks are tied to the physical PostgreSQL backend connection.
+>
+> If deploying behind connection proxies such as **PgBouncer**, configure `pool_mode = session`. Transaction-level pooling (`pool_mode = transaction`) causes advisory locks to be associated with random connections, breaking mutual exclusion and triggering premature lock releases.
 
 ### Peer Dependency Matrix
 

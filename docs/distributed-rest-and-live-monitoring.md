@@ -1,3 +1,8 @@
+---
+title: "Run Checkout Across Two Servers with PostgreSQL and Redis"
+description: "Scale a Siglo checkout workflow across multiple API servers using PostgreSQL idempotency and Redis pub/sub live monitoring."
+---
+
 # Run Checkout Across Two Servers with PostgreSQL and Redis
 
 In [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md), the API and dashboard shared one process. Now imagine running a second API instance: a request can arrive at either server, and an in-memory duplicate-request guard cannot see what the other server is doing.

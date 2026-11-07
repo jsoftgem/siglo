@@ -1,3 +1,8 @@
+---
+title: "Sequential Workflows"
+description: "Compose linear pipelines with strict step execution order, accumulated context, and declarative lifecycle hooks in Siglo."
+---
+
 # Sequential Workflows
 
 Sequential workflows are the primary building block in `Siglo`. They execute a series of steps in strict order, passing accumulated context forward.
@@ -19,6 +24,8 @@ export const parseInvoice = Step.create('parseInvoice', async (param: { rawText:
     };
 });
 ```
+
+---
 
 ## 2. Composing Sequences with `flow()`
 
@@ -51,7 +58,16 @@ export const signupWorkflow = flow(
 
 ## 3. Step Lifecycles
 
-Every step supports declarative lifecycle hooks:
+Every step supports declarative lifecycle hooks and validation rules:
+
+### `spec(field, rules)` and `schema(StandardSchema)`
+Validate input context before running the step action:
+```typescript
+const registerUser = Step.create('register', async (param) => ({ registered: true }))
+    .spec('email', { require: true })
+    .spec('age', { custom: (val) => val >= 18 })
+    .strict();
+```
 
 ### `onBefore(predicate)`
 Conditionally execute or skip the step action based on context:
@@ -61,7 +77,7 @@ const notifyVip = Step.create('notifyVip', async (param: any) => ({ notified: tr
 ```
 
 ### `onSkip(fallbackAction)`
-Provide fallback data when a step is skipped:
+Provide fallback data when a step is skipped by `onBefore`:
 ```typescript
 const chargeCard = Step.create('chargeCard', async () => ({ charged: true }))
     .onBefore((param) => param.amount > 0)
@@ -118,16 +134,21 @@ const strictStep = Step.create('strictStep', (param: { age: number }) => {
 const wf = flow(strictStep);
 
 try {
-    // Missing required field 'age'
+    // Missing required field 'age' throws ValidationException
     await wf.run({} as any);
 } catch (err: any) {
-    console.error('Validation Error:', err.message);
+    if (err instanceof ValidationException) {
+        console.error('Validation Error in step:', err.stepName);
+        console.error('Violations:', err.message);
+    }
 }
 ```
 
 ---
 
 ## Testing Example
+
+`createWorkflowHarness` records both `start` and `complete` phases in its execution trace:
 
 ```typescript
 import { expect } from 'chai';
@@ -139,14 +160,20 @@ const s2 = Step.create('step2', (p: { a: string }) => ({ b: `${p.a} world` }));
 const wf = flow(s1, s2);
 
 describe('Sequential Workflows Suite', () => {
-    it('executes steps in sequence and records trace', async () => {
+    it('executes steps in sequence and records trace phases', async () => {
         const harness = createWorkflowHarness(wf);
         const result = await harness.run();
 
         expect(result.b).to.equal('hello world');
-        expect(harness.getTrace().map(t => t.stepName)).to.deep.equal([
-            'step1', 'step1', 'step2', 'step2'
+        
+        // Harness trace records both start and complete phases for each step
+        expect(harness.getTrace().map(t => `${t.stepName}:${t.phase}`)).to.deep.equal([
+            'step1:start', 'step1:complete', 'step2:start', 'step2:complete'
         ]);
+        
+        // Assert built-in step execution counts
+        harness.assertStepExecuted('step1', 1);
+        harness.assertStepExecuted('step2', 1);
     });
 });
 ```
@@ -157,14 +184,15 @@ describe('Sequential Workflows Suite', () => {
 
 1. **Step Granularity**: Do not make every line of code its own step. Separate steps by logical domain boundaries, external I/O operations, or rollback requirements.
 2. **Deterministic Inputs**: Keep input parameters serializable JSON objects. Avoid passing database connection instances, sockets, or open file descriptors directly through the workflow context. Use dependency injection instead (`step.withDependencies()` or `options.services`).
+3. **Execution Mode (`pojo`)**: By default, `run()` wraps return values with metadata accessors (`$steps`, `$attempt`, etc.). Pass `{ pojo: true }` in HTTP endpoints to strip helper accessors and return plain JSON directly.
 
 ---
 
 ## API Reference Links
 
+- [Core Concepts Guide](./02-core-concepts.md)
 - [Branching and Parallelism](./04-branching-and-parallelism.md)
 - [Retries, Timeouts, and Cancellation](./05-retries-timeouts-and-cancellation.md)
 - [Testing & Replay Reference](./09-testing-and-replay.md)
 - [Scheduler Adapter Guide](./adapters/scheduler.md)
-- [Ecosystem Adapters Overview](./ecosystem-adapters.md)
 - [Production Best Practices](./production-best-practices.md)

@@ -1,3 +1,8 @@
+---
+title: "Route Kafka Order Events with branch and when"
+description: "Consume Kafka order events, route conditional fulfillment with branch and when, deduplicate with PostgreSQL, and monitor live decisions in Siglo."
+---
+
 # Route Kafka Order Events with `branch` and `when`
 
 In [Suspend Checkout for Approval and Resume Across Servers](durable-distributed-checkout.md), an HTTP request started checkout and another request resumed it after approval. Now imagine a storefront publishing order events while fulfillment services consume them independently.

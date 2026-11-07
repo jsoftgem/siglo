@@ -1,3 +1,8 @@
+---
+title: "Execution Semantics Contract"
+description: "Formal runtime execution semantics, lifecycle phases, context accumulation, error propagation, network boundaries, and saga compensation contracts in Siglo."
+---
+
 # Execution Semantics Contract
 
 This document provides a formal, binding contract for the runtime execution semantics of `Siglo` v1.0.0.
@@ -17,7 +22,7 @@ This document provides a formal, binding contract for the runtime execution sema
 
 Context **accumulates** across sequential steps within the same execution flow:
 - Each step receives an aggregated parameter containing all previously accumulated context values.
-- In addition, `$steps` and `$history` accessors provide indexed and named snapshots of the output of preceding steps (e.g. `param.$steps('stepName')` or `param.$steps[0]`).
+- In addition, `$steps` and `$history` accessors provide indexed and named snapshots of the output of preceding steps (e.g. `param.$steps('stepName')`, `param.$steps.stepName`, or `param.$steps[0]`).
 - If step $N$ writes a key `foo` and step $N+1$ writes a key `bar`, step $N+2$ receives both `foo` and `bar`. If step $N+1$ writes `foo`, it overwrites the value of `foo` for downstream steps.
 
 ---
@@ -42,11 +47,13 @@ Context **accumulates** across sequential steps within the same execution flow:
 
 ### 5. What happens when a step hook throws?
 
-Step execution progresses through 4 explicit lifecycle phases:
+Step execution progresses through 6 explicit lifecycle phases:
 1. **`validation` / `spec`**: Schema validation or specification checks. If a spec validation fails, a `ValidationException` is created with `phase: 'validation'`.
 2. **`before` (`onBefore` / plugin `before`)**: Lifecycle hooks that execute prior to the step action. Failures in `onBefore` are caught with `phase: 'before'`.
 3. **`action` (`Step.create` action / step action)**: The primary business logic of the step.
 4. **`after` (`onAfter` / plugin `after`)**: Lifecycle hooks that execute after action completion. Failures in `onAfter` are caught with `phase: 'after'`.
+5. **`checkpoint`**: State serialization or storage persistence operations. Failures are caught with `phase: 'checkpoint'`.
+6. **`retry`**: Inter-attempt delay calculation or backoff operations.
 
 Any hook failure bypasses the remaining step logic and routes the error into `onFail`. If `onFail` does not recover, the flow terminates and rejects.
 
@@ -60,12 +67,13 @@ Any hook failure bypasses the remaining step logic and routes the error into `on
 
 ---
 
-### 7. When is a flow execution considered started, completed, failed, or cancelled?
+### 7. When is a flow execution considered started, completed, failed, cancelled, or waiting?
 
 - **`started`**: When `flow(...).execute()` (or `Step.start(...)`) allocates a stack UUID, initializes the execution state, registers the active timeout/cancellation listeners, and invokes the first step.
 - **`completed`**: When the final step in the sequence resolves successfully (including its `onAfter` hooks) and state is deleted from memory or checkpointed with `status: 'completed'`.
 - **`failed`**: When a step or hook error is not recovered by `onFail`, or when a flow deadline expires (`FlowTimeoutException`). The flow status is set to `'failed'`.
 - **`cancelled`**: When an `AbortSignal` passed via `options.signal` emits an abort event. The flow halts immediately with `CancellationException` and status `'cancelled'`.
+- **`waiting`**: When execution encounters a durable wait combinator (`waitForEvent` or `wait`) with `{ durable: true }`. Execution halts cleanly, records a wait record in storage, snapshots state, and yields status `'waiting'` without rejecting.
 
 ---
 
@@ -100,3 +108,36 @@ Any hook failure bypasses the remaining step logic and routes the error into `on
   2. `node:http` and `node:https`: Patches `request` and `get` methods (covering legacy Node clients and libraries).
   3. `node:net.Socket.prototype.connect`: Enforces policy at the raw TCP/TLS socket layer.
 - **Security Violation Classification**: When an unauthorized egress attempt is detected, execution aborts immediately with a `NetworkPolicyViolationException`. This error is tagged with `phase: 'action'` and `retryable: false`, ensuring security/policy violations fail fast without blind automated retries.
+
+---
+
+### 11. How do Saga compensations execute upon workflow failure?
+
+- **LIFO Order**: Compensations execute in exact reverse order (Last-In, First-Out) of step completion. Only steps that completed successfully prior to the point of failure are compensated.
+- **Execution Modes**:
+  - `'strict'` *(default)*: Rollback aborts immediately upon the first failing compensation handler. Remaining compensations are halted.
+  - `'best-effort'`: Siglo attempts every registered compensation even if one or more fail, aggregating all failures into `CompensationException`.
+- **Payload & Input Preservation**: Handlers receive `(output, input, ctx)` snapshots captured at step completion time.
+- **Named vs Inline Registrations**: For multi-process or durable workflows, handlers registered via `registerCompensationHandler(name, fn)` are resolved by name, surviving process restarts. Missing handlers throw `UnresolvableCompensationException`.
+
+---
+
+### 12. How does a resumed workflow continue without re-executing completed steps?
+
+- When a workflow suspends at `waitForEvent` or `wait`, Siglo stores `continuationStepIndex` in the wait record.
+- Upon `flow.resume(correlationKey, payload)` or `resumeWorkflow(...)`:
+  1. State and `$steps` history snapshots are re-hydrated from the storage checkpoint.
+  2. The external event payload is merged into the context.
+  3. Execution resumes directly at `continuationStepIndex`. Preceding steps are never re-evaluated.
+- Duplicate resumption calls throw `WorkflowAlreadyResumedException` (storage) or `DuplicateEventException` (in-memory).
+
+---
+
+### 13. What are the lifecycle semantics of idempotency claims?
+
+- **Claim Phase**: An idempotency key is claimed before step execution begins (`store.claim(key, ttlMs)`).
+  - If `'claimed'`: Step execution proceeds.
+  - If `'completed'`: Cached output is returned immediately without executing step action or hooks.
+  - If `'in-progress'`: Throws `IdempotencyConflictException` (or spin-waits if `settleTimeoutMs` is configured).
+- **Atomic Commitment**: A step's claim transitions to `'completed'` atomically only after all `onAfter` hooks succeed.
+- **Transient vs Permanent Failures**: If step action or hooks fail, the claim is released via `store.fail(key)` unless classified as a permanent business error via `isPermanentBusinessError(err)`.

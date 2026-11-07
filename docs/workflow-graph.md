@@ -1,6 +1,11 @@
+---
+title: "Workflow Graph Model"
+description: "Declarative workflow AST, pure JSON-serializable node hierarchy, cycle validation, and inspector API in Siglo."
+---
+
 # Workflow Graph Model
 
-`Siglo` v1.0.0 introduces an internal, declarative Workflow Graph Model. The graph model cleanly separates workflow structure from runtime execution state, providing inspection, static validation, and tooling capabilities without breaking the sequential `flow(...)` API.
+`Siglo` v1.0.0 features an internal, declarative Workflow Graph Model. The graph model cleanly separates workflow structure from runtime execution state, providing inspection, static validation, and tooling capabilities without breaking the sequential `flow(...)` API.
 
 ---
 
@@ -64,8 +69,14 @@ const workflow = flow(
 
 // Convert via standalone utility or instance method
 const graph = toGraph(workflow);
-// Or: const graph = workflow.toGraph();
+// Or via instance method / property:
+const graphInstance = workflow.toGraph();
+const ast = workflow.ast;
 ```
+
+The resulting AST is consumed directly by developer tooling:
+- **`@siglo/monitor`**: Renders real-time execution DAGs, active node highlights, and duration heatmaps.
+- **`@siglo/cli`**: Produces terminal and SVG visualizations via `siglo visualize <workflow>`.
 
 ---
 

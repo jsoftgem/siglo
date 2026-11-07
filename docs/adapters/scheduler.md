@@ -1,3 +1,8 @@
+---
+title: "Scheduler & Durable Resumption"
+description: "Background timer polling, PostgreSQL advisory session locking, and cloud webhook dispatchers for resuming durable Siglo workflows."
+---
+
 # @siglo/scheduler Adapter Guide
 
 `@siglo/scheduler` provides background timer polling, distributed lock claiming, and cloud-native webhook dispatchers for `Siglo` durable workflows. It ensures that time-based durables (`wait('24h')`, `waitForEvent('CONFIRM', { timeout: '7d' })`) resume on time across container restarts, node crashes, and multi-worker Kubernetes clusters.

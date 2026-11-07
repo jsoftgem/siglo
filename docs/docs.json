@@ -130,9 +130,11 @@
             "group": "Formal Semantics & Contracts",
             "pages": [
               "execution-semantics",
+              "concurrency-and-parallelism",
               "error-model",
               "storage-contract",
               "compensation-and-sagas",
+              "durable-waits",
               "idempotency",
               "network-egress-policy",
               "production-best-practices",

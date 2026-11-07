@@ -1,3 +1,8 @@
+---
+title: "Suspend Checkout for Approval and Resume Across Servers"
+description: "Suspend a distributed Siglo checkout workflow for human approval, persist execution state to PostgreSQL, and resume across server restarts."
+---
+
 # Suspend Checkout for Approval and Resume Across Servers
 
 In [Run Checkout Across Two Servers with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md), both API instances executed orders synchronously from start to finish within a single HTTP request.

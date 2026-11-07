@@ -1,3 +1,8 @@
+---
+title: "Cryptography & Security"
+description: "Zero-dependency cryptographic primitives: timing-safe webhook verification, replay defense, AES-256-GCM envelope encryption, and PII redaction."
+---
+
 # @siglo/crypto Security & Cryptography Guide
 
 `@siglo/crypto` provides zero-dependency, enterprise-grade security primitives for `Siglo` workflows. Built directly on native Node.js `node:crypto` and standard Web Crypto APIs, it introduces timing-attack safe webhook signature verification, intra-window replay attack defense, pluggable cryptographic protocols (symmetric HMAC, asymmetric Ed25519, and RSA), AEAD envelope field encryption (`aes-256-gcm`) across durable checkpoints, multi-key `KeyRing` rotation, Additional Authenticated Data (AAD) multi-tenant isolation, ephemeral HKDF subkeys, streaming HMAC calculation with disk spooling, and declarative PII context redaction with structural sharing.

@@ -1,6 +1,11 @@
+---
+title: "Execution Options"
+description: "API reference for ExecutionOptions in Siglo: pojo, mode, signal, timeout, services, durable checkpoints, migrations, namespaces, idempotency, stepExecutionHook, and network policy."
+---
+
 # API Reference: Execution Options (`ExecutionOptions`)
 
-The `ExecutionOptions` object configures runtime execution behavior across `flow.run()`, `flow.execute()`, `step.run()`, and `resumeWorkflow()`. It governs cancellation signals, deadlines, dependency injection, durable persistence, multi-tenant namespaces, schema migrations, and idempotency deduplication.
+The `ExecutionOptions` object configures runtime execution behavior across `flow.run()`, `flow.execute()`, `step.run()`, and `resumeWorkflow()`. It governs cancellation signals, deadlines, dependency injection, durable persistence, multi-tenant namespaces, schema migrations, execution hooks, and idempotency deduplication.
 
 ---
 
@@ -10,8 +15,8 @@ The `ExecutionOptions` object configures runtime execution behavior across `flow
 - [Option Details](#option-details)
   - [`pojo` and `mode`](#pojo-and-mode)
   - [`signal`](#signal)
-  - [`timeout` / `timeoutMs`](#timeout--timeoutms)
-  - [`services` / `dependencies`](#services--dependencies)
+  - [`timeout` and `timeoutMs`](#timeout-and-timeoutms)
+  - [`services` and `dependencies`](#services-and-dependencies)
   - [`durable`](#durable)
   - [`workflowVersion`](#workflowversion)
   - [`migrations`](#migrations)
@@ -19,6 +24,8 @@ The `ExecutionOptions` object configures runtime execution behavior across `flow
   - [`idempotencyKey`](#idempotencykey)
   - [`idempotencyStore`](#idempotencystore)
   - [`idempotencyTtlMs`](#idempotencyttlms)
+  - [`stepExecutionHook`](#stepexecutionhook)
+  - [`networkPolicy`](#networkpolicy)
   - [`workflowId`](#workflowid)
   - [`stackId`](#stackid)
 - [Comprehensive Production Example](#comprehensive-production-example)
@@ -77,6 +84,15 @@ export interface ExecutionOptions {
     /** Custom predicate for classifying permanent non-retryable business errors. */
     isPermanentError?: (err: any) => boolean;
 
+    /** Execution hook intercepting step starts and completions within AsyncLocalStorage context. */
+    stepExecutionHook?: StepExecutionHook;
+
+    /** Dynamic network egress policy config for this run. */
+    networkPolicy?: NetworkPolicyConfig;
+
+    /** Live monitoring event emitter or callback. */
+    monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
+
     /** Custom workflow identifier attached to telemetry, logs, and checkpoints. */
     workflowId?: string;
 
@@ -85,12 +101,6 @@ export interface ExecutionOptions {
 
     /** Internal flag indicating resumption execution. */
     isResume?: boolean;
-
-    /** Dynamic network egress policy config for this run. */
-    networkPolicy?: NetworkPolicyConfig;
-
-    /** Live monitoring event emitter or callback. */
-    monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
 
     /** Optional pre-compiled workflow AST. */
     ast?: WorkflowNode;
@@ -141,7 +151,7 @@ try {
 
 ---
 
-### `timeout` / `timeoutMs`
+### `timeout` and `timeoutMs`
 
 Workflow-level SLA deadline in milliseconds.
 
@@ -154,7 +164,7 @@ await myFlow.run(input, { timeout: 10000 }); // 10-second deadline
 
 ---
 
-### `services` / `dependencies`
+### `services` and `dependencies`
 
 Dependency injection container for injecting repositories, external clients, database connections, and configurations into steps without coupling step implementations to global singletons.
 
@@ -271,6 +281,37 @@ Retention window for idempotency records in milliseconds:
 
 ---
 
+### `stepExecutionHook`
+
+Intercepts step execution boundaries within Node's `AsyncLocalStorage` context. Enables custom per-run logging, timing metrics, and distributed APM spans without registering global plugins.
+
+```typescript
+await myFlow.run(payload, {
+    stepExecutionHook: {
+        onStepStart: (context) => console.log(`Starting step ${context.stepName}`),
+        onStepEnd: (context, result) => console.log(`Finished step ${context.stepName}`)
+    }
+});
+```
+
+---
+
+### `networkPolicy`
+
+Supplies dynamic network egress guardrails for this execution run, overriding or narrowing the workflow-level policy.
+
+```typescript
+await myFlow.run(payload, {
+    networkPolicy: {
+        allowedHosts: ['api.stripe.com'],
+        defaultPolicy: 'deny',
+        allowLocalhost: true
+    }
+});
+```
+
+---
+
 ### `workflowId`
 
 Human-readable workflow identifier attached to telemetry, logs, and checkpoints.
@@ -329,5 +370,7 @@ async function handleOrderWebhook(request: any) {
 - [02. Core Concepts](../02-core-concepts.md)
 - [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
 - [06. Durable Workflows](../06-durable-workflows.md)
-- [07. Storage & Adapters](../07-storage-and-adapters.md)
+- [07. Storage and Adapters](../07-storage-and-adapters.md)
 - [Idempotency Contract](../idempotency.md)
+- [Network Egress Policy](../network-egress-policy.md)
+- [Storage and Checkpoint Contract](../storage-contract.md)

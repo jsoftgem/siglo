@@ -1,3 +1,8 @@
+---
+title: "Error Hierarchy & Exceptions"
+description: "API reference for the SigloError exception model: timeouts, cancellations, schema validation, sagas, network policy violations, and error normalization."
+---
+
 # API Reference: Error Hierarchy & Exceptions (`SigloError`)
 
 **Siglo** features a structured, strongly typed exception hierarchy rooted at `SigloError`. Every exception carries rich execution metadata—including the executing step name, lifecycle phase, retryability flag, execution stack ID, tenant namespace, state snapshots, and underlying error cause.
@@ -8,22 +13,26 @@
 
 - [Exception Hierarchy Diagram](#exception-hierarchy-diagram)
 - [Base Error: `SigloError`](#base-error-sigloerror)
-- [Timeout & Cancellation Exceptions](#timeout--cancellation-exceptions)
+- [Timeout and Cancellation Exceptions](#timeout-and-cancellation-exceptions)
   - [`StepTimeoutException`](#steptimeoutexception)
   - [`FlowTimeoutException`](#flowtimeoutexception)
   - [`CancellationException`](#cancellationexception)
-- [Validation & Contract Exceptions](#validation--contract-exceptions)
+- [Validation and Contract Exceptions](#validation-and-contract-exceptions)
   - [`ValidationException`](#validationexception)
   - [`GraphValidationException`](#graphvalidationexception)
-- [Concurrency & Sagas Exceptions](#concurrency--sagas-exceptions)
+- [Concurrency and Sagas Exceptions](#concurrency-and-sagas-exceptions)
   - [`CompensationException`](#compensationexception)
+  - [`UnresolvableCompensationException`](#unresolvablecompensationexception)
   - [`FieldCollisionException`](#fieldcollisionexception)
   - [`IdempotencyConflictException`](#idempotencyconflictexception)
-- [Durable & Event Exceptions](#durable--event-exceptions)
+- [Network Guardrail Exceptions](#network-guardrail-exceptions)
+  - [`NetworkPolicyViolationException`](#networkpolicyviolationexception)
+- [Durable and Event Exceptions](#durable-and-event-exceptions)
   - [`WorkflowSuspendedException`](#workflowsuspendedexception)
   - [`WorkflowVersionMismatchException`](#workflowversionmismatchexception)
   - [`DuplicateEventException`](#duplicateeventexception)
   - [`ExpiredWaitException`](#expiredwaitexception)
+  - [`WorkflowAlreadyResumedException`](#workflowalreadyresumedexception)
 - [Storage Exceptions](#storage-exceptions)
   - [`StorageAdapterException`](#storageadapterexception)
   - [`CheckpointConflictException`](#checkpointconflictexception)
@@ -31,6 +40,7 @@
   - [`CheckpointVersionException`](#checkpointversionexception)
 - [Error Normalization](#error-normalization)
   - [`normalizeError(error, metadata?)`](#normalizeerrorerror-metadata)
+- [Handling Errors in Workflows](#handling-errors-in-workflows)
 
 ---
 
@@ -43,16 +53,19 @@ Error
         ├── FlowTimeoutException
         ├── CancellationException
         ├── ValidationException
+        ├── GraphValidationException
         ├── CompensationException
+        ├── UnresolvableCompensationException
         ├── IdempotencyConflictException
         ├── FieldCollisionException
+        ├── NetworkPolicyViolationException
         ├── WorkflowSuspendedException
         ├── WorkflowVersionMismatchException
         ├── DuplicateEventException
         ├── ExpiredWaitException
-        ├── GraphValidationException
+        ├── WorkflowAlreadyResumedException
         ├── StorageAdapterException
-        ├── CheckpointConflictException
+        ├── CheckpointConflictException (OptimisticLockException)
         ├── NamespaceMismatchException
         └── CheckpointVersionException
 ```
@@ -68,7 +81,7 @@ All runtime errors thrown by Siglo extend `SigloError`.
 ```typescript
 export interface ExecutionErrorMetadata {
     stepName?: string;
-    phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry';
+    phase?: 'validation' | 'before' | 'action' | 'after' | 'checkpoint' | 'retry' | 'compensation';
     retryable?: boolean;
     stackId?: string;
     namespace?: string;
@@ -98,7 +111,7 @@ export class SigloError extends Error {
 ### Properties
 
 - `stepName`: Name of the step that was executing when the error occurred.
-- `phase`: The lifecycle phase where failure occurred (`'validation'`, `'before'`, `'action'`, `'after'`, `'checkpoint'`, or `'retry'`).
+- `phase`: The lifecycle phase where failure occurred (`'validation'`, `'before'`, `'action'`, `'after'`, `'checkpoint'`, `'retry'`, or `'compensation'`).
 - `retryable`: Boolean indicating whether the error is safe to retry under a retry policy.
 - `stackId`: Execution stack UUID for correlating with logs and checkpoints.
 - `namespace`: Multi-tenant partition namespace.
@@ -109,7 +122,7 @@ export class SigloError extends Error {
 
 ---
 
-## Timeout & Cancellation Exceptions
+## Timeout and Cancellation Exceptions
 
 ### `StepTimeoutException`
 
@@ -158,7 +171,7 @@ export class CancellationException extends SigloError {
 
 ---
 
-## Validation & Contract Exceptions
+## Validation and Contract Exceptions
 
 ### `ValidationException`
 
@@ -194,7 +207,7 @@ export class GraphValidationException extends SigloError {
 
 ---
 
-## Concurrency & Sagas Exceptions
+## Concurrency and Sagas Exceptions
 
 ### `CompensationException`
 
@@ -216,6 +229,21 @@ export class CompensationException extends SigloError {
 - `originalError`: The error that originally caused the workflow to fail.
 - `completedCompensations`: List of step names whose compensations ran successfully.
 - `compensationErrors`: Array of errors encountered during compensation rollbacks.
+
+---
+
+### `UnresolvableCompensationException`
+
+Thrown during saga compensation execution if a step's registered compensation handler cannot be found in memory or the registry (e.g., after process restarts or workflow code drift).
+
+```typescript
+export class UnresolvableCompensationException extends SigloError {
+    readonly handlerName?: string;
+}
+```
+
+- **Phase**: `'compensation'`
+- **Retryable**: `false`
 
 ---
 
@@ -249,7 +277,26 @@ export class IdempotencyConflictException extends SigloError {
 
 ---
 
-## Durable & Event Exceptions
+## Network Guardrail Exceptions
+
+### `NetworkPolicyViolationException`
+
+Thrown when a step's pre-check, action, or post-check attempts an unauthorized network call violating the active `allowNetwork()` or `networkPolicy()` perimeter.
+
+```typescript
+export class NetworkPolicyViolationException extends SigloError {
+    readonly requestedUrl: string;
+    readonly requestedHost: string;
+    readonly allowedHosts: (string | RegExp)[];
+}
+```
+
+- **Phase**: `'before'`, `'action'`, or `'after'`
+- **Retryable**: `false`
+
+---
+
+## Durable and Event Exceptions
 
 ### `WorkflowSuspendedException`
 
@@ -307,6 +354,18 @@ export class ExpiredWaitException extends SigloError {
 
 ---
 
+### `WorkflowAlreadyResumedException`
+
+Thrown when attempting to claim or resume a wait record that has already transitioned to completed status.
+
+```typescript
+export class WorkflowAlreadyResumedException extends SigloError {
+    readonly correlationKey: string;
+}
+```
+
+---
+
 ## Storage Exceptions
 
 ### `StorageAdapterException`
@@ -324,13 +383,15 @@ export class StorageAdapterException extends SigloError {
 
 ### `CheckpointConflictException`
 
-Thrown when optimistic concurrency control detects a revision conflict during `saveCheckpoint()`.
+Thrown when optimistic concurrency control detects a revision conflict during `saveCheckpoint()`. (Also exported as `OptimisticLockException`).
 
 ```typescript
 export class CheckpointConflictException extends SigloError {
     readonly currentRevision: number;
     readonly attemptedRevision: number;
 }
+
+export { CheckpointConflictException as OptimisticLockException };
 ```
 
 ---
@@ -403,6 +464,7 @@ import {
     StepTimeoutException,
     ValidationException,
     CompensationException,
+    NetworkPolicyViolationException,
     SigloError
 } from '@siglo/core';
 
@@ -413,6 +475,8 @@ try {
         console.error('Validation errors:', err.errors);
     } else if (err instanceof StepTimeoutException) {
         console.error(`Step '${err.stepName}' timed out after ${err.timeoutMs}ms`);
+    } else if (err instanceof NetworkPolicyViolationException) {
+        console.error(`Unauthorized network egress to ${err.requestedHost} during ${err.phase}`);
     } else if (err instanceof CompensationException) {
         console.error('Workflow failed and rolled back:', err.completedCompensations);
     } else if (err instanceof SigloError) {
@@ -427,5 +491,6 @@ try {
 
 - [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
 - [06. Durable Workflows](../06-durable-workflows.md)
-- [Error Model & Exception Hierarchy](../error-model.md)
-- [Compensation & Sagas Contract](../compensation-and-sagas.md)
+- [Error Model and Hierarchy](../error-model.md)
+- [Compensation and Sagas Contract](../compensation-and-sagas.md)
+- [Network Egress Policy](../network-egress-policy.md)

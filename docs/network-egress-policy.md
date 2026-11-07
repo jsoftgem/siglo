@@ -1,3 +1,8 @@
+---
+title: "Network Egress Policy & Guardrails"
+description: "In-process zero-trust network perimeter enforcement via AsyncLocalStorage (ASL) across fetch, Node HTTP, and raw TCP sockets in Siglo."
+---
+
 # Network Egress Policy & Guardrails via AsyncLocalStorage (ASL)
 
 In workflow orchestration systems, governing external network egress and side-effects is critical for security, data privacy, and compliance. Without guardrails, workflow steps executing arbitrary code can contact unauthorized third-party APIs, leak secrets, or establish unmonitored raw TCP sockets.
@@ -45,9 +50,9 @@ flowchart TD
     HttpReq --> Interceptors
     SocketConn --> Interceptors
 
-    Interceptors --> IsLocal{"Is Localhost or Unix Socket?"}
-    IsLocal -- "Yes (Default)" --> Allow["Allow Request"]
-    IsLocal -- "No" --> CheckAllowlist{"Host in Resolved Allowlist?"}
+    Interceptors --> IsLocal{"Is Loopback or Unix Socket?"}
+    IsLocal -- "Yes & allowLocalhost/Sockets Enabled" --> Allow["Allow Request"]
+    IsLocal -- "No (or Not Enabled)" --> CheckAllowlist{"Host in Resolved Allowlist?"}
 
     CheckAllowlist -- "Yes" --> Allow
     CheckAllowlist -- "No" --> Block["Abort & Throw NetworkPolicyViolationException<br/>(phase: 'validation' | 'action', retryable: false)"]

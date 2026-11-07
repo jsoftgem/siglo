@@ -1,3 +1,8 @@
+---
+title: "AI & Agentic Inference"
+description: "Multi-provider LLM inference, native structured outputs, self-healing prompt repair, and Step-as-Tool agent loops for Siglo workflows."
+---
+
 # @siglo/ai Step & Agent Guide
 
 `@siglo/ai` provides resilient, enterprise-grade, multi-provider LLM inference, native structured outputs, and agentic step execution for `Siglo` workflows. It replaces fragile ad-hoc AI SDK scripts with coordinated rate-limit fallback cascades, automated self-healing schema repair loops, Step-as-Tool agent loops backed by parent saga compensations, AsyncLocalStorage (ASL) network perimeter enforcement, deterministic offline replay testing, and OpenTelemetry GenAI observability.

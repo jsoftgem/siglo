@@ -1,3 +1,8 @@
+---
+title: "Testing and Replay"
+description: "Zero-flake test harness for Siglo: step mocking, spies, virtual clocks, execution trace snapshots, and production failure replay."
+---
+
 # Testing and Replay
 
 `@siglo/testing` provides a comprehensive, zero-flake test harness for deterministic execution, step mocking, spy inspection, virtual timers, execution trace snapshots, and production failure replay.
@@ -181,10 +186,12 @@ describe('Full Harness Suite', () => {
 
 1. **Secret Redaction**: Always run `sanitizeExecutionRecord()` before writing execution records to bug reports or test fixtures. Defaults automatically redact passwords, API keys, and credit cards.
 2. **Deterministic Randomness**: If steps generate UUIDs or timestamps, inject a deterministic clock or generator via `param.$services` so replays produce matching records.
+3. **Trace Inspection**: The test harness records both `'start'` and `'complete'` phases for every step in `harness.getTrace()`. Filter by phase if asserting distinct step names.
 
 ---
 
 ## API Reference Links
 
 - [TypeScript Reference](./10-typescript-reference.md)
+- [Testing Adapter Reference](./adapters/testing.md)
 - [CLI Reference](./adapters/cli.md)

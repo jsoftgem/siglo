@@ -1,3 +1,8 @@
+---
+title: "Observability"
+description: "Telemetry, diagram exports, and real-time DevTools in Siglo: OpenTelemetry distributed tracing, Mermaid/DOT AST exports, and React live monitoring."
+---
+
 # Observability
 
 For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
@@ -198,7 +203,7 @@ describe('OpenTelemetry Integration Test', () => {
 
 ## 8. Operational Caveats
 
-1. **Context Redaction in Telemetry**: Always specify `redactContextKeys` when capturing span attributes or monitoring streams to ensure PII, tokens, and secrets are excluded from logs and tracing dashboards.
+1. **Context Redaction in Telemetry**: Always specify `redactHook` or configure `allowContextFields` when capturing span attributes or monitoring streams to ensure PII, tokens, and secrets are excluded from logs and tracing dashboards.
 2. **Span Limiters**: In loops or deep recursive pipelines, avoid creating unbounded spans. Use bounded batching with `map(items, step, { concurrency })`.
 
 ---

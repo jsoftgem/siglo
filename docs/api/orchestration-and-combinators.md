@@ -1,3 +1,8 @@
+---
+title: "Orchestration & Combinators"
+description: "API reference for Siglo functional workflow combinators: flow, parallel, all, allSettled, race, when, branch, map, waitForEvent, wait, and AST graph utilities."
+---
+
 # API Reference: Orchestration & Combinators
 
 The Orchestration & Combinators API in **Siglo** provides functional combinators and workflow orchestrators to compose modular, resilient, and type-safe async workflows. Siglo combines sequential pipelines, parallel fan-out/fan-in, conditional branching, dynamic collections mapping, durable event suspension, and workflow AST inspection.
@@ -15,16 +20,16 @@ The Orchestration & Combinators API in **Siglo** provides functional combinators
   - [`all(steps, options?)`](#allsteps-options)
   - [`allSettled(steps, options?)`](#allsettledsteps-options)
   - [`race(...steps)`](#racesteps)
-- [Branching & Routing](#branching--routing)
+- [Branching and Routing](#branching-and-routing)
   - [`when(predicate, thenStep, elseStep?)`](#whenpredicate-thenstep-elsestep)
   - [`branch(selectorOrBranches, branchesMap?, defaultBranch?)`](#branchselectororbranches-branchesmap-defaultbranch)
 - [Dynamic Mapping](#dynamic-mapping)
   - [`map(itemsOrAccessor, processItem, options?)`](#mapitemsoraccessor-processitem-options)
-- [Durable Waits & Event Resumption](#durable-waits--event-resumption)
+- [Durable Waits and Event Resumption](#durable-waits-and-event-resumption)
   - [`waitForEvent(eventName, options)`](#waitforeventeventname-options)
   - [`wait(durationOrMs)`](#waitdurationorms)
   - [`resumeWorkflow(flow, key, payload?, options?)`](#resumeworkflowflow-key-payload-options)
-- [Graph Inspection & Visualization](#graph-inspection--visualization)
+- [Graph Inspection and Visualization](#graph-inspection-and-visualization)
   - [`toGraph(item)`](#tographitem)
   - [`inspectGraph(item)`](#inspectgraphitem)
   - [`validateGraph(node)`](#validategraphnode)
@@ -54,7 +59,7 @@ export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
     s2: Step<any, T2Out, N2>
 ): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>>;
 
-// Generic overload for dynamic/arbitrary step arrays
+// Generic overload for dynamic or arbitrary step arrays
 export function flow<TInput = any, TOutput = any>(
     ...steps: FlowArg[]
 ): Flow<TInput, TOutput>;
@@ -66,7 +71,7 @@ export function flow<TInput = any, TOutput = any>(
 
 #### Returns
 
-A `Flow<TInput, TOutput>` object exposing execution methods (`.run()`, `.execute()`), durable controls (`.resume()`, `.compensate()`), and export utilities (`.toMermaid()`, `.toJSON()`).
+A `Flow<TInput, TOutput>` object exposing execution methods (`.run()`, `.execute()`), durable controls (`.resume()`, `.compensate()`), guardrails (`.networkPolicy()`), live monitoring (`.monitor()`, `.hook()`), and export utilities (`.toMermaid()`, `.toJSON()`).
 
 #### Context Accumulation & `$steps`
 
@@ -161,7 +166,7 @@ export function parallel(
 export interface ParallelOptions {
     name?: string;
     mode?: 'fail-fast' | 'allSettled' | 'race';
-    mergeStrategy?: 'shallow' | 'deep' | 'error' | ((target: any, source: any, branchKey: string | number) => any);
+    mergeStrategy?: 'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
 }
 ```
 
@@ -171,18 +176,19 @@ export interface ParallelOptions {
 |---|---|---|---|
 | `name` | `string` | `'parallel'` | Identifying name for the combinator node in AST and telemetry. |
 | `mode` | `'fail-fast' \| 'allSettled' \| 'race'` | `'fail-fast'` | Execution mode governing failure and settle handling. |
-| `mergeStrategy` | `'shallow' \| 'deep' \| 'error' \| Function` | `'shallow'` | Strategy for merging branch outputs into accumulated context. |
+| `mergeStrategy` | `'shallow' \| 'deep' \| 'error' \| 'namespace' \| Function` | `'shallow'` | Strategy for merging branch outputs into accumulated context. |
 
 #### Merge Strategies
 
 1. `'shallow'` (default): `Object.assign(target, branchOutput)`.
 2. `'deep'`: Recursively merges nested objects.
 3. `'error'`: Throws `FieldCollisionException` if two branches output differing values for the same key.
-4. `(target, source, branchKey) => merged`: Custom callback to resolve branch collisions.
+4. `'namespace'`: Scopes each branch's output under its branch name (`target[branchName] = branchOutput`).
+5. `(target, source, branchKey) => merged`: Custom callback to resolve branch collisions.
 
 #### Context Isolation
 
-Each branch receives a deep copy of the input context. Mutating context in one branch does not bleed into sibling branches.
+Each branch receives an isolated clone of the input context. Mutating context in one branch does not bleed into sibling branches.
 
 #### Example
 
@@ -194,14 +200,14 @@ const fetchInvoices = Step.create('invoices', async () => ({ invoices: ['inv_1']
 
 const prepareDashboard = flow(
     parallel([fetchOrders, fetchInvoices], {
-        mergeStrategy: 'deep',
+        mergeStrategy: 'namespace',
         name: 'fetchDashboardData'
     })
 );
 
 const result = await prepareDashboard.run();
-console.log(result.orders);   // [1, 2, 3]
-console.log(result.invoices); // ['inv_1']
+console.log(result.orders);   // { orders: [1, 2, 3] }
+console.log(result.invoices); // { invoices: ['inv_1'] }
 console.log(result.$branches.length); // 2
 ```
 
@@ -267,7 +273,7 @@ const alertSystem = flow(
 );
 
 const result = await alertSystem.run();
-console.log(result.slack.slackSent);       // true
+console.log(result.slack.slackSent);         // true
 console.log(result.pagerDuty.error.message); // 'PagerDuty rate limited'
 console.log(result.$branches);
 ```
@@ -291,7 +297,7 @@ export function race(
 ```typescript
 import { Step, flow, race } from '@siglo/core';
 
-const primaryDns = Step.create('primaryDns', async (_p, _c, _i) => {
+const primaryDns = Step.create('primaryDns', async () => {
     return { ip: '1.1.1.1', source: 'primary' };
 });
 
@@ -307,7 +313,7 @@ console.log(result.source); // 'primary'
 
 ---
 
-## Branching & Routing
+## Branching and Routing
 
 ### `when(predicate, thenStep, elseStep?)`
 
@@ -487,7 +493,7 @@ console.log(result.items); // [{ processedId: 'ord_1', charged: 50 }, ...]
 
 ---
 
-## Durable Waits & Event Resumption
+## Durable Waits and Event Resumption
 
 ### `waitForEvent(eventName, options)`
 
@@ -600,7 +606,7 @@ console.log(finalResult.granted); // true
 
 ---
 
-## Graph Inspection & Visualization
+## Graph Inspection and Visualization
 
 ### `toGraph(item)`
 
@@ -727,4 +733,7 @@ Serializes the entire workflow AST into a clean JSON string.
 - [03. Sequential Workflows](../03-sequential-workflows.md)
 - [04. Branching and Parallelism](../04-branching-and-parallelism.md)
 - [06. Durable Workflows](../06-durable-workflows.md)
-- [08. Observability & Diagrams](../08-observability.md)
+- [08. Observability](../08-observability.md)
+- [Concurrency and Parallelism](../concurrency-and-parallelism.md)
+- [Durable Waits Contract](../durable-waits.md)
+- [Workflow Graph AST](../workflow-graph.md)

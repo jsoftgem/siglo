@@ -1,8 +1,13 @@
+---
+title: "Ecosystem Adapters & Integrations"
+description: "Production-ready ecosystem integrations for Siglo: HTTP web frameworks, message brokers, persistent storage, security, generative AI, and developer tools."
+---
+
 # Siglo Ecosystem Adapters & Integrations Guide
 
-The `Siglo` ecosystem provides modular, production-ready integrations across observability, HTTP web frameworks, message brokers, persistent storage backends, and developer tooling.
+The `Siglo` ecosystem provides modular, production-ready integrations across observability, HTTP web frameworks, message brokers, persistent storage backends, generative AI, and developer tooling.
 
-The core runtime (`Siglo`) remains strictly **zero-dependency**; all ecosystem integrations are published as independent packages that depend only on standard interfaces (`StorageAdapter`, `IdempotencyStore`, `Flow`, `ExecutionOptions`).
+The core runtime (`@siglo/core`) remains strictly **zero-dependency**; all ecosystem integrations are published as independent packages that depend only on standard interfaces (`StorageAdapter`, `IdempotencyStore`, `Flow`, `ExecutionOptions`).
 
 ---
 
@@ -13,7 +18,8 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 | Package | Category | Documentation Guide | Key Features |
 | :--- | :--- | :--- | :--- |
 | **`@siglo/crypto`** | Security & Data Confidentiality | [Crypto Security Guide](adapters/crypto.md) | Timing-safe webhook verification, replay defense, AES-256-GCM envelope encryption, PII context redaction |
-| **`@siglo/notifications`** | Notifications & Human Approvals | [Notifications Guide](adapters/notifications.md) | Multi-channel transports (Slack, Resend, SendGrid, Twilio, Postmark, Discord, SMTP, Push), HMAC action tokens, distributed durable resumption, saga message invalidation |
+| **`@siglo/notifications`** | Notifications & Human Approvals | [Notifications Guide](adapters/notifications.md) / [Notification Hardening](adapters/notification-hardening.md) | Multi-channel transports (Slack, Resend, SendGrid, Twilio, Postmark, Discord, SMTP, Push), HMAC action tokens, distributed durable resumption, saga message invalidation |
+| **`@siglo/ai`** | AI & Generative Inference | [AI Adapter Guide](adapters/ai.md) | Multi-provider LLM step (`aiStep`), structured output JSON schema repair, token usage and cost accounting, automatic model fallback |
 | **`@siglo/monitor`** | Observability & DevTools | [Live Monitoring Guide](live-monitoring.md) / [Monitor Adapter Guide](adapters/monitor.md) | React 18 DevTools SPA, dynamic DAG, latency waterfall, state diffs, SSE/WebSocket, Prometheus `/metrics` |
 | **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
 | **`@siglo/http`** | HTTP Client Egress | [HTTP Client Guide](adapters/http.md) | Resilient client steps, ASL egress perimeter, W3C tracing, Retry-After backoff, sagas |
@@ -27,7 +33,7 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 | **`@siglo/express`** | HTTP Ingress | [Express Adapter Guide](adapters/express.md) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
 | **`@siglo/scheduler`** | Background Schedulers & Timers | [Scheduler Adapter Guide](adapters/scheduler.md) | PostgreSQL advisory poller with session locks, memory poller, and cloud webhook dispatchers (AWS EventBridge, GCP Cloud Tasks) |
 | **`@siglo/testing`** | Testing & Deterministic Replay | [Testing Adapter Guide](adapters/testing.md) | Virtual clocks (`FakeClock`), step spies, step mocks, harness assertions, and failure replay |
-| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`), AST visualizer (`visualize`), live monitor dev server (`monitor`), cycle validator (`validate`), fixture replay |
+| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`, `generate`), AST visualizer (`visualize`), live monitor dev server (`monitor`), cycle validator (`validate`), fixture replay |
 
 ---
 
@@ -42,10 +48,13 @@ flowchart TD
             Fastify["@siglo/fastify"]
             Express["@siglo/express"]
         end
-        subgraph QUEUES["Message Queues"]
+        subgraph QUEUES["Message Queues & Workers"]
             BullMQ["@siglo/bullmq"]
             Kafka["@siglo/kafka"]
             SQS["@siglo/sqs"]
+        end
+        subgraph SCHEDULER["Background Timers"]
+            Sched["@siglo/scheduler"]
         end
     end
 
@@ -61,14 +70,16 @@ flowchart TD
         Notify["@siglo/notifications<br/>• sendInteractiveApprovalStep()<br/>• Zero-Trust Action Tokens<br/>• Multi-Channel Transports<br/>• Express / Fastify / Hono Callbacks<br/>• Saga Card Invalidation"]
     end
 
-    subgraph EGRESS["OUTBOUND CLIENT EGRESS"]
+    subgraph EGRESS["CLIENT EGRESS & AI"]
         HttpClient["@siglo/http<br/>• Resilient httpStep()<br/>• ASL Egress Perimeter<br/>• W3C Distributed Tracing<br/>• Declarative Sagas"]
+        AiStep["@siglo/ai<br/>• aiStep() Inference<br/>• JSON Schema Repairs<br/>• Multi-Model Fallbacks"]
     end
 
     subgraph OBS["Observability & Developer Tools"]
         Monitor["@siglo/monitor<br/>• React DevTools Web SPA<br/>• Dynamic DAG & Latency Waterfall<br/>• State Diff & Event Stream<br/>• Prometheus /metrics Exporter"]
         OTel["@siglo/opentelemetry<br/>• Workflow & Step Spans<br/>• Retry & Error Tracking<br/>• W3C Trace Context<br/>• PII Sanitization"]
         CLI["@siglo/cli<br/>• Scaffolding & Validation<br/>• AST Visualizer & Replay<br/>• Live Monitor CLI Server"]
+        Testing["@siglo/testing<br/>• WorkflowHarness<br/>• FakeClock & Step Spies"]
     end
 
     subgraph STORAGE["Distributed Storage"]
@@ -78,6 +89,7 @@ flowchart TD
 
     HTTP --> SECURITY
     QUEUES --> SECURITY
+    SCHEDULER --> ENGINE
     SECURITY --> ENGINE
     ENGINE --> SECURITY
     ENGINE --> NOTIFICATIONS
@@ -113,7 +125,7 @@ All HTTP adapters (`@siglo/express`, `@siglo/fastify`, `@siglo/hono`, `@siglo/no
 | :--- | :--- | :--- |
 | `StepTimeoutException` / `FlowTimeoutException` | `504 Gateway Timeout` | Step or end-to-end workflow timeout SLA was exceeded. |
 | `ValidationException` / `SpecFailedException` | `400 Bad Request` | Contract, schema, or cryptographic token validation failed. |
-| `IdempotencyConflictException` / `WorkflowAlreadyResumedException` | `409 Conflict` | Concurrent claim detected on an in-progress idempotency key or already resumed wait. |
+| `IdempotencyConflictException` / `WorkflowAlreadyResumedException` / `DuplicateEventException` | `409 Conflict` | Concurrent claim detected on an in-progress idempotency key or already resumed wait. |
 | `ExpiredWaitException` | `410 Gone` | Durable wait timeout or signed approval token expired. |
 | `CancellationException` / `AbortError` | `499 Client Closed Request` | Client terminated the HTTP socket or workflow was aborted. |
 | `NetworkPolicyViolationException` | `403 Forbidden` | ASL network egress perimeter rejected unauthorized destination host. |
@@ -130,7 +142,10 @@ Each package can be installed independently as needed:
 npm install @siglo/core
 
 # Notifications & Human-in-the-Loop Approvals
-npm install @siglo/notifications @siglo/crypto @siglo/http
+npm install @siglo/notifications
+
+# AI & Generative Inference
+npm install @siglo/ai
 
 # Observability
 npm install @siglo/monitor @siglo/opentelemetry
@@ -156,6 +171,9 @@ npm install @siglo/sqs @aws-sdk/client-sqs
 # Background Schedulers & Timers
 npm install @siglo/scheduler
 
-# Developer Tooling
+# Testing & Test Doubles
+npm install -D @siglo/testing
+
+# Developer Tooling CLI
 npm install -g @siglo/cli
 ```

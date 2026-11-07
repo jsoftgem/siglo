@@ -1,3 +1,8 @@
+---
+title: "Serve a REST Endpoint and Watch It Run Live"
+description: "Expose a Siglo checkout workflow through an Express REST endpoint, stream execution events, and inspect step retries and compensations in the live monitor."
+---
+
 # Serve a REST Endpoint and Watch It Run Live
 
 A customer reports that checkout failed. Your API log shows a `500`, but it doesn’t tell you whether stock was reserved, payment was retried, or shipping caused the failure.
@@ -239,7 +244,7 @@ Now send another request. You’ll receive events such as `flow:start`, `step:st
 curl http://127.0.0.1:4000/metrics
 ```
 
-The output includes `siglo_flow_executions_total` and `siglo_step_retries_total`. These counters belong to this monitor instance and reset when it restarts. For scraping and dashboards, continue with [Prometheus and Grafana](live-monitoring.md#9-production-telemetry-prometheus--grafana).
+The output includes `siglo_flow_executions_total` and `siglo_step_retries_total`. These counters belong to this monitor instance and reset when it restarts. For scraping and dashboards, continue with [Prometheus and Grafana](live-monitoring.md#11-production-telemetry-prometheus--grafana).
 
 ## 6. Trigger a Shipping Failure
 
@@ -287,7 +292,7 @@ For a production endpoint, replace the fake clients, remove the failure flag, de
 
 This endpoint executes each accepted request as a new workflow run. The correlation header helps trace a request; it doesn’t deduplicate it. Add workflow idempotency and provider-side payment keys using [the checkout idempotency walkthrough](01-getting-started.md#6-handle-a-duplicate-checkout-request). For custom execution options beyond the Express adapter’s interface, call `checkout.run(input, options)` from your route and map the response explicitly.
 
-The monitor binds to loopback here, keeps execution history in memory, and disables interactive resume/replay with `allowRemoteResume: false`. Before making it remotely accessible, configure authentication and telemetry redaction using the [monitor deployment guide](live-monitoring.md#10-security-authentication--production-hardening). Business-field allowlisting reduces accidental data collection, but real provider results also need review for sensitive fields.
+The monitor binds to loopback here, keeps execution history in memory, and disables interactive resume/replay with `allowRemoteResume: false`. Before making it remotely accessible, configure authentication and telemetry redaction using the [monitor deployment guide](live-monitoring.md#12-security-authentication--production-hardening). Business-field allowlisting reduces accidental data collection, but real provider results also need review for sensitive fields.
 
 To observe workers in another process, attach a [remote monitor client](live-monitoring.md#scenario-c-high-throughput-buffered-client) instead of sharing an in-process emitter. For long-running work that should outlive an HTTP request, use a [queue worker](adapters/bullmq.md) or a [durable workflow](06-durable-workflows.md) with persistent storage and a defined status/resumption API.
 

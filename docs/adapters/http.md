@@ -1,3 +1,8 @@
+---
+title: "HTTP Client Steps"
+description: "Resilient, W3C-traced HTTP client steps for Siglo workflows with ASL egress perimeter enforcement, backoff retries, and declarative sagas."
+---
+
 # @siglo/http Client Step Guide
 
 `@siglo/http` provides resilient, enterprise-grade, W3C-traced HTTP client steps for `Siglo` workflows. It replaces fragile, ad-hoc `fetch()` and `axios()` calls inside workflow steps with coordinated retry backoff, first-class socket abort signal binding, AsyncLocalStorage (ASL) network egress perimeter enforcement, declarative saga compensations, and Standard Schema validation.

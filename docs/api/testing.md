@@ -1,3 +1,8 @@
+---
+title: "Deterministic Testing"
+description: "API reference for the @siglo/testing harness: virtual clocks (FakeClock), InMemoryStorageFake, step spies, step mocks, event injection, assertions, and execution replay."
+---
+
 # API Reference: Deterministic Testing (`@siglo/testing`)
 
 The `@siglo/testing` package provides a zero-flake, deterministic test harness for **Siglo** workflows. It eliminates reliance on flaky timers, live databases, and manual mocking setups by providing virtual clocks (`FakeClock`), step spies, deterministic step mocking, event injection for durable waits, execution tracing, and replay tooling.
@@ -6,21 +11,22 @@ The `@siglo/testing` package provides a zero-flake, deterministic test harness f
 
 ## Table of Contents
 
-- [Overview & Installation](#overview--installation)
+- [Overview and Installation](#overview-and-installation)
 - [Workflow Test Harness](#workflow-test-harness)
   - [`createWorkflowHarness(flow, options?)`](#createworkflowharnessflow-options)
-  - [`harness.run(input?, options?)` / `harness.execute()`](#harnessruninput-options--harnessexecute)
+  - [`harness.run and harness.execute`](#harnessrun-and-harnessexecute)
   - [`harness.mockStep(stepName, mockImpl)`](#harnessmockstepstepname-mockimpl)
   - [`harness.spyStep(stepName)`](#harnessspystepstepname)
   - [`harness.injectEvent(eventName, correlationKey, payload?)`](#harnessinjecteventeventname-correlationkey-payload)
   - [`harness.getTrace()`](#harnessgettrace)
+  - [Harness Properties: `clock` and `storage`](#harness-properties-clock-and-storage)
 - [Harness Assertions](#harness-assertions)
   - [`harness.assertStepExecuted(stepName, times?)`](#harnessassertstepexecutedstepname-times)
   - [`harness.assertStepRetried(stepName, minAttempts?)`](#harnessassertstepretriedstepname-minattempts)
   - [`harness.assertStepFailed(stepName, errorPattern?)`](#harnessassertstepfailedstepname-errorpattern)
 - [Virtual Clock (`FakeClock`)](#virtual-clock-fakeclock)
 - [In-Memory Storage Fake (`InMemoryStorageFake`)](#in-memory-storage-fake-inmemorystoragefake)
-- [Execution Fixtures & Replay](#execution-fixtures--replay)
+- [Execution Fixtures and Replay](#execution-fixtures-and-replay)
   - [`harness.exportExecutionRecord(options?)`](#harnessexportexecutionrecordoptions)
   - [`replayExecution(record, flow, options?)`](#replayexecutionrecord-flow-options)
   - [`sanitizeExecutionRecord(record, options?)`](#sanitizeexecutionrecordrecord-options)
@@ -28,7 +34,7 @@ The `@siglo/testing` package provides a zero-flake, deterministic test harness f
 
 ---
 
-## Overview & Installation
+## Overview and Installation
 
 ```bash
 npm install --save-dev @siglo/testing
@@ -70,7 +76,7 @@ const harness = createWorkflowHarness(orderWorkflow, { clock });
 
 ---
 
-### `harness.run(input?, options?)` / `harness.execute()`
+### `harness.run and harness.execute`
 
 Executes the workflow through the instrumented harness, automatically recording step trace records, timings, and outputs.
 
@@ -78,6 +84,7 @@ Executes the workflow through the instrumented harness, automatically recording 
 
 ```typescript
 harness.run(input: any = {}, execOptions: any = {}): Promise<any>;
+harness.execute(input: any = {}, execOptions: any = {}): Promise<any>;
 ```
 
 ---
@@ -95,7 +102,7 @@ harness.mockStep(stepName: string, mockImpl: (param: any) => any): this;
 #### Example
 
 ```typescript
-harness.mockStep('chargeCreditCard', async (param) => {
+harness.mockStep('chargeCreditCard', async () => {
     return { transactionId: 'txn_mock_123', status: 'SUCCESS' };
 });
 ```
@@ -188,6 +195,15 @@ harness.getTrace(): StepTraceRecord[];
 
 ---
 
+### Harness Properties: `clock` and `storage`
+
+The harness directly exposes its configured virtual clock and storage fake:
+
+- `harness.clock`: The active `FakeClock` instance used for timestamp tracking.
+- `harness.storage`: The active `InMemoryStorageFake` adapter used to store checkpoints during durable test runs.
+
+---
+
 ## Harness Assertions
 
 The harness provides high-level assertion helpers:
@@ -224,7 +240,7 @@ harness.assertStepFailed('unauthorizedStep', /access denied/i);
 
 ## Virtual Clock (`FakeClock`)
 
-`FakeClock` controls timestamps recorded in harness execution traces deterministically. Note that `FakeClock` only advances its own timestamp counter and `tick()` waits for `setImmediate`; it does not mock Node's global `Date.now`, `setTimeout`, or runtime sleep loops:
+`FakeClock` controls timestamps recorded in harness execution traces deterministically. Note that `FakeClock` advances its own timestamp counter and `tick()` waits for `setImmediate`; it does not mock Node's global `Date.now`, `setTimeout`, or runtime sleep loops:
 
 ```typescript
 export class FakeClock {
@@ -266,7 +282,7 @@ export class InMemoryStorageFake implements StorageAdapter {
 
 ---
 
-## Execution Fixtures & Replay
+## Execution Fixtures and Replay
 
 ### `harness.exportExecutionRecord(options?)`
 
@@ -393,4 +409,4 @@ describe('Checkout Workflow Test Suite', () => {
 
 - [09. Testing and Replay](../09-testing-and-replay.md)
 - [02. Core Concepts](../02-core-concepts.md)
-- [CLI Developer Tooling](../adapters/cli.md)
+- [Testing Adapter & Harness Guide](../adapters/testing.md)

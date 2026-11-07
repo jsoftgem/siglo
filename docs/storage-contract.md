@@ -1,3 +1,8 @@
+---
+title: "Storage & Checkpoint Contract"
+description: "Persistence model, checkpoint schema v2.0.0, optimistic concurrency control (OCC), field redaction, and StorageAdapter interface in Siglo."
+---
+
 # Storage & Checkpoint Contract
 
 This document outlines the persistence model, checkpoint schema, optimistic concurrency guarantees, and adapter error modes in `Siglo` v1.0.0.
@@ -27,8 +32,8 @@ export interface SerializedExecutionStack {
 ```
 
 ### Key Schema Guarantees:
-- **`version: 2` & `schemaVersion: '2.0.0'`**: Explicit version tracking. Attempting to restore a checkpoint from an unsupported future version (`version > 2`) throws `CheckpointVersionException`.
-- **`revision: number`**: Monotonically incremented on each checkpoint save or state transition.
+- **`version: 2` & `schemaVersion: '2.0.0'`**: Explicit storage schema version tracking. Attempting to restore a checkpoint from an unsupported future storage engine version (`version > 2`) throws `CheckpointVersionException`. *(Note: This storage schema version is distinct from workflow code semantic versioning, which throws `WorkflowVersionMismatchException` if workflow steps differ without a migration).*
+- **`revision: number`**: Monotonically incremented on each checkpoint save, state transition, or migration.
 - **`expiresAt?: number`**: Optional Unix epoch expiration timestamp (calculated from `ttlMs`). Expired checkpoints can be cleaned via `cleanExpiredCheckpoints()`.
 - **`status`**: Indicates execution lifecycle status: `'running'`, `'completed'`, `'failed'`, `'cancelled'`, or `'waiting'`.
 
@@ -94,19 +99,29 @@ Custom adapters implement the `StorageAdapter` interface:
 ```ts
 export interface StorageAdapter {
   name: string;
+
+  // 1. Context & Event Streaming
   onContextChange?(entry: ContextChangeEvent): Promise<void> | void;
+
+  // 2. Checkpointing & Durability
   saveCheckpoint?(checkpoint: SerializedExecutionStack): Promise<void>;
   getCheckpoint?(stackId: string): Promise<SerializedExecutionStack | undefined>;
   cleanExpiredCheckpoints?(): Promise<number> | number | void;
+
+  // 3. Durable Wait Persistence
   saveWaitRecord?(record: any): Promise<void> | void;
   getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
-  claimWaitRecord?(correlationKey: string, claimantId?: string, options?: any): Promise<any>;
+  claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
   completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
   withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
   cancelWaitRecord?(correlationKey: string): Promise<void>;
   cancelWorkflow?(stackId: string): Promise<void>;
+
+  // 4. Distributed Caching
   getCachedStep?(key: string): Promise<any | undefined>;
   setCachedStep?(key: string, value: any, ttlMs: number): Promise<void>;
+
+  // 5. Cache & Telemetry Events
   onCacheEvent?(event: CacheEvent): Promise<void> | void;
 }
 ```

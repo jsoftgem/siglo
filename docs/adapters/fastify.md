@@ -1,3 +1,8 @@
+---
+title: "Fastify Adapter"
+description: "Low-overhead Fastify route handler adapter for executing Siglo workflows with asynchronous lifecycle and raw socket cancellation."
+---
+
 # @siglo/fastify Adapter Guide
 
 `@siglo/fastify` provides an idiomatic Fastify route handler adapter for executing `Siglo` workflows. It is optimized for high-throughput, low-overhead microservices, taking advantage of Fastify's asynchronous request lifecycle, schema validation, and raw Node.js HTTP stream signals for cooperative cancellation.
@@ -36,6 +41,10 @@ Peer dependency matrix:
 ## 3. API Reference
 
 ### `sigloFastifyHandler(workflow, options)`
+
+> [!NOTE]
+> **Backward Compatibility**:
+> `rivuletFastifyHandler` is exported as an identical alias for legacy workflows.
 
 Creates a Fastify route handler `(request, reply) => Promise<any>`:
 

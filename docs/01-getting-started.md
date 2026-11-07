@@ -1,3 +1,8 @@
+---
+title: "Getting Started"
+description: "Build a resilient checkout workflow with retries, compensation rollbacks, and unit tests using Siglo."
+---
+
 # Getting Started: Build a Checkout That Handles Failure
 
 An online shop needs to reserve stock, charge a customer, and arrange delivery. The happy path is three service calls. The difficult part starts when a payment gateway is temporarily unavailable or a courier rejects a shipment after the customer has paid.
@@ -332,7 +337,6 @@ For this checkout, the next production work is concrete: replace fake clients, a
 ## 9. Where to Go Next
 
 - [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md): expose this checkout through Express and inspect successful and failed requests.
-
 - [Core Concepts](02-core-concepts.md): context, step lifecycle, and execution options.
 - [Branching and Parallelism](04-branching-and-parallelism.md): conditional routes and concurrent work.
 - [Retries, Timeouts, and Cancellation](05-retries-timeouts-and-cancellation.md): deadlines and cooperative cancellation for real clients.

@@ -1,3 +1,8 @@
+---
+title: "Production Operations"
+description: "Runbook and operational best practices for Siglo in mission-critical environments: zero-daemon topologies, PostgreSQL OCC, distributed locking, and graceful container shutdown."
+---
+
 # Production Operations
 
 This runbook covers operational best practices, capacity planning, distributed coordination, and disaster recovery when running `Siglo` workflows in mission-critical production environments.
@@ -89,7 +94,7 @@ import { createFastifyWorkflowHandler } from '@siglo/fastify';
 
 const app = fastify();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const storage = new PostgresStorageAdapter(pool);
+const storage = new PostgresStorageAdapter({ client: pool });
 useStorage(storage);
 
 const myStep = Step.create('hello', async () => ({ status: 'HEALTHY' }));

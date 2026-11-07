@@ -1,3 +1,8 @@
+---
+title: "Storage and Adapters"
+description: "Pluggable persistence architecture for Siglo: PostgreSQL and Redis adapters, durable checkpoints, distributed locks, multi-tenant namespaces, and storage error modes."
+---
+
 # Storage and Adapters
 
 `Siglo` features a decoupled storage architecture: the workflow runtime operates cleanly in memory, while state persistence, distributed caching, audit trails, and idempotency claims are delegated to pluggable `StorageAdapter` implementations.
@@ -83,7 +88,7 @@ useStorage(storage);
 - `@siglo/bullmq`: Resilient Redis background queue job runner.
 - `@siglo/sqs`: AWS SQS batch consumer with partial failure reporting.
 
-See [Ecosystem & Adapters Guide](./ecosystem-adapters.md) for full details on each adapter.
+See [Ecosystem Adapters Overview](./ecosystem-adapters.md) for full details on each adapter.
 
 ---
 
@@ -94,7 +99,8 @@ Every checkpoint, cache key, and event stream supports namespace scoping:
 ```typescript
 await workflow.run(input, {
     namespace: 'tenant_acme_corp',
-    checkpoint: true
+    checkpoint: true, // Persists intermediate step snapshots to storage adapter
+    durable: true     // Enables wait record persistence and suspension
 });
 ```
 
@@ -165,13 +171,15 @@ describe('Storage Adapter Testing', () => {
 
 ## Operational Caveats
 
-1. **Table Schema Migration**: When deploying `@siglo/postgres`, execute `ensureTables()` during database migrations, not on individual application instance boot.
-2. **TTL Cleanups**: Configure a cron job to call `cleanExpiredCheckpoints()` daily to maintain optimal database query speeds.
+1. **Table Schema Migration**: When deploying `@siglo/postgres`, execute `ensureTables()` during database migrations or deployment pipelines, not on individual application instance boot.
+2. **TTL Cleanups**: Configure a cron job or background worker to call `cleanExpiredCheckpoints()` daily to maintain optimal database query speeds.
+3. **Optimistic Locking**: Storage adapters implement optimistic concurrency control (OCC) to prevent conflicting concurrent executions on the same stack identifier.
 
 ---
 
 ## API Reference Links
 
+- [Core Concepts Guide](./02-core-concepts.md)
 - [Ecosystem Adapters Overview](./ecosystem-adapters.md)
 - [PostgreSQL Adapter Reference](./adapters/postgres.md)
 - [Redis Adapter Reference](./adapters/redis.md)

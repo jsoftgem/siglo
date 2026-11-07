@@ -1,6 +1,11 @@
+---
+title: "Flow Instance Methods"
+description: "API reference for the Siglo Flow interface: run, execute, start, timeout, version, networkPolicy, monitor, hook, resume, compensate, and AST export methods."
+---
+
 # API Reference: Flow Instance Methods (`Flow`)
 
-The `Flow` interface represents an executable, composable workflow pipeline in **Siglo**. Instances are created using `flow(...steps)`. A `Flow` encapsulates sequential step execution, deadline timeouts, versioning, saga rollbacks, durable event resumption, and AST graph visualization.
+The `Flow` interface represents an executable, composable workflow pipeline in **Siglo**. Instances are created using `flow(...steps)`. A `Flow` encapsulates sequential step execution, deadline timeouts, versioning, network egress perimeters, live event monitoring, execution hooks, saga rollbacks, durable event resumption, and AST graph visualization.
 
 ---
 
@@ -14,11 +19,13 @@ The `Flow` interface represents an executable, composable workflow pipeline in *
 - [Configuration Methods](#configuration-methods)
   - [`flow.timeout(ms)`](#flowtimeoutms)
   - [`flow.version(version)`](#flowversionversion)
-  - [`flow.networkPolicy(policy)`](#flownetworkpolicypolicy)
-- [Lifecycle & Resumption Methods](#lifecycle--resumption-methods)
+  - [`flow.networkPolicy(policy?)`](#flownetworkpolicypolicy)
+  - [`flow.monitor(emitter)`](#flowmonitoremitter)
+  - [`flow.hook(hook)`](#flowhookhook)
+- [Lifecycle and Resumption Methods](#lifecycle-and-resumption-methods)
   - [`flow.resume(correlationKeyOrStackId, payload?, options?)`](#flowresumecorrelationkeyorstackid-payload-options)
   - [`flow.compensate(stackId, options?)`](#flowcompensatestackid-options)
-- [Graph & Export Methods](#graph--export-methods)
+- [Graph and Export Methods](#graph-and-export-methods)
   - [`flow.toGraph()`](#flowtograph)
   - [`flow.inspect()`](#flowinspect)
   - [`flow.toMermaid(options?)`](#flowtomermaidoptions)
@@ -26,8 +33,11 @@ The `Flow` interface represents an executable, composable workflow pipeline in *
   - [`flow.toJSON()`](#flowtojson)
 - [Properties](#properties)
   - [`flow.steps`](#flowsteps)
-  - [`flow.timeoutMs`](#flowtimeoutms-1)
+  - [`flow.timeoutMs`](#flowtimeoutms-property)
   - [`flow.workflowVersion`](#flowworkflowversion)
+  - [`flow.networkPolicyConfig`](#flownetworkpolicyconfig)
+  - [`flow.monitorEmitter`](#flowmonitoremitter-property)
+  - [`flow.stepExecutionHook`](#flowstepexecutionhook)
 - [Composing Flows Within Flows](#composing-flows-within-flows)
 
 ---
@@ -45,7 +55,12 @@ export interface Flow<TInput = any, TOutput = any> {
     timeoutMs?: number;
     workflowVersion?: string | number;
     version: (v: string | number) => Flow<TInput, TOutput>;
-    networkPolicy?: (policy: NetworkPolicyConfig) => Flow<TInput, TOutput>;
+    networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
+    networkPolicyConfig?: NetworkPolicyConfig;
+    monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
+    monitorEmitter?: any;
+    hook: (h: StepExecutionHook) => Flow<TInput, TOutput>;
+    stepExecutionHook?: StepExecutionHook;
     toGraph: () => WorkflowNode;
     inspect: () => GraphInspectionResult;
     toMermaid: (options?: MermaidExportOptions) => string;
@@ -73,7 +88,7 @@ flow.run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
 #### Parameters
 
 - `param`: `TInput` *(optional)* &mdash; Initial POJO input parameters passed to the first step.
-- `options`: [`ExecutionOptions`](execution-options.md) *(optional)* &mdash; Runtime options such as `signal`, `timeout`, `services`, `pojo`, `durable`, `namespace`, and `idempotencyKey`.
+- `options`: [`ExecutionOptions`](execution-options.md) *(optional)* &mdash; Runtime options such as `signal`, `timeout`, `services`, `pojo`, `durable`, `namespace`, `stepExecutionHook`, and `idempotencyKey`.
 
 #### Returns
 
@@ -188,14 +203,14 @@ export const userOnboarding = flow(
 
 ---
 
-### `flow.networkPolicy(policy)`
+### `flow.networkPolicy(policy?)`
 
 Configures the workflow-level network egress policy perimeter. The flow policy supersedes all individual step policies: steps can only narrow permissions within what the flow permits. Outbound requests are intercepted across `globalThis.fetch`, `node:http`/`node:https`, and raw `node:net.Socket`. Loopback addresses and local Unix sockets are permitted by default.
 
 #### Signature
 
 ```typescript
-flow.networkPolicy(policy: NetworkPolicyConfig): Flow<TInput, TOutput>;
+flow.networkPolicy(policy?: NetworkPolicyConfig): Flow<TInput, TOutput>;
 ```
 
 #### Chainable
@@ -204,13 +219,13 @@ Returns the `flow` instance for fluent chaining.
 
 #### Parameters
 
-- `policy`: `NetworkPolicyConfig`
+- `policy`: `NetworkPolicyConfig` *(optional)*
   - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Outer permissible hosts or wildcard patterns.
   - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Outer perimeter default policy when policy is active. (When no policy is declared on flow or step, network enforcement is inactive).
   - `allowLocalhost`: `boolean` *(optional, default: `false`)* &mdash; Loopback exemption (`localhost`, `127.0.0.1`, `::1`).
   - `allowUnixSockets`: `string[]` *(optional)* &mdash; Explicit permitted Unix domain socket filesystem paths.
 
-#### Precedence & Narrowing Rules
+#### Precedence and Narrowing Rules
 
 1. **Outer Envelope**: The flow's `allowedHosts` defines the outer boundary. If a flow only allows `['api.stripe.com']`, a step cannot allow `api.github.com`.
 2. **Step Narrowing**: A step can choose to permit only a subset of the flow's allowed hosts or call `.denyNetwork()`.
@@ -239,7 +254,59 @@ export const paymentFlow = flow(chargeCustomer, sendEmail)
 
 ---
 
-## Lifecycle & Resumption Methods
+### `flow.monitor(emitter)`
+
+Attaches a live monitoring event emitter or callback listener directly to the workflow. The monitor receives real-time execution lifecycle events (`workflow:start`, `step:start`, `step:complete`, `step:fail`, `workflow:complete`).
+
+#### Signature
+
+```typescript
+flow.monitor(
+    emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)
+): Flow<TInput, TOutput>;
+```
+
+#### Example
+
+```typescript
+import { flow, Step, defaultWorkflowEventEmitter } from '@siglo/core';
+
+const orderFlow = flow(
+    Step.create('processOrder', async (ctx) => ({ processed: true }))
+).monitor((event) => {
+    console.log(`[Event] ${event.type} for step ${event.stepName} on stack ${event.stackId}`);
+});
+```
+
+---
+
+### `flow.hook(hook)`
+
+Attaches a `StepExecutionHook` to the workflow instance, intercepting step executions within an asynchronous context (`AsyncLocalStorage`).
+
+#### Signature
+
+```typescript
+flow.hook(h: StepExecutionHook): Flow<TInput, TOutput>;
+```
+
+#### Example
+
+```typescript
+import { flow, Step } from '@siglo/core';
+
+const auditFlow = flow(
+    Step.create('step1', async () => ({ value: 1 })),
+    Step.create('step2', async () => ({ value: 2 }))
+).hook({
+    onStepStart: (context) => console.log(`Starting step ${context.stepName}`),
+    onStepEnd: (context, result) => console.log(`Finished step ${context.stepName}`)
+});
+```
+
+---
+
+## Lifecycle and Resumption Methods
 
 ### `flow.resume(correlationKeyOrStackId, payload?, options?)`
 
@@ -288,13 +355,13 @@ Manually triggers saga compensation rollbacks for an execution stack in reverse 
 #### Signature
 
 ```typescript
-flow.compensate(stackId: string, options?: any): Promise<any>;
+flow.compensate(stackId: string, options?: CompensationRunOptions): Promise<any>;
 ```
 
 #### Parameters
 
 - `stackId`: `string` &mdash; The execution stack ID whose registered compensations should run.
-- `options`: `any` *(optional)* &mdash; Optional compensation execution options.
+- `options`: `CompensationRunOptions` *(optional)* &mdash; Optional compensation execution options (e.g. `timeoutMs`, `stopOnError`).
 
 #### Example
 
@@ -309,7 +376,7 @@ try {
 
 ---
 
-## Graph & Export Methods
+## Graph and Export Methods
 
 ### `flow.toGraph()`
 
@@ -343,7 +410,7 @@ Exports the workflow topology as a Mermaid flowchart diagram with policy badges 
 #### Signature
 
 ```typescript
-flow.toMermaid(options?: { direction?: 'TD' | 'LR' }): string;
+flow.toMermaid(options?: MermaidExportOptions): string;
 ```
 
 #### Example
@@ -351,16 +418,6 @@ flow.toMermaid(options?: { direction?: 'TD' | 'LR' }): string;
 ```typescript
 const mermaid = orderFlow.toMermaid({ direction: 'TD' });
 console.log(mermaid);
-```
-
-Output:
-```mermaid
-flowchart TD
-    create["create (step)"]
-    waitForEvent_paymentReceived["waitForEvent:paymentReceived (wait)"]
-    fulfill["fulfill (step)"]
-    create --> waitForEvent_paymentReceived
-    waitForEvent_paymentReceived --> fulfill
 ```
 
 ---
@@ -395,13 +452,25 @@ Returns the flattened array of `Step` execution units contained in the flow.
 console.log(orderFlow.steps.map(s => s.name)); // ['create', 'waitForEvent:paymentReceived', 'fulfill']
 ```
 
-### `flow.timeoutMs`
+### `flow.timeoutMs` (Property)
 
 Read-only number reflecting the workflow-level timeout configured via `.timeout(ms)`.
 
 ### `flow.workflowVersion`
 
 Read-only string or number reflecting the workflow schema version configured via `.version(v)`.
+
+### `flow.networkPolicyConfig`
+
+Read-only object reflecting the configured outer network egress policy for the workflow.
+
+### `flow.monitorEmitter` (Property)
+
+Read-only reference to the active `WorkflowEventEmitter` or listener callback registered via `.monitor()`.
+
+### `flow.stepExecutionHook`
+
+Read-only reference to the registered `StepExecutionHook` attached via `.hook()`.
 
 ---
 
@@ -441,4 +510,8 @@ console.log(result.complete); // true
 - [03. Sequential Workflows](../03-sequential-workflows.md)
 - [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
 - [06. Durable Workflows](../06-durable-workflows.md)
-- [08. Observability & Diagrams](../08-observability.md)
+- [08. Observability](../08-observability.md)
+- [Network Egress Policy](../network-egress-policy.md)
+- [Compensation and Sagas Contract](../compensation-and-sagas.md)
+- [Live Monitoring and DevTools](../live-monitoring.md)
+- [Workflow Versioning and Migrations](../workflow-versioning.md)

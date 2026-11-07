@@ -1,3 +1,8 @@
+---
+title: "Production Best Practices & Operational Runbook"
+description: "Master engineering guide for deploying Siglo workflows in mission-critical, distributed, high-throughput enterprise production environments."
+---
+
 # Production Best Practices & Operational Runbook
 
 > Master engineering guide for deploying **Siglo** workflows in mission-critical, distributed, high-throughput enterprise production environments.
@@ -299,8 +304,8 @@ import { createMonitorServer } from '@siglo/monitor';
 import { z } from 'zod';
 import { orderFlow } from './workflows';
 
-// Enforce strict schema on workflow resume payloads
-orderFlow.resumeSchema = z.object({
+// Enforce strict schema on workflow resume payloads (read by @siglo/monitor)
+(orderFlow as any).resumeSchema = z.object({
     approved: z.boolean(),
     approverId: z.string().uuid(),
     comments: z.string().max(500).optional()
@@ -351,8 +356,8 @@ Before tagging your service for production release, verify the following:
 - [ ] **OCC Versioning Active**: `siglo_checkpoints` table includes `version BIGINT DEFAULT 1`.
 - [ ] **Row-Level Poller Running**: `@siglo/scheduler` instance started with graceful `SIGTERM` handler.
 - [ ] **Wait-and-Settle Configured**: Critical financial / billing steps configure bounded `settleTimeoutMs`.
-- [ ] **Named Compensations Registered**: All durable sagas use `registerNamedCompensation` rather than local closures.
-- [ ] **Compensation DLQ Connected**: `defaultCompensationDLQ.onEntry` forwards failed rollbacks to SQS or Kafka.
+- [ ] **Named Compensations Registered**: All durable sagas use `registerCompensationHandler` rather than local closures.
+- [ ] **Compensation DLQ Connected**: A `deadLetterQueue` sink (`{ send: async (entry) => ... }`) forwards failed rollbacks to SQS or Kafka.
 - [ ] **Cron Reconciler Scheduled**: `npm exec --package=@siglo/cli -- siglo reconcile` scheduled to sweep stale stacks past heartbeat windows.
 - [ ] **Network Policies Enforced**: Zero-trust egress rules block RFC 1918 private IPs and container Unix sockets.
 - [ ] **Monitor Security Hardened**: DevTools server configured with authentication tokens, field redaction, and `allowRemoteResume: false`.

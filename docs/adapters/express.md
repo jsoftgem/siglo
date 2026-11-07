@@ -1,3 +1,8 @@
+---
+title: "Express Adapter"
+description: "Express middleware adapter for executing Siglo workflows with correlation propagation, cancellation, and semantic status code mapping."
+---
+
 # @siglo/express Adapter Guide
 
 For a complete walkthrough, see [Serve a REST Endpoint and Watch It Run Live](../rest-and-live-monitoring.md).
@@ -39,6 +44,10 @@ Peer dependency matrix:
 ## 3. API Reference
 
 ### `sigloExpressMiddleware(workflow, options)`
+
+> [!NOTE]
+> **Backward Compatibility**:
+> `rivuletExpressMiddleware` is exported as an identical alias for legacy workflows.
 
 Returns a standard Express middleware function `(req, res, next) => Promise<any>`.
 

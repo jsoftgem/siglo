@@ -1,3 +1,8 @@
+---
+title: "Automated Exploratory Testing Plan"
+description: "Comprehensive automated exploratory testing architecture, generative fuzzing, chaos engineering, and invariant verification across the Siglo ecosystem."
+---
+
 # Automated Exploratory Testing Plan for `Siglo`
 
 > **Comprehensive Automated Exploratory Testing (AET) Architecture, Generative Fuzzing, Chaos Engineering, and Invariant Verification Across the Entire Monorepo Ecosystem**

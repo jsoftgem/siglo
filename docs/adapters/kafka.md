@@ -1,3 +1,8 @@
+---
+title: "Kafka Consumer"
+description: "Partitioned Kafka consumer and batch handler adapter for executing Siglo workflows with idempotency deduplication and offset control."
+---
+
 # @siglo/kafka Adapter Guide
 
 `@siglo/kafka` runs Siglo workflows for messages received by a Kafka consumer. Start with a single-step workflow, then add options such as idempotency, timeouts, and tenant routing as needed.

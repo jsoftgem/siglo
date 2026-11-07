@@ -1,3 +1,8 @@
+---
+title: "Branching and Parallelism"
+description: "High-performance workflow combinators for concurrent fan-out, racing, conditional routing, and bounded batch mapping in Siglo."
+---
+
 # Branching and Parallelism
 
 `Siglo` provides high-performance combinators for concurrent fan-out, competitive racing, conditional routing, and bounded batch processing.
@@ -34,7 +39,7 @@ parallel([branchA, branchB], {
 });
 ```
 
-Branches execute concurrently and merge in branch-list order. Context metadata exposes `$branches` and `$settled`. For bounded worker concurrency across collections, use `map()` below.
+Branches execute concurrently and merge in branch-list order. Context metadata exposes `$branches` and `$settled`. Note that `parallel([...])` is unbounded; for bounded concurrency across large collections, use `map()` below.
 
 ---
 
@@ -59,10 +64,27 @@ export const pricingWorkflow = flow(
 
 Route execution based on runtime conditions:
 
-```typescript
-import { Step, flow, branch, when } from '@siglo/core';
+### Boolean Routing with `when(predicate, thenStep, elseStep?)`
+Ideal for binary branching decisions:
 
-// Multi-way routing with branch(selectorFn, branchesMap, defaultBranch?)
+```typescript
+import { Step, flow, when } from '@siglo/core';
+
+export const approvalFlow = flow(
+    when(
+        (param) => param.amount > 10000,
+        Step.create('flagHighValue', () => ({ reviewRequired: true })),
+        Step.create('autoApprove', () => ({ reviewRequired: false }))
+    )
+);
+```
+
+### Multi-Way Routing with `branch(selectorFn, branchesMap, defaultBranch?)`
+Ideal for dictionary dispatch across named routes:
+
+```typescript
+import { Step, flow, branch } from '@siglo/core';
+
 const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 }));
 const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 }));
 const handleGlobalCustomer = Step.create('globalTax', async () => ({ taxRate: 0.00 }));
@@ -73,18 +95,6 @@ export const checkoutRouting = flow(
         DE: handleEuCustomer,
         FR: handleEuCustomer
     }, handleGlobalCustomer) // Fallback default
-);
-```
-
-Or using boolean decisions with `when(predicate, thenStep, elseStep?)`:
-
-```typescript
-const taxFlow = flow(
-    when(
-        (param) => param.amount > 10000,
-        Step.create('flagHighValue', () => ({ reviewRequired: true })),
-        Step.create('autoApprove', () => ({ reviewRequired: false }))
-    )
 );
 ```
 
@@ -157,31 +167,50 @@ console.log(result);
 ```typescript
 import { expect } from 'chai';
 import { createWorkflowHarness } from '@siglo/testing';
-import { Step, flow, branch } from '@siglo/core';
+import { Step, flow, when, branch } from '@siglo/core';
 
+// 1. Boolean decision with when()
 const decisionWf = flow(
-    branch(
+    when(
         (p: { vip: boolean }) => p.vip === true,
         Step.create('vipStep', () => ({ discount: 50 })),
         Step.create('standardStep', () => ({ discount: 10 }))
     )
 );
 
+// 2. Multi-way route dispatch with branch()
+const multiWf = flow(
+    branch((p: { region: string }) => p.region, {
+        US: Step.create('usTax', () => ({ tax: 0.08 })),
+        EU: Step.create('euVat', () => ({ tax: 0.20 }))
+    }, Step.create('defaultTax', () => ({ tax: 0.05 })))
+);
+
 describe('Branching Test Suite', () => {
-    it('routes VIP customer to vipStep', async () => {
+    it('routes VIP customer via when()', async () => {
         const harness = createWorkflowHarness(decisionWf);
         const res = await harness.run({ vip: true });
 
         expect(res.discount).to.equal(50);
-        harness.assertStepExecuted('vipStep');
+        expect(res.$branchSelected).to.equal('then');
+        expect(res.$skippedBranches).to.deep.equal(['else']);
     });
 
-    it('routes regular customer to standardStep', async () => {
+    it('routes regular customer via when()', async () => {
         const harness = createWorkflowHarness(decisionWf);
         const res = await harness.run({ vip: false });
 
         expect(res.discount).to.equal(10);
-        harness.assertStepExecuted('standardStep');
+        expect(res.$branchSelected).to.equal('else');
+        expect(res.$skippedBranches).to.deep.equal(['then']);
+    });
+
+    it('routes multi-way branch with branch() key dispatch', async () => {
+        const harness = createWorkflowHarness(multiWf);
+        const res = await harness.run({ region: 'EU' });
+
+        expect(res.tax).to.equal(0.20);
+        expect(res.$branchSelected).to.equal('EU');
     });
 });
 ```
@@ -190,13 +219,14 @@ describe('Branching Test Suite', () => {
 
 ## Operational Caveats
 
-1. **Connection Pool Starvation**: When using unbounded parallel fan-out (`parallel([...])`), ensure external resource connection pools (e.g., PostgreSQL client pool) are sized appropriately. Use `{ concurrency: N }` to throttle execution.
+1. **Parallel Fan-Out is Unbounded**: `parallel([...])` initiates all branches simultaneously. When calling external services with limited connection pools, do not use `parallel([...])` for large arrays—use `map(items, step, { concurrency: N })` to bound concurrent executions.
 2. **Key Collisions in Parallel Branches**: If parallel branches produce identically named output keys without a custom reducer or namespace strategy, the last resolved branch will overwrite prior ones. Specify `{ mergeStrategy: 'namespace' }` to isolate branch keys.
 
 ---
 
 ## API Reference Links
 
+- [Core Concepts Guide](./02-core-concepts.md)
 - [Sequential Workflows](./03-sequential-workflows.md)
 - [Retries, Timeouts, and Cancellation](./05-retries-timeouts-and-cancellation.md)
 - [Testing & Replay Reference](./09-testing-and-replay.md)
