@@ -1,0 +1,165 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Siglo",
+  "theme": "mint",
+  "colors": {
+    "primary": "#2563EB",
+    "light": "#60A5FA",
+    "dark": "#1D4ED8"
+  },
+  "favicon": "/assets/siglo-logo.png",
+  "logo": {
+    "light": "/assets/siglo-logo.png",
+    "dark": "/assets/siglo-logo.png"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "index",
+              "01-getting-started",
+              "02-core-concepts"
+            ]
+          },
+          {
+            "group": "Workflow Patterns",
+            "pages": [
+              "03-sequential-workflows",
+              "04-branching-and-parallelism",
+              "05-retries-timeouts-and-cancellation",
+              "06-durable-workflows",
+              "07-storage-and-adapters"
+            ]
+          },
+          {
+            "group": "Operations & Testing",
+            "pages": [
+              "08-observability",
+              "09-testing-and-replay",
+              "10-typescript-reference",
+              "11-production-operations"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "pages": [
+              "rest-and-live-monitoring",
+              "distributed-rest-and-live-monitoring",
+              "durable-distributed-checkout",
+              "kafka-order-routing",
+              "zero-code-apm-dashboards"
+            ]
+          },
+          {
+            "group": "Developer Tools",
+            "pages": [
+              "ide-workflow-explorer",
+              "live-monitoring",
+              "ecosystem-devtools"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Adapters",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "ecosystem-adapters"
+            ]
+          },
+          {
+            "group": "Storage & Persistence",
+            "pages": [
+              "adapters/postgres",
+              "adapters/redis",
+              "adapters/scheduler"
+            ]
+          },
+          {
+            "group": "Messaging & Queues",
+            "pages": [
+              "adapters/kafka",
+              "adapters/bullmq",
+              "adapters/sqs"
+            ]
+          },
+          {
+            "group": "HTTP & Web Frameworks",
+            "pages": [
+              "adapters/http",
+              "adapters/express",
+              "adapters/fastify",
+              "adapters/hono"
+            ]
+          },
+          {
+            "group": "Security & AI",
+            "pages": [
+              "adapters/crypto",
+              "adapters/ai"
+            ]
+          },
+          {
+            "group": "Observability & Notifications",
+            "pages": [
+              "adapters/opentelemetry",
+              "adapters/notifications",
+              "adapters/notification-hardening",
+              "adapters/monitor"
+            ]
+          },
+          {
+            "group": "Developer Tooling",
+            "pages": [
+              "adapters/cli",
+              "adapters/testing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Architecture",
+        "groups": [
+          {
+            "group": "Formal Semantics & Contracts",
+            "pages": [
+              "execution-semantics",
+              "error-model",
+              "storage-contract",
+              "compensation-and-sagas",
+              "idempotency",
+              "network-egress-policy",
+              "production-best-practices",
+              "workflow-graph",
+              "workflow-versioning"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Reference",
+            "pages": [
+              "api/overview",
+              "api/orchestration-and-combinators",
+              "api/flow",
+              "api/step",
+              "api/execution-options",
+              "api/storage-and-persistence",
+              "api/error-hierarchy",
+              "api/testing"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

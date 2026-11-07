@@ -1,0 +1,77 @@
+---
+title: "Siglo Documentation"
+description: "Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools."
+---
+
+<p align="center">
+  <img src="/assets/siglo-logo.png" alt="Siglo Logo" width="300" style={{ borderRadius: '16px' }} />
+</p>
+
+**Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic Sagas, durable checkpoints, and live visual DevTools without external infrastructure.
+
+---
+
+## Quick Navigation
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="play" href="/01-getting-started">
+    Build a resilient checkout workflow that handles failure, retries, and compensation.
+  </Card>
+  <Card title="Live DevTools" icon="desktop" href="/live-monitoring">
+    Inspect execution DAGs, real-time latency waterfalls, and state diffs.
+  </Card>
+  <Card title="Ecosystem Adapters" icon="plug" href="/ecosystem-adapters">
+    PostgreSQL, Redis, BullMQ, Kafka, OpenTelemetry, Express, Fastify, and AI steps.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Complete TypeScript signatures, option tables, and combinator reference.
+  </Card>
+</CardGroup>
+
+---
+
+## 30-Second Quickstart
+
+```bash
+npm install @siglo/core
+```
+
+```typescript
+import { Step, flow } from '@siglo/core';
+
+// 1. Define modular steps with input/output contracts
+const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
+    return { name: 'Alice', tier: 'PRO' };
+});
+
+// 2. Accumulated Context: calculateDiscount automatically receives "tier" produced by fetchUser!
+const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: string }) => {
+    const discount = param.tier === 'PRO' ? 0.20 : 0.05;
+    return { discountPercentage: discount };
+});
+
+// 3. Compose into an executable flow
+export const orderWorkflow = flow(fetchUser, calculateDiscount);
+
+// 4. Run the flow with full type safety
+async function main() {
+    const result = await orderWorkflow.run({ userId: 'u_123' }, { pojo: true });
+
+    console.log(result.name);               // 'Alice'
+    console.log(result.discountPercentage); // 0.20
+    console.log(result.$steps.fetchUser);   // { name: 'Alice', tier: 'PRO' }
+}
+
+main();
+```
+
+---
+
+## Why Siglo?
+
+| Dimension | `Siglo` | Distributed Engines (Temporal, Inngest) |
+|---|---|---|
+| **Architecture** | Lightweight, zero-infrastructure in-process library | Heavy multi-cluster / external orchestrator daemon |
+| **Latency** | Microsecond direct async function invocation | Millisecond-to-second RPC / polling overhead |
+| **Footprint** | Zero external dependencies, pure TypeScript | Requires persistent workers, queue servers, and databases |
+| **Primary Focus** | Modular workflows, parallel fan-out/fan-in, bounded worker mapping, request-scoped sagas, idempotency, durable event waits, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows across clusters |
