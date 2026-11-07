@@ -1,6 +1,11 @@
+---
+title: "Idempotency and Deduplication"
+description: "Workflow-level and step-level idempotency guarantees, atomic claim lifecycle, wait-and-settle thundering herd defense, and error classification."
+---
+
 # Idempotency and Deduplication
 
-Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `Siglo` v1.0.0 provides first-class idempotency guarantees at both the workflow level and individual step level.
+Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `Siglo` provides first-class idempotency guarantees at both the workflow level and individual step level.
 
 ---
 
@@ -24,9 +29,9 @@ Both `get(key)` and `getResult(key)` are supported for reading completed results
 ### Claim States
 - **`'claimed'`**: Key was successfully acquired. Execution may proceed.
 - **`'completed'`**: Key was previously executed to completion. The orchestrator returns the cached output immediately without re-executing steps.
-- **`'in-progress'`**: Another execution is currently running with the same key. The orchestrator throws `IdempotencyConflictException`.
+- **`'in-progress'`**: Another execution is currently running with the same key. The orchestrator throws `IdempotencyConflictException` (or waits if `settleTimeoutMs` is configured).
 
-`InMemoryIdempotencyStore` is provided by default. Custom stores (such as Redis or SQL) can be plugged in seamlessly.
+`InMemoryIdempotencyStore` is provided by default. Custom stores (such as Redis or PostgreSQL) can be plugged in seamlessly.
 
 ---
 
@@ -80,7 +85,7 @@ Dynamic keys can be specified as a context accessor:
 
 ## 4. Step-Level Idempotency (Atomic Lifecycle Commitment)
 
-Individual steps (including array `.reduce()` steps) can declare idempotency. A step's idempotency record transitions to `'completed'` atomically only after all post-execution hooks (`onAfter`) successfully pass, preventing dirty cached reads by concurrent executions if post-processing fails: (`step.idempotent()`)
+Individual steps (including array `.reduce()` steps) can declare idempotency with `.idempotent(...)`.
 
 Fine-grained deduplication on individual steps prevents redundant side effects (e.g. charging a payment gateway twice):
 
@@ -93,4 +98,43 @@ const chargePayment = Step.create('chargePayment', async ({ invoiceId, amount })
   .idempotent((ctx) => `charge:${ctx.invoiceId}`, { ttlMs: 86400000 });
 ```
 
-If a step fails, the idempotency claim is automatically released via `store.fail()`, allowing safe retries.
+### Atomic Commitment Rule
+A step's idempotency record transitions to `'completed'` atomically only after all post-execution hooks (`onAfter`) successfully pass. This prevents dirty cached reads by concurrent executions if post-processing fails.
+
+If a step action or hook fails, the idempotency claim is automatically released via `store.fail(key)`, allowing safe retries.
+
+---
+
+## 5. Wait-and-Settle Thundering Herd Defense
+
+When high-frequency webhooks (e.g. Stripe, Shopify) or distributed messaging queues (Kafka, BullMQ, SQS) deliver duplicate messages concurrently within milliseconds, failing fast with `IdempotencyConflictException` can cause unnecessary client errors.
+
+Configure **Wait-and-Settle** on idempotent steps:
+
+```typescript
+export const chargeCardStep = Step.create('chargeCard', async (ctx: any) => {
+    return await paymentGateway.charge({ amount: ctx.amount, customerId: ctx.customerId });
+})
+.idempotent((ctx) => `charge:${ctx.orderId}`, {
+    ttlMs: 86400000,          // 24-hour retention
+    settleTimeoutMs: 3000,    // Spin-wait up to 3000ms for in-flight request to settle
+    pollIntervalMs: 50        // Check state every 50ms
+});
+```
+
+- When the second concurrent request arrives while the first is `'in-progress'`, it pauses and polls the store every `pollIntervalMs`.
+- If the first request finishes within `settleTimeoutMs`, the second request returns the cached result cleanly without re-executing.
+- If the first request does not finish within `settleTimeoutMs`, `IdempotencyConflictException` is thrown.
+
+---
+
+## 6. Two-Tier Error Classification
+
+When an idempotent step throws, Siglo differentiates between **permanent business declines** and **transient infrastructure faults**:
+
+```typescript
+import { isPermanentBusinessError } from '@siglo/core';
+```
+
+- **Permanent Business Errors** (e.g. `CardDeclined`, `AccountNotFound`, `InvalidCurrency`): Call `idempotencyStore.complete(key, { error: 'CardDeclined' })` or configure error predicates so that subsequent retries return the cached decline immediately without re-invoking payment gateways.
+- **Transient Infrastructure Errors** (e.g. `ETIMEDOUT`, `503 Service Unavailable`, `ECONNRESET`): Siglo invokes `idempotencyStore.fail(key)`, releasing the claim so subsequent retry attempts or backoff poller sweeps can re-execute cleanly.

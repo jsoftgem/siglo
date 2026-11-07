@@ -1,3 +1,8 @@
+---
+title: "Developer Tools & CLI"
+description: "Scaffold, visualize, validate, inspect, replay, monitor, and reconcile Siglo workflows from the command line and Node.js API."
+---
+
 # @siglo/cli Developer Tools & CLI Guide
 
 `@siglo/cli` provides developer tooling, code scaffolding, static analysis, command-line inspection, architecture export, and regression testing utilities for `Siglo` workflows. It allows engineering teams to scaffold typed steps/workflows, visualize execution graphs, export to Mermaid/Graphviz/JSON, detect cyclic dependencies, inspect serialized checkpoints, and replay golden test fixtures in CI/CD pipelines.
@@ -14,11 +19,11 @@ flowchart TD
     CLI --> CLI_API["Programmatic Node.js API"]
 
     subgraph TerminalCommands["CLI Commands"]
-        C1["siglo init<br/>siglo generate workflow<br/>siglo generate step<br/>siglo visualize<br/>siglo export<br/>siglo validate<br/>siglo inspect<br/>siglo checkpoint<br/>siglo replay<br/>siglo monitor"]
+        C1["siglo init<br/>siglo generate workflow<br/>siglo generate step<br/>siglo visualize<br/>siglo export<br/>siglo validate<br/>siglo inspect<br/>siglo checkpoint<br/>siglo replay<br/>siglo monitor<br/>siglo reconcile"]
     end
 
     subgraph ProgrammaticAPI["Node.js API"]
-        A1["initProject()<br/>generateWorkflow()<br/>generateStep()<br/>visualizeWorkflow()<br/>exportWorkflow()<br/>validateWorkflow()<br/>inspectWorkflow()<br/>inspectCheckpoint()<br/>replayFixture()<br/>startMonitor()"]
+        A1["initProject()<br/>generateWorkflow()<br/>generateStep()<br/>visualizeWorkflow()<br/>exportWorkflow()<br/>validateWorkflow()<br/>inspectWorkflow()<br/>inspectCheckpoint()<br/>replayFixture()<br/>startMonitor()<br/>reconcileCommand()"]
     end
 
     CLI_Term --> TerminalCommands
@@ -43,12 +48,12 @@ npm exec --package=@siglo/cli -- siglo --help
 
 ## 3. Command Line Interface (CLI)
 
-The CLI executable is `Siglo`.
+The CLI executable is `siglo`.
 
 ### General Usage
 
 ```bash
-Siglo <command> [arguments] [options]
+siglo <command> [arguments] [options]
 ```
 
 ### Global Options:
@@ -300,6 +305,33 @@ flow(...).monitor(attachToMonitorServer(4000));
 
 ---
 
+---
+
+### Command 11: `siglo reconcile [workflow-file] [options]`
+
+Scans persistent storage for abandoned workflow execution stacks stuck in `RUNNING` state past a stale threshold, and safely reconciles them:
+
+```bash
+# Inspect abandoned stacks stuck for more than 10 minutes (dry-run audit)
+siglo reconcile --stale-threshold=10m --action=inspect
+
+# Trigger LIFO compensation rollbacks on abandoned stacks
+siglo reconcile src/workflows/checkout.ts --stale-threshold=15m --action=compensate --mode=best-effort
+
+# Mark abandoned stacks as failed across a specific tenant namespace
+siglo reconcile --stale-threshold=30m --action=fail --namespace=tenant-us
+```
+
+#### Reconcile Options:
+- `--stale-threshold=<duration>`: Duration threshold past which a running stack is considered abandoned (e.g. `10m`, `1h`, `30000ms`; default: `10m`).
+- `--action=inspect|compensate|fail`: Reconciliation action (default: `compensate`).
+  - `inspect`: Read-only audit report detailing abandoned stacks without mutating state.
+  - `compensate`: Executes LIFO saga compensation handlers on pending steps.
+  - `fail`: Transitions abandoned stack states to `FAILED` and releases locks.
+- `--mode=strict|best-effort`: Compensation error tolerance (default: `best-effort`).
+- `--namespace=<ns>`: Scopes reconciliation query to a specific tenant partition.
+
+
 ## 4. Programmatic API Reference
 
 Import programmatic utilities directly in your tests, scripts, and build pipelines:
@@ -316,6 +348,7 @@ import {
     replayFixture,
     exportWorkflow,
     startMonitor,
+    reconcileCommand,
     toMermaid,
     toTextGraph,
     ReplayFixture,

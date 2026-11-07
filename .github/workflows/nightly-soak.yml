@@ -1,0 +1,103 @@
+name: Nightly Chaos & Exploratory Soak
+
+on:
+  schedule:
+    # 03:00 UTC every day
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Iterations per charter'
+        required: false
+        default: '200'
+      seed:
+        description: 'Global RNG seed'
+        required: false
+        default: '42'
+      charter:
+        description: 'Optional charter filter (e.g. combinators, ai, queues, cluster-failover)'
+        required: false
+        default: ''
+
+jobs:
+  exploratory-soak:
+    name: Distributed Chaos & Soak Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: siglo
+          POSTGRES_PASSWORD: siglo_test
+          POSTGRES_DB: siglo_soak_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U siglo -d siglo_soak_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        command: ["redis-server", "--requirepass", "redispassword"]
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli -a redispassword ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: Run Core unit test coverage gate
+        run: npm test
+
+      - name: Run Automated Exploratory Soak Suite (12 Charters)
+        run: |
+          ITERATIONS="${{ github.event.inputs.iterations || '200' }}"
+          SEED="${{ github.event.inputs.seed || '42' }}"
+          CHARTER="${{ github.event.inputs.charter || '' }}"
+          
+          CMD="npm run explore -- --iterations=$ITERATIONS --seed=$SEED"
+          if [ -n "$CHARTER" ]; then
+            CMD="$CMD --charter=$CHARTER"
+          fi
+          
+          echo "Executing: $CMD"
+          eval $CMD
+        env:
+          SIGLO_TEST_POSTGRES_URL: postgres://siglo:siglo_test@localhost:5432/siglo_soak_test
+          SIGLO_TEST_REDIS_URL: redis://:redispassword@localhost:6379
+
+      - name: Run Stryker Mutation Testing Score Evaluation
+        run: npm run test:mutation
+
+      - name: Upload Repro Fixtures on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exploratory-failure-fixtures
+          path: test/fixtures/
+          if-no-files-found: ignore
+
+      - name: Upload Mutation Testing HTML/JSON Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-testing-reports
+          path: reports/mutation/
+          if-no-files-found: ignore

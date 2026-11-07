@@ -1,3 +1,8 @@
+---
+title: "OpenTelemetry Adapter"
+description: "Vendor-neutral distributed tracing, semantic spans, context event streaming, and W3C Trace Context propagation for Siglo workflows."
+---
+
 # @siglo/opentelemetry Adapter Guide
 
 `@siglo/opentelemetry` provides vendor-neutral distributed tracing, semantic spans, context event streaming, and W3C Trace Context propagation for `Siglo` workflows. It is fully compliant with the OpenTelemetry API (`@opentelemetry/api` v1.9.0+) and integrates seamlessly with collectors like Jaeger, Zipkin, Datadog, Prometheus, New Relic, and AWS X-Ray.

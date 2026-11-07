@@ -1,3 +1,8 @@
+---
+title: "Step Methods"
+description: "API reference for the Step execution unit in Siglo: instantiation, schema validation, lifecycle hooks, retries, sagas, idempotency, caching, dependency injection, and network guardrails."
+---
+
 # API Reference: Step Methods (`Step`)
 
 The `Step` class is the fundamental execution unit in **Siglo**. A step encapsulates an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
@@ -9,7 +14,7 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
 - [The 5-Phase Step Lifecycle](#the-5-phase-step-lifecycle)
 - [Instantiating Steps](#instantiating-steps)
   - [`Step.create(name?, action)`](#stepcreatename-action)
-- [Validation & Contracts](#validation--contracts)
+- [Validation and Contracts](#validation-and-contracts)
   - [`step.schema(schema)`](#stepschemaschema)
   - [`step.spec(field, options)`](#stepspecfield-options)
   - [`step.strict()`](#stepstrict)
@@ -17,26 +22,27 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
   - [`step.onBefore(hook)`](#steponbeforehook)
   - [`step.onSkip(hook)`](#steponskiphook)
   - [`step.onAfter(hook)`](#steponafterhook)
-- [Fault Tolerance & Resilience](#fault-tolerance--resilience)
+- [Fault Tolerance and Resilience](#fault-tolerance-and-resilience)
   - [`step.timeout(ms)`](#steptimeoutms)
-  - [`step.onFail(config | callback)`](#steponfailconfig--callback)
+  - [`step.onFail(config)`](#steponfailconfig)
   - [`step.compensate(handler, options?)`](#stepcompensatehandler-options)
-- [Optimization & Deduplication](#optimization--deduplication)
+- [Optimization and Deduplication](#optimization-and-deduplication)
   - [`step.idempotent(keyOrFn?, options?)`](#stepidempotentkeyorfn-options)
-  - [`step.cache(ms | options)`](#stepcachems--options)
+  - [`step.cache(msOrOptions)`](#stepcachemsoroptions)
 - [Dependency Injection](#dependency-injection)
   - [`step.withDependencies(deps)`](#stepwithdependenciesdeps)
   - [`step.requireDependency(key)`](#steprequiredependencykey)
 - [Context Transformation](#context-transformation)
   - [`step.reduce(field)`](#stepreducefield)
 - [Network Egress Guardrails](#network-egress-guardrails)
-  - [`step.allowNetwork(hosts, allowLocalhost?)`](#stepallownetworkhosts-allowlocalhost)
+  - [`step.allowNetwork(hosts)`](#stepallownetworkhosts)
+  - [`step.allowUnixSockets(sockets)`](#stepallowunixsocketssockets)
   - [`step.denyNetwork()`](#stepdenynetwork)
   - [`step.networkPolicy(policy)`](#stepnetworkpolicypolicy)
-- [Execution & Inspection](#execution--inspection)
-  - [`step.run(param?, options?)` / `step.execute()`](#steprunparam-options--stepexecute)
-  - [`step.toGraph()`, `step.inspect()`, `step.toMermaid()`](#graph-and-export-methods)
-- [Static Methods & Configuration](#static-methods--configuration)
+- [Execution and Inspection](#execution-and-inspection)
+  - [`step.run and step.execute`](#steprun-and-stepexecute)
+  - [`step.toGraph`, `step.inspect`, `step.toMermaid`](#graph-and-export-methods)
+- [Static Methods and Configuration](#static-methods-and-configuration)
 
 ---
 
@@ -69,7 +75,7 @@ flowchart TD
 5. **Context Merge**: Merges step output into the accumulated workflow context (or assigns it to a target property if `.reduce()` was configured).
 
 > [!NOTE]
-> **Network Guardrails Across Lifecycle Phases**: When `.allowNetwork()`, `.denyNetwork()`, or `.networkPolicy()` is declared, the network egress policy governs phases 2 (`onBefore`/`onSkip`), 3 (`action`), 4 (`onAfter`), and `onFail` through Node's `AsyncLocalStorage`. Any unauthorized outbound call triggers a `NetworkPolicyViolationException` tagged with the active phase (`before`, `action`, or `after`).
+> **Network Guardrails Across Lifecycle Phases**: When `.allowNetwork()`, `.allowUnixSockets()`, `.denyNetwork()`, or `.networkPolicy()` is declared, the network egress policy governs phases 2 (`onBefore`/`onSkip`), 3 (`action`), 4 (`onAfter`), and `onFail` through Node's `AsyncLocalStorage`. Any unauthorized outbound call triggers a `NetworkPolicyViolationException` tagged with the active phase (`before`, `action`, or `after`).
 
 ---
 
@@ -121,7 +127,7 @@ export const fetchUser = Step.create('fetchUser', async (param: UserInput): Prom
 
 ---
 
-## Validation & Contracts
+## Validation and Contracts
 
 ### `step.schema(schema)`
 
@@ -297,7 +303,7 @@ const calculateTax = Step.create('calcTax', async (param: { subtotal: number }) 
 
 ---
 
-## Fault Tolerance & Resilience
+## Fault Tolerance and Resilience
 
 ### `step.timeout(ms)`
 
@@ -314,7 +320,7 @@ step.timeout(ms: number): Step<TInput, TOutput, TName>;
 ```typescript
 import { Step, StepTimeoutException } from '@siglo/core';
 
-const callExternalVendor = Step.create('vendorApi', async (param, _curr, _idx) => {
+const callExternalVendor = Step.create('vendorApi', async () => {
     const res = await fetch('https://api.vendor.com/data');
     return res.json();
 })
@@ -323,7 +329,7 @@ const callExternalVendor = Step.create('vendorApi', async (param, _curr, _idx) =
 
 ---
 
-### `step.onFail(config | callback)`
+### `step.onFail(config)`
 
 Configures structured retry policies or custom error fallback handlers when the step action throws.
 
@@ -419,7 +425,7 @@ const bookFlight = Step.create('bookFlight', async (ctx: { flightNo: string }) =
 
 ---
 
-## Optimization & Deduplication
+## Optimization and Deduplication
 
 ### `step.idempotent(keyOrFn?, options?)`
 
@@ -452,7 +458,7 @@ const chargeCard = Step.create('chargeCard', async (ctx: { idempotencyToken: str
 
 ---
 
-### `step.cache(ms | options)`
+### `step.cache(msOrOptions)`
 
 Caches step output in memory or persistent storage (`StorageAdapter`) based on input parameters.
 
@@ -512,7 +518,7 @@ interface DatabaseClient {
     query: (sql: string) => Promise<any>;
 }
 
-const saveUser = Step.create('saveUser', async (param: { name: string }, _curr, _idx) => {
+const saveUser = Step.create('saveUser', async (param: { name: string }) => {
     const db = saveUser.requireDependency<DatabaseClient>('db');
     await db.query(`INSERT INTO users (name) VALUES ('${param.name}')`);
     return { saved: true };
@@ -549,15 +555,17 @@ const countItems = Step.create('count', async () => 42)
 
 Steps can declare granular network egress permissions enforced via Node's `AsyncLocalStorage` (ASL). In flows with an outer network policy, the flow supersedes the step; steps can only narrow permissions within what the flow permits. By default, loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are allowed.
 
-### Lifecycle Hook Governance & Plugin Isolation
+### Lifecycle Hook Governance
 
-The network policy boundary wraps the **entire step execution lifecycle** via `AsyncLocalStorage`. This ensures comprehensive perimeter enforcement:
-- **`onBefore` & `onSkip`**: Pre-execution guards and fallback computations are governed by the step's allowlist, preventing data exfiltration or unauthorized calls during pre-checks. Outbound violations during pre-checks fail with `phase: 'before'`.
+The network policy boundary wraps the **entire step execution lifecycle** via `AsyncLocalStorage`:
+- **`onBefore` & `onSkip`**: Pre-execution guards and fallback computations are governed by the step's allowlist (violations tagged with `phase: 'before'`).
 - **`action` & `reduce`**: The core step execution runs within the policy context (violations tagged with `phase: 'action'`).
 - **`onAfter`**: Context enrichment and post-processing cannot bypass step network restrictions (violations tagged with `phase: 'after'`).
 - **`onFail`**: Step-level retries and fallback error handlers adhere to the policy perimeter.
-- **Global Plugins (`executeBefore`, `executeAfter`)**: Engine-level plugins execute **outside** this boundary to ensure system observability, tracing, and metric reporting (e.g., OpenTelemetry, Datadog) remain unaffected.
+- **Global Plugins (`executeBefore`, `executeAfter`)**: Engine-level plugins execute **outside** this boundary to ensure system observability and metrics remain unaffected.
 - **Compensations (`step.compensate`)**: Sagas rollback in an independent scope with their own execution perimeter.
+
+---
 
 ### `step.allowNetwork(hosts)`
 
@@ -571,7 +579,7 @@ step.allowNetwork(hosts: (string | RegExp)[] | string | RegExp): this;
 
 #### Parameters
 
-- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\\.internal$/`). (To configure localhost or Unix sockets, configure `step.networkPolicy({ allowLocalhost: true, allowUnixSockets: [...] })`).
+- `hosts`: `(string | RegExp)[]` &mdash; Array of hostnames (`'api.stripe.com'`), wildcard patterns (`'*.stripe.com'`), specific ports (`'api.internal:8080'`), or RegExps (`/^api\.internal$/`).
 
 #### Example
 
@@ -579,6 +587,27 @@ step.allowNetwork(hosts: (string | RegExp)[] | string | RegExp): this;
 const chargeStep = Step.create('charge', async ({ amount }) => {
     return await fetch('https://api.stripe.com/v1/charges', { /* ... */ });
 }).allowNetwork(['api.stripe.com', '*.stripe.network']);
+```
+
+---
+
+### `step.allowUnixSockets(sockets)`
+
+Explicitly permits communication over specified local Unix domain sockets (IPC filesystem paths) during step execution.
+
+#### Signature
+
+```typescript
+step.allowUnixSockets(sockets: string | string[]): this;
+```
+
+#### Example
+
+```typescript
+const dockerStep = Step.create('dockerInspect', async () => {
+    // Connects to local Docker daemon Unix socket
+    return await queryDockerDaemon('/var/run/docker.sock');
+}).allowUnixSockets(['/var/run/docker.sock']);
 ```
 
 ---
@@ -618,7 +647,8 @@ step.networkPolicy(policy: NetworkPolicyConfig): this;
 - `policy`: `NetworkPolicyConfig`
   - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Allowed target host patterns.
   - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Default fallback rule.
-  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback and Unix socket exemption.
+  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback exemption.
+  - `allowUnixSockets`: `string[]` *(optional)* &mdash; Allowed Unix domain socket paths.
 
 #### Example
 
@@ -627,15 +657,16 @@ const syncStep = Step.create('sync', async () => { /* ... */ })
     .networkPolicy({
         allowedHosts: ['api.github.com'],
         defaultPolicy: 'deny',
-        allowLocalhost: true
+        allowLocalhost: true,
+        allowUnixSockets: ['/var/run/docker.sock']
     });
 ```
 
 ---
 
-## Execution & Inspection
+## Execution and Inspection
 
-### `step.run(param?, options?)` / `step.execute()`
+### `step.run and step.execute`
 
 Runs the step directly as a standalone unit.
 
@@ -651,11 +682,20 @@ const output = await fetchUser.run({ userId: 'u_123' }, { pojo: true });
 
 ---
 
-## Static Methods & Configuration
+## Static Methods and Configuration
 
-- `Step.create(name, action)`: Primary factory method.
-- `Step.start(steps, param?, options?)`: Executes steps or flows.
-- `Step.config(props)`: Configures global runtime options (e.g. logging, storage).
+The `Step` class exposes static utilities and orchestrator shortcuts:
+
+- `Step.create(name, action)`: Primary factory method for step construction.
+- `Step.flow(...steps)` / `Step.pipe(...steps)`: Shorthand alias to compose a sequential `Flow`.
+- `Step.start(steps, param?, options?)`: Low-level executor entry point.
+- `Step.config(props)`: Configures global runtime settings (logging, plugins, telemetry).
+- `Step.useStorage(adapter)`: Registers the global `StorageAdapter`.
+- `Step.checkpoint(stackId, options?)`: Captures an instantaneous checkpoint snapshot.
+- `Step.restoreCheckpoint(data, options?)`: Restores stack state from a serialized snapshot.
+- `Step.parallel(...)`, `Step.all(...)`, `Step.allSettled(...)`, `Step.race(...)`: Combinator factories.
+- `Step.when(...)`, `Step.branch(...)`, `Step.map(...)`: Branching and collection combinators.
+- `Step.waitForEvent(...)`, `Step.wait(...)`: Durable wait factories.
 
 ---
 
@@ -665,5 +705,6 @@ const output = await fetchUser.run({ userId: 'u_123' }, { pojo: true });
 - [03. Sequential Workflows](../03-sequential-workflows.md)
 - [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
 - [10. TypeScript Reference](../10-typescript-reference.md)
-- [Compensation & Sagas Contract](../compensation-and-sagas.md)
+- [Compensation and Sagas Contract](../compensation-and-sagas.md)
 - [Idempotency Contract](../idempotency.md)
+- [Network Egress Policy](../network-egress-policy.md)

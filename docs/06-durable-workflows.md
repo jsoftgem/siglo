@@ -1,4 +1,9 @@
-# 06. Durable Workflows
+---
+title: "Durable Workflows"
+description: "Long-running and suspendable workflows in Siglo: asynchronous event suspension with waitForEvent, durable timer sleeps, event-driven resumption, and schema migrations."
+---
+
+# Durable Workflows
 
 Durable workflows allow executions to sleep, suspend, wait for external human approvals or webhooks, survive process restarts, and resume safely days or months later.
 
@@ -12,7 +17,7 @@ Use `waitForEvent()` to halt workflow execution until an external signal or webh
 import { Step, flow, waitForEvent } from '@siglo/core';
 
 export const expenseApprovalWorkflow = flow(
-    Step.create('submitExpense', async (param: { amount: number }) => ({
+    Step.create('submitExpense', async (param: { amount: number; expenseId: string }) => ({
         submittedAt: Date.now(),
         status: 'PENDING_APPROVAL'
     })),
@@ -32,6 +37,13 @@ export const expenseApprovalWorkflow = flow(
 );
 ```
 
+When run with `{ durable: true }`, the workflow halts at `waitForEvent` and returns a suspension descriptor:
+```typescript
+const pending = await expenseApprovalWorkflow.run({ expenseId: 'exp_100', amount: 500 }, { durable: true });
+console.log(pending.status);         // 'waiting'
+console.log(pending.correlationKey); // 'exp_100'
+```
+
 ---
 
 ## 2. Sleeping with `wait()`
@@ -43,7 +55,7 @@ import { Step, flow, wait } from '@siglo/core';
 
 export const delayedNotificationWorkflow = flow(
     Step.create('sendWelcome', () => ({ sent: true })),
-    wait('24h'), // Sleeps for 24 hours
+    wait('24h'), // Suspends execution for 24 hours
     Step.create('sendFollowUp', () => ({ followUpSent: true }))
 );
 ```
@@ -52,7 +64,7 @@ export const delayedNotificationWorkflow = flow(
 
 ## 3. Resuming Suspended Workflows
 
-When an external event occurs (e.g., an incoming webhook), resume the workflow using `resumeWorkflow()` or `flow.resume()`:
+When an external event occurs (e.g., an incoming webhook), resume the workflow using `resumeWorkflow()` or the flow instance's `flow.resume()` method:
 
 ```typescript
 import { resumeWorkflow } from '@siglo/core';
@@ -179,13 +191,15 @@ describe('Durable Workflows Suite', () => {
 
 ## Operational Caveats
 
-1. **Use Persistent Storage in Production**: In production, register `@siglo/postgres` or `@siglo/redis` via `useStorage()`. The in-memory default storage is strictly for testing.
+1. **Use Persistent Storage in Production**: In production, register `@siglo/postgres` or `@siglo/redis` via `useStorage()`. The in-memory default storage is strictly for testing and single-process development.
 2. **Correlation Key Uniqueness**: Correlation keys must be unique per waiting workflow instance. Using natural business identifiers (e.g. `orderId`, `ticketId`) avoids collision bugs.
+3. **Execution Options**: `{ durable: true }` enables suspension and wait record persistence. When omitted, `waitForEvent` runs in non-durable in-memory fallback mode.
 
 ---
 
 ## API Reference Links
 
 - [Storage and Adapters](./07-storage-and-adapters.md)
+- [PostgreSQL Adapter Reference](./adapters/postgres.md)
 - [Testing & Replay Reference](./09-testing-and-replay.md)
 - [TypeScript API Reference](./10-typescript-reference.md)

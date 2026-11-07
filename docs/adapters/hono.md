@@ -1,3 +1,8 @@
+---
+title: "Hono Adapter"
+description: "Web Standards-compliant route handler and middleware adapter for deploying Siglo workflows to Cloudflare Workers, Deno, Bun, and Node.js."
+---
+
 # @siglo/hono Adapter Guide
 
 `@siglo/hono` provides a modern, Web Standards-compliant middleware and route handler adapter for executing `Siglo` workflows. It is optimized for cross-runtime deployment across Cloudflare Workers, Fastly Compute, Deno, Bun, AWS Lambda (via Hono), and traditional Node.js servers.
@@ -43,6 +48,10 @@ Peer dependency matrix:
 ## 3. API Reference
 
 ### `sigloMiddleware(workflow, options)`
+
+> [!NOTE]
+> **Backward Compatibility**:
+> `rivuletMiddleware` is exported as an identical alias for legacy workflows.
 
 Creates a Hono route handler or middleware `(c: Context, next?: Next) => Promise<any>`:
 

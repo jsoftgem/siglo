@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { mock } from 'node:test';
 import { Flow, InMemoryIdempotencyStore, Step, flow } from '@siglo/core';
 import { createKafkaMessageHandler, createKafkaBatchHandler, KafkaInvalidMessageError, KafkaProcessingCancelledError, getKafkaRecordId } from './index';
 
@@ -7,7 +8,6 @@ const record = (value: string | null = '{"eventId":"e1"}', offset = '0', tenant 
     message: { value, offset, key: 'entity-1', headers: { 'x-namespace': tenant } },
 });
 const workflow = (run: (...args: any[]) => Promise<any>) => ({ run } as unknown as Flow<any, any>);
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('@siglo/kafka production policies', () => {
     it('requires a consumer group when deduplicating', () => {
@@ -125,20 +125,39 @@ describe('@siglo/kafka production policies', () => {
     });
 
     it('bounds execution before claim expiry and fences late completion', async () => {
-        const store = new InMemoryIdempotencyStore();
-        let finish: (result: any) => void = () => {};
-        let completions = 0;
-        const originalComplete = store.complete.bind(store);
-        store.complete = async (key, result) => { completions++; await originalComplete(key, result); };
-        const handler = createKafkaMessageHandler(workflow(() => new Promise(resolve => { finish = resolve; })), {
-            groupId: 'g', idempotencyStore: store, idempotencyTtlMs: 100,
-            deadLetter: async () => { throw new Error('must not dead-letter infrastructure cancellation'); },
-        });
-        await assert.rejects(handler(record()), KafkaProcessingCancelledError);
-        finish({ late: true });
-        await wait(5);
-        assert.equal(completions, 0);
-        await assert.rejects(handler(record()), /already being processed/);
+        mock.timers.enable({ apis: ['Date', 'setTimeout', 'setInterval'], now: 1000 });
+        try {
+            const store = new InMemoryIdempotencyStore();
+            let finish: (result: any) => void = () => {};
+            let started: () => void = () => {};
+            const running = new Promise<void>(resolve => { started = resolve; });
+            let signal: AbortSignal | undefined;
+            let completions = 0;
+            const originalComplete = store.complete.bind(store);
+            store.complete = async (key, result) => { completions++; await originalComplete(key, result); };
+            const handler = createKafkaMessageHandler(workflow((_input, options) => new Promise(resolve => {
+                signal = options.signal;
+                finish = resolve;
+                started();
+            })), {
+                groupId: 'g', idempotencyStore: store, idempotencyTtlMs: 100,
+                deadLetter: async () => { throw new Error('must not dead-letter infrastructure cancellation'); },
+            });
+            const cancelled = assert.rejects(handler(record()), KafkaProcessingCancelledError);
+            await running;
+            mock.timers.tick(79);
+            assert.equal(signal?.aborted, false);
+            mock.timers.tick(1);
+            await cancelled;
+            assert.equal(signal?.aborted, true);
+            finish({ late: true });
+            // Let the late workflow continuation settle without consuming the claim's remaining TTL.
+            await new Promise<void>(resolve => setImmediate(resolve));
+            assert.equal(completions, 0);
+            await assert.rejects(handler(record()), /already being processed/);
+        } finally {
+            mock.timers.reset();
+        }
     });
 
     it('cancels an uncooperative workflow on shutdown without clearing its claim or publishing to DLQ', async () => {

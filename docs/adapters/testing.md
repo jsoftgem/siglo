@@ -1,3 +1,8 @@
+---
+title: "Testing & Deterministic Replay"
+description: "Zero-flake testing utilities, virtual clocks, step spies, mocks, assertions, and golden fixture replay tooling for Siglo workflows."
+---
+
 # @siglo/testing Adapter Guide
 
 `@siglo/testing` provides zero-flake testing utilities, virtual clocks, step spies, mocks, and failure replay tooling for `Siglo` workflows.

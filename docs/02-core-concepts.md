@@ -1,4 +1,9 @@
-# 02. Core Concepts
+---
+title: "Core Concepts"
+description: "Mental model and architecture of Siglo: AST graph representation, accumulated context inference, step lifecycles, and metadata namespaces."
+---
+
+# Core Concepts
 
 This chapter outlines the fundamental mental model and architecture of `Siglo`.
 
@@ -6,13 +11,13 @@ This chapter outlines the fundamental mental model and architecture of `Siglo`.
 
 ## 1. Workflows as Directed Acyclic Graphs (AST)
 
-In `Siglo`, a workflow is not a simple promise chain. It is an **executable Abstract Syntax Tree (AST)** composed of nodes:
-- `StepNode`: An isolated unit of work with schemas, lifecycles, and policies.
-- `SequenceNode`: Sequential execution pipeline.
-- `ParallelNode`: Concurrent fan-out/fan-in with merge strategies.
-- `BranchNode`: Dynamic conditional routing and predicate dispatch.
-- `WaitNode`: Durable event suspension or timer delay.
-- `MapNode`: Concurrently bounded array transformations.
+In `Siglo`, a workflow is not a simple promise chain. It is an **executable Abstract Syntax Tree (AST)** composed of typed nodes:
+- `StepNode`: An isolated unit of work with input schemas, lifecycles, retries, and policies.
+- `SequenceNode`: Sequential execution pipeline created with `flow(...)`.
+- `ParallelNode`: Concurrent fan-out/fan-in with merge strategies (`parallel`, `race`).
+- `BranchNode`: Dynamic conditional routing and predicate dispatch (`branch`, `when`).
+- `WaitNode`: Durable event suspension or timer sleep (`waitForEvent`, `wait`).
+- `MapNode`: Concurrently bounded array transformations (`map`).
 
 Because workflows are represented as ASTs, they can be statically inspected, validated for cycles, visualised as diagrams, and checked before runtime execution.
 
@@ -55,6 +60,8 @@ const result = await wf.run({ id: '123' });
 // { id: string; name: string; verified: boolean; $steps: { stepA: { name: string }; stepB: { verified: boolean } } }
 ```
 
+If a step needs to access the exact isolated output of an earlier step without risk of key collisions, it can read from `param.$steps.<stepName>` (or `param.$history.<stepName>`).
+
 ---
 
 ## 3. Step Lifecycle Pipeline
@@ -63,7 +70,7 @@ Each step goes through a strict 5-phase lifecycle:
 
 ```mermaid
 flowchart TD
-    P1["1. VALIDATION<br/>(Validates input specs and schemas)"]
+    P1["1. VALIDATION<br/>(Validates input specs and Standard Schemas)"]
     P2["2. BEFORE HOOK<br/>(Executes onBefore gate and plugin filters)"]
     P3["3. ACTION<br/>(Executes idempotent business logic & external calls)"]
     P4["4. AFTER HOOK<br/>(Executes onAfter transformers and context mutations)"]
@@ -74,6 +81,12 @@ flowchart TD
     P3 --> P4
     P3 -.->|on exception| P5
 ```
+
+1. **Validation**: Evaluates field rules (`step.spec(...)`) or Standard Schemas (`step.schema(...)`). Rejections throw `ValidationException`.
+2. **Before Hook (`onBefore`)**: Runs predicates to decide whether to execute the action or skip it. If skipped, `onSkip` provides fallback data.
+3. **Action**: Executes the primary asynchronous business logic. If idempotency (`step.idempotent(...)`) or caching (`step.cache(...)`) is configured, cached results short-circuit execution.
+4. **After Hook (`onAfter`)**: Transforms or augments the action output before it is merged into accumulated context.
+5. **OnFail Hook (`onFail`)**: Evaluates retry predicates, calculates backoff delay (fixed, linear, exponential with jitter), and coordinates compensation triggers if retries are exhausted.
 
 ---
 
@@ -87,10 +100,12 @@ flowchart TD
 | `$attempt` | Current retry attempt index (1-based) | `number` |
 | `$retryDelay` | Current backoff delay applied before retry in ms | `number` |
 | `$services` / `$deps` | Injected service containers and mock clients | `Record<string, any>` |
-| `$signal` | Callable accessor returning AbortSignal (native signal on `param.signal`) | `(() => AbortSignal) & AbortSignal` |
+| `signal` / `$signal` | Cancellation signal (`param.signal` is native `AbortSignal`; `$signal` is callable accessor) | `AbortSignal` / `(() => AbortSignal)` |
 | `$stackId` | Unique execution instance identifier | `string` |
 | `$namespace` | Logical key partitioning and storage scoping tag (requires app auth) | `string` |
 | `$isDurable` | Flag indicating if durable storage is active | `boolean` |
+| `$branchSelected` | Active branch key selected by `branch()` or `when()` | `string` (`'then'`, `'else'`, or branch route) |
+| `$skippedBranches` | Branch keys bypassed during dynamic routing | `string[]` |
 
 ---
 
@@ -115,7 +130,7 @@ console.log(res.status); // 'RECORDED'
 
 ## Failure Example: Phase Diagnostic Tagging
 
-When an action or lifecycle hook throws, the runtime tags the error with the phase and step name:
+When an action or lifecycle hook throws, the runtime wraps the failure into a `SigloError` subclass and tags it with diagnostic metadata:
 
 ```typescript
 import { Step, flow } from '@siglo/core';
@@ -134,6 +149,7 @@ try {
 } catch (err: any) {
     console.log(err.stepName); // 'validateAge'
     console.log(err.phase);    // 'action'
+    console.log(err.stackId);  // UUID of execution stack
 }
 ```
 
@@ -167,9 +183,10 @@ describe('Core Concepts Test', () => {
 
 ## Operational Caveats
 
-1. **Avoid Overwriting Context Keys**: While later steps can overwrite earlier keys if intended, naming step outputs distinctly (e.g. `user`, `order`, `payment`) maintains clean history and avoids confusion.
+1. **Avoid Overwriting Context Keys**: While later steps can overwrite earlier keys if intended, naming step outputs distinctly (e.g. `user`, `order`, `payment`) maintains clean history and avoids confusion. If needed, access raw outputs via `$steps.<stepName>`.
 2. **Never Mutate Param Directly**: Treat input parameters as read-only. Always return a new object with changes.
 3. **Namespace Isolation**: In multi-tenant environments, pass `{ namespace: tenantId }` in execution options to isolate caches and checkpoints.
+4. **Native Abort Signals**: When passing signals to external libraries (such as `fetch(url, { signal: param.signal })`), prefer `param.signal` over legacy accessors.
 
 ---
 
@@ -178,3 +195,4 @@ describe('Core Concepts Test', () => {
 - [Sequential Workflows](./03-sequential-workflows.md)
 - [Branching and Parallelism](./04-branching-and-parallelism.md)
 - [Storage and Adapters](./07-storage-and-adapters.md)
+- [TypeScript Reference](./10-typescript-reference.md)

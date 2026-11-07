@@ -1,29 +1,31 @@
 # Compensation and Sagas
 
-Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `Siglo` v1.0.0 provides first-class support for forward execution with automatic backward compensation.
+Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `Siglo` provides first-class support for forward execution with automatic backward compensation.
 
 ---
 
-## 1. Registering Compensations (`step.compensate()`)
+## 1. Core Saga Pattern & Automatic LIFO Rollback
 
-Compensations are attached directly to steps that produce external side effects:
+Compensations execute in **exact reverse order (LIFO)** of step completion. Only steps that completed successfully prior to the point of failure are compensated.
 
 ```typescript
 import { Step, flow } from '@siglo/core';
 
 // Step 1: Reserve Inventory (with compensation)
-const reserveInventory = Step.create('reserveInventory', async ({ item, quantity }) => {
-  const reservation = await inventoryService.reserve(item, quantity);
-  return { reservationId: reservation.id };
+const reserveInventory = Step.create('reserveInventory', async (input: { item: string; quantity: number; amount: number }) => {
+  const reservation = await inventoryService.reserve(input.item, input.quantity);
+  // Forward original input along with step output for downstream steps
+  return { ...input, reservationId: reservation.id };
 })
   .compensate(async (output, input) => {
+    // output contains step output, input contains original step input
     await inventoryService.releaseReservation(output.reservationId);
   });
 
 // Step 2: Authorize Payment (with compensation)
-const authorizePayment = Step.create('authorizePayment', async ({ amount }) => {
-  const charge = await paymentGateway.charge(amount);
-  return { chargeId: charge.id };
+const authorizePayment = Step.create('authorizePayment', async (input: { amount: number; reservationId: string }) => {
+  const charge = await paymentGateway.charge(input.amount);
+  return { ...input, chargeId: charge.id };
 })
   .compensate(async (output) => {
     await paymentGateway.refund(output.chargeId);
@@ -38,8 +40,11 @@ const orderSaga = flow(reserveInventory, authorizePayment, dispatchDelivery);
 
 try {
   await orderSaga.execute({ item: 'laptop', quantity: 1, amount: 1200 });
-} catch (err) {
-  // Compensation is executed automatically in reverse order:
+} catch (err: any) {
+  // If all compensations succeed, Siglo re-throws the original forward error:
+  console.error(err.message); // "No courier available"
+
+  // Compensations executed automatically in reverse order:
   // 1. authorizePayment compensation runs (refund charge)
   // 2. reserveInventory compensation runs (release reservation)
 }
@@ -47,55 +52,166 @@ try {
 
 ---
 
-## 2. Execution Semantics (LIFO)
+## 2. Compensation Registration Patterns
 
-- **Reverse Order (LIFO)**: Compensations execute in exact reverse order of step completion.
-- **Input and Output Accessibility**: Compensation handlers receive both the completed step's `output` and original `input`.
-- **Targeted Triggering**: Compensations only run for steps that successfully completed prior to the point of failure.
-- **Full Lifecycle & Reducer Support**: Both standard single-action steps and array `.reduce()` steps register compensations with the saga manager.
-- **Fault-Tolerant Payload Mapping**: User-supplied `compensationPayloadMapper` functions are executed safely without halting workflow resolution on mapping errors.
+Siglo supports both inline closures and decoupled named compensation handlers.
+
+### A. Inline Closures (In-Memory Sagas)
+Suitable for single-process, short-lived workflows:
+
+```typescript
+step.compensate(async (output, input) => {
+  await service.rollback(output.id);
+});
+```
+
+### B. Named Handlers & Global Registry (Durable & Multi-Process Sagas)
+When workflows are persisted to storage (PostgreSQL, Redis) across service restarts or code deployments, JavaScript closures cannot be serialized. Register named handlers at application startup:
+
+```typescript
+import { Step, registerCompensationHandler } from '@siglo/core';
+
+// 1. Register named handlers globally at service bootstrap
+registerCompensationHandler('inventory:releaseReservation', async (payload, input) => {
+  await inventoryService.releaseReservation(payload.reservationId);
+});
+
+registerCompensationHandler('payment:refundCharge', async (payload) => {
+  await paymentGateway.refund(payload.chargeId);
+});
+
+// 2. Attach named compensations to steps with optional payload mappers
+const reserveInventory = Step.create('reserveInventory', async (input) => {
+  const reservation = await inventoryService.reserve(input.item, input.quantity);
+  return { reservationId: reservation.id };
+})
+  // Syntax: .compensate(handlerName, payloadMapper?, options?)
+  .compensate('inventory:releaseReservation', (output, input) => ({
+    reservationId: output.reservationId
+  }), { maxRetries: 2 });
+```
 
 ---
 
 ## 3. Compensation Retry Policy
 
-Compensations can be configured with exponential backoff and retry limits:
+Transient failures during compensation can be retried with fixed delays or custom conditional predicates:
 
 ```typescript
-step.compensate(releaseInventory, {
+step.compensate('payment:refundCharge', {
   maxRetries: 3,
-  delay: 1000,
-  retryIf: (err, attempt) => err.code !== 'FATAL_RECORD_NOT_FOUND'
+  delay: 1000, // ms between retries
+  retryIf: (err, attempt) => err.code !== 'FATAL_INVALID_ACCOUNT'
 });
 ```
 
 ---
 
-## 4. Handling Compensation Failures (`CompensationException`)
+## 4. Execution Modes: Strict vs. Best-Effort
 
-If one or more compensations fail and exhaust all retries, `Siglo` throws a `CompensationException`:
+When rolling back compensations, Siglo supports two execution modes via `CompensationRunOptions`:
+
+| Mode | Behavior | Use Case |
+| :--- | :--- | :--- |
+| `'strict'` *(default)* | Aborts rollback at the first compensation failure. Remaining compensations are halted. | Dependent side effects where subsequent rollbacks depend on earlier rollbacks succeeding. |
+| `'best-effort'` | Continues executing remaining compensations even if one fails. All errors are collected and reported. | Independent external services where maximizing partial rollback is preferred over halting. |
 
 ```typescript
-import { CompensationException } from '@siglo/core';
+await orderSaga.execute(payload, {
+  mode: 'best-effort'
+});
+```
+
+---
+
+## 5. Dead Letter Queue (DLQ) & Failure Callbacks
+
+Capture compensation failures that exhaust all retry attempts without losing context:
+
+```typescript
+const deadLetterQueue = {
+  send: async (entry: {
+    stackId: string;
+    stepName: string;
+    handlerName?: string;
+    failedCompensation: any;
+    error: string;
+    timestamp: number;
+  }) => {
+    await sqs.sendMessage({
+      QueueUrl: process.env.COMPENSATION_DLQ_URL!,
+      MessageBody: JSON.stringify(entry)
+    });
+  }
+};
+
+await orderSaga.execute(payload, {
+  mode: 'best-effort',
+  deadLetterQueue,
+  onFailure: async ({ stepName, error, record }, err) => {
+    logger.error(`Compensation failed for ${stepName}:`, err);
+  }
+});
+```
+
+---
+
+## 6. Error Handling & Exceptions
+
+```typescript
+import {
+  CompensationException,
+  UnresolvableCompensationException
+} from '@siglo/core';
 
 try {
   await orderSaga.execute(payload);
 } catch (err) {
   if (err instanceof CompensationException) {
-    console.error('Original failure:', err.originalError);
+    // Thrown when one or more compensations fail
+    console.error('Root forward cause:', err.originalError);
     console.error('Failed compensations:', err.compensationErrors);
-    console.error('Completed compensations:', err.completedCompensations);
+    console.error('Successfully rolled back:', err.completedCompensations);
+  } else if (err instanceof UnresolvableCompensationException) {
+    // Thrown if a named handler cannot be found in the registry
+    console.error(`Missing handler '${err.handlerName}' for step '${err.stepName}'`);
+  } else {
+    // Normal forward step failure (all compensations rolled back cleanly)
+    console.error('Workflow failed forward:', err.message);
   }
 }
 ```
 
 ---
 
-## 5. Manual Sagas and Compensation Restarts
+## 7. Crash Recovery & Abandoned Stack Reconciler
 
-Compensations can also be triggered or resumed manually via `flow.compensate(stackId)`:
+### Manual Saga Compensation
+Resume or trigger compensations on an existing or interrupted stack:
 
 ```typescript
-const result = await orderSaga.compensate('stack-123-uuid');
-console.log('Compensated steps:', result.completed);
+const report = await orderSaga.compensate('stack-123-uuid', {
+  mode: 'best-effort',
+  deadLetterQueue
+});
+
+console.log('Compensated steps:', report.completed);
+console.log('Failed steps:', report.failed);
+```
+
+### Background Reconciliation (`reconcileAbandonedStacks`)
+Detect crashed processes or abandoned workflows in storage and roll them back safely:
+
+```typescript
+import { reconcileAbandonedStacks } from '@siglo/core';
+
+const report = await reconcileAbandonedStacks({
+  staleThresholdMs: 15 * 60 * 1000, // 15 minutes without progress
+  action: 'compensate',              // 'compensate' | 'fail' | 'inspect'
+  mode: 'best-effort',
+  namespace: 'order-service',
+  deadLetterQueue
+});
+
+console.log(`Reconciled ${report.reconciled.length} abandoned stacks.`);
 ```

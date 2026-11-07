@@ -17,6 +17,18 @@ export class InvariantViolation extends Error {
     }
 }
 
+function normalizePojo(v: any): any {
+    if (v === null || typeof v !== 'object') return v;
+    if (Array.isArray(v)) return v.map(normalizePojo);
+    const keys = Object.keys(v);
+    if (keys.length > 0 && keys.every((k, i) => k === String(i))) {
+        return keys.map(k => normalizePojo(v[k]));
+    }
+    const res: Record<string, any> = {};
+    for (const k of keys) res[k] = normalizePojo(v[k]);
+    return res;
+}
+
 export class InvariantEvaluator {
     /**
      * Oracle 1: Accumulated Context Immutability & Scope Isolation
@@ -40,14 +52,20 @@ export class InvariantEvaluator {
                 const currentVal = afterContext ? afterContext[key] : undefined;
                 if (val !== null && typeof val === 'object') {
                     // Deep check for mutated nested keys if originally present
+                    let originalJson: string | undefined;
+                    let currentJson: string | undefined;
                     try {
-                        const originalJson = JSON.stringify(val);
-                        const currentJson = JSON.stringify(currentVal);
-                        if (originalJson !== currentJson && currentVal !== undefined) {
-                            // Only throw if key was expected to be read-only ancestor state
-                        }
+                        originalJson = JSON.stringify(normalizePojo(val));
+                        currentJson = JSON.stringify(normalizePojo(currentVal));
                     } catch {
-                        // ignore circular
+                        // ignore circular references
+                    }
+                    if (originalJson !== undefined && currentJson !== undefined && originalJson !== currentJson && currentVal !== undefined) {
+                        throw new InvariantViolation(
+                            1,
+                            'Context Immutability & Scope Isolation',
+                            `Ancestor key "${key}" was mutated! Original: ${originalJson}, Current: ${currentJson}`
+                        );
                     }
                 }
             }
@@ -159,7 +177,7 @@ export class InvariantEvaluator {
         expectedCondition: { branchCount?: number; winnerExpected?: any; expectedErrors?: number }
     ): void {
         if (combinator === 'allSettled') {
-            if (!Array.isArray(result) && typeof result === 'object') {
+            if (!Array.isArray(result) && typeof result === 'object' && result !== null) {
                 const keys = Object.keys(result);
                 if (expectedCondition.branchCount !== undefined && keys.length < expectedCondition.branchCount) {
                     throw new InvariantViolation(

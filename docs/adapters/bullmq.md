@@ -1,3 +1,8 @@
+---
+title: "BullMQ Job Queue"
+description: "Redis-backed BullMQ worker processor and job queue consumer adapter for executing Siglo workflows."
+---
+
 # @siglo/bullmq Adapter Guide
 
 `@siglo/bullmq` provides a high-throughput, Redis-backed job queue consumer and worker processor adapter for `Siglo` workflows. It bridges BullMQ workers with the Siglo execution engine, offering payload unwrapping, distributed idempotency deduplication, timeout enforcement, tenant namespace partitioning, and graceful failure handling.

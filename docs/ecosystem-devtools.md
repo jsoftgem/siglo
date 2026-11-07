@@ -1,3 +1,8 @@
+---
+title: "Ecosystem DevTools and Offline Testing"
+description: "Web monitor, runtime inspection protocols, zero-capture redaction contracts, and offline test recipes for Siglo ecosystem steps."
+---
+
 # Ecosystem DevTools and Offline Testing
 
 The Siglo Web Monitor and Developer Tools provide deep runtime diagnostics and offline testing capabilities for ecosystem steps: HTTP client calls, webhook verification, AI completions, and interactive human notifications.
@@ -192,7 +197,7 @@ The Notification inspector tracks delivery and interactive human-in-the-loop app
 
 ## 3. Durable Approvals & Callback Architecture
 
-Siglo decouples notification dispatch from durable suspension. The approval step issues a cryptographically signed action token and dispatches the notification, while a subsequent `waitForEventStep` suspends the workflow until the user acts or a timeout occurs.
+Siglo decouples notification dispatch from durable suspension. The approval step issues a cryptographically signed action token and dispatches the notification, while a subsequent `waitForEvent` node suspends the workflow until the user acts or a timeout occurs.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -208,8 +213,8 @@ Siglo decouples notification dispatch from durable suspension. The approval step
 │   Notification Dispatched ─────────────────────>│ Receives Email/Slack    │
 │          │                                      │ with Action URLs        │
 │          ▼                                      │                         │
-│   waitForEventStep (Durable Suspension)         │                         │
-│   Status: SUSPENDED                             │                         │
+│   waitForEvent (Durable Suspension)             │                         │
+│   Status: SUSPENDED / WAITING                   │                         │
 │          │                                      │                         │
 │          │                                      ▼                         │
 │          │                                Clicks Action URL               │
@@ -408,6 +413,28 @@ The Siglo Monitor server broadcasts execution events and ecosystem inspection re
 - **Payload Bound**: Maximum WebSocket frame payload is 1 MiB (`1048576` bytes). Frames exceeding this limit are immediately rejected with WebSocket close code `1009 (Message Too Big)`.
 - **Masking & RFC 6455**: Client frames must be masked text. Unsupported fragmentation or non-text frames close the connection with code `1003`.
 - **Validation**: Incoming inspection records re-verify schema, version (`1`), recognized kinds (`http`, `crypto`, `notification`, `ai`), and bounds before storing or re-broadcasting to other connected clients.
+
+```json
+// External telemetry ingestion frame (requires 'ingest' scope):
+{
+  "type": "event",
+  "event": {
+    "type": "step:complete",
+    "stackId": "stack-101",
+    "stepName": "processOrder",
+    "status": "success",
+    "timestamp": 1731000000000
+  }
+}
+
+// Remote workflow resumption frame (requires 'control' scope):
+{
+  "type": "resume",
+  "workflowId": "orderFlow",
+  "correlationKey": "order:ord-101",
+  "payload": { "approved": true }
+}
+```
 
 ---
 

@@ -1,4 +1,9 @@
-# 10. TypeScript Reference
+---
+title: "TypeScript Reference"
+description: "Type safety and static inference in Siglo: Step generic signatures, accumulated context union typing, typed $steps history, and Standard Schema validation."
+---
+
+# TypeScript Reference
 
 `Siglo` is built from the ground up for modern TypeScript (strict mode, noImplicitAny, exactOptionalPropertyTypes).
 
@@ -10,7 +15,7 @@
 export class Step<TInput = any, TOutput = any, TName extends string = string> {
     name: TName;
     action: StepAction<TInput, TOutput>;
-    ...
+    // ...
 }
 ```
 
@@ -19,12 +24,32 @@ When defining a step with `Step.create(name, action)`:
 - `TOutput`: Type returned by the step action.
 - `TName`: String literal name of the step (used to index `$steps`).
 
-```typescript
-const fetchUser = Step.create<'fetchUser', { id: string }, { user: { name: string; email: string } }>(
-    'fetchUser',
-    async (param) => ({ user: { name: 'Alice', email: 'alice@example.com' } })
-);
-```
+### Generic Overloads
+
+`Step.create` supports both explicit generic orders:
+
+1. **Name-First Overload** (convenient when specifying literal step name as the leading type argument):
+   ```typescript
+   const fetchUser = Step.create<'fetchUser', { id: string }, { user: { name: string; email: string } }>(
+       'fetchUser',
+       async (param) => ({ user: { name: 'Alice', email: 'alice@example.com' } })
+   );
+   ```
+
+2. **Input-First Overload** (mirrors the class generic order `Step<TInput, TOutput, TName>`):
+   ```typescript
+   const fetchUser = Step.create<{ id: string }, { user: { name: string; email: string } }, 'fetchUser'>(
+       'fetchUser',
+       async (param) => ({ user: { name: 'Alice', email: 'alice@example.com' } })
+   );
+   ```
+
+3. **Automatic Inference (Recommended)**: In standard application code, TypeScript automatically infers `TName`, `TInput`, and `TOutput` from the function arguments without manual type parameter annotations:
+   ```typescript
+   const fetchUser = Step.create('fetchUser', async (param: { id: string }) => ({
+       user: { name: 'Alice', email: 'alice@example.com' }
+   }));
+   ```
 
 ---
 

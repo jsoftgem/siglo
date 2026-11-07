@@ -1,3 +1,8 @@
+---
+title: "Live Monitoring & DevTools"
+description: "Real-time DAG topology visualization, execution state diff inspection, latency waterfalls, and interactive DevTools for Siglo workflows."
+---
+
 # Live Monitoring & DevTools
 
 Follow [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md) for a runnable Express checkout with HTTP requests, live events, and failure inspection.
@@ -10,7 +15,7 @@ Unlike black-box execution engines, `Siglo` streams structured, strongly-typed e
 
 ## 1. Architecture & Observability Layers
 
-```
+```text
                            +---------------------------+
                            |    Siglo Workflow Run     |
                            +-------------+-------------+
@@ -186,7 +191,7 @@ Content capture guarantees:
 
 Workflows utilizing `waitForEvent()` with optional timeouts have their wait lifecycles automatically tracked and surfaced in the monitor:
 
-```
+```text
 [ flow:suspended ] -> ( waitState: 'waiting', waitExpiresAt: UTC timestamp )
        |
        +---> [ flow:resumed by signal ]  -> ( waitState: 'resumed', status: 'COMPLETED' )

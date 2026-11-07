@@ -1,3 +1,8 @@
+---
+title: "Live Monitoring & DevTools"
+description: "Real-time workflow telemetry, dynamic DAG topology visualization, latency waterfalls, SSE/WebSocket transports, and Prometheus metrics."
+---
+
 # @siglo/monitor Adapter & Live DevTools
 
 `@siglo/monitor` provides real-time workflow telemetry, dynamic DAG topology visualization, execution latency waterfalls, state diff inspection, SSE/WebSocket transports, and Prometheus metrics for `Siglo` applications.

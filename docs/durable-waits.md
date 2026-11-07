@@ -1,19 +1,32 @@
+---
+title: "Durable Waits and External Events"
+description: "Formal specification and operational contracts for durable suspension, correlation keys, event resumption, and checkpoint state restoration in Siglo."
+---
+
 # Durable Waits and External Events
 
 Long-running workflows frequently need to pause execution for minutes, hours, or days awaiting an external event (such as human approval, webhook verification, or payment clearance) or a duration timer.
 
-`Siglo` v1.0.0 supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.
+`Siglo` supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.
 
 ---
 
 ## 1. Durable Execution Mode (`durable: true`)
 
-When a workflow runs with `{ durable: true }`, encounter of a wait node halts execution cleanly, creates a state checkpoint, records a waiting descriptor, and returns execution control:
+When a workflow runs with `{ durable: true }`, encounter of a wait node halts execution cleanly, creates a state checkpoint, records a waiting descriptor, and returns execution control with status `'waiting'`:
 
 ```typescript
 import { Step, flow, waitForEvent, wait } from '@siglo/core';
 
-const userRegistrationFlow = flow(
+const registerAccount = Step.create('registerAccount', async (ctx: { userId: string; email: string }) => {
+  return { registeredAt: Date.now(), status: 'PENDING_VERIFICATION' };
+});
+
+const activateAccount = Step.create('activateAccount', async (ctx: { userId: string; verificationToken: string }) => {
+  return { status: 'ACTIVE', activatedAt: Date.now() };
+});
+
+export const userRegistrationFlow = flow(
   registerAccount,
   waitForEvent('email.verified', {
     correlationKey: (ctx) => `user:${ctx.userId}`,
@@ -33,18 +46,31 @@ console.log(suspension.correlationKey); // 'user:u_101'
 console.log(suspension.stackId);        // Execution stack UUID
 ```
 
+If a workflow executes without `{ durable: true }` and hits a wait node, Siglo throws a `WorkflowSuspendedException` containing the waiting descriptor.
+
 ---
 
 ## 2. Wait Combinators
 
 ### `waitForEvent(eventName, options)`
 Waits for an incoming event correlated by key:
-- `correlationKey`: String or `(ctx) => string`.
-- `timeout` / `timeoutMs`: Duration string (e.g. `'2h'`, `'30m'`, `'1d'`) or milliseconds.
+- `correlationKey`: String or dynamic context selector `(ctx) => string`.
+- `timeout` / `timeoutMs`: Duration string (e.g. `'2h'`, `'30m'`, `'7d'`) or milliseconds.
+
+```typescript
+waitForEvent('managerApproval', {
+  correlationKey: (ctx) => `expense:${ctx.expenseId}`,
+  timeout: '7d'
+});
+```
 
 ### `wait(duration, options?)`
-Durable sleep/timer:
-- `duration`: Duration string or numeric milliseconds.
+Durable sleep/timer that suspends workflow execution:
+- `duration`: Duration string (e.g. `'24h'`, `'15m'`, `'60s'`) or numeric milliseconds.
+
+```typescript
+wait('24h');
+```
 
 ---
 
@@ -53,6 +79,9 @@ Durable sleep/timer:
 When the external event occurs (e.g. from an HTTP webhook), resume the workflow by passing the correlation key or `stackId` and the external event payload:
 
 ```typescript
+import { resumeWorkflow } from '@siglo/core';
+import { userRegistrationFlow } from './workflows';
+
 // Incoming webhook handler
 app.post('/webhooks/email-verified', async (req, res) => {
   const { userId, verificationToken } = req.body;
@@ -67,19 +96,35 @@ app.post('/webhooks/email-verified', async (req, res) => {
 });
 ```
 
-The orchestrator:
-1. Validates the wait record in `DurableManager`.
-2. Restores the state snapshot from the storage checkpoint.
-3. Merges the event payload into context.
-4. Executes the remaining continuation steps to completion.
+Alternatively, use the standalone `resumeWorkflow` utility:
+
+```typescript
+const result = await resumeWorkflow(
+  userRegistrationFlow,
+  `user:${userId}`,
+  { verificationToken },
+  {
+    pojo: true,
+    targetVersion: '1.0.0'
+  }
+);
+```
+
+### Resumption Lifecycle
+1. **Wait Record Validation**: Resolves the wait record from `DurableManager` or storage adapter (`claimWaitRecord`).
+2. **State Restoration**: Restores context and `$steps` history snapshots from the checkpoint.
+3. **Event Payload Merge**: Merges incoming event payload into the execution context.
+4. **Continuation Execution**: Evaluates remaining steps starting at `continuationStepIndex` without re-running completed steps.
 
 ---
 
-## 4. Event Safety Guarantees
+## 4. Event Safety & Concurrency Guarantees
 
-- **Duplicate Events**: Attempting to resume a workflow that is not waiting or has already resumed throws `DuplicateEventException`.
-- **Expired Waits**: If an event arrives after the declared `timeout` has elapsed, `ExpiredWaitException` is thrown.
-- **Resource Efficiency**: In-memory timers and context bindings are released while waiting, permitting thousands of long-running workflows to pause concurrently.
+- **Duplicate Resumption Defense**:
+  - In-memory runs: Resuming an already-resumed or non-waiting workflow throws `DuplicateEventException`.
+  - Storage-backed runs: Concurrent claims on the same wait record throw `WorkflowAlreadyResumedException`.
+- **Expired Wait Enforcement**: If an event arrives after the declared `timeout` has elapsed, `ExpiredWaitException` is thrown (unless explicitly overridden with `allowExpired: true`).
+- **Resource Efficiency**: In-memory timers and context closures are freed while suspended, allowing thousands of workflows to pause concurrently in production without resource leaks.
 
 ---
 

@@ -1,3 +1,8 @@
+---
+title: "Redis Adapter"
+description: "In-memory distributed persistence, step response caching, atomic idempotency deduplication, distributed mutex locking, and replay defense."
+---
+
 # @siglo/redis Adapter Guide
 
 `@siglo/redis` provides an in-memory distributed persistence, step response caching, atomic idempotency deduplication, distributed single-flight coordination, and webhook replay prevention layer for `Siglo` workflows. It is powered by Redis and compatible with standalone Redis, Redis Sentinel, and Redis Cluster via `ioredis` (or any client implementing `RedisClientInterface`).

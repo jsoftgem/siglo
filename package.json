@@ -20,7 +20,8 @@
     "test:ide": "npm test --workspace=@siglo/ide-protocol && npm test --workspace=@siglo/ide-analysis && npm test --workspace=@siglo/vscode",
     "test:examples": "npm run test --workspace=siglo-examples",
     "test:all": "npm test && npm run test:packages && npm run test:ide && npm run test:examples",
-    "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts",
+    "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts test/exploratory/engine/invariant-evaluator.test.ts",
+    "test:mutation": "stryker run",
     "explore": "tsx test/exploratory/runner.ts",
     "publish:core": "npm publish --workspace=@siglo/core --registry https://registry.npmjs.org/",
     "test:monitoring": "npm test --workspace=siglo-apm-monitoring",
@@ -45,6 +46,9 @@
   },
   "homepage": "https://github.com/jsoftgem/siglo#readme",
   "devDependencies": {
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/mocha-runner": "^10.1.1",
+    "@stryker-mutator/typescript-checker": "^10.1.1",
     "@types/chai": "^5.2.3",
     "@types/express": "^5.0.6",
     "@types/mocha": "^10.0.10",
@@ -64,6 +68,9 @@
   },
   "overrides": {
     "minimatch": "^11.0.1",
-    "glob": "^14.0.2"
+    "glob": "^14.0.2",
+    "typed-rest-client": {
+      "qs": "^6.17.1"
+    }
   }
 }

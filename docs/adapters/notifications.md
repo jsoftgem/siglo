@@ -1,6 +1,13 @@
+---
+title: "Notifications & Approvals"
+description: "Multi-channel messaging, tamper-proof cryptographic approval tokens, and distributed durable callback resumption for Siglo workflows."
+---
+
 # @siglo/notifications Adapter Guide
 
-> Security migration: read [approval authorization, POST confirmation, durable recovery and delivery guarantees](./notification-hardening.md). GET is read-only; configure `authorize` or explicitly opt into `allowBearerApproval`.
+> [!IMPORTANT]
+> **Production Security & Hardening**:
+> For production deployment requirements, read [Notification Hardening & Recovery](./notification-hardening.md). Callback `GET` requests are read-only confirmation previews; only `POST` requests accept approval decisions. Configure an `authorize(payload, request)` callback or explicitly opt into `allowBearerApproval: true`.
 
 
 `@siglo/notifications` provides multi-channel messaging, tamper-proof cryptographic approval tokens, and distributed durable callback resumption for `Siglo` workflows. It enables human-in-the-loop workflows (deployment gates, expense approvals, manual fraud reviews) with signed tokens, application-provided authorization, distributed concurrency control, and zero external SDK dependencies.
