@@ -1,6 +1,6 @@
 ---
-title: "TypeScript Reference"
-description: "Type safety and static inference in Siglo: Step generic signatures, accumulated context union typing, typed $steps history, and Standard Schema validation."
+title: 'TypeScript Reference'
+description: 'Type safety and static inference in Siglo: Step generic signatures, accumulated context union typing, typed $steps history, and Standard Schema validation.'
 ---
 
 # TypeScript Reference
@@ -20,6 +20,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 ```
 
 When defining a step with `Step.create(name, action)`:
+
 - `TInput`: Type expected by the step action parameter.
 - `TOutput`: Type returned by the step action.
 - `TName`: String literal name of the step (used to index `$steps`).
@@ -29,33 +30,36 @@ When defining a step with `Step.create(name, action)`:
 `Step.create` supports both explicit generic orders:
 
 1. **Name-First Overload** (convenient when specifying literal step name as the leading type argument):
-   ```typescript
-   const fetchUser = Step.create<'fetchUser', { id: string }, { user: { name: string; email: string } }>(
-       'fetchUser',
-       async (param) => ({ user: { name: 'Alice', email: 'alice@example.com' } })
-   );
-   ```
+
+    ```typescript
+    const fetchUser = Step.create<'fetchUser', { id: string }, { user: { name: string; email: string } }>(
+        'fetchUser',
+        async param => ({ user: { name: 'Alice', email: 'alice@example.com' } }),
+    );
+    ```
 
 2. **Input-First Overload** (mirrors the class generic order `Step<TInput, TOutput, TName>`):
-   ```typescript
-   const fetchUser = Step.create<{ id: string }, { user: { name: string; email: string } }, 'fetchUser'>(
-       'fetchUser',
-       async (param) => ({ user: { name: 'Alice', email: 'alice@example.com' } })
-   );
-   ```
+
+    ```typescript
+    const fetchUser = Step.create<{ id: string }, { user: { name: string; email: string } }, 'fetchUser'>(
+        'fetchUser',
+        async param => ({ user: { name: 'Alice', email: 'alice@example.com' } }),
+    );
+    ```
 
 3. **Automatic Inference (Recommended)**: In standard application code, TypeScript automatically infers `TName`, `TInput`, and `TOutput` from the function arguments without manual type parameter annotations:
-   ```typescript
-   const fetchUser = Step.create('fetchUser', async (param: { id: string }) => ({
-       user: { name: 'Alice', email: 'alice@example.com' }
-   }));
-   ```
+    ```typescript
+    const fetchUser = Step.create('fetchUser', async (param: { id: string }) => ({
+        user: { name: 'Alice', email: 'alice@example.com' },
+    }));
+    ```
 
 ---
 
 ## 2. Accumulated Context Inference
 
 When steps are chained in `flow(s1, s2, s3)`:
+
 - Step 1 receives `TIn` and returns `T1Out`.
 - Step 2 receives `TIn & T1Out` and returns `T2Out`.
 - Step 3 receives `TIn & T1Out & T2Out` and returns `T3Out`.
@@ -106,19 +110,22 @@ const dbStep = Step.create('dbStep', async (param: any) => {
 });
 
 // Run with typed services
-await dbStep.execute({}, {
-    services: {
-        db: myDbPool,
-        logger: console
-    }
-});
+await dbStep.execute(
+    {},
+    {
+        services: {
+            db: myDbPool,
+            logger: console,
+        },
+    },
+);
 ```
 
 Or attach step-level dependencies:
 
 ```typescript
 const stepWithDeps = dbStep.withDependencies({
-    apiClient: new HttpClient()
+    apiClient: new HttpClient(),
 });
 
 const client = stepWithDeps.requireDependency<HttpClient>('apiClient');
@@ -136,14 +143,14 @@ import { Step } from '@siglo/core';
 
 const UserSchema = z.object({
     username: z.string().min(3),
-    age: z.number().int().positive()
+    age: z.number().int().positive(),
 });
 
-const validateStep = Step.create('validate', async (param) => {
+const validateStep = Step.create('validate', async param => {
     return { ok: true };
 })
-.schema(UserSchema)
-.strict();
+    .schema(UserSchema)
+    .strict();
 ```
 
 ---
@@ -160,8 +167,8 @@ interface Step1Out {
     doubled: number;
 }
 
-const s1 = Step.create<Input, Step1Out, 'doubleStep'>('doubleStep', (p) => ({
-    doubled: p.val * 2
+const s1 = Step.create<Input, Step1Out, 'doubleStep'>('doubleStep', p => ({
+    doubled: p.val * 2,
 }));
 
 const wf = flow(s1);
@@ -179,8 +186,8 @@ When steps declare explicit input generic types (`Step.create<MyInput, ...>`), T
 const stepA = Step.create('stepA', () => ({ x: 10 }));
 
 // stepB requires 'y: string' which does not exist in upstream output
-const stepB = Step.create<{ y: string }, { z: string }, 'stepB'>('stepB', (param) => ({
-    z: param.y.toUpperCase()
+const stepB = Step.create<{ y: string }, { z: string }, 'stepB'>('stepB', param => ({
+    z: param.y.toUpperCase(),
 }));
 ```
 
@@ -196,8 +203,8 @@ const stepB = Step.create<{ y: string }, { z: string }, 'stepB'>('stepB', (param
 import { expect } from 'chai';
 import { Step, flow } from '@siglo/core';
 
-const s1 = Step.create<'calc', { n: number }, { isEven: boolean }>('calc', (p) => ({
-    isEven: p.n % 2 === 0
+const s1 = Step.create<'calc', { n: number }, { isEven: boolean }>('calc', p => ({
+    isEven: p.n % 2 === 0,
 }));
 
 describe('TypeScript Type Parity Test', () => {
@@ -221,6 +228,6 @@ describe('TypeScript Type Parity Test', () => {
 
 ## API Reference Links
 
-- [Core Concepts Guide](./02-core-concepts.md)
-- [Sequential Workflows](./03-sequential-workflows.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Core Concepts Guide](/02-core-concepts)
+- [Sequential Workflows](/03-sequential-workflows)
+- [Testing & Replay Reference](/09-testing-and-replay)

@@ -1,11 +1,11 @@
 ---
-title: "Suspend Checkout for Approval and Resume Across Servers"
-description: "Suspend a distributed Siglo checkout workflow for human approval, persist execution state to PostgreSQL, and resume across server restarts."
+title: 'Suspend Checkout for Approval and Resume Across Servers'
+description: 'Suspend a distributed Siglo checkout workflow for human approval, persist execution state to PostgreSQL, and resume across server restarts.'
 ---
 
 # Suspend Checkout for Approval and Resume Across Servers
 
-In [Run Checkout Across Two Servers with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md), both API instances executed orders synchronously from start to finish within a single HTTP request.
+In [Run Checkout Across Two Servers with PostgreSQL and Redis](/distributed-rest-and-live-monitoring), both API instances executed orders synchronously from start to finish within a single HTTP request.
 
 In real e-commerce and B2B systems, workflows often cannot finish in a few hundred milliseconds:
 
@@ -27,15 +27,15 @@ You need a repository checkout, a running Docker daemon, and Docker Compose with
 docker compose -f examples/durable-distributed-checkout/docker-compose.yml up --build -d --wait
 ```
 
-This uses the separate **`siglo-durable-checkout`** Compose project, image, database volume, Redis channel, and host ports. The [previous tutorial](distributed-rest-and-live-monitoring.md) and its `examples/distributed-checkout` stack can keep running unchanged.
+This uses the separate **`siglo-durable-checkout`** Compose project, image, database volume, Redis channel, and host ports. The [previous tutorial](/distributed-rest-and-live-monitoring) and its `examples/distributed-checkout` stack can keep running unchanged.
 
-| Service | Local address |
-|---|---|
-| API A | http://127.0.0.1:3100 |
-| API B | http://127.0.0.1:3101 |
-| Live Monitor | http://127.0.0.1:4100 |
-| PostgreSQL | postgres://siglo:siglo@127.0.0.1:5434/checkout |
-| Redis | redis://127.0.0.1:6381 |
+| Service      | Local address                                  |
+| ------------ | ---------------------------------------------- |
+| API A        | http://127.0.0.1:3100                          |
+| API B        | http://127.0.0.1:3101                          |
+| Live Monitor | http://127.0.0.1:4100                          |
+| PostgreSQL   | postgres://siglo:siglo@127.0.0.1:5434/checkout |
+| Redis        | redis://127.0.0.1:6381                         |
 
 Submit an order to API A. Expect **202 Accepted** with `status: "waiting"`:
 
@@ -72,15 +72,15 @@ Data survives `down`; add `--volumes` only when you want to reset this example's
 
 ### Example Files to Explore
 
-| File | Purpose |
-|---|---|
-| [checkout-durable.ts](../examples/src/durable-distributed-checkout/checkout-durable.ts) | Reserve, charge with retry, wait for approval, and ship |
-| [api-durable.ts](../examples/src/durable-distributed-checkout/api-durable.ts) | Express adapter submission, validation, deduplication, and approval webhook |
-| [infrastructure.ts](../examples/src/durable-distributed-checkout/infrastructure.ts) | PostgreSQL checkpoint/wait persistence, locking, and Redis clients |
-| [monitor.ts](../examples/src/durable-distributed-checkout/monitor.ts) | Central dashboard, Redis subscription, and interactive resumption |
-| [smoke.ts](../examples/src/durable-distributed-checkout/smoke.ts) | Assertions before and after API restarts |
-| [docker-compose.yml](../examples/durable-distributed-checkout/docker-compose.yml) | Isolated two-replica stack |
-| [Example README](../examples/durable-distributed-checkout/README.md) | Commands, ports, and rebuilding after edits |
+| File                                                                                                          | Purpose                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [checkout-durable.ts](../examples/src/durable-distributed-checkout/checkout-durable.ts)                       | Reserve, charge with retry, wait for approval, and ship                     |
+| [api-durable.ts](../examples/src/durable-distributed-checkout/api-durable.ts)                                 | Express adapter submission, validation, deduplication, and approval webhook |
+| [infrastructure.ts](../examples/src/durable-distributed-checkout/infrastructure.ts)                           | PostgreSQL checkpoint/wait persistence, locking, and Redis clients          |
+| [monitor.ts](../examples/src/durable-distributed-checkout/monitor.ts)                                         | Central dashboard, Redis subscription, and interactive resumption           |
+| [smoke.ts](../examples/src/durable-distributed-checkout/smoke.ts)                                             | Assertions before and after API restarts                                    |
+| [docker-compose.yml](../examples/durable-distributed-checkout/docker-compose.yml)                             | Isolated two-replica stack                                                  |
+| [Example README](https://github.com/jsoftgem/siglo/blob/main/examples/durable-distributed-checkout/README.md) | Commands, ports, and rebuilding after edits                                 |
 
 The stock, payment, and shipping services are fake; no external provider credentials are needed. After trying the example, edit these files and rerun the build command above. The sections below explain how they fit together.
 
@@ -144,37 +144,44 @@ export class ApprovalRejectedError extends Error {}
 
 export function createDurableCheckout(services: CheckoutServices) {
     const reserveStock = Step.create('reserveStock', async (order: Order) => ({
-        reservationId: await services.reserve(order)
+        reservationId: await services.reserve(order),
     })).compensate(async (output: { reservationId: string }) => services.release(output.reservationId));
 
     const chargePayment = Step.create('chargePayment', async (order: Order) => ({
-        paymentId: await services.charge(order)
-    })).onFail({
-        maxRetries: 2, delay: 10, backoff: 'exponential',
-        retryIf: error => error instanceof TemporaryPaymentError
-    }).compensate(async (output: { paymentId: string }) => services.refund(output.paymentId));
+        paymentId: await services.charge(order),
+    }))
+        .onFail({
+            maxRetries: 2,
+            delay: 10,
+            backoff: 'exponential',
+            retryIf: error => error instanceof TemporaryPaymentError,
+        })
+        .compensate(async (output: { paymentId: string }) => services.refund(output.paymentId));
 
     const awaitApproval = waitForEvent('order.approved', {
         correlationKey: (order: Order) => `order:${order.orderId}`,
-        timeout: '24h'
+        timeout: '24h',
     });
 
-    const arrangeShipping = Step.create('arrangeShipping', async (
-        order: Order & { reservationId: string; paymentId: string; approved?: boolean; approverId?: string }
-    ) => {
-        if (order.approved !== true) {
-            // Continuations do not reconstruct compensation handlers from earlier
-            // processes. Reconcile the persisted provider IDs explicitly here.
-            await services.refund(order.paymentId);
-            await services.release(order.reservationId);
-            throw new ApprovalRejectedError('Order rejected by reviewer');
-        }
-        return {
-            status: 'confirmed',
-            trackingId: await services.ship(order),
-            approvedBy: order.approverId
-        };
-    });
+    const arrangeShipping = Step.create(
+        'arrangeShipping',
+        async (
+            order: Order & { reservationId: string; paymentId: string; approved?: boolean; approverId?: string },
+        ) => {
+            if (order.approved !== true) {
+                // Continuations do not reconstruct compensation handlers from earlier
+                // processes. Reconcile the persisted provider IDs explicitly here.
+                await services.refund(order.paymentId);
+                await services.release(order.reservationId);
+                throw new ApprovalRejectedError('Order rejected by reviewer');
+            }
+            return {
+                status: 'confirmed',
+                trackingId: await services.ship(order),
+                approvedBy: order.approverId,
+            };
+        },
+    );
 
     return flow(reserveStock, chargePayment, awaitApproval, arrangeShipping).version('1.0.0');
 }
@@ -187,7 +194,7 @@ export function createDurableCheckout(services: CheckoutServices) {
 
 ## 3. Wire PostgreSQL Wait Records in Storage
 
-In [Distributed Checkout with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md#3-connect-both-adapters), our storage adapter only forwarded checkpoints and cache operations.
+In [Distributed Checkout with PostgreSQL and Redis](/distributed-rest-and-live-monitoring#3-connect-both-adapters), our storage adapter only forwarded checkpoints and cache operations.
 
 For durable workflows, the storage adapter must expose wait record persistence and distributed locking. [infrastructure.ts](../examples/src/durable-distributed-checkout/infrastructure.ts) serializes checkpoint and wait writes and exposes `flush()`. The submission wrapper drains these writes before acknowledging `202`; the resume path drains them while holding the workflow lock. Compose runs schema initialization once before starting the API replicas and monitor:
 
@@ -207,15 +214,14 @@ export function pubsubClient(redis: Redis) {
     return {
         publish: (topic: string, message: string) => redis.publish(topic, message),
         subscribe: (topic: string) => redis.subscribe(topic),
-        on: (event: 'message', listener: (topic: string, message: string) => void) => redis.on(event, listener)
+        on: (event: 'message', listener: (topic: string, message: string) => void) => redis.on(event, listener),
     };
 }
 
 export async function connectInfrastructure() {
     const pool = new Pool({
-        connectionString: process.env.DATABASE_URL
-            || 'postgres://siglo:siglo@127.0.0.1:5434/checkout',
-        connectionTimeoutMillis: 5000
+        connectionString: process.env.DATABASE_URL || 'postgres://siglo:siglo@127.0.0.1:5434/checkout',
+        connectionTimeoutMillis: 5000,
     });
     const redis = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
     redis.on('error', error => console.error('Redis:', error.message));
@@ -225,8 +231,8 @@ export async function connectInfrastructure() {
         get: key => redis.get(key),
         set: (key, value, ...args) => redis.set(key, value, 'PX', Number(args[1])),
         del: key => redis.del(...(Array.isArray(key) ? key : [key])),
-        hset: (key, field, value) => typeof field === 'string'
-            ? redis.hset(key, field, value!) : redis.hset(key, field)
+        hset: (key, field, value) =>
+            typeof field === 'string' ? redis.hset(key, field, value!) : redis.hset(key, field),
     };
     const cache = new RedisStorageAdapter({ client: cacheClient, keyPrefix: 'tutorial:', recordContextChanges: false });
 
@@ -258,14 +264,18 @@ export async function connectInfrastructure() {
                 // terminal checkpoint can be saved after the continuation runs.
                 if (!defaultStorageManager.getStack(stackId)) {
                     const checkpoint = await postgres.getCheckpoint(stackId);
-                    if (checkpoint) defaultStorageManager.restoreCheckpoint(checkpoint, { expectedNamespace: namespace });
+                    if (checkpoint)
+                        defaultStorageManager.restoreCheckpoint(checkpoint, { expectedNamespace: namespace });
                 }
-                try { return await action(); }
-                finally { await writes; }
+                try {
+                    return await action();
+                } finally {
+                    await writes;
+                }
             });
         },
         getCachedStep: key => cache.getCachedStep(key),
-        setCachedStep: (key, value, ttl) => cache.setCachedStep(key, value, ttl)
+        setCachedStep: (key, value, ttl) => cache.setCachedStep(key, value, ttl),
     };
     try {
         await redis.connect();
@@ -274,13 +284,16 @@ export async function connectInfrastructure() {
         await pool.query('SELECT 1');
         Step.useStorage(storage);
         return {
-            pool, redis, postgres, idempotency,
+            pool,
+            redis,
+            postgres,
+            idempotency,
             flush: () => writes,
             async close() {
                 await writes.catch(console.error);
                 redis.disconnect();
                 await pool.end();
-            }
+            },
         };
     } catch (error) {
         redis.disconnect();
@@ -290,12 +303,19 @@ export async function connectInfrastructure() {
 }
 
 if (require.main === module) {
-    connectInfrastructure().then(async infra => {
-        try {
-            await infra.postgres.ensureTables();
-            await infra.idempotency.ensureTable();
-        } finally { await infra.close(); }
-    }).catch(error => { console.error(error); process.exitCode = 1; });
+    connectInfrastructure()
+        .then(async infra => {
+            try {
+                await infra.postgres.ensureTables();
+                await infra.idempotency.ensureTable();
+            } finally {
+                await infra.close();
+            }
+        })
+        .catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+        });
 }
 ```
 
@@ -303,15 +323,15 @@ if (require.main === module) {
 
 The `PostgresStorageAdapter` automatically manages the `siglo_wait_records` table:
 
-| Column | Type | Purpose |
-|---|---|---|
-| `correlation_key` | `VARCHAR(255) PRIMARY KEY` | Business lookup key (e.g. `order:order-5001`) |
-| `stack_id` | `VARCHAR(255) NOT NULL` | Execution UUID of the waiting workflow |
-| `status` | `VARCHAR(50) NOT NULL` | State of wait: `'WAITING'`, `'RESUMING'`, `'RESUMED'`, or `'CANCELLED'` |
-| `continuation_step_index` | `INT NOT NULL` | Index of the step to run upon resumption |
-| `expires_at` | `TIMESTAMPTZ` | Expiry deadline calculated from declared timeout |
-| `resume_payload` | `JSONB` | Saved payload supplied during resumption |
-| `locked_by` | `TEXT` | Replica identifier holding the active resume lock |
+| Column                    | Type                       | Purpose                                                                 |
+| ------------------------- | -------------------------- | ----------------------------------------------------------------------- |
+| `correlation_key`         | `VARCHAR(255) PRIMARY KEY` | Business lookup key (e.g. `order:order-5001`)                           |
+| `stack_id`                | `VARCHAR(255) NOT NULL`    | Execution UUID of the waiting workflow                                  |
+| `status`                  | `VARCHAR(50) NOT NULL`     | State of wait: `'WAITING'`, `'RESUMING'`, `'RESUMED'`, or `'CANCELLED'` |
+| `continuation_step_index` | `INT NOT NULL`             | Index of the step to run upon resumption                                |
+| `expires_at`              | `TIMESTAMPTZ`              | Expiry deadline calculated from declared timeout                        |
+| `resume_payload`          | `JSONB`                    | Saved payload supplied during resumption                                |
+| `locked_by`               | `TEXT`                     | Replica identifier holding the active resume lock                       |
 
 ---
 
@@ -327,7 +347,13 @@ The submission adapter starts the workflow, unwraps its result, and automaticall
 ```typescript
 import express from 'express';
 import { once } from 'node:events';
-import { DuplicateEventException, ExpiredWaitException, WorkflowEventEmitter, WorkflowAlreadyResumedException, resumeWorkflow } from '@siglo/core';
+import {
+    DuplicateEventException,
+    ExpiredWaitException,
+    WorkflowEventEmitter,
+    WorkflowAlreadyResumedException,
+    resumeWorkflow,
+} from '@siglo/core';
 import { sigloExpressMiddleware } from '@siglo/express';
 import { RedisMonitoringAdapter } from '@siglo/monitor';
 import { createDemoServices } from '../getting-started/checkout-demo';
@@ -338,10 +364,17 @@ import { channel, connectInfrastructure, namespace, pubsubClient } from './infra
 function isOrder(value: unknown): value is Order {
     if (!value || typeof value !== 'object') return false;
     const order = value as Partial<Order>;
-    return typeof order.orderId === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(order.orderId)
-        && typeof order.sku === 'string' && order.sku.length > 0 && order.sku.length <= 80
-        && Number.isSafeInteger(order.quantity) && order.quantity! > 0
-        && Number.isSafeInteger(order.amountCents) && order.amountCents! > 0;
+    return (
+        typeof order.orderId === 'string' &&
+        /^[a-zA-Z0-9_-]{1,80}$/.test(order.orderId) &&
+        typeof order.sku === 'string' &&
+        order.sku.length > 0 &&
+        order.sku.length <= 80 &&
+        Number.isSafeInteger(order.quantity) &&
+        order.quantity! > 0 &&
+        Number.isSafeInteger(order.amountCents) &&
+        order.amountCents! > 0
+    );
 }
 
 export async function startApi(port = Number(process.env.PORT || 3100)) {
@@ -355,37 +388,51 @@ export async function startApi(port = Number(process.env.PORT || 3100)) {
     // adapter sends its built-in 202 response; no custom output callback is used.
     const run = checkout.run;
     checkout.run = async (...args) => {
-        try { return await run(...args); }
-        finally { await infra.flush(); }
+        try {
+            return await run(...args);
+        } finally {
+            await infra.flush();
+        }
     };
     const app = express();
     app.use(express.json({ limit: '16kb' }));
-    app.use((_req, res, next) => { res.setHeader('X-Instance-Id', instance); next(); });
-    app.get('/health', (_req, res) => { res.json({ instance }); });
+    app.use((_req, res, next) => {
+        res.setHeader('X-Instance-Id', instance);
+        next();
+    });
+    app.get('/health', (_req, res) => {
+        res.json({ instance });
+    });
 
-    app.post('/api/checkouts', async (req, res, next) => {
-        if (!isOrder(req.body)) {
-            res.status(400).json({ error: 'Provide orderId, sku, positive integer quantity and amountCents' });
-            return;
-        }
-        try {
-            // A submission is accepted once per order ID within this demo window.
-            const claim = await infra.idempotency.claim(`${namespace}:${req.body.orderId}`, 86_400_000);
-            if (claim !== 'claimed') {
-                res.status(409).json({ error: 'Order ID already submitted; use the approval webhook to resume' });
+    app.post(
+        '/api/checkouts',
+        async (req, res, next) => {
+            if (!isOrder(req.body)) {
+                res.status(400).json({ error: 'Provide orderId, sku, positive integer quantity and amountCents' });
                 return;
             }
-            next();
-        } catch (error) { next(error); }
-    }, sigloExpressMiddleware(checkout, {
-        durable: true,
-        namespace,
-        // Only domain fields enter the workflow; HTTP flags are not persisted.
-        input: req => {
-            const { orderId, sku, quantity, amountCents } = req.body;
-            return { orderId, sku, quantity, amountCents };
-        }
-    }));
+            try {
+                // A submission is accepted once per order ID within this demo window.
+                const claim = await infra.idempotency.claim(`${namespace}:${req.body.orderId}`, 86_400_000);
+                if (claim !== 'claimed') {
+                    res.status(409).json({ error: 'Order ID already submitted; use the approval webhook to resume' });
+                    return;
+                }
+                next();
+            } catch (error) {
+                next(error);
+            }
+        },
+        sigloExpressMiddleware(checkout, {
+            durable: true,
+            namespace,
+            // Only domain fields enter the workflow; HTTP flags are not persisted.
+            input: req => {
+                const { orderId, sku, quantity, amountCents } = req.body;
+                return { orderId, sku, quantity, amountCents };
+            },
+        }),
+    );
 
     app.get('/api/checkouts/:stackId', async (req, res, next) => {
         try {
@@ -395,20 +442,32 @@ export async function startApi(port = Number(process.env.PORT || 3100)) {
                 return;
             }
             res.json({ stackId: checkpoint.stackId, status: checkpoint.status });
-        } catch (error) { next(error); }
+        } catch (error) {
+            next(error);
+        }
     });
 
     app.post('/api/webhooks/orders/:orderId/approval', async (req, res, next) => {
         const { orderId } = req.params;
         const { approved, approverId } = req.body || {};
-        if (!/^[a-zA-Z0-9_-]{1,80}$/.test(orderId) || typeof approved !== 'boolean'
-            || typeof approverId !== 'string' || !approverId.trim() || approverId.length > 200) {
+        if (
+            !/^[a-zA-Z0-9_-]{1,80}$/.test(orderId) ||
+            typeof approved !== 'boolean' ||
+            typeof approverId !== 'string' ||
+            !approverId.trim() ||
+            approverId.length > 200
+        ) {
             res.status(400).json({ error: 'Provide boolean approved and a nonempty approverId' });
             return;
         }
         const correlationKey = `order:${orderId}`;
         try {
-            const finalResult = await resumeWorkflow(checkout, correlationKey, { approved, approverId }, { durable: true, pojo: true });
+            const finalResult = await resumeWorkflow(
+                checkout,
+                correlationKey,
+                { approved, approverId },
+                { durable: true, pojo: true },
+            );
             await infra.flush();
             res.json({ success: true, orderId, result: finalResult });
         } catch (error) {
@@ -416,9 +475,14 @@ export async function startApi(port = Number(process.env.PORT || 3100)) {
                 res.status(409).json({ error: 'Workflow is not waiting or has already been resumed', correlationKey });
             } else if (error instanceof ExpiredWaitException) {
                 res.status(410).json({ error: 'Approval window expired', correlationKey });
-            } else if (error instanceof ApprovalRejectedError || (error as any)?.cause instanceof ApprovalRejectedError) {
+            } else if (
+                error instanceof ApprovalRejectedError ||
+                (error as any)?.cause instanceof ApprovalRejectedError
+            ) {
                 res.status(422).json({ error: 'Order rejected; payment refunded and stock released', correlationKey });
-            } else { next(error); }
+            } else {
+                next(error);
+            }
         }
     });
 
@@ -427,23 +491,36 @@ export async function startApi(port = Number(process.env.PORT || 3100)) {
         res.status(503).json({ error: 'Checkout infrastructure unavailable' });
     });
     const server = app.listen(port, '0.0.0.0');
-    try { await once(server, 'listening'); }
-    catch (error) { await infra.close(); throw error; }
+    try {
+        await once(server, 'listening');
+    } catch (error) {
+        await infra.close();
+        throw error;
+    }
     console.log(`${instance}: durable checkout listening on ${port}`);
     return {
         server,
         async close() {
-            await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+            await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
             await infra.close();
-        }
+        },
     };
 }
 
 if (require.main === module) {
-    startApi().then(({ close }) => {
-        process.once('SIGINT', () => { void close(); });
-        process.once('SIGTERM', () => { void close(); });
-    }).catch(error => { console.error(error); process.exitCode = 1; });
+    startApi()
+        .then(({ close }) => {
+            process.once('SIGINT', () => {
+                void close();
+            });
+            process.once('SIGTERM', () => {
+                void close();
+            });
+        })
+        .catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+        });
 }
 ```
 
@@ -481,6 +558,7 @@ Content-Type: application/json; charset=utf-8
 ```
 
 At this moment:
+
 - Inventory has been reserved.
 - Payment has been authorized.
 - The workflow has suspended at `awaitApproval`.
@@ -534,15 +612,15 @@ API B claims the wait record, restores the context snapshot, runs `arrangeShippi
 
 ```json
 {
-  "success": true,
-  "orderId": "order-5001",
-  "result": {
-    "status": "confirmed",
-    "trackingId": "tracking-order-5001",
-    "approvedBy": "risk-manager@shop.com",
-    "reservationId": "reservation-order-5001",
-    "paymentId": "payment-order-5001"
-  }
+    "success": true,
+    "orderId": "order-5001",
+    "result": {
+        "status": "confirmed",
+        "trackingId": "tracking-order-5001",
+        "approvedBy": "risk-manager@shop.com",
+        "reservationId": "reservation-order-5001",
+        "paymentId": "payment-order-5001"
+    }
 }
 ```
 
@@ -589,7 +667,7 @@ Content-Type: application/json; charset=utf-8
 
 ## 6. Live Monitoring and Interactive Resumption
 
-As in [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md), a separate dashboard observes checkout execution. This example uses port **4100** to avoid the previous tutorial's monitor port.
+As in [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring), a separate dashboard observes checkout execution. This example uses port **4100** to avoid the previous tutorial's monitor port.
 
 The monitor registers the checkout workflow and connects to the same PostgreSQL storage as both API replicas. Unlike the previous tutorial's observation-only monitor, this local dashboard enables **interactive resumption**:
 
@@ -599,12 +677,12 @@ The monitor registers the checkout workflow and connects to the same PostgreSQL 
 4. The run displays an amber **SUSPENDED** badge and the waiting event name `order.approved`.
 5. Click **Resume** and use the waiting run's stack ID as the key.
 6. Enter the JSON event payload:
-   ```json
-   {
-     "approved": true,
-     "approverId": "dashboard-operator@shop.com"
-   }
-   ```
+    ```json
+    {
+        "approved": true,
+        "approverId": "dashboard-operator@shop.com"
+    }
+    ```
 7. Click **Dispatch Signal**. The dashboard dispatches `POST /api/workflows/:stackId/resume`, and the live DAG immediately transitions: `arrangeShipping` executes on screen and the workflow completes.
 
 ### Approve Directly from the Dashboard
@@ -636,8 +714,8 @@ curl -i http://127.0.0.1:3101/api/webhooks/orders/order-5002/approval \
 1. The workflow resumes at `arrangeShipping`.
 2. `arrangeShipping` sees `order.approved !== true` and explicitly refunds and releases the persisted provider IDs before throwing `ApprovalRejectedError`.
 3. This cleanup runs in reverse business-operation order:
-   - `refund(paymentId)` is called.
-   - `release(reservationId)` is called.
+    - `refund(paymentId)` is called.
+    - `release(reservationId)` is called.
 4. The fake services have refunded the payment and released stock. The API returns `422` for rejection. Because a fresh process does not reconstruct earlier compensation handlers, the example performs this post-resume cleanup explicitly. Production provider operations must be idempotent for recovery attempts.
 
 The monitor distinguishes delivery of the reviewer's decision from business approval: the wait completes because a signal arrived, but `arrangeShipping` fails because that signal rejected the order. The run turns red while earlier completed operations remain visible. Refund and stock release are explicit service calls inside the continuation, not separate nodes in this view.
@@ -667,36 +745,31 @@ import { Step, flow, waitForEvent, resumeWorkflow } from '@siglo/core';
 export const checkoutV1 = flow(
     reserveStock,
     chargePayment,
-    waitForEvent('order.approved', { correlationKey: (o) => `order:${o.orderId}` }),
-    arrangeShipping
+    waitForEvent('order.approved', { correlationKey: o => `order:${o.orderId}` }),
+    arrangeShipping,
 ).version('1.0.0');
 
 // Version 2.0.0 (new workflow with risk assessment step)
 export const checkoutV2 = flow(
     reserveStock,
     chargePayment,
-    waitForEvent('order.approved', { correlationKey: (o) => `order:${o.orderId}` }),
+    waitForEvent('order.approved', { correlationKey: o => `order:${o.orderId}` }),
     enrichCustomerProfile, // Newly added step
-    arrangeShipping
+    arrangeShipping,
 ).version('2.0.0');
 
 // Resuming an execution created under v1.0.0 with v2.0.0 logic:
 app.post('/api/webhooks/orders/:orderId/approval', async (req, res) => {
-    const finalResult = await resumeWorkflow(
-        checkoutV2,
-        `order:${req.params.orderId}`,
-        req.body,
-        {
-            targetVersion: '2.0.0',
-            migrations: {
-                '1.0.0->2.0.0': (fromVersion, toVersion, oldState) => ({
-                    ...oldState,
-                    schemaVersion: 2,
-                    customerTier: oldState.customerTier || 'STANDARD'
-                })
-            }
-        }
-    );
+    const finalResult = await resumeWorkflow(checkoutV2, `order:${req.params.orderId}`, req.body, {
+        targetVersion: '2.0.0',
+        migrations: {
+            '1.0.0->2.0.0': (fromVersion, toVersion, oldState) => ({
+                ...oldState,
+                schemaVersion: 2,
+                customerTier: oldState.customerTier || 'STANDARD',
+            }),
+        },
+    });
 
     res.json(finalResult);
 });
@@ -735,7 +808,7 @@ test('durable checkout suspends, waits for approval, and finishes shipping', asy
         workflow,
         `order:${sampleOrder.orderId}`,
         { approved: true, approverId: 'test-qa@shop.com' },
-        { pojo: true }
+        { pojo: true },
     );
 
     assert.equal(finalResult.status, 'confirmed');
@@ -756,7 +829,7 @@ test('duplicate resumption throws DuplicateEventException', async () => {
     // Second resume fails immediately
     await assert.rejects(
         resumeWorkflow(workflow, `order:${sampleOrder.orderId}`, { approved: true }),
-        DuplicateEventException
+        DuplicateEventException,
     );
 });
 ```
@@ -776,12 +849,12 @@ When operating durable workflows in production:
 
 ## Summary & Next Steps
 
-| Topic | Document |
-|---|---|
-| Continue with Kafka integration and conditional routing | [Kafka Order Routing with `branch` and `when`](kafka-order-routing.md) |
-| Core durable concepts and wait combinators | [06. Durable Workflows](06-durable-workflows.md) |
-| PostgreSQL checkpoint and wait table contracts | [Storage and Persistence Contract](storage-contract.md) |
-| Distributed storage adapters and multi-tenant namespaces | [Storage and Adapters](07-storage-and-adapters.md) |
-| Production runbooks and background daemons | [Production Best Practices](production-best-practices.md) |
-| Interactive DevTools and SSE telemetry | [Live Monitoring](live-monitoring.md) |
-| Reverse-order rollbacks and saga recovery | [Compensation and Sagas](compensation-and-sagas.md) |
+| Topic                                                    | Document                                                             |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| Continue with Kafka integration and conditional routing  | [Kafka Order Routing with `branch` and `when`](/kafka-order-routing) |
+| Core durable concepts and wait combinators               | [06. Durable Workflows](/06-durable-workflows)                       |
+| PostgreSQL checkpoint and wait table contracts           | [Storage and Persistence Contract](/storage-contract)                |
+| Distributed storage adapters and multi-tenant namespaces | [Storage and Adapters](/07-storage-and-adapters)                     |
+| Production runbooks and background daemons               | [Production Best Practices](/production-best-practices)              |
+| Interactive DevTools and SSE telemetry                   | [Live Monitoring](/live-monitoring)                                  |
+| Reverse-order rollbacks and saga recovery                | [Compensation and Sagas](/compensation-and-sagas)                    |

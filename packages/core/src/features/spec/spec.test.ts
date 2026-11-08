@@ -4,7 +4,6 @@ import { SpecFailedException } from './SpecFailedException';
 import { expect } from 'chai';
 
 describe('spec.unit.test', () => {
-
     it('should create spec with field name', () => {
         const spec = new Spec('fieldName');
         expect(spec).to.be.not.undefined;
@@ -37,19 +36,21 @@ describe('spec.unit.test', () => {
     it('should set a custom validator', done => {
         const context = new Context('_chained00');
         const spec = new Spec('validationField');
-        spec.validate((currentValue: any) => new Promise((resolve, reject) => {
-            if (currentValue > 0) {
-                resolve(undefined);
-            } else {
-                reject('Value must be greater than 0');
-            }
-        }));
+        spec.validate(
+            (currentValue: any) =>
+                new Promise((resolve, reject) => {
+                    if (currentValue > 0) {
+                        resolve(undefined);
+                    } else {
+                        reject('Value must be greater than 0');
+                    }
+                }),
+        );
         context.set('validationField', 0);
-        spec.runValidation(context)
-            .catch(error => {
-                expect(error.error).to.be.equal('Value must be greater than 0');
-                done();
-            });
+        spec.runValidation(context).catch(error => {
+            expect(error.error).to.be.equal('Value must be greater than 0');
+            done();
+        });
     });
 
     it('runValidation resolves when validator resolves', async () => {
@@ -87,8 +88,10 @@ describe('spec.unit.test', () => {
 
     it('runDefault rejects when context throws', done => {
         const mockContext = {
-            getData: () => { throw new Error('Context error'); },
-            set: () => {}
+            getData: () => {
+                throw new Error('Context error');
+            },
+            set: () => {},
         };
         const spec = new Spec('errField');
         spec.default('def');
@@ -102,14 +105,16 @@ describe('spec.unit.test', () => {
         const context = new Context('_chained02');
         const spec = new Spec('transformThisField');
         context.set('transformThisField', 'Hello world!');
-        spec.transform(_currentValue => new Promise(resolve => {
-            resolve('hello');
-        }));
-        spec.runTransform(context)
-            .then(() => {
-                expect(context.getData()['transformThisField']()).to.be.equal('hello');
-                done();
-            });
+        spec.transform(
+            _currentValue =>
+                new Promise(resolve => {
+                    resolve('hello');
+                }),
+        );
+        spec.runTransform(context).then(() => {
+            expect(context.getData()['transformThisField']()).to.be.equal('hello');
+            done();
+        });
     });
 
     it('runTransform resolves when transformer is not set or field is missing', async () => {
@@ -136,17 +141,19 @@ describe('spec.unit.test', () => {
         const context = new Context('_chained03');
         const spec = new Spec('translateThisField');
         context.set('translateThisField', 'Hello world!');
-        spec.translate((_currentValue, ctx) => new Promise(resolve => {
-            ctx.set('hello', 'hello');
-            ctx.set('world', 'world');
-            resolve(undefined);
-        }));
-        spec.runTranslate(context)
-            .then(() => {
-                expect(context.getData()['hello']()).to.be.equal('hello');
-                expect(context.getData()['world']()).to.be.equal('world');
-                done();
-            });
+        spec.translate(
+            (_currentValue, ctx) =>
+                new Promise(resolve => {
+                    ctx.set('hello', 'hello');
+                    ctx.set('world', 'world');
+                    resolve(undefined);
+                }),
+        );
+        spec.runTranslate(context).then(() => {
+            expect(context.getData()['hello']()).to.be.equal('hello');
+            expect(context.getData()['world']()).to.be.equal('world');
+            done();
+        });
     });
 
     it('runTranslate resolves when translator is not set or field is missing', async () => {
@@ -179,13 +186,15 @@ describe('spec.unit.test', () => {
 
     it('SpecFailedException calls reject when supplied', done => {
         new SpecFailedException(
-            () => { throw new Error('Boom'); },
+            () => {
+                throw new Error('Boom');
+            },
             'someField',
-            (reason) => {
+            reason => {
                 expect(reason.field).to.equal('someField');
                 expect(reason.error.message).to.equal('Boom');
                 done();
-            }
+            },
         );
     });
 
@@ -210,11 +219,11 @@ describe('spec.unit.test', () => {
                         return {
                             value: {
                                 ...value,
-                                count: value.count * 2
-                            }
+                                count: value.count * 2,
+                            },
                         };
-                    }
-                }
+                    },
+                },
             });
 
             await spec.runSchema(context);
@@ -233,8 +242,8 @@ describe('spec.unit.test', () => {
                     vendor: 'test-vendor',
                     validate: (value: any) => {
                         return { value: value.toUpperCase() };
-                    }
-                }
+                    },
+                },
             });
 
             await spec.runSchema(context);
@@ -252,12 +261,10 @@ describe('spec.unit.test', () => {
                     vendor: 'test-vendor',
                     validate: () => {
                         return {
-                            issues: [
-                                { path: ['age'], message: 'Must be at least 18' }
-                            ]
+                            issues: [{ path: ['age'], message: 'Must be at least 18' }],
                         };
-                    }
-                }
+                    },
+                },
             });
 
             try {
@@ -276,7 +283,7 @@ describe('spec.unit.test', () => {
             rootSpec.schema({
                 safeParse: (val: any) => {
                     return { success: true, data: { ...val, verified: true } };
-                }
+                },
             });
             await rootSpec.runSchema(context);
             expect(context.getData()['verified']()).to.be.true;
@@ -285,7 +292,7 @@ describe('spec.unit.test', () => {
             fieldSpec.schema({
                 safeParse: (val: any) => {
                     return { success: true, data: val.toLowerCase() };
-                }
+                },
             });
             await fieldSpec.runSchema(context);
             expect(context.getData()['email']()).to.equal('test@domain.com');
@@ -296,10 +303,10 @@ describe('spec.unit.test', () => {
                     return {
                         success: false,
                         error: {
-                            issues: [{ path: ['email'], message: 'Invalid email' }]
-                        }
+                            issues: [{ path: ['email'], message: 'Invalid email' }],
+                        },
                     };
-                }
+                },
             });
             try {
                 await failSpec.runSchema(context);
@@ -313,7 +320,7 @@ describe('spec.unit.test', () => {
             const context = new Context('_schema_safeparse_no_issues');
             const spec = new Spec('field');
             spec.schema({
-                safeParse: () => ({ success: false, error: { message: 'Direct error' } })
+                safeParse: () => ({ success: false, error: { message: 'Direct error' } }),
             });
             try {
                 await spec.runSchema(context);
@@ -329,21 +336,23 @@ describe('spec.unit.test', () => {
 
             const rootSpec = new Spec('$root$');
             rootSpec.schema({
-                parse: (val: any) => ({ ...val, doubled: val.num * 2 })
+                parse: (val: any) => ({ ...val, doubled: val.num * 2 }),
             });
             await rootSpec.runSchema(context);
             expect(context.getData()['doubled']()).to.equal(84);
 
             const fieldSpec = new Spec('num');
             fieldSpec.schema({
-                parse: (val: any) => val + 10
+                parse: (val: any) => val + 10,
             });
             await fieldSpec.runSchema(context);
             expect(context.getData()['num']()).to.equal(52);
 
             const failSpec = new Spec('num');
             failSpec.schema({
-                parse: () => { throw new Error('Parse error'); }
+                parse: () => {
+                    throw new Error('Parse error');
+                },
             });
             try {
                 await failSpec.runSchema(context);
@@ -359,21 +368,23 @@ describe('spec.unit.test', () => {
 
             const rootSpec = new Spec('$root$');
             rootSpec.schema({
-                validate: (val: any) => ({ ...val, status: 'ok' })
+                validate: (val: any) => ({ ...val, status: 'ok' }),
             });
             await rootSpec.runSchema(context);
             expect(context.getData()['status']()).to.equal('ok');
 
             const fieldSpec = new Spec('active');
             fieldSpec.schema({
-                validate: (val: any) => !val
+                validate: (val: any) => !val,
             });
             await fieldSpec.runSchema(context);
             expect(context.getData()['active']()).to.be.false;
 
             const failSpec = new Spec('active');
             failSpec.schema({
-                validate: () => { throw new Error('Validation failed'); }
+                validate: () => {
+                    throw new Error('Validation failed');
+                },
             });
             try {
                 await failSpec.runSchema(context);
@@ -410,8 +421,8 @@ describe('spec.unit.test', () => {
                 '~standard': {
                     version: 1,
                     vendor: 'test',
-                    validate: (val: any) => ({ value: val + 5 })
-                }
+                    validate: (val: any) => ({ value: val + 5 }),
+                },
             });
             context.addSpec(spec);
 

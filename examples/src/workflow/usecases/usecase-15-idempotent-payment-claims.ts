@@ -22,7 +22,7 @@ export interface BankLedgerStats {
  */
 export function createIdempotentSettlementPipeline(
     store: InMemoryIdempotencyStore = new InMemoryIdempotencyStore(),
-    stats: BankLedgerStats = { settlementExecutionCount: 0 }
+    stats: BankLedgerStats = { settlementExecutionCount: 0 },
 ) {
     // Step 1: Validate Accounts & Limits
     const validateTransfer = Step.create('validateTransfer', async (param: any) => {
@@ -32,7 +32,7 @@ export function createIdempotentSettlementPipeline(
         }
 
         return {
-            transferValidated: true
+            transferValidated: true,
         };
     });
 
@@ -51,11 +51,11 @@ export function createIdempotentSettlementPipeline(
             journalRef,
             amountSettled: amount,
             currency,
-            settlementTimestamp: Date.now()
+            settlementTimestamp: Date.now(),
         };
-    }).idempotent((ctx) => buildIdempotencyKey(ctx.transactionId, { namespace: 'ledger-settlement' }), {
+    }).idempotent(ctx => buildIdempotencyKey(ctx.transactionId, { namespace: 'ledger-settlement' }), {
         ttlMs: 60000,
-        store
+        store,
     });
 
     // Step 3: Issue Receipt
@@ -66,13 +66,13 @@ export function createIdempotentSettlementPipeline(
             sourceAccount: param.sourceAccount,
             targetAccount: param.targetAccount,
             amount: param.amount,
-            journalRef: param.journalRef
+            journalRef: param.journalRef,
         };
     });
 
     return {
         pipeline: flow(validateTransfer, settleLedgerEntry, issueTransferReceipt),
         store,
-        stats
+        stats,
     };
 }

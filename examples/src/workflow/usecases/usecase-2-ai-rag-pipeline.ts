@@ -33,11 +33,11 @@ export function createAiRagPipeline() {
             sourceUri,
             cleanedText,
             wordCount,
-            extractionStatus: 'SUCCESS'
+            extractionStatus: 'SUCCESS',
         };
     })
-      .spec('documentId', { require: true })
-      .spec('rawText', { require: true });
+        .spec('documentId', { require: true })
+        .spec('rawText', { require: true });
 
     // Step 2: Chunk Content
     const chunkContent = Step.create('ragChunkContent', async (param: any) => {
@@ -51,7 +51,7 @@ export function createAiRagPipeline() {
 
         return {
             chunks,
-            chunkCount: chunks.length
+            chunkCount: chunks.length,
         };
     });
 
@@ -64,13 +64,13 @@ export function createAiRagPipeline() {
         const embeddings = chunks.map((chunk, idx) => ({
             chunkId: `chunk_${idx}`,
             text: chunk,
-            vector: [0.12, -0.45, 0.88, 0.03, 0.67] // simulated embedding vector
+            vector: [0.12, -0.45, 0.88, 0.03, 0.67], // simulated embedding vector
         }));
 
         return {
             embeddings,
             embeddingCallCount,
-            modelUsed: 'text-embedding-3-small'
+            modelUsed: 'text-embedding-3-small',
         };
     }).cache(60000);
 
@@ -83,7 +83,7 @@ export function createAiRagPipeline() {
         return {
             vectorStoreNamespace: 'knowledge_base_v1',
             upsertedCount: vectorIds.length,
-            vectorIds
+            vectorIds,
         };
     });
 
@@ -98,7 +98,7 @@ export function createAiRagPipeline() {
             chunkCount,
             indexedVectors: vectorIds.length,
             totalWordsIndexed: wordCount,
-            indexedAt: new Date().toISOString()
+            indexedAt: new Date().toISOString(),
         };
     });
 
@@ -107,11 +107,11 @@ export function createAiRagPipeline() {
         chunkContent,
         generateEmbeddings,
         upsertVectorStore,
-        indexSearchMetadata
+        indexSearchMetadata,
     );
 
     return {
         pipeline,
-        getEmbeddingCallCount: () => embeddingCallCount
+        getEmbeddingCallCount: () => embeddingCallCount,
     };
 }

@@ -1,11 +1,11 @@
 ---
-title: "Route Kafka Order Events with branch and when"
-description: "Consume Kafka order events, route conditional fulfillment with branch and when, deduplicate with PostgreSQL, and monitor live decisions in Siglo."
+title: 'Route Kafka Order Events with branch and when'
+description: 'Consume Kafka order events, route conditional fulfillment with branch and when, deduplicate with PostgreSQL, and monitor live decisions in Siglo.'
 ---
 
 # Route Kafka Order Events with `branch` and `when`
 
-In [Suspend Checkout for Approval and Resume Across Servers](durable-distributed-checkout.md), an HTTP request started checkout and another request resumed it after approval. Now imagine a storefront publishing order events while fulfillment services consume them independently.
+In [Suspend Checkout for Approval and Resume Across Servers](/durable-distributed-checkout), an HTTP request started checkout and another request resumed it after approval. Now imagine a storefront publishing order events while fulfillment services consume them independently.
 
 This tutorial uses **`@siglo/kafka`** to start a Siglo workflow for each Kafka record. Two consumer replicas share **`@siglo/postgres` idempotency**, and a Redis-backed live monitor shows the workflow's routing decisions:
 
@@ -41,14 +41,14 @@ docker compose -f examples/kafka-order-routing/docker-compose.yml up --build -d 
 
 The separate **`siglo-kafka-order-routing`** project uses its own image, Kafka and PostgreSQL volumes, Redis channel, database, and host ports. The earlier checkout examples can keep running.
 
-| Service | Local address |
-|---|---|
+| Service                             | Local address                                                  |
+| ----------------------------------- | -------------------------------------------------------------- |
 | Worker A: health and shared results | http://127.0.0.1:3300/health and http://127.0.0.1:3300/results |
 | Worker B: health and shared results | http://127.0.0.1:3301/health and http://127.0.0.1:3301/results |
-| Live monitor | http://127.0.0.1:4300 |
-| Kafka | 127.0.0.1:29092 |
-| PostgreSQL | postgres://siglo:siglo@127.0.0.1:5435/kafka_orders |
-| Redis | redis://127.0.0.1:6382 |
+| Live monitor                        | http://127.0.0.1:4300                                          |
+| Kafka                               | 127.0.0.1:29092                                                |
+| PostgreSQL                          | postgres://siglo:siglo@127.0.0.1:5435/kafka_orders             |
+| Redis                               | redis://127.0.0.1:6382                                         |
 
 Publish a gift order using the producer in worker A's container:
 
@@ -69,11 +69,11 @@ Find the event ID printed by the producer. Its result includes:
 
 ```json
 {
-  "status": "shipped",
-  "giftWrapped": true,
-  "actions": ["reserveStock", "chargePayment", "wrapGift", "shipOrder"],
-  "handledBy": "worker-a",
-  "executions": 1
+    "status": "shipped",
+    "giftWrapped": true,
+    "actions": ["reserveStock", "chargePayment", "wrapGift", "shipOrder"],
+    "handledBy": "worker-a",
+    "executions": 1
 }
 ```
 
@@ -81,14 +81,14 @@ Find the event ID printed by the producer. Its result includes:
 
 Try the other paths by changing the publisher's scenario argument:
 
-| Scenario | Event / condition | Expected result |
-|---|---|---|
-| `standard` | `order.placed`, 5,000 cents | Reserve, charge, ship; no gift wrap |
-| `gift` | `order.placed`, `giftWrap: true` | Reserve, charge, wrap, ship |
-| `review` | `order.placed`, 120,000 cents | `review-required`; no charge or shipping |
-| `cancel` | `order.cancelled` | `cancellation-recorded`; no fulfillment |
-| `unsupported` | `order.refunded` | Explicit fallback fails; record goes to the dead-letter topic |
-| `invalid` | Malformed JSON | Rejected before the workflow; record goes to the dead-letter topic |
+| Scenario      | Event / condition                | Expected result                                                    |
+| ------------- | -------------------------------- | ------------------------------------------------------------------ |
+| `standard`    | `order.placed`, 5,000 cents      | Reserve, charge, ship; no gift wrap                                |
+| `gift`        | `order.placed`, `giftWrap: true` | Reserve, charge, wrap, ship                                        |
+| `review`      | `order.placed`, 120,000 cents    | `review-required`; no charge or shipping                           |
+| `cancel`      | `order.cancelled`                | `cancellation-recorded`; no fulfillment                            |
+| `unsupported` | `order.refunded`                 | Explicit fallback fails; record goes to the dead-letter topic      |
+| `invalid`     | Malformed JSON                   | Rejected before the workflow; record goes to the dead-letter topic |
 
 Run the smoke check, including restarting **both workers** and replaying an already completed business event:
 
@@ -106,17 +106,17 @@ Kafka records, consumer offsets, and PostgreSQL results survive `down`. Add `--v
 
 ### Example Files to Explore
 
-| File | Purpose |
-|---|---|
-| [workflow.ts](../examples/src/kafka-order-routing/workflow.ts) | Event routing, nested conditions, named steps, and validation |
-| [worker.ts](../examples/src/kafka-order-routing/worker.ts) | Kafka adapter, PostgreSQL idempotency, retries, dead letters, and health/results endpoints |
-| [infrastructure.ts](../examples/src/kafka-order-routing/infrastructure.ts) | Kafka topics, shared database schema, and result persistence |
-| [publish.ts](../examples/src/kafka-order-routing/publish.ts) | Six scenarios with event IDs, entity keys, and tenant headers |
-| [monitor.ts](../examples/src/kafka-order-routing/monitor.ts) | Shared live monitor consuming Redis events |
-| [workflow.test.ts](../examples/src/kafka-order-routing/workflow.test.ts) | Routing, threshold, optional-step, and validation tests |
-| [smoke.ts](../examples/src/kafka-order-routing/smoke.ts) | Real Kafka, PostgreSQL, Redis, and restart assertions |
-| [docker-compose.yml](../examples/kafka-order-routing/docker-compose.yml) | Isolated broker, database, Redis, two workers, and monitor |
-| [Example README](../examples/kafka-order-routing/README.md) | Commands, ports, and rebuilding after edits |
+| File                                                                                                 | Purpose                                                                                    |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [workflow.ts](../examples/src/kafka-order-routing/workflow.ts)                                       | Event routing, nested conditions, named steps, and validation                              |
+| [worker.ts](../examples/src/kafka-order-routing/worker.ts)                                           | Kafka adapter, PostgreSQL idempotency, retries, dead letters, and health/results endpoints |
+| [infrastructure.ts](../examples/src/kafka-order-routing/infrastructure.ts)                           | Kafka topics, shared database schema, and result persistence                               |
+| [publish.ts](../examples/src/kafka-order-routing/publish.ts)                                         | Six scenarios with event IDs, entity keys, and tenant headers                              |
+| [monitor.ts](../examples/src/kafka-order-routing/monitor.ts)                                         | Shared live monitor consuming Redis events                                                 |
+| [workflow.test.ts](../examples/src/kafka-order-routing/workflow.test.ts)                             | Routing, threshold, optional-step, and validation tests                                    |
+| [smoke.ts](../examples/src/kafka-order-routing/smoke.ts)                                             | Real Kafka, PostgreSQL, Redis, and restart assertions                                      |
+| [docker-compose.yml](../examples/kafka-order-routing/docker-compose.yml)                             | Isolated broker, database, Redis, two workers, and monitor                                 |
+| [Example README](https://github.com/jsoftgem/siglo/blob/main/examples/kafka-order-routing/README.md) | Commands, ports, and rebuilding after edits                                                |
 
 ---
 
@@ -165,11 +165,11 @@ The publisher sends JSON like this, with `event-id` and `x-namespace` headers:
 
 ```json
 {
-  "eventId": "gift-1001",
-  "type": "order.placed",
-  "orderId": "order-1001",
-  "amountCents": 5000,
-  "giftWrap": true
+    "eventId": "gift-1001",
+    "type": "order.placed",
+    "orderId": "order-1001",
+    "amountCents": 5000,
+    "giftWrap": true
 }
 ```
 
@@ -181,10 +181,14 @@ After defining the named steps and subflows, the workflow's outer structure is:
 
 ```typescript
 return flow(
-    branch(event => event.type, {
-        'order.placed': placedOrder,
-        'order.cancelled': cancelOrder,
-    }, rejectUnsupported),
+    branch(
+        event => event.type,
+        {
+            'order.placed': placedOrder,
+            'order.cancelled': cancelOrder,
+        },
+        rejectUnsupported,
+    ),
     saveOutcome,
 );
 ```
@@ -200,16 +204,12 @@ This fallback differs from invalid JSON or a missing required field: those are r
 The placed-order route selects between review and fulfillment:
 
 ```typescript
-const placedOrder = when(
-    order => order.amountCents >= 100000,
-    queueReview,
-    fulfillment,
-);
+const placedOrder = when(order => order.amountCents >= 100000, queueReview, fulfillment);
 ```
 
 An order at or above the threshold executes only `queueReview`, producing `review-required`. It does not reserve inventory, charge a payment, or ship. An ordinary order executes the fulfillment flow instead.
 
-The demo records the review decision and completes processing of that Kafka record. To wait for approval, model a separate approval event or follow the persisted-wait design in the [durable checkout tutorial](durable-distributed-checkout.md). A returned review status alone does not register a durable wait.
+The demo records the review decision and completes processing of that Kafka record. To wait for approval, model a separate approval event or follow the persisted-wait design in the [durable checkout tutorial](/durable-distributed-checkout). A returned review status alone does not register a durable wait.
 
 ### Use `when` Without an Else for an Optional Step
 
@@ -257,16 +257,14 @@ const handler = createKafkaMessageHandler<OrderEvent>(workflow, {
     timeout: 10000,
     heartbeatIntervalMs: 1000,
     signal: shutdown.signal,
-    idempotencyKey: message =>
-        String(message.headers?.['event-id'] ?? getKafkaRecordId(message)),
+    idempotencyKey: message => String(message.headers?.['event-id'] ?? getKafkaRecordId(message)),
     input: message => ({
         ...JSON.parse(String(message.value)),
         tenant: String(message.headers?.['x-namespace'] || 'shop-demo'),
     }),
     validate: (event, message) => {
         validateOrderEvent(event);
-        if (message.headers?.['event-id'] !== undefined
-            && String(message.headers['event-id']) !== event.eventId) {
+        if (message.headers?.['event-id'] !== undefined && String(message.headers['event-id']) !== event.eventId) {
             throw new Error('event-id header must match eventId');
         }
     },
@@ -283,12 +281,12 @@ await consumer.run({
 
 The initializer has already called `idempotencyStore.ensureTable()` before the workers start. The complete [worker.ts](../examples/src/kafka-order-routing/worker.ts) also connects a producer for dead-letter publication, attaches monitoring, and wires shutdown to `shutdown.abort()`.
 
-| Responsibility | Supplied by |
-|---|---|
-| Broker connection, subscriptions, consumer groups, partitions, and offset commits | KafkaJS |
-| Input mapping and validation, idempotency claims, heartbeats during processing, bounded retries, cancellation, and awaiting the dead-letter callback | `@siglo/kafka` |
-| Persisting shared claims and cached outcomes | `@siglo/postgres` |
-| Executing named steps and selecting `branch` / `when` paths | `@siglo/core` |
+| Responsibility                                                                                                                                       | Supplied by       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Broker connection, subscriptions, consumer groups, partitions, and offset commits                                                                    | KafkaJS           |
+| Input mapping and validation, idempotency claims, heartbeats during processing, bounded retries, cancellation, and awaiting the dead-letter callback | `@siglo/kafka`    |
+| Persisting shared claims and cached outcomes                                                                                                         | `@siglo/postgres` |
+| Executing named steps and selecting `branch` / `when` paths                                                                                          | `@siglo/core`     |
 
 The event header provides **business-event deduplication across offsets**. The adapter automatically scopes that identity by `groupId` and `x-namespace`, so independent groups and tenants do not suppress one another's work.
 
@@ -454,8 +452,10 @@ The smoke check uses fresh event IDs and verifies actual Kafka delivery, four su
 - An accepted Kafka send is not proof that the workflow has completed. Inspect the persisted result, monitor, or another application-level completion channel.
 - A dead-letter send and claim completion are separate writes. A crash between them can publish a duplicate dead letter; its stable `recordId` is available for downstream deduplication.
 
-The result table's `executions` field is a demo audit counter, not an exactly-once business-effects mechanism. For database changes that must reliably publish follow-up Kafka events, use an application transaction and an outbox. Built-in outbox support and a separate tutorial are [recorded for later](roadmap/kafka-outbox.roadmap.md).
+The result table's `executions` field is a demo audit counter, not an exactly-once business-effects mechanism. For database changes that must reliably publish follow-up Kafka events, use an application transaction and an outbox. Built-in outbox support and a separate tutorial are [recorded for later](/roadmap/kafka-outbox.roadmap).
 
-For producer-to-consumer traces and provisioned Grafana metrics using a separate APM example with the same routing model, continue with [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
+For producer-to-consumer traces and provisioned Grafana metrics using a separate APM example with the same routing model, continue with [Zero-Code APM Dashboards](/zero-code-apm-dashboards).
 
-Continue with the [Kafka adapter reference](adapters/kafka.md), [branching and parallelism guide](04-branching-and-parallelism.md), or the [durable checkout tutorial](durable-distributed-checkout.md) when an event path needs a persisted wait.
+Continue with the [Kafka adapter reference](/adapters/kafka), [branching and parallelism guide](/04-branching-and-parallelism), or the [durable checkout tutorial](/durable-distributed-checkout) when an event path needs a persisted wait.
+
+To authenticate the HTTP producers feeding an order stream, continue with [Accept Asymmetrically Signed Orders](/signed-order-intake), using `@siglo/crypto` and `@siglo/express` in an independent example.

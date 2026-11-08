@@ -19,16 +19,25 @@ describe('Error serialization and validation boundaries', () => {
         expect(error.currentVersion).to.equal(3);
         expect(error.expectedVersion).to.equal(2);
         expect(error.toJSON()).to.include({
-            name: 'OptimisticLockException', stackId: 'stack-conflict',
-            namespace: 'orders', phase: 'checkpoint', retryable: true
+            name: 'OptimisticLockException',
+            stackId: 'stack-conflict',
+            namespace: 'orders',
+            phase: 'checkpoint',
+            retryable: true,
         });
     });
 
     it('preserves nested network violations from validators and never executes the action', async () => {
-        const violation = new NetworkPolicyViolationException('validate-target', 'https://blocked.example', 'blocked.example', []);
+        const violation = new NetworkPolicyViolationException(
+            'validate-target',
+            'https://blocked.example',
+            'blocked.example',
+            [],
+        );
         let executed = false;
-        const step = new Step('validate-target', () => { executed = true; })
-            .spec('target', { validate: () => Promise.reject({ error: { error: violation } }) });
+        const step = new Step('validate-target', () => {
+            executed = true;
+        }).spec('target', { validate: () => Promise.reject({ error: { error: violation } }) });
         try {
             await step.execute({ target: 'blocked.example' });
             expect.fail('Expected validation to reject');

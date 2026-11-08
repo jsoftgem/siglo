@@ -30,7 +30,7 @@ export class MockPostgresClient {
     } = {
         siglo_checkpoints: [],
         siglo_context_events: [],
-        siglo_idempotency: []
+        siglo_idempotency: [],
     };
     public queryLogs: string[] = [];
 
@@ -54,7 +54,7 @@ export class MockPostgresClient {
                     stack_id: stackId,
                     namespace,
                     state: parsedState,
-                    created_at: new Date()
+                    created_at: new Date(),
                 });
             }
             return { rows: [], rowCount: 1 };
@@ -75,7 +75,7 @@ export class MockPostgresClient {
                 namespace,
                 field,
                 value,
-                created_at: new Date()
+                created_at: new Date(),
             });
             return { rows: [], rowCount: 1 };
         }
@@ -91,7 +91,7 @@ export class MockPostgresClient {
                 key,
                 status: 'in-progress',
                 result: null,
-                expires_at: expiresAt
+                expires_at: expiresAt,
             });
             return { rows: [], rowCount: 1 };
         }
@@ -181,9 +181,9 @@ export function createSaaSBillingWorkflow() {
     const computeUsageFees = Step.create('computeUsageFees', async (param: any) => {
         const { apiRequests, computeMinutes, storageGigabytes } = param;
 
-        const apiFee = (apiRequests / 1000) * 0.10;
+        const apiFee = (apiRequests / 1000) * 0.1;
         const computeFee = computeMinutes * 0.05;
-        const storageFee = storageGigabytes * 0.10;
+        const storageFee = storageGigabytes * 0.1;
         const subtotal = Math.round((apiFee + computeFee + storageFee) * 100) / 100;
 
         return {
@@ -191,7 +191,7 @@ export function createSaaSBillingWorkflow() {
             computeFee,
             storageFee,
             subtotal,
-            calculatedAt: Date.now()
+            calculatedAt: Date.now(),
         };
     });
 
@@ -202,7 +202,7 @@ export function createSaaSBillingWorkflow() {
 
         // 10% discount for enterprise tenants
         const isEnterprise = namespace.includes('enterprise');
-        const discount = isEnterprise ? Math.round(subtotal * 0.10 * 100) / 100 : 0;
+        const discount = isEnterprise ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
         const totalAmount = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
 
         const invoiceId = `INV-${namespace.toUpperCase()}-${billingPeriod}`;
@@ -215,7 +215,7 @@ export function createSaaSBillingWorkflow() {
             discount,
             totalAmount,
             status: 'INVOICED',
-            namespace
+            namespace,
         };
     });
 
@@ -225,10 +225,7 @@ export function createSaaSBillingWorkflow() {
 /**
  * Configures the complete Phase 3 persistence and concurrency infrastructure for SaaS billing.
  */
-export function setupSaaSBillingInfrastructure(
-    pgClient: MockPostgresClient,
-    redisClient: MockRedisClient
-) {
+export function setupSaaSBillingInfrastructure(pgClient: MockPostgresClient, redisClient: MockRedisClient) {
     const workflow = createSaaSBillingWorkflow();
 
     // 1. Postgres Storage Adapter for durable checkpoints & events
@@ -252,6 +249,6 @@ export function setupSaaSBillingInfrastructure(
         postgresIdempotency,
         redisStorage,
         redisIdempotency,
-        redisLock
+        redisLock,
     };
 }

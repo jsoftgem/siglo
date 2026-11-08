@@ -41,7 +41,7 @@ export class InvariantEvaluator {
             throw new InvariantViolation(
                 1,
                 'Context Immutability & Prototype Isolation',
-                `Prototype pollution detected! Object.prototype has property "${canaryKey}".`
+                `Prototype pollution detected! Object.prototype has property "${canaryKey}".`,
             );
         }
 
@@ -60,11 +60,16 @@ export class InvariantEvaluator {
                     } catch {
                         // ignore circular references
                     }
-                    if (originalJson !== undefined && currentJson !== undefined && originalJson !== currentJson && currentVal !== undefined) {
+                    if (
+                        originalJson !== undefined &&
+                        currentJson !== undefined &&
+                        originalJson !== currentJson &&
+                        currentVal !== undefined
+                    ) {
                         throw new InvariantViolation(
                             1,
                             'Context Immutability & Scope Isolation',
-                            `Ancestor key "${key}" was mutated! Original: ${originalJson}, Current: ${currentJson}`
+                            `Ancestor key "${key}" was mutated! Original: ${originalJson}, Current: ${currentJson}`,
                         );
                     }
                 }
@@ -79,7 +84,7 @@ export class InvariantEvaluator {
     static assertSagaLIFO(
         completedSteps: readonly string[],
         compensatedSteps: readonly string[],
-        failedStep?: string
+        failedStep?: string,
     ): void {
         const expectedOrder = [...completedSteps].reverse();
 
@@ -92,7 +97,7 @@ export class InvariantEvaluator {
                     2,
                     'Saga LIFO Compensation Ordering',
                     `Compensations executed out-of-order at index ${i}. Expected step "${expected}", but got "${actual}". Completed: [${completedSteps.join(', ')}], Compensated: [${compensatedSteps.join(', ')}]`,
-                    { completedSteps, compensatedSteps, failedStep }
+                    { completedSteps, compensatedSteps, failedStep },
                 );
             }
         }
@@ -102,7 +107,7 @@ export class InvariantEvaluator {
                 2,
                 'Saga LIFO Compensation Ordering',
                 `Failed step "${failedStep}" must NOT have its compensation triggered because it did not complete successfully.`,
-                { failedStep, compensatedSteps }
+                { failedStep, compensatedSteps },
             );
         }
     }
@@ -112,7 +117,9 @@ export class InvariantEvaluator {
      * Asserts that among N concurrent resume/write requests with the same version/checkpoint,
      * at most 1 writer succeeds and the others fail or receive consistent idempotency claims.
      */
-    static assertOptimisticConcurrency(results: Array<{ status: 'fulfilled' | 'rejected'; value?: any; reason?: any }>): void {
+    static assertOptimisticConcurrency(
+        results: Array<{ status: 'fulfilled' | 'rejected'; value?: any; reason?: any }>,
+    ): void {
         const fulfilled = results.filter(r => r.status === 'fulfilled');
         const rejected = results.filter(r => r.status === 'rejected');
 
@@ -125,7 +132,7 @@ export class InvariantEvaluator {
                     3,
                     'Optimistic Concurrency & Checkpoint Idempotency',
                     `Multiple concurrent writers succeeded with differing outputs! Divergent states detected. Success count: ${fulfilled.length}`,
-                    { results, rejectedCount: rejected.length }
+                    { results, rejectedCount: rejected.length },
                 );
             }
         }
@@ -138,7 +145,7 @@ export class InvariantEvaluator {
     static assertCancellationPromptness(
         abortedStepName: string,
         allExecutedSteps: readonly string[],
-        stepsDefinedAfterAbort: readonly string[]
+        stepsDefinedAfterAbort: readonly string[],
     ): void {
         for (const stepName of stepsDefinedAfterAbort) {
             if (allExecutedSteps.includes(stepName)) {
@@ -146,7 +153,7 @@ export class InvariantEvaluator {
                     4,
                     'Cooperative Cancellation & Timer Teardown',
                     `Step "${stepName}" executed after workflow cancellation at "${abortedStepName}"! Execution must halt on AbortSignal.`,
-                    { abortedStepName, allExecutedSteps, stepsDefinedAfterAbort }
+                    { abortedStepName, allExecutedSteps, stepsDefinedAfterAbort },
                 );
             }
         }
@@ -162,7 +169,7 @@ export class InvariantEvaluator {
                 5,
                 'Bounded Concurrency Enforcement',
                 `Active concurrent executions (${highWaterMark}) exceeded configured ceiling of ${maxAllowed}!`,
-                { highWaterMark, maxAllowed }
+                { highWaterMark, maxAllowed },
             );
         }
     }
@@ -174,7 +181,7 @@ export class InvariantEvaluator {
     static assertCombinatorSoundness(
         combinator: 'race' | 'allSettled' | 'parallel' | 'map' | 'when',
         result: any,
-        expectedCondition: { branchCount?: number; winnerExpected?: any; expectedErrors?: number }
+        expectedCondition: { branchCount?: number; winnerExpected?: any; expectedErrors?: number },
     ): void {
         if (combinator === 'allSettled') {
             if (!Array.isArray(result) && typeof result === 'object' && result !== null) {
@@ -183,7 +190,7 @@ export class InvariantEvaluator {
                     throw new InvariantViolation(
                         6,
                         'Combinator Outcome Soundness',
-                        `allSettled returned fewer branch results than input branches. Expected: ${expectedCondition.branchCount}, Got: ${keys.length}`
+                        `allSettled returned fewer branch results than input branches. Expected: ${expectedCondition.branchCount}, Got: ${keys.length}`,
                     );
                 }
             }
@@ -193,7 +200,7 @@ export class InvariantEvaluator {
                 throw new InvariantViolation(
                     6,
                     'Combinator Outcome Soundness',
-                    `map output length mismatch. Expected: ${expectedCondition.branchCount}, Got: ${result.length}`
+                    `map output length mismatch. Expected: ${expectedCondition.branchCount}, Got: ${result.length}`,
                 );
             }
         }
@@ -206,7 +213,7 @@ export class InvariantEvaluator {
     static assertBatchPartition(
         allItems: readonly string[],
         ackedItems: readonly string[],
-        nackedItems: readonly string[]
+        nackedItems: readonly string[],
     ): void {
         const ackSet = new Set(ackedItems);
         const nackSet = new Set(nackedItems);
@@ -218,7 +225,7 @@ export class InvariantEvaluator {
                     7,
                     'Batch Stream Partial Failure Precision',
                     `Item "${id}" was both ACKed and NACKed! Sets must be disjoint.`,
-                    { id, ackedItems, nackedItems }
+                    { id, ackedItems, nackedItems },
                 );
             }
         }
@@ -230,7 +237,7 @@ export class InvariantEvaluator {
                     7,
                     'Batch Stream Partial Failure Precision',
                     `Item "${id}" was dropped! Neither ACKed nor NACKed.`,
-                    { id, allItems, ackedItems, nackedItems }
+                    { id, allItems, ackedItems, nackedItems },
                 );
             }
         }
@@ -243,21 +250,25 @@ export class InvariantEvaluator {
      */
     static assertTimeoutType(error: any, expectedType: 'step' | 'flow'): void {
         if (!error) {
-            throw new InvariantViolation(8, 'Two-Tier Timeout Determinism', 'Expected timeout error, but no error was thrown!');
+            throw new InvariantViolation(
+                8,
+                'Two-Tier Timeout Determinism',
+                'Expected timeout error, but no error was thrown!',
+            );
         }
         const errorName = error.name || error.constructor?.name || '';
         if (expectedType === 'step' && !errorName.includes('StepTimeout')) {
             throw new InvariantViolation(
                 8,
                 'Two-Tier Timeout Determinism',
-                `Expected StepTimeoutException, but received "${errorName}": ${error.message}`
+                `Expected StepTimeoutException, but received "${errorName}": ${error.message}`,
             );
         }
         if (expectedType === 'flow' && !errorName.includes('FlowTimeout')) {
             throw new InvariantViolation(
                 8,
                 'Two-Tier Timeout Determinism',
-                `Expected FlowTimeoutException, but received "${errorName}": ${error.message}`
+                `Expected FlowTimeoutException, but received "${errorName}": ${error.message}`,
             );
         }
     }
@@ -271,7 +282,11 @@ export class InvariantEvaluator {
         const rootSpans = spans.filter(s => !s.parentId);
 
         if (spans.length > 0 && rootSpans.length === 0) {
-            throw new InvariantViolation(9, 'Distributed Tracing & Span Continuity', 'No root span found in trace recording!');
+            throw new InvariantViolation(
+                9,
+                'Distributed Tracing & Span Continuity',
+                'No root span found in trace recording!',
+            );
         }
 
         for (const span of spans) {
@@ -279,7 +294,7 @@ export class InvariantEvaluator {
                 throw new InvariantViolation(
                     9,
                     'Distributed Tracing & Span Continuity',
-                    `Orphan span detected! Span "${span.name}" (${span.id}) references missing parent "${span.parentId}".`
+                    `Orphan span detected! Span "${span.name}" (${span.id}) references missing parent "${span.parentId}".`,
                 );
             }
         }
@@ -292,7 +307,7 @@ export class InvariantEvaluator {
     static assertNoListenerLeak(
         emitter: { listenerCount(event: string | symbol): number },
         eventNames: string[],
-        baselineCounts: Record<string, number>
+        baselineCounts: Record<string, number>,
     ): void {
         for (const event of eventNames) {
             const current = emitter.listenerCount(event);
@@ -301,7 +316,7 @@ export class InvariantEvaluator {
                 throw new InvariantViolation(
                     10,
                     'Zero Resource & Event Listener Leaks',
-                    `Lingering event listeners on "${event}"! Baseline: ${baseline}, Current: ${current}`
+                    `Lingering event listeners on "${event}"! Baseline: ${baseline}, Current: ${current}`,
                 );
             }
         }

@@ -1,9 +1,9 @@
-import {Step, flow} from '../step';
-import {toPOJO} from '../context';
-import {generateUUID, isReservedKey, VALUE, Status, isFunction, isObject, WorkflowNodeType} from '../../shared';
-import {toGraph, MapNode} from '../graph';
-import {combineAbortSignals} from '../executer/signals';
-import {stepExecutionHookStorage} from '../executer/hooks';
+import { Step, flow } from '../step';
+import { toPOJO } from '../context';
+import { generateUUID, isReservedKey, VALUE, Status, isFunction, isObject, WorkflowNodeType } from '../../shared';
+import { toGraph, MapNode } from '../graph';
+import { combineAbortSignals } from '../executer/signals';
+import { stepExecutionHookStorage } from '../executer/hooks';
 
 export interface MapOptions {
     name?: string;
@@ -13,7 +13,7 @@ export interface MapOptions {
 }
 
 export type MapItemAccessor =
-    any[]
+    | any[]
     | AsyncIterable<any>
     | Iterable<any>
     | ((ctx: any) => any[] | AsyncIterable<any> | Iterable<any> | Promise<any[] | AsyncIterable<any> | Iterable<any>>);
@@ -26,11 +26,7 @@ function cleanStepOutput(output: any): any {
     }
     const clean: Record<string, any> = {};
     for (const key of Object.keys(output)) {
-        if (
-            isReservedKey(key) ||
-            MAP_METADATA_KEYS.has(key) ||
-            isFunction(output[key])
-        ) {
+        if (isReservedKey(key) || MAP_METADATA_KEYS.has(key) || isFunction(output[key])) {
             continue;
         }
         clean[key] = output[key];
@@ -42,19 +38,29 @@ function cleanStepOutput(output: any): any {
     return clean;
 }
 
-function executeItem(processItem: any, item: any, meta: {
-    index: number;
-    total?: number;
-    signal?: AbortSignal;
-    stackId?: string;
-    namespace?: string
-}): Promise<any> {
+function executeItem(
+    processItem: any,
+    item: any,
+    meta: {
+        index: number;
+        total?: number;
+        signal?: AbortSignal;
+        stackId?: string;
+        namespace?: string;
+    },
+): Promise<any> {
     if (isFunction(processItem)) {
         return Promise.resolve(processItem(item, meta));
     }
-    const input = {item, ...meta};
+    const input = { item, ...meta };
     const hook = stepExecutionHookStorage.getStore();
-    const branchOptions: any = {signal: meta.signal, pojo: true, stackId: meta.stackId, namespace: meta.namespace, ...(hook ? {stepExecutionHook: hook} : {})};
+    const branchOptions: any = {
+        signal: meta.signal,
+        pojo: true,
+        stackId: meta.stackId,
+        namespace: meta.namespace,
+        ...(hook ? { stepExecutionHook: hook } : {}),
+    };
     let p: Promise<any>;
     if (processItem && isFunction(processItem.execute)) {
         p = processItem.execute(input, branchOptions);
@@ -63,16 +69,12 @@ function executeItem(processItem: any, item: any, meta: {
     } else if (processItem && isFunction(processItem.start)) {
         p = processItem.start(input, branchOptions);
     } else {
-        p = flow(processItem).execute(input, branchOptions);
+        p = flow(processItem).run(input, branchOptions);
     }
     return p.then(cleanStepOutput);
 }
 
-export function map(
-    itemsOrAccessor: MapItemAccessor,
-    processItem: any,
-    options?: MapOptions
-): Step<any, any> {
+export function map(itemsOrAccessor: MapItemAccessor, processItem: any, options?: MapOptions): Step<any, any> {
     const concurrency = Math.max(1, options?.concurrency ?? 10);
     const stopOnError = options?.stopOnError !== false; // default true
     const preserveOrder = options?.preserveOrder !== false; // default true
@@ -85,18 +87,18 @@ export function map(
         itemNode: toGraph(processItem),
         concurrency,
         stopOnError,
-        preserveOrder
+        preserveOrder,
     };
 
     const step = Step.create(stepName, async (param: any) => {
         const rawSig = param?.$signal || param?.signal;
-        const outerSignal = isFunction(rawSig) ? ((rawSig as any).val || rawSig()) : rawSig;
-        const parentStackId = isFunction(param?.$stackId) ? param.$stackId() : (param?.$stackId || param?.stackId);
-        const namespace = isFunction(param?.$namespace) ? param.$namespace() : (param?.$namespace || param?.namespace);
+        const outerSignal = isFunction(rawSig) ? (rawSig as any).val || rawSig() : rawSig;
+        const parentStackId = isFunction(param?.$stackId) ? param.$stackId() : param?.$stackId || param?.stackId;
+        const namespace = isFunction(param?.$namespace) ? param.$namespace() : param?.$namespace || param?.namespace;
         const innerController = new AbortController();
-        const {signal: combinedSignal, cleanup: cleanupSignals} = combineAbortSignals([
+        const { signal: combinedSignal, cleanup: cleanupSignals } = combineAbortSignals([
             outerSignal,
-            innerController.signal
+            innerController.signal,
         ]);
 
         try {
@@ -131,12 +133,12 @@ export function map(
                 const nextPromise = pullLock.then(async () => {
                     const next = await iterator.next();
                     if (next.done) {
-                        return {item: undefined, index: -1, done: true};
+                        return { item: undefined, index: -1, done: true };
                     }
                     const idx = currentIndex++;
-                    return {item: next.value, index: idx, done: false};
+                    return { item: next.value, index: idx, done: false };
                 });
-                pullLock = nextPromise.catch(() => ({item: undefined, index: -1, done: true}));
+                pullLock = nextPromise.catch(() => ({ item: undefined, index: -1, done: true }));
                 return nextPromise;
             }
 
@@ -145,7 +147,7 @@ export function map(
                     if (combinedSignal?.aborted) break;
                     if (hasError && stopOnError) break;
 
-                    const {item, index, done} = await pullNext();
+                    const { item, index, done } = await pullNext();
                     if (done) break;
 
                     try {
@@ -154,11 +156,11 @@ export function map(
                             total,
                             signal: combinedSignal,
                             stackId: parentStackId,
-                            namespace
+                            namespace,
                         });
-                        results.push({index, value: val, status: Status.FULFILLED});
+                        results.push({ index, value: val, status: Status.FULFILLED });
                     } catch (err: any) {
-                        results.push({index, error: err, status: Status.REJECTED});
+                        results.push({ index, error: err, status: Status.REJECTED });
                         if (stopOnError) {
                             hasError = true;
                             firstError = err;
@@ -189,13 +191,13 @@ export function map(
                 results.sort((a, b) => a.index - b.index);
             }
 
-            const outputItems = results.map(r => r.status === Status.FULFILLED ? r.value : {error: r.error});
+            const outputItems = results.map(r => (r.status === Status.FULFILLED ? r.value : { error: r.error }));
             const errors = results.filter(r => r.status === Status.REJECTED).map(r => r.error);
 
             return {
                 items: outputItems,
                 count: outputItems.length,
-                ...(errors.length > 0 ? {errors} : {})
+                ...(errors.length > 0 ? { errors } : {}),
             };
         } finally {
             cleanupSignals();

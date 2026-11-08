@@ -34,7 +34,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
         return {
             flightTicketId,
             flightStatus: 'CONFIRMED',
-            flightCost: 450
+            flightCost: 450,
         };
     }).compensate(async (ctx: any) => {
         const ticketId = ctx?.flightTicketId || ctx?.output?.flightTicketId;
@@ -51,7 +51,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
         return {
             hotelReservationId,
             hotelStatus: 'CONFIRMED',
-            hotelCost: 350
+            hotelCost: 350,
         };
     }).compensate(async (ctx: any) => {
         const reservationId = ctx?.hotelReservationId || ctx?.output?.hotelReservationId;
@@ -71,7 +71,7 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
         return {
             paymentStatus: 'PAID',
             totalAmount,
-            transactionId: `TXN-SAGA-${Date.now()}`
+            transactionId: `TXN-SAGA-${Date.now()}`,
         };
     });
 
@@ -86,14 +86,9 @@ export function createTravelBookingSagaPipeline(auditLog: TravelBookingAudit = {
             passengerName,
             totalAmount,
             vouchersIssued: true,
-            confirmationNumber: `CONF-${bookingId}`
+            confirmationNumber: `CONF-${bookingId}`,
         };
     });
 
-    return flow(
-        reserveFlight,
-        reserveHotel,
-        processPayment,
-        issueVouchers
-    );
+    return flow(reserveFlight, reserveHotel, processPayment, issueVouchers);
 }

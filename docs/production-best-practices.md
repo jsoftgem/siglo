@@ -1,6 +1,6 @@
 ---
-title: "Production Best Practices & Operational Runbook"
-description: "Master engineering guide for deploying Siglo workflows in mission-critical, distributed, high-throughput enterprise production environments."
+title: 'Production Best Practices & Operational Runbook'
+description: 'Master engineering guide for deploying Siglo workflows in mission-critical, distributed, high-throughput enterprise production environments.'
 ---
 
 # Production Best Practices & Operational Runbook
@@ -43,6 +43,7 @@ description: "Master engineering guide for deploying Siglo workflows in mission-
 ## 1. Distributed Storage & Checkpoint OCC
 
 ### A. PostgreSQL Schema Setup
+
 When running multi-pod Kubernetes or ECS workloads, you must enable **Optimistic Concurrency Control (OCC)** to prevent Last-Write-Wins (LWW) state clobbering across concurrent worker nodes.
 
 Run the following DDL migration (or use `adapter.ensureTables()`):
@@ -92,6 +93,7 @@ CREATE INDEX IF NOT EXISTS idx_siglo_idempotency_expires ON siglo_idempotency_re
 ```
 
 ### B. Handling `OptimisticLockException`
+
 If two worker nodes execute concurrent step completions or resumptions for the same `stackId`, the second update raises `OptimisticLockException`. Wrap workflow execution in an exponential backoff retry loop:
 
 ```typescript
@@ -119,6 +121,7 @@ async function runWithOCCRetry<T>(workflow: any, input: any, maxAttempts = 3): P
 ## 2. Durable Timers & Worker Schedulers (`@siglo/scheduler`)
 
 ### A. Deploying the Background Poller Daemon
+
 To resume sleeping workflows (`wait('24h')` or `waitForEvent('APPROVAL', { timeout: '7d' })`) even after container restarts:
 
 ```typescript
@@ -133,8 +136,8 @@ const poller = new PostgresWaitPoller({
     // lockTimeoutMs must be >= 3x the max expected duration of steps after wait
     lockTimeoutMs: 60000,
     flowLookup: (version, stackId) => workflowRegistry.get(stackId),
-    onResumed: (rec) => console.info(`Workflow ${rec.stackId} resumed successfully`),
-    onFailed: (rec, err) => console.error(`Resumption failed for ${rec.stackId}:`, err)
+    onResumed: rec => console.info(`Workflow ${rec.stackId} resumed successfully`),
+    onFailed: (rec, err) => console.error(`Resumption failed for ${rec.stackId}:`, err),
 });
 
 // Start poller loop
@@ -150,6 +153,7 @@ process.on('SIGTERM', async () => {
 ```
 
 ### B. Serverless & Cloud-Native Webhook Dispatchers
+
 For serverless architectures (AWS Lambda, Google Cloud Run) where persistent background polling is prohibited, use `createSchedulerWebhookHandler` connected to AWS EventBridge Scheduler or Google Cloud Tasks:
 
 ```typescript
@@ -159,7 +163,7 @@ import { workflowRegistry } from './workflows';
 
 const webhookHandler = createSchedulerWebhookHandler({
     secretToken: process.env.SCHEDULER_SECRET_TOKEN,
-    flowLookup: (workflowId, stackId) => workflowRegistry.get(stackId)
+    flowLookup: (workflowId, stackId) => workflowRegistry.get(stackId),
 });
 
 const server = http.createServer(webhookHandler);
@@ -167,6 +171,7 @@ server.listen(8080);
 ```
 
 When scheduling a durable timer in Cloud Tasks:
+
 - Target URL: `https://api.yourdomain.com/scheduler/resume`
 - Headers: `Authorization: Bearer <SCHEDULER_SECRET_TOKEN>`
 - Body: `{"stackId": "stack-12345", "payload": {"event": {"type": "timer:expired"}}}`
@@ -176,6 +181,7 @@ When scheduling a durable timer in Cloud Tasks:
 ## 3. Idempotency & Thundering Herd Defense
 
 ### A. Wait-and-Settle Configuration
+
 In high-volume webhook endpoints (e.g., Stripe, Shopify) or distributed messaging consumers (Kafka, SQS), concurrent duplicates can hit workers within milliseconds.
 
 Instead of rejecting duplicates immediately with 409 Conflict, enable **Wait-and-Settle**:
@@ -188,17 +194,18 @@ const idempotencyStore = new PostgresIdempotencyStore({ client: dbPool });
 
 export const chargeCardStep = Step.create('chargeCard', async (ctx: any) => {
     return await paymentGateway.charge({ amount: ctx.amount, customerId: ctx.customerId });
-})
-.idempotent((ctx) => `charge:${ctx.orderId}`, {
+}).idempotent(ctx => `charge:${ctx.orderId}`, {
     store: idempotencyStore,
-    ttlMs: 86400000,          // 24-hour claim retention
-    settleTimeoutMs: 3000,    // Spin-wait up to 3000ms for in-flight request to settle
-    pollIntervalMs: 50        // Check state every 50ms
+    ttlMs: 86400000, // 24-hour claim retention
+    settleTimeoutMs: 3000, // Spin-wait up to 3000ms for in-flight request to settle
+    pollIntervalMs: 50, // Check state every 50ms
 });
 ```
 
 ### B. Two-Tier Error Classification
+
 When handling errors in idempotent steps, differentiate between **permanent business declines** and **transient infrastructure faults**:
+
 - **Permanent Business Errors** (e.g. `CardDeclined`, `AccountNotFound`): Call `idempotencyStore.complete(key, { error: 'CardDeclined' })` so retried requests return the cached decline without charging the card again.
 - **Transient Infrastructure Errors** (e.g. `ETIMEDOUT`, `503 Service Unavailable`): Let Siglo call `idempotencyStore.fail(key)`, releasing the claim so subsequent retry attempts re-execute against the gateway.
 
@@ -207,6 +214,7 @@ When handling errors in idempotent steps, differentiate between **permanent busi
 ## 4. Zero-Trust Network Perimeter & SSRF Hardening
 
 ### A. Pre-Flight DNS Resolution & IP Pinning
+
 Siglo enforces declarative network egress boundaries when using `.networkPolicy()` on flows or `.allowNetwork()` on steps.
 
 ```typescript
@@ -217,20 +225,20 @@ const partnerStep = Step.create('callPartnerWebhook', async (ctx: any) => {
     return await res.json();
 }).allowNetwork(['api.partner.com', 'hooks.slack.com']);
 
-export const secureWebhookFlow = flow(partnerStep)
-.networkPolicy({
+export const secureWebhookFlow = flow(partnerStep).networkPolicy({
     defaultPolicy: 'deny',
     allowedHosts: ['api.partner.com', 'hooks.slack.com'],
-    allowLocalhost: false
+    allowLocalhost: false,
 });
 ```
 
 ### B. Unix Domain Socket Hardening
+
 By default when network policy is active, Unix domain sockets are disallowed unless explicitly listed in `allowUnixSockets`:
 
 ```typescript
 flowInstance.networkPolicy({
-    allowUnixSockets: ['/var/run/custom-app.sock']
+    allowUnixSockets: ['/var/run/custom-app.sock'],
 });
 ```
 
@@ -239,6 +247,7 @@ flowInstance.networkPolicy({
 ## 5. Sagas, Named Compensations & Dead-Letter Queues (DLQ)
 
 ### A. Named Compensation Registry
+
 Never rely on in-memory closures for long-running workflows across service deployments. Register named compensation handlers:
 
 ```typescript
@@ -257,11 +266,11 @@ registerCompensationHandler('inventory:releaseHold', async (output, input, ctx) 
 export const reserveInventoryStep = Step.create('reserveInventory', async (ctx: any) => {
     const res = await inventoryService.reserve(ctx.itemId, ctx.quantity);
     return { reservationId: res.id };
-})
-.compensate('inventory:releaseHold');
+}).compensate('inventory:releaseHold');
 ```
 
 ### B. Best-Effort Compensations & Persistent DLQ Sink
+
 Provide a `deadLetterQueue` sink with a `send` method through `CompensationRunOptions` to capture compensation failures:
 
 ```typescript
@@ -271,21 +280,24 @@ const sqs = new SQSClient({ region: 'us-east-1' });
 
 const deadLetterQueue = {
     send: async (entry: any) => {
-        await sqs.send(new SendMessageCommand({
-            QueueUrl: process.env.COMPENSATION_DLQ_URL,
-            MessageBody: JSON.stringify(entry)
-        }));
-    }
+        await sqs.send(
+            new SendMessageCommand({
+                QueueUrl: process.env.COMPENSATION_DLQ_URL,
+                MessageBody: JSON.stringify(entry),
+            }),
+        );
+    },
 };
 
 // Execute best-effort saga rollback with DLQ sink:
 await orderFlow.compensate('stack-id-to-rollback', {
     mode: 'best-effort',
-    deadLetterQueue
+    deadLetterQueue,
 });
 ```
 
 ### C. Stale Stack Reconciliation Sweep
+
 Deploy a scheduled Kubernetes CronJob running the reconciler every 10 minutes to recover from unhandled pod crashes or OOM events:
 
 ```bash
@@ -297,6 +309,7 @@ npm exec --package=@siglo/cli -- siglo reconcile --stale-threshold=10m --action=
 ## 6. DevTools & Control Plane Hardening (`@siglo/monitor`)
 
 ### A. Production Monitor Configuration
+
 Never expose the DevTools monitor without authentication and telemetry redaction:
 
 ```typescript
@@ -305,33 +318,32 @@ import { z } from 'zod';
 import { orderFlow } from './workflows';
 
 // Enforce strict schema on workflow resume payloads (read by @siglo/monitor)
-(orderFlow as any).resumeSchema = z.object({
-    approved: z.boolean(),
-    approverId: z.string().uuid(),
-    comments: z.string().max(500).optional()
-}).strict(); // .strict() rejects unknown keys with validation errors
+(orderFlow as any).resumeSchema = z
+    .object({
+        approved: z.boolean(),
+        approverId: z.string().uuid(),
+        comments: z.string().max(500).optional(),
+    })
+    .strict(); // .strict() rejects unknown keys with validation errors
 
 const monitorServer = await createMonitorServer({
     port: 4000,
     workflows: {
-        orderFlow
+        orderFlow,
     },
     // Disable remote resumptions in production (read-only monitoring)
     allowRemoteResume: process.env.NODE_ENV !== 'production',
     auth: {
         apiKey: process.env.MONITOR_API_KEY,
-        adminKey: process.env.MONITOR_ADMIN_KEY
+        adminKey: process.env.MONITOR_ADMIN_KEY,
     },
     security: {
         // Redact PII and secrets in SSE, WebSockets, and GET endpoints
-        redactedKeys: [
-            'password', 'secret', 'token', 'apiKey', 
-            'creditCard', 'ssn', 'authorization'
-        ]
+        redactedKeys: ['password', 'secret', 'token', 'apiKey', 'creditCard', 'ssn', 'authorization'],
     },
     cors: {
-        origin: ['https://internal-devtools.yourdomain.com']
-    }
+        origin: ['https://internal-devtools.yourdomain.com'],
+    },
 });
 ```
 
@@ -339,13 +351,13 @@ const monitorServer = await createMonitorServer({
 
 ## 7. Concurrency & Resource Tuning
 
-| Parameter | Recommended Production Value | Justification |
-|---|---|---|
-| **PostgreSQL Pool `max`** | `(workerConcurrency * 2) + 10` | Accommodates step execution, OCC checkpoints, and wait claims without connection starvation. |
-| **Node.js Memory Flag** | `--max-old-space-size=2048` | Prevents V8 heap exhaustion when buffering large payloads or batch pipelines. |
-| **Scheduler `pollIntervalMs`** | `1000` (1s) | Balances timely pickup of due timers with database polling query overhead. |
-| **Idempotency `settleTimeoutMs`** | `3000` (3s) | Matches typical p95 API latency to cleanly resolve concurrent webhook duplicate races. |
-| **Batch `map` Concurrency** | `{ concurrency: 10 }` | Prevents runaway event loop lag and downstream HTTP socket exhaustion. |
+| Parameter                         | Recommended Production Value   | Justification                                                                                |
+| --------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| **PostgreSQL Pool `max`**         | `(workerConcurrency * 2) + 10` | Accommodates step execution, OCC checkpoints, and wait claims without connection starvation. |
+| **Node.js Memory Flag**           | `--max-old-space-size=2048`    | Prevents V8 heap exhaustion when buffering large payloads or batch pipelines.                |
+| **Scheduler `pollIntervalMs`**    | `1000` (1s)                    | Balances timely pickup of due timers with database polling query overhead.                   |
+| **Idempotency `settleTimeoutMs`** | `3000` (3s)                    | Matches typical p95 API latency to cleanly resolve concurrent webhook duplicate races.       |
+| **Batch `map` Concurrency**       | `{ concurrency: 10 }`          | Prevents runaway event loop lag and downstream HTTP socket exhaustion.                       |
 
 ---
 

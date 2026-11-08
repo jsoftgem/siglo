@@ -1,16 +1,25 @@
-import {Step, flow} from '../step';
-import {toPOJO} from '../context';
-import {generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType, safeClone} from '../../shared';
-import {BranchNode, WorkflowNode, toGraph} from '../graph';
-import {emitMonitoringEvent, stepInspectionStorage} from '../events';
-import {stepExecutionHookStorage} from '../executer/hooks';
+import { Step, flow } from '../step';
+import { toPOJO } from '../context';
+import { generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType, safeClone } from '../../shared';
+import { BranchNode, WorkflowNode, toGraph } from '../graph';
+import { emitMonitoringEvent, stepInspectionStorage } from '../events';
+import { stepExecutionHookStorage } from '../executer/hooks';
 
 function reportRoute(route: string): void {
     const scope = stepInspectionStorage.getStore();
-    if (scope) emitMonitoringEvent({monitor: scope.monitor}, {
-        type: 'branch:selected', stackId: scope.stackId, stepId: scope.stepId,
-        stepName: scope.stepName, namespace: scope.namespace, route, timestamp: Date.now()
-    });
+    if (scope)
+        emitMonitoringEvent(
+            { monitor: scope.monitor },
+            {
+                type: 'branch:selected',
+                stackId: scope.stackId,
+                stepId: scope.stepId,
+                stepName: scope.stepName,
+                namespace: scope.namespace,
+                route,
+                timestamp: Date.now(),
+            },
+        );
 }
 
 export type BranchPredicate = (ctx: any, meta?: any) => boolean | Promise<boolean>;
@@ -19,7 +28,7 @@ export type BranchSelector = (ctx: any, meta?: any) => string | Promise<string>;
 export const BranchRoute = {
     THEN: 'then',
     ELSE: 'else',
-    DEFAULT: 'default'
+    DEFAULT: 'default',
 } as const;
 
 export type BranchRoute = (typeof BranchRoute)[keyof typeof BranchRoute];
@@ -30,10 +39,7 @@ function cleanBranchOutput(output: any): any {
     }
     const clean: Record<string, any> = {};
     for (const key of Object.keys(output)) {
-        if (
-            isReservedKey(key) ||
-            isFunction(output[key])
-        ) {
+        if (isReservedKey(key) || isFunction(output[key])) {
             continue;
         }
         clean[key] = output[key];
@@ -43,10 +49,16 @@ function cleanBranchOutput(output: any): any {
 
 function executeBranchTarget(target: any, input: any, signal?: AbortSignal): Promise<any> {
     const isolatedInput = safeClone(toPOJO(input));
-    const parentStackId = isFunction(input?.$stackId) ? input.$stackId() : (input?.$stackId || input?.stackId);
-    const namespace = isFunction(input?.$namespace) ? input.$namespace() : (input?.$namespace || input?.namespace);
+    const parentStackId = isFunction(input?.$stackId) ? input.$stackId() : input?.$stackId || input?.stackId;
+    const namespace = isFunction(input?.$namespace) ? input.$namespace() : input?.$namespace || input?.namespace;
     const hook = stepExecutionHookStorage.getStore();
-    const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace, ...(hook ? {stepExecutionHook: hook} : {})};
+    const branchOptions: any = {
+        signal,
+        pojo: true,
+        stackId: parentStackId,
+        namespace,
+        ...(hook ? { stepExecutionHook: hook } : {}),
+    };
 
     if (isFunction(target)) {
         return Promise.resolve(target(isolatedInput, branchOptions));
@@ -60,14 +72,10 @@ function executeBranchTarget(target: any, input: any, signal?: AbortSignal): Pro
     if (target && isFunction(target.start)) {
         return target.start(isolatedInput, branchOptions);
     }
-    return flow(target).execute(isolatedInput, branchOptions);
+    return flow(target).run(isolatedInput, branchOptions);
 }
 
-export function when(
-    predicate: BranchPredicate,
-    thenStep: any,
-    elseStep?: any
-): Step<any, any> {
+export function when(predicate: BranchPredicate, thenStep: any, elseStep?: any): Step<any, any> {
     const thenNode = toGraph(thenStep);
     const elseNode = elseStep ? toGraph(elseStep) : undefined;
 
@@ -77,18 +85,18 @@ export function when(
         type: WorkflowNodeType.BRANCH,
         branches: {
             then: thenNode,
-            ...(elseNode ? {else: elseNode} : {})
+            ...(elseNode ? { else: elseNode } : {}),
         },
-        selector: predicate
+        selector: predicate,
     };
 
     const step = Step.create('when', async (param: any) => {
         const rawSig = param?.$signal || param?.signal;
-        const signal = isFunction(rawSig) ? ((rawSig as any).val || rawSig()) : rawSig;
+        const signal = isFunction(rawSig) ? (rawSig as any).val || rawSig() : rawSig;
         const meta = {
             attempt: isFunction(param?.$attempt) ? param.$attempt() : param?.$attempt,
             stackId: isFunction(param?.$stackId) ? param.$stackId() : param?.$stackId,
-            namespace: isFunction(param?.$namespace) ? param.$namespace() : param?.namespace
+            namespace: isFunction(param?.$namespace) ? param.$namespace() : param?.namespace,
         };
 
         const isTrue = await predicate(toPOJO(param), meta);
@@ -98,23 +106,23 @@ export function when(
             const result = await executeBranchTarget(thenStep, param, signal);
             const cleaned = cleanBranchOutput(result);
             return {
-                ...(isObject(cleaned) ? cleaned : {value: cleaned}),
+                ...(isObject(cleaned) ? cleaned : { value: cleaned }),
                 $branchSelected: BranchRoute.THEN,
-                $skippedBranches: elseStep ? [BranchRoute.ELSE] : []
+                $skippedBranches: elseStep ? [BranchRoute.ELSE] : [],
             };
         } else if (elseStep) {
             const result = await executeBranchTarget(elseStep, param, signal);
             const cleaned = cleanBranchOutput(result);
             return {
-                ...(isObject(cleaned) ? cleaned : {value: cleaned}),
+                ...(isObject(cleaned) ? cleaned : { value: cleaned }),
                 $branchSelected: BranchRoute.ELSE,
-                $skippedBranches: [BranchRoute.THEN]
+                $skippedBranches: [BranchRoute.THEN],
             };
         } else {
             return {
                 $branchSelected: undefined,
                 $skippedBranches: [BranchRoute.THEN],
-                $skipped: true
+                $skipped: true,
             };
         }
     });
@@ -126,7 +134,7 @@ export function when(
 export function branch(
     selectorOrBranches: BranchSelector | Record<string, any>,
     branchesMap?: Record<string, any>,
-    defaultBranch?: any
+    defaultBranch?: any,
 ): Step<any, any> {
     let selector: BranchSelector;
     let branches: Record<string, any>;
@@ -154,16 +162,16 @@ export function branch(
         type: WorkflowNodeType.BRANCH,
         branches: branchNodes,
         selector,
-        defaultBranch: defaultNode
+        defaultBranch: defaultNode,
     };
 
     const step = Step.create('branch', async (param: any) => {
         const rawSig = param?.$signal || param?.signal;
-        const signal = isFunction(rawSig) ? ((rawSig as any).val || rawSig()) : rawSig;
+        const signal = isFunction(rawSig) ? (rawSig as any).val || rawSig() : rawSig;
         const meta = {
             attempt: isFunction(param?.$attempt) ? param.$attempt() : param?.$attempt,
             stackId: isFunction(param?.$stackId) ? param.$stackId() : param?.$stackId,
-            namespace: isFunction(param?.$namespace) ? param.$namespace() : param?.namespace
+            namespace: isFunction(param?.$namespace) ? param.$namespace() : param?.namespace,
         };
 
         const chosenKey = await selector(toPOJO(param), meta);
@@ -176,16 +184,16 @@ export function branch(
             return {
                 $branchSelected: undefined,
                 $skippedBranches: allKeys,
-                $skipped: true
+                $skipped: true,
             };
         }
 
         const result = await executeBranchTarget(target, param, signal);
         const cleaned = cleanBranchOutput(result);
         return {
-            ...(isObject(cleaned) ? cleaned : {value: cleaned}),
+            ...(isObject(cleaned) ? cleaned : { value: cleaned }),
             $branchSelected: chosenKey,
-            $skippedBranches: skippedBranches
+            $skippedBranches: skippedBranches,
         };
     });
 

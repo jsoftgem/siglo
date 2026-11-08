@@ -10,10 +10,17 @@ export const deadLetterTopic = 'apm.orders.dead-letter';
 export const channel = 'tutorial:zero-code-apm:events';
 export const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6383';
 export function kafka(clientId: string) {
-    return new Kafka({ clientId, brokers: (process.env.KAFKA_BROKERS || '127.0.0.1:39092').split(','), logLevel: logLevel.ERROR });
+    return new Kafka({
+        clientId,
+        brokers: (process.env.KAFKA_BROKERS || '127.0.0.1:39092').split(','),
+        logLevel: logLevel.ERROR,
+    });
 }
 export function database() {
-    return new Pool({ connectionString: process.env.DATABASE_URL || 'postgres://siglo:siglo@127.0.0.1:5436/apm_orders', connectionTimeoutMillis: 5000 });
+    return new Pool({
+        connectionString: process.env.DATABASE_URL || 'postgres://siglo:siglo@127.0.0.1:5436/apm_orders',
+        connectionTimeoutMillis: 5000,
+    });
 }
 export function pubsubClient(redis: Redis) {
     return {
@@ -26,10 +33,16 @@ export function outcomeWriter(pool: Pool, instance: string) {
     return async (outcome: OrderOutcome): Promise<OrderOutcome> => {
         // Pick domain fields explicitly: workflow contexts also carry runtime metadata.
         const result: OrderOutcome = {
-            eventId: outcome.eventId, type: outcome.type, orderId: outcome.orderId,
-            tenant: outcome.tenant, amountCents: outcome.amountCents,
-            giftWrap: outcome.giftWrap, status: outcome.status, actions: outcome.actions,
-            giftWrapped: outcome.giftWrapped ?? false, handledBy: instance,
+            eventId: outcome.eventId,
+            type: outcome.type,
+            orderId: outcome.orderId,
+            tenant: outcome.tenant,
+            amountCents: outcome.amountCents,
+            giftWrap: outcome.giftWrap,
+            status: outcome.status,
+            actions: outcome.actions,
+            giftWrapped: outcome.giftWrapped ?? false,
+            handledBy: instance,
         };
         const saved = await pool.query(
             `INSERT INTO tutorial_order_results(tenant, event_id, result)
@@ -56,10 +69,19 @@ async function initialize() {
             );
         `);
         await admin.connect();
-        await admin.createTopics({ topics: [
-            { topic, numPartitions: 4, replicationFactor: 1 },
-            { topic: deadLetterTopic, numPartitions: 1, replicationFactor: 1 },
-        ] });
-    } finally { await admin.disconnect(); await pool.end(); }
+        await admin.createTopics({
+            topics: [
+                { topic, numPartitions: 4, replicationFactor: 1 },
+                { topic: deadLetterTopic, numPartitions: 1, replicationFactor: 1 },
+            ],
+        });
+    } finally {
+        await admin.disconnect();
+        await pool.end();
+    }
 }
-if (require.main === module) initialize().catch(error => { console.error(error); process.exitCode = 1; });
+if (require.main === module)
+    initialize().catch(error => {
+        console.error(error);
+        process.exitCode = 1;
+    });

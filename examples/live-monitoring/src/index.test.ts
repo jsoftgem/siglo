@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { AddressInfo } from 'node:net';
 import { createOrderApiApp, orderFulfillmentFlow } from './index';
 
-test('Express Workflow Execution API Suite', async (t) => {
+test('Express Workflow Execution API Suite', async t => {
     const app = createOrderApiApp(orderFulfillmentFlow);
     const server = app.listen(0);
     const port = (server.address() as AddressInfo).port;
@@ -26,7 +26,7 @@ test('Express Workflow Execution API Suite', async (t) => {
             headers: {
                 'Content-Type': 'application/json',
                 'X-Correlation-Id': 'corr-express-test-101',
-                'X-Namespace': 'test-namespace'
+                'X-Namespace': 'test-namespace',
             },
             body: JSON.stringify({
                 orderId: 'ORD-TEST-001',
@@ -34,8 +34,8 @@ test('Express Workflow Execution API Suite', async (t) => {
                 amount: 250,
                 authToken: 'secret-auth-token',
                 cardNumber: '4111-2222-3333-4444',
-                isVip: false
-            })
+                isVip: false,
+            }),
         });
 
         assert.equal(res.status, 201);
@@ -61,8 +61,8 @@ test('Express Workflow Execution API Suite', async (t) => {
                 amount: 500,
                 authToken: 'vip-token',
                 cardNumber: '5500-1111-2222-3333',
-                isVip: true
-            })
+                isVip: true,
+            }),
         });
 
         assert.equal(res.status, 201);
@@ -74,47 +74,50 @@ test('Express Workflow Execution API Suite', async (t) => {
         assert.equal(data.netCharged, 400);
     });
 
-    await t.test('POST /api/orders with X-Durable: true suspends and can be resumed via /approve using orderId', async () => {
-        const orderId = 'ORD-DURABLE-003';
-        const res = await fetch(`${baseUrl}/api/orders`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Durable': 'true'
-            },
-            body: JSON.stringify({
-                orderId,
-                customerId: 'cust_durable',
-                amount: 300,
-                authToken: 'token-secret',
-                cardNumber: '4000-0000-0000-0000',
-                isVip: false
-            })
-        });
+    await t.test(
+        'POST /api/orders with X-Durable: true suspends and can be resumed via /approve using orderId',
+        async () => {
+            const orderId = 'ORD-DURABLE-003';
+            const res = await fetch(`${baseUrl}/api/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Durable': 'true',
+                },
+                body: JSON.stringify({
+                    orderId,
+                    customerId: 'cust_durable',
+                    amount: 300,
+                    authToken: 'token-secret',
+                    cardNumber: '4000-0000-0000-0000',
+                    isVip: false,
+                }),
+            });
 
-        assert.equal(res.status, 202);
-        const data = (await res.json()) as any;
-        assert.equal(data.status, 'SUSPENDED');
-        assert.equal(data.correlationKey, orderId);
-        assert.equal(data.waitingForEvent, 'order.approved');
-        assert.ok(data.stackId);
+            assert.equal(res.status, 202);
+            const data = (await res.json()) as any;
+            assert.equal(data.status, 'SUSPENDED');
+            assert.equal(data.correlationKey, orderId);
+            assert.equal(data.waitingForEvent, 'order.approved');
+            assert.ok(data.stackId);
 
-        // Resume / approve via Express API using :orderId route parameter directly (no stackId in body)
-        const approveRes = await fetch(`${baseUrl}/api/orders/${orderId}/approve`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                approvedBy: 'compliance-auditor@corp.internal',
-                decisionNotes: 'Approved via unit test'
-            })
-        });
+            // Resume / approve via Express API using :orderId route parameter directly (no stackId in body)
+            const approveRes = await fetch(`${baseUrl}/api/orders/${orderId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    approvedBy: 'compliance-auditor@corp.internal',
+                    decisionNotes: 'Approved via unit test',
+                }),
+            });
 
-        assert.equal(approveRes.status, 200);
-        const approveData = (await approveRes.json()) as any;
-        assert.equal(approveData.success, true);
-        assert.equal(approveData.fulfillmentStatus, 'DISPATCHED');
-        assert.ok(approveData.trackingNumber.startsWith('TRK-USPS-'));
-    });
+            assert.equal(approveRes.status, 200);
+            const approveData = (await approveRes.json()) as any;
+            assert.equal(approveData.success, true);
+            assert.equal(approveData.fulfillmentStatus, 'DISPATCHED');
+            assert.ok(approveData.trackingNumber.startsWith('TRK-USPS-'));
+        },
+    );
 
     await t.test('POST /api/orders with X-Durable: true can also be resumed using stackId in body', async () => {
         const orderId = 'ORD-DURABLE-004';
@@ -122,7 +125,7 @@ test('Express Workflow Execution API Suite', async (t) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Durable': 'true'
+                'X-Durable': 'true',
             },
             body: JSON.stringify({
                 orderId,
@@ -130,8 +133,8 @@ test('Express Workflow Execution API Suite', async (t) => {
                 amount: 450,
                 authToken: 'token-secret-2',
                 cardNumber: '4000-0000-0000-0001',
-                isVip: false
-            })
+                isVip: false,
+            }),
         });
 
         assert.equal(res.status, 202);
@@ -145,8 +148,8 @@ test('Express Workflow Execution API Suite', async (t) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 stackId: data.stackId,
-                approvedBy: 'compliance-auditor@corp.internal'
-            })
+                approvedBy: 'compliance-auditor@corp.internal',
+            }),
         });
 
         assert.equal(approveRes.status, 200);
@@ -160,7 +163,7 @@ test('Express Workflow Execution API Suite', async (t) => {
         const res = await fetch(`${baseUrl}/api/orders/ORD-DURABLE-004/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ approvedBy: 'tester' })
+            body: JSON.stringify({ approvedBy: 'tester' }),
         });
 
         assert.equal(res.status, 400);

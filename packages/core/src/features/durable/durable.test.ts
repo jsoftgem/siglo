@@ -14,7 +14,7 @@ import {
     defaultStorageManager,
     validateWorkflowVersion,
     clearStorage,
-    WorkflowEventEmitter
+    WorkflowEventEmitter,
 } from '../../index';
 
 describe('Durable Waits, External Events, and Versioning Tests', () => {
@@ -43,11 +43,11 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
     describe('Durable Workflow Wait & Suspension', () => {
         it('non-durable execution passes through wait and waitForEvent without suspending', async () => {
             const stepWait = wait(10);
-            const resWait = await flow(stepWait).execute({}, { pojo: true });
+            const resWait = await flow(stepWait).run({}, { pojo: true });
             expect(resWait.waitedMs).to.equal(10);
 
             const stepEvent = waitForEvent('order.shipped', { correlationKey: 'ord-1' });
-            const resEvent = await flow(stepEvent).execute({}, { pojo: true });
+            const resEvent = await flow(stepEvent).run({}, { pojo: true });
             expect(resEvent.waited).to.be.true;
         });
 
@@ -57,8 +57,8 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             });
 
             const stepWait = waitForEvent('payment.authorized', {
-                correlationKey: (ctx) => `order:${ctx.orderId}`,
-                timeout: '1h'
+                correlationKey: ctx => `order:${ctx.orderId}`,
+                timeout: '1h',
             });
 
             const step3 = Step.create('fulfillOrder', ({ orderId, authCode }: any) => {
@@ -67,10 +67,13 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
             const workflow = flow(step1, stepWait, step3).version('1.0.0');
 
-            const suspensionResult = await workflow.run({ orderId: 'ord-999', amount: 250 }, {
-                durable: true,
-                pojo: true
-            });
+            const suspensionResult = await workflow.run(
+                { orderId: 'ord-999', amount: 250 },
+                {
+                    durable: true,
+                    pojo: true,
+                },
+            );
 
             expect(suspensionResult.status).to.equal('waiting');
             expect(suspensionResult.correlationKey).to.equal('order:ord-999');
@@ -103,11 +106,11 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         it('resumeWorkflow resumes waiting workflow with event payload and finishes remaining steps', async () => {
             const step1 = Step.create('step1', () => ({ step1Done: true }));
             const waitStep = waitForEvent('user.verified', {
-                correlationKey: (ctx) => `user:${ctx.userId}`
+                correlationKey: ctx => `user:${ctx.userId}`,
             });
             const step2 = Step.create('step2', (ctx: any) => ({
                 step2Done: true,
-                verifiedBy: ctx.verifiedBy
+                verifiedBy: ctx.verifiedBy,
             }));
 
             const userWorkflow = flow(step1, waitStep, step2);
@@ -117,9 +120,13 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(suspended.status).to.equal('waiting');
 
             // 2. Resume workflow via flow.resume() with external event payload
-            const finalResult = await userWorkflow.resume('user:u-123', {
-                verifiedBy: 'admin@corp.com'
-            }, { pojo: true });
+            const finalResult = await userWorkflow.resume(
+                'user:u-123',
+                {
+                    verifiedBy: 'admin@corp.com',
+                },
+                { pojo: true },
+            );
 
             expect(finalResult.step1Done).to.equal(true);
             expect(finalResult.step2Done).to.equal(true);
@@ -128,7 +135,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
         it('resumeWorkflow can also resume using stackId', async () => {
             const waitStep = waitForEvent('signal.ready', {
-                correlationKey: 'sig-1'
+                correlationKey: 'sig-1',
             });
             const afterStep = Step.create('after', (ctx: any) => ({ completed: true, token: ctx.token }));
 
@@ -143,10 +150,10 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         it('resumeWorkflow emits flow:resumed and attaches monitor to resumed flow', async () => {
             const events: any[] = [];
             const emitter = new WorkflowEventEmitter();
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             const waitStep = waitForEvent('signal.monitored', {
-                correlationKey: 'sig-mon-1'
+                correlationKey: 'sig-mon-1',
             });
             const afterStep = Step.create('after', (ctx: any) => ({ completed: true, token: ctx.token }));
 
@@ -176,10 +183,10 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                         correlationKey,
                         status: 'WAITING',
                         continuationStepIndex: 2,
-                        stepId: 'wait-step'
+                        stepId: 'wait-step',
                     };
                 },
-                async saveWaitRecord() {}
+                async saveWaitRecord() {},
             };
 
             const prevAdapter = defaultStorageManager.getAdapter();
@@ -239,7 +246,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         it('rejects expired event wait with ExpiredWaitException', async () => {
             const waitStep = waitForEvent('short.window', {
                 correlationKey: 'exp-key',
-                timeoutMs: 15 // 15ms TTL
+                timeoutMs: 15, // 15ms TTL
             });
             const f = flow(waitStep);
             await f.run({}, { durable: true });
@@ -260,7 +267,10 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
     describe('Workflow Versioning & Migrations', () => {
         it('resumes successfully when workflow versions match', async () => {
             const waitStep = waitForEvent('ev', { correlationKey: 'ver-match' });
-            const f = flow(waitStep, Step.create('ok', () => ({ ok: true }))).version('2.1.0');
+            const f = flow(
+                waitStep,
+                Step.create('ok', () => ({ ok: true })),
+            ).version('2.1.0');
 
             await f.run({}, { durable: true });
             const res = await f.resume('ver-match', {}, { pojo: true });
@@ -288,7 +298,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const s1 = Step.create('init', () => ({ user_name: 'John Doe' }));
             const waitStep = waitForEvent('ev', { correlationKey: 'migrate-key' });
             const s2 = Step.create('finish', (ctx: any) => ({
-                displayName: ctx.user?.name
+                displayName: ctx.user?.name,
             }));
 
             // Version 1.0.0 ran and suspended
@@ -298,47 +308,56 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             // Version 2.0.0 expects { user: { name } } instead of flat { user_name }
             const v2 = flow(waitStep, s2).version('2.0.0');
 
-            const res = await v2.resume('migrate-key', {}, {
-                pojo: true,
-                migrations: {
-                    '1.0.0->2.0.0': (_fromVer: any, _toVer: any, oldState: any) => {
-                        return {
-                            user: { name: oldState.user_name }
-                        };
-                    }
-                }
-            });
+            const res = await v2.resume(
+                'migrate-key',
+                {},
+                {
+                    pojo: true,
+                    migrations: {
+                        '1.0.0->2.0.0': (_fromVer: any, _toVer: any, oldState: any) => {
+                            return {
+                                user: { name: oldState.user_name },
+                            };
+                        },
+                    },
+                },
+            );
 
             expect(res.displayName).to.equal('John Doe');
         });
 
-        it("covers validateWorkflowVersion equality and function migrations", () => {
+        it('covers validateWorkflowVersion equality and function migrations', () => {
             const state = { a: 1 };
-            expect(validateWorkflowVersion("1.0", "1.0", undefined, state)).to.equal(state);
-            expect(validateWorkflowVersion(undefined, "1.0", undefined, state)).to.equal(state);
-            const migrated = validateWorkflowVersion("2.0", "1.0", (_from, _to, s) => ({ ...s, migrated: true }), state);
+            expect(validateWorkflowVersion('1.0', '1.0', undefined, state)).to.equal(state);
+            expect(validateWorkflowVersion(undefined, '1.0', undefined, state)).to.equal(state);
+            const migrated = validateWorkflowVersion(
+                '2.0',
+                '1.0',
+                (_from, _to, s) => ({ ...s, migrated: true }),
+                state,
+            );
             expect(migrated).to.deep.equal({ a: 1, migrated: true });
-            expect(defaultDurableManager.size).to.be.a("number");
+            expect(defaultDurableManager.size).to.be.a('number');
         });
 
-        it("DurableManager enforces maxSize and evicts expired or oldest wait records", async () => {
+        it('DurableManager enforces maxSize and evicts expired or oldest wait records', async () => {
             const mgr = new DurableManager({ maxSize: 2 });
             const now = Date.now();
             mgr.registerWait({
-                correlationKey: "w1",
-                stackId: "stk1",
-                stepId: "step1",
+                correlationKey: 'w1',
+                stackId: 'stk1',
+                stepId: 'step1',
                 continuationStepIndex: 1,
-                status: "waiting",
+                status: 'waiting',
                 registeredAt: now,
                 expiresAt: now + 10,
             } as any);
             mgr.registerWait({
-                correlationKey: "w2",
-                stackId: "stk2",
-                stepId: "step2",
+                correlationKey: 'w2',
+                stackId: 'stk2',
+                stepId: 'step2',
                 continuationStepIndex: 1,
-                status: "waiting",
+                status: 'waiting',
                 registeredAt: now,
                 expiresAt: now + 50000,
             } as any);
@@ -347,39 +366,39 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             await new Promise(r => setTimeout(r, 20));
             // w1 expired; registering w3 triggers cleanExpired and clears w1
             mgr.registerWait({
-                correlationKey: "w3",
-                stackId: "stk3",
-                stepId: "step3",
+                correlationKey: 'w3',
+                stackId: 'stk3',
+                stepId: 'step3',
                 continuationStepIndex: 1,
-                status: "waiting",
+                status: 'waiting',
                 registeredAt: now,
                 expiresAt: now + 50000,
             } as any);
             expect(mgr.size).to.equal(2);
-            expect(mgr.getWaiting("w1")).to.be.undefined;
+            expect(mgr.getWaiting('w1')).to.be.undefined;
 
             // Both w2 and w3 unexpired; registering w4 evicts oldest (w2)
             mgr.registerWait({
-                correlationKey: "w4",
-                stackId: "stk4",
-                stepId: "step4",
+                correlationKey: 'w4',
+                stackId: 'stk4',
+                stepId: 'step4',
                 continuationStepIndex: 1,
-                status: "waiting",
+                status: 'waiting',
                 registeredAt: now,
                 expiresAt: now + 50000,
             } as any);
             expect(mgr.size).to.equal(2);
-            expect(mgr.getWaiting("w2")).to.be.undefined;
-            expect(mgr.getWaitingByStack("stk2")).to.be.undefined;
+            expect(mgr.getWaiting('w2')).to.be.undefined;
+            expect(mgr.getWaitingByStack('stk2')).to.be.undefined;
 
             // cleanExpired cleans expired entries
             const mgrClean = new DurableManager({ maxSize: 10 });
             mgrClean.registerWait({
-                correlationKey: "temp",
-                stackId: "temp-stk",
-                stepId: "step1",
+                correlationKey: 'temp',
+                stackId: 'temp-stk',
+                stepId: 'step1',
                 continuationStepIndex: 1,
-                status: "waiting",
+                status: 'waiting',
                 registeredAt: now,
                 expiresAt: now + 10,
             } as any);
@@ -387,33 +406,33 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(mgrClean.cleanExpired()).to.equal(1);
         });
 
-        it("resumeWorkflow supports flow containing only continuation step", async () => {
-            const waitStep = waitForEvent("step.alone", { correlationKey: "alone-key" });
+        it('resumeWorkflow supports flow containing only continuation step', async () => {
+            const waitStep = waitForEvent('step.alone', { correlationKey: 'alone-key' });
             const origFlow = flow(waitStep);
             await origFlow.run({}, { durable: true });
 
-            const contStep = Step.create("contOnly", () => ({ done: true }));
+            const contStep = Step.create('contOnly', () => ({ done: true }));
             const contFlow = flow(contStep);
-            const res = await resumeWorkflow(contFlow, "alone-key", {}, { pojo: true });
+            const res = await resumeWorkflow(contFlow, 'alone-key', {}, { pojo: true });
             expect(res.done).to.equal(true);
         });
 
-        it("resumeWorkflow recovers waitRecord from storage adapter getWaitRecord and notifies saveWaitRecord", async () => {
+        it('resumeWorkflow recovers waitRecord from storage adapter getWaitRecord and notifies saveWaitRecord', async () => {
             let savedRecord: any;
             const mockAdapter = {
-                name: "mock-durable",
+                name: 'mock-durable',
                 saveWaitRecord: async (rec: any) => {
                     savedRecord = rec;
                 },
                 getWaitRecord: async (key: string) => {
-                    if (key === "adapter-key") {
+                    if (key === 'adapter-key') {
                         return {
-                            stackId: "adapter-stack",
-                            correlationKey: "adapter-key",
-                            eventName: "approval",
-                            status: "waiting",
+                            stackId: 'adapter-stack',
+                            correlationKey: 'adapter-key',
+                            eventName: 'approval',
+                            status: 'waiting',
                             continuationStepIndex: 1,
-                            createdAt: Date.now()
+                            createdAt: Date.now(),
                         };
                     }
                     return undefined;
@@ -427,43 +446,43 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                         revision: 1,
                         timestamp: Date.now(),
                         chains: [],
-                        contexts: {}
+                        contexts: {},
                     } as any;
-                }
+                },
             };
             defaultStorageManager.useStorage(mockAdapter as any);
 
-            const contStep = Step.create("approvedStep", () => ({ approved: true }));
+            const contStep = Step.create('approvedStep', () => ({ approved: true }));
             const f = flow(contStep);
 
-            const res = await resumeWorkflow(f, "adapter-key", { notes: "ok" }, { pojo: true });
+            const res = await resumeWorkflow(f, 'adapter-key', { notes: 'ok' }, { pojo: true });
             expect(res.approved).to.be.true;
-            expect(savedRecord).to.be.an("object");
-            expect(savedRecord?.status).to.equal("resumed");
+            expect(savedRecord).to.be.an('object');
+            expect(savedRecord?.status).to.equal('resumed');
         });
 
-        it("resumeWorkflow recovers waitRecord from checkpoint metadata when in-memory manager is cleared", async () => {
+        it('resumeWorkflow recovers waitRecord from checkpoint metadata when in-memory manager is cleared', async () => {
             let savedWaitRecord: any;
             const mockAdapter = {
-                name: "mock-suspension",
+                name: 'mock-suspension',
                 saveWaitRecord: async (rec: any) => {
                     savedWaitRecord = rec;
-                }
+                },
             };
             defaultStorageManager.useStorage(mockAdapter as any);
 
-            const waitStep = waitForEvent("invoice.paid", { correlationKey: "inv-key" });
-            const contStep = Step.create("receipt", () => ({ sent: true }));
+            const waitStep = waitForEvent('invoice.paid', { correlationKey: 'inv-key' });
+            const contStep = Step.create('receipt', () => ({ sent: true }));
             const invoiceFlow = flow(waitStep, contStep);
 
             const suspension = await invoiceFlow.run({}, { durable: true });
-            expect(suspension.status).to.equal("waiting");
-            expect(savedWaitRecord).to.be.an("object");
-            expect(savedWaitRecord.correlationKey).to.equal("inv-key");
+            expect(suspension.status).to.equal('waiting');
+            expect(savedWaitRecord).to.be.an('object');
+            expect(savedWaitRecord.correlationKey).to.equal('inv-key');
 
             // Clear in-memory manager to simulate restart
             defaultDurableManager.clear();
-            expect(defaultDurableManager.getWaiting("inv-key")).to.be.undefined;
+            expect(defaultDurableManager.getWaiting('inv-key')).to.be.undefined;
 
             // Resume by stackId
             const res = await resumeWorkflow(invoiceFlow, suspension.stackId, {}, { pojo: true });
@@ -487,7 +506,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                 status: 'waiting' as any,
                 continuationStepIndex: 1,
                 stepId: 'step-isolated-1',
-                createdAt: Date.now()
+                createdAt: Date.now(),
             };
 
             manager.registerWait(record);
@@ -507,7 +526,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                 status: 'waiting' as any,
                 continuationStepIndex: 2,
                 stepId: 'step-wait',
-                createdAt: Date.now()
+                createdAt: Date.now(),
             });
 
             const resumed = manager.resumeWait('corr-resume-test');
@@ -528,7 +547,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                 continuationStepIndex: 1,
                 stepId: 'step-auth',
                 createdAt: Date.now() - 10000,
-                expiresAt: Date.now() - 2000
+                expiresAt: Date.now() - 2000,
             });
 
             expect(() => manager.resumeWait('corr-expired-test')).to.throw(ExpiredWaitException);
@@ -537,37 +556,37 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         it('returns all waiting records via getAllWaiting()', () => {
             const manager = new DurableManager();
             manager.registerWait({
-                stackId: "stack-all-test",
-                correlationKey: "corr-all-test",
-                status: "waiting" as any,
+                stackId: 'stack-all-test',
+                correlationKey: 'corr-all-test',
+                status: 'waiting' as any,
                 continuationStepIndex: 0,
-                stepId: "step-1",
-                createdAt: Date.now()
+                stepId: 'step-1',
+                createdAt: Date.now(),
             });
             const all = manager.getAllWaiting();
-            expect(all).to.be.an("array");
+            expect(all).to.be.an('array');
             expect(all).to.have.length(1);
-            expect(all[0].correlationKey).to.equal("corr-all-test");
+            expect(all[0].correlationKey).to.equal('corr-all-test');
         });
 
         it('defaults status and createdAt when omitted and allows resuming expired record when allowExpired is true', () => {
             const manager = new DurableManager();
             manager.registerWait({
-                stackId: "stack-default-test",
-                correlationKey: "corr-default-test",
-                eventName: "timer",
+                stackId: 'stack-default-test',
+                correlationKey: 'corr-default-test',
+                eventName: 'timer',
                 continuationStepIndex: 0,
-                stepId: "step-default",
-                expiresAt: Date.now() - 5000
+                stepId: 'step-default',
+                expiresAt: Date.now() - 5000,
             } as any);
 
-            const rec = manager.getWaiting("corr-default-test");
-            expect(rec?.status).to.equal("waiting");
-            expect(rec?.createdAt).to.be.a("number");
+            const rec = manager.getWaiting('corr-default-test');
+            expect(rec?.status).to.equal('waiting');
+            expect(rec?.createdAt).to.be.a('number');
 
-            const resumed = manager.resumeWait("corr-default-test", true);
-            expect(resumed.status).to.equal("resumed");
-            expect(resumed.resumedAt).to.be.a("number");
+            const resumed = manager.resumeWait('corr-default-test', true);
+            expect(resumed.status).to.equal('resumed');
+            expect(resumed.resumedAt).to.be.a('number');
         });
 
         it('clears all records and indexed stack mapping', () => {
@@ -579,7 +598,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                 status: 'waiting' as any,
                 continuationStepIndex: 1,
                 stepId: 'step-test',
-                createdAt: Date.now()
+                createdAt: Date.now(),
             });
 
             expect(manager.size).to.equal(1);

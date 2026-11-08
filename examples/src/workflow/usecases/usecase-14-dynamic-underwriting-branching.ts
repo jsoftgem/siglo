@@ -33,7 +33,7 @@ export function createLoanUnderwritingPipeline() {
             annualIncome: param.annualIncome,
             requestedAmount: param.requestedAmount,
             applicantName: param.applicantName,
-            applicationVerified: true
+            applicationVerified: true,
         };
     });
 
@@ -41,26 +41,22 @@ export function createLoanUnderwritingPipeline() {
     const applyPartnerPromoRate = Step.create('applyPartnerPromoRate', async () => ({
         interestRate: 4.25,
         rateTier: 'PARTNER_PROMO',
-        approved: true
+        approved: true,
     }));
 
     const applyStandardPrimeRate = Step.create('applyStandardPrimeRate', async () => ({
         interestRate: 4.85,
         rateTier: 'STANDARD_PRIME',
-        approved: true
+        approved: true,
     }));
 
     const primeFlow = flow(
-        when(
-            (ctx) => ctx.hasPartnerPromo === true,
-            applyPartnerPromoRate,
-            applyStandardPrimeRate
-        ),
+        when(ctx => ctx.hasPartnerPromo === true, applyPartnerPromoRate, applyStandardPrimeRate),
         Step.create('finalizePrimeOffer', async (param: any) => ({
             decision: 'APPROVED_INSTANT',
             maxAllowedAmount: param.requestedAmount,
-            stipulationsRequired: false
-        }))
+            stipulationsRequired: false,
+        })),
     );
 
     // Subflow B: NEAR_PRIME - Manual Review & Collateral Check
@@ -74,9 +70,9 @@ export function createLoanUnderwritingPipeline() {
                 decision: debtToIncome <= 0.4 ? 'APPROVED_WITH_CONDITIONS' : 'REFERRED_TO_ANALYST',
                 interestRate: 7.5,
                 stipulationsRequired: true,
-                stipulationNotes: 'Requires 2 months of verified pay stubs'
+                stipulationNotes: 'Requires 2 months of verified pay stubs',
             };
-        })
+        }),
     );
 
     // Subflow C: SUBPRIME - High Risk Queue / Auto-Decline
@@ -84,19 +80,19 @@ export function createLoanUnderwritingPipeline() {
         Step.create('declineSubprime', async () => ({
             decision: 'DECLINED',
             adverseActionNoticeSent: true,
-            declineReason: 'Credit score below minimum automated threshold (650)'
-        }))
+            declineReason: 'Credit score below minimum automated threshold (650)',
+        })),
     );
 
     // Dynamic Multi-Way Router
     const dynamicRouting = branch(
-        (ctx) => ctx.riskTier,
+        ctx => ctx.riskTier,
         {
             PRIME: primeFlow,
             NEAR_PRIME: nearPrimeFlow,
-            SUBPRIME: subprimeFlow
+            SUBPRIME: subprimeFlow,
         },
-        subprimeFlow
+        subprimeFlow,
     );
 
     // Final Step: Format Decision Summary
@@ -108,13 +104,9 @@ export function createLoanUnderwritingPipeline() {
             riskTier: param.riskTier,
             decision: param.decision,
             interestRate: param.interestRate ?? null,
-            stipulationsRequired: param.stipulationsRequired ?? false
+            stipulationsRequired: param.stipulationsRequired ?? false,
         };
     });
 
-    return flow(
-        classifyRiskTier,
-        dynamicRouting,
-        formatDecision
-    );
+    return flow(classifyRiskTier, dynamicRouting, formatDecision);
 }

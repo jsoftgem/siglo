@@ -1,6 +1,6 @@
 ---
-title: "BullMQ Job Queue"
-description: "Redis-backed BullMQ worker processor and job queue consumer adapter for executing Siglo workflows."
+title: 'BullMQ Job Queue'
+description: 'Redis-backed BullMQ worker processor and job queue consumer adapter for executing Siglo workflows.'
 ---
 
 # @siglo/bullmq Adapter Guide
@@ -37,6 +37,7 @@ npm install @siglo/core @siglo/bullmq bullmq ioredis
 ```
 
 Peer dependency matrix:
+
 - `Siglo`: `*` (v1.0.0+)
 - `bullmq`: `^5.0.0`
 - `ioredis`: `^5.0.0 || ^6.0.0`
@@ -52,11 +53,12 @@ Creates a BullMQ-compliant worker processor function:
 ```typescript
 function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloBullMQOptions<TJob, TInput, TOutput>
+    options?: SigloBullMQOptions<TJob, TInput, TOutput>,
 ): (job: any) => Promise<any>;
 ```
 
 #### Parameters:
+
 - `workflow` (`Flow<TInput, TOutput>`): The compiled `Siglo` workflow instance to execute.
 - `options` (`SigloBullMQOptions<TJob, TInput, TOutput>`): Optional configuration dictionary.
 
@@ -64,42 +66,42 @@ function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
 
 ## 4. Configuration Options (`SigloBullMQOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `input` | `(job: TJob) => Promise<TInput> \| TInput` | `(job) => job.data` | Custom mapper to transform the BullMQ `Job` into workflow inputs. |
-| `output` | `(result: any, job: TJob) => Promise<TOutput> \| TOutput` | `(result) => result` | Custom mapper to format or filter the workflow result before returning to BullMQ. |
-| `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to provide distributed deduplication and claim locking. |
-| `idempotencyTtlMs` | `number` | `undefined` | Time-to-live for the idempotency claim in milliseconds. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
-| `timeout` | `number` | `undefined` | SLA deadline in milliseconds for workflow execution. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded. |
-| `namespace` | `string \| ((job: TJob) => string \| undefined)` | `job.data?.namespace` | Target namespace for state partitioning and checkpoint isolation. |
+| Option             | Type                                                      | Default               | Description                                                                                                                                                         |
+| :----------------- | :-------------------------------------------------------- | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `input`            | `(job: TJob) => Promise<TInput> \| TInput`                | `(job) => job.data`   | Custom mapper to transform the BullMQ `Job` into workflow inputs.                                                                                                   |
+| `output`           | `(result: any, job: TJob) => Promise<TOutput> \| TOutput` | `(result) => result`  | Custom mapper to format or filter the workflow result before returning to BullMQ.                                                                                   |
+| `idempotencyStore` | `IdempotencyStore`                                        | `undefined`           | Distributed store (e.g., `RedisIdempotencyStore` or `PostgresIdempotencyStore`) to provide distributed deduplication and claim locking.                             |
+| `idempotencyTtlMs` | `number`                                                  | `undefined`           | Time-to-live for the idempotency claim in milliseconds. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
+| `timeout`          | `number`                                                  | `undefined`           | SLA deadline in milliseconds for workflow execution. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded.                                            |
+| `namespace`        | `string \| ((job: TJob) => string \| undefined)`          | `job.data?.namespace` | Target namespace for state partitioning and checkpoint isolation.                                                                                                   |
 
 ---
 
 ## 5. Execution Lifecycle & Data Flow
 
 1. **Job Identification & Idempotency Key**:
-   - The adapter generates an idempotency key: `bullmq:job:${job.id || String(Date.now())}`.
-   - If `idempotencyStore` is provided, the key is atomically claimed:
-     - `'completed'`: Returns cached result immediately via `store.getResult(key)` without re-running the workflow.
-     - `'in-progress'`: Throws `Error('Job ... is already in-progress concurrently')`, signaling BullMQ to avoid concurrent race conditions.
-     - `'claimed'`: Proceeds to workflow execution.
+    - The adapter generates an idempotency key: `bullmq:job:${job.id || String(Date.now())}`.
+    - If `idempotencyStore` is provided, the key is atomically claimed:
+        - `'completed'`: Returns cached result immediately via `store.getResult(key)` without re-running the workflow.
+        - `'in-progress'`: Throws `Error('Job ... is already in-progress concurrently')`, signaling BullMQ to avoid concurrent race conditions.
+        - `'claimed'`: Proceeds to workflow execution.
 
 2. **Input Mapping**:
-   - If `options.input` is defined, it is invoked with `job`.
-   - Otherwise, `job.data || {}` is passed directly as the initial workflow input parameter.
+    - If `options.input` is defined, it is invoked with `job`.
+    - Otherwise, `job.data || {}` is passed directly as the initial workflow input parameter.
 
 3. **Namespace Resolution**:
-   - If `options.namespace` is a function, `options.namespace(job)` is called.
-   - If `options.namespace` is a static string, it is used.
-   - Otherwise, the adapter inspects `job.data?.namespace`.
+    - If `options.namespace` is a function, `options.namespace(job)` is called.
+    - If `options.namespace` is a static string, it is used.
+    - Otherwise, the adapter inspects `job.data?.namespace`.
 
 4. **Workflow Execution & Context Unwrapping**:
-   - The workflow executes with `{ timeout: options.timeout, namespace }`.
-   - Results are automatically unwrapped (`unwrapContext`), removing internal engine properties (keys prefixed with `$`) and resolving getter accessor functions into standard JSON-serializable primitives.
+    - The workflow executes with `{ timeout: options.timeout, namespace }`.
+    - Results are automatically unwrapped (`unwrapContext`), removing internal engine properties (keys prefixed with `$`) and resolving getter accessor functions into standard JSON-serializable primitives.
 
 5. **Completion & Failure Handling**:
-   - **Success**: If an idempotency store is configured, `store.complete(idempKey, cleanResult)` is called, and `options.output` (if provided) shapes the return value.
-   - **Failure**: If an error is thrown, `store.fail(idempKey, err)` is called to release the in-flight lock, enabling BullMQ retry strategies. The error is re-thrown to trigger BullMQ failure handling.
+    - **Success**: If an idempotency store is configured, `store.complete(idempKey, cleanResult)` is called, and `options.output` (if provided) shapes the return value.
+    - **Failure**: If an error is thrown, `store.fail(idempKey, err)` is called to release the in-flight lock, enabling BullMQ retry strategies. The error is re-thrown to trigger BullMQ failure handling.
 
 ---
 
@@ -164,7 +166,7 @@ const worker = new Worker<VideoJobData>(
             durationSec: result.durationSec,
         }),
     }),
-    { connection, concurrency: 5 }
+    { connection, concurrency: 5 },
 );
 
 worker.on('completed', (job, returnvalue) => {
@@ -205,7 +207,7 @@ const billingWorkflow = flow(
     Step.create('chargeInvoice', async ({ invoiceId, amount }: any) => {
         // Charging payment gateway
         return { chargeId: `ch_${invoiceId}`, settled: true };
-    })
+    }),
 );
 
 const worker = new Worker(
@@ -214,9 +216,9 @@ const worker = new Worker(
         idempotencyStore,
         idempotencyTtlMs: 3600000,
         timeout: 10000,
-        namespace: (job) => job.data.tenantId, // Multi-tenant namespace
+        namespace: job => job.data.tenantId, // Multi-tenant namespace
     }),
-    { connection: redis, concurrency: 10 }
+    { connection: redis, concurrency: 10 },
 );
 ```
 

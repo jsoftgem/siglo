@@ -1,23 +1,17 @@
-import {
-    trace,
-    SpanStatusCode,
-    context as otelContext,
-    createContextKey,
-    Tracer
-} from '@opentelemetry/api';
+import { trace, SpanStatusCode, context as otelContext, createContextKey, Tracer } from '@opentelemetry/api';
 import {
     Flow,
     Step,
     StorageAdapter,
     StepExecutionContext,
     StepExecutionHook,
-    withStepExecutionHook
+    withStepExecutionHook,
 } from '@siglo/core';
 import { SemanticAttributes } from './attributes';
 import { SigloTelemetryOptions } from './types';
 
 const DEFAULT_TRACER_NAME = '@siglo/opentelemetry';
-const DEFAULT_TRACER_VERSION = '1.1.0';
+const DEFAULT_TRACER_VERSION = '1.2.0';
 
 const STEP_INSTRUMENTED = Symbol.for('siglo.opentelemetry.step_instrumented');
 const WORKFLOW_INSTRUMENTED = Symbol.for('siglo.opentelemetry.workflow_instrumented');
@@ -62,7 +56,7 @@ export function createTelemetryStorageAdapter(options: SigloTelemetryOptions = {
                 if (val !== undefined) {
                     activeSpan.setAttribute(
                         `siglo.context.${entry.field}`,
-                        typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)
+                        typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val),
                     );
                 }
             }
@@ -74,18 +68,12 @@ export function createTelemetryStorageAdapter(options: SigloTelemetryOptions = {
  * Instruments an individual Step with an OpenTelemetry child span covering action execution,
  * attempt counting, and error recording.
  */
-export function instrumentStep<TStep extends Step<any, any, any>>(
-    step: TStep,
-    options?: SigloTelemetryOptions
-): TStep;
+export function instrumentStep<TStep extends Step<any, any, any>>(step: TStep, options?: SigloTelemetryOptions): TStep;
 export function instrumentStep<TInput = any, TOutput = any, TName extends string = string>(
     step: Step<TInput, TOutput, TName>,
-    options?: SigloTelemetryOptions
+    options?: SigloTelemetryOptions,
 ): Step<TInput, TOutput, TName>;
-export function instrumentStep(
-    step: any,
-    options: SigloTelemetryOptions = {}
-): any {
+export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): any {
     if (!step || typeof step !== 'object') {
         return step;
     }
@@ -112,7 +100,8 @@ export function instrumentStep(
         // Duplicate-instrumentation protection:
         // If an active step span with this stepId and attempt is already active in otelContext
         // (for example, created by workflow-level execution hook), do not create a duplicate span!
-        const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as { stepId: string; attempt: number } | undefined;
+        const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as
+            { stepId: string; attempt: number } | undefined;
         if (activeStep && activeStep.stepId === stepId && activeStep.attempt === attempt) {
             return originalAction(param, current, index);
         }
@@ -129,9 +118,7 @@ export function instrumentStep(
                 ...(step.$stepId ? { [SemanticAttributes.STEP_ID]: step.$stepId } : {}),
                 [SemanticAttributes.STEP_ATTEMPT]: attempt,
                 ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
-                ...(isNamespaceAllowed && namespace
-                    ? { [SemanticAttributes.NAMESPACE]: namespace }
-                    : {}),
+                ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
                 ...(step.timeoutMs ? { [SemanticAttributes.TIMEOUT]: step.timeoutMs } : {}),
             },
         });
@@ -165,16 +152,13 @@ export function instrumentStep(
  */
 export function instrumentWorkflow<TFlow extends Flow<any, any>>(
     workflow: TFlow,
-    options?: SigloTelemetryOptions
+    options?: SigloTelemetryOptions,
 ): TFlow;
 export function instrumentWorkflow<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloTelemetryOptions
+    options?: SigloTelemetryOptions,
 ): Flow<TInput, TOutput>;
-export function instrumentWorkflow(
-    workflow: any,
-    options: SigloTelemetryOptions = {}
-): any {
+export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions = {}): any {
     if (!workflow || typeof workflow !== 'object') {
         return workflow;
     }
@@ -197,7 +181,8 @@ export function instrumentWorkflow(
         if ((stepContext.step as any)?.[STEP_INSTRUMENTED]) {
             return next();
         }
-        const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as { stepId: string; attempt: number } | undefined;
+        const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as
+            { stepId: string; attempt: number } | undefined;
         if (activeStep && activeStep.stepId === stepId && activeStep.attempt === attempt) {
             return next();
         }
@@ -218,9 +203,7 @@ export function instrumentWorkflow(
                 ...(stepId ? { [SemanticAttributes.STEP_ID]: stepId } : {}),
                 [SemanticAttributes.STEP_ATTEMPT]: attempt,
                 ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
-                ...(stepNamespaceAllowed && namespace
-                    ? { [SemanticAttributes.NAMESPACE]: namespace }
-                    : {}),
+                ...(stepNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
                 ...(stepContext.step?.timeoutMs ? { [SemanticAttributes.TIMEOUT]: stepContext.step.timeoutMs } : {}),
             },
         });
@@ -267,9 +250,7 @@ export function instrumentWorkflow(
                 attributes: {
                     [SemanticAttributes.WORKFLOW_NAME]: workflowName,
                     [SemanticAttributes.WORKFLOW_VERSION]: String(workflowVersion),
-                    ...(isNamespaceAllowed && namespace
-                        ? { [SemanticAttributes.NAMESPACE]: namespace }
-                        : {}),
+                    ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
                     ...(execOptions?.timeout || workflow.timeoutMs
                         ? { [SemanticAttributes.TIMEOUT]: execOptions?.timeout || workflow.timeoutMs }
                         : {}),
@@ -282,7 +263,7 @@ export function instrumentWorkflow(
                 try {
                     const effectiveExecOptions = {
                         ...execOptions,
-                        stepExecutionHook
+                        stepExecutionHook,
                     };
                     const executeCall = () => targetFn(input, effectiveExecOptions);
                     const result: any = withStepExecutionHook

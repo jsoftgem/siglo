@@ -1,13 +1,13 @@
 ---
-title: "Observability"
-description: "Telemetry, diagram exports, and real-time DevTools in Siglo: OpenTelemetry distributed tracing, Mermaid/DOT AST exports, and React live monitoring."
+title: 'Observability'
+description: 'Telemetry, diagram exports, and real-time DevTools in Siglo: OpenTelemetry distributed tracing, Mermaid/DOT AST exports, and React live monitoring.'
 ---
 
 # Observability
 
-For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
+For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](/zero-code-apm-dashboards).
 
-For a complete HTTP example, follow [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md).
+For a complete HTTP example, follow [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring).
 
 Observability is a first-class citizen in `Siglo`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, record granular execution traces, and stream real-time events to an interactive React DevTools dashboard.
 
@@ -38,7 +38,9 @@ console.log(jsonAst);
 ```
 
 ### Visual Badges in Diagrams
+
 `toMermaid()` and `toDot()` automatically embed badges for execution policies:
+
 - ⏱️ `timeoutMs`: Execution deadline
 - 🔁 `retry(N)`: Retry count policy
 - ⏪ `saga`: Compensation rollback registered
@@ -67,7 +69,7 @@ const tracedWorkflow = instrumentWorkflow(myWorkflow, {
     serviceName: 'orders-service',
     allowNamespace: true,
     allowContextFields: ['orderId', 'userId'],
-    redactHook: (key, value) => (key === 'cardNumber' ? '***' : value)
+    redactHook: (key, value) => (key === 'cardNumber' ? '***' : value),
 });
 
 const result = await tracedWorkflow.run({ orderId: '123' });
@@ -108,7 +110,7 @@ const monitor = await createMonitorServer({ port: 4000 });
 // 2. Attach workflows
 const myFlow = flow(
     Step.create('stepA', async () => ({ a: 1 })),
-    Step.create('stepB', async () => ({ b: 2 }))
+    Step.create('stepB', async () => ({ b: 2 })),
 ).monitor(attachToMonitorServer(4000)); // or: .monitor(monitor.emitter)
 
 await myFlow.run({});
@@ -120,7 +122,7 @@ await myFlow.run({});
 - **Prometheus Metrics**: Live metrics exported on `/metrics` for active workflows, execution duration, and retry counts.
 - **Framework Middleware**: Built-in support for Express, Fastify, and Hono.
 
-See the complete [Live Monitoring Guide](./live-monitoring.md) and [Monitor Adapter Guide](./adapters/monitor.md) for full details.
+See the complete [Live Monitoring Guide](/live-monitoring) and [Monitor Adapter Guide](/adapters/monitor) for full details.
 
 ### Runnable Sample Project
 
@@ -132,6 +134,7 @@ npm start --workspace=siglo-live-monitoring-sample
 ```
 
 This demo:
+
 - Launches the live monitoring DevTools server at `http://localhost:4000/`.
 - Simulates an e-commerce order fulfillment pipeline with transient errors, retry backoff (`onFail`), conditional step skips (`onBefore`), and credential masking.
 - Demonstrates durable workflow suspension (`waitForEvent('order.approved')`) and automated resumption.
@@ -210,8 +213,8 @@ describe('OpenTelemetry Integration Test', () => {
 
 ## API Reference Links
 
-- [Live Monitoring & DevTools Guide](./live-monitoring.md)
-- [Monitor Adapter Guide](./adapters/monitor.md)
-- [OpenTelemetry Adapter Guide](./adapters/opentelemetry.md)
-- [Workflow Graph Architecture](./workflow-graph.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Live Monitoring & DevTools Guide](/live-monitoring)
+- [Monitor Adapter Guide](/adapters/monitor)
+- [OpenTelemetry Adapter Guide](/adapters/opentelemetry)
+- [Workflow Graph Architecture](/workflow-graph)
+- [Testing & Replay Reference](/09-testing-and-replay)

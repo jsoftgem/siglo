@@ -49,11 +49,11 @@ npm install @siglo/core @siglo/redis ioredis
 
 ### Peer Dependency Matrix
 
-| Package | Version | Requirement |
-| :--- | :--- | :--- |
-| `@siglo/core` | `^1.0.0` | Core workflow engine & interfaces (`StorageAdapter`, `IdempotencyStore`) |
-| `ioredis` | `^5.0.0 \|\| ^6.0.0` | Optional peer dependency (any client matching `RedisClientInterface`) |
-| Redis Server | `6.0+` | Requires `SET ... PX ... NX`, hashes (`HSET`, `HGETALL`), and optional Lua scripting (`EVAL`) |
+| Package       | Version              | Requirement                                                                                   |
+| :------------ | :------------------- | :-------------------------------------------------------------------------------------------- |
+| `@siglo/core` | `^1.0.0`             | Core workflow engine & interfaces (`StorageAdapter`, `IdempotencyStore`)                      |
+| `ioredis`     | `^5.0.0 \|\| ^6.0.0` | Optional peer dependency (any client matching `RedisClientInterface`)                         |
+| Redis Server  | `6.0+`               | Requires `SET ... PX ... NX`, hashes (`HSET`, `HGETALL`), and optional Lua scripting (`EVAL`) |
 
 ---
 
@@ -61,15 +61,15 @@ npm install @siglo/core @siglo/redis ioredis
 
 `@siglo/redis` uses structured key namespaces across all components:
 
-| Key Pattern | Redis Type | Default TTL | Description |
-| :--- | :--- | :--- | :--- |
-| `siglo:[<ns>:]checkpoint:<stackId>` | `string` (JSON) | 7 days (`604800000ms`) | Serialized execution stack for workflow resumption. Partitioned by tenant namespace if provided (`siglo:<ns>:checkpoint:<stackId>`). |
-| `siglo:cache:<key>` | `string` (JSON) | 24 hours (`86400000ms`) | Cached step evaluation output. Can be overridden per `setCachedStep` call. |
-| `siglo:wait:<key>` | `string` (JSON) | 7 days (`604800000ms`) | Durable wait/continuation record. Indexed by `correlationKey` and/or `stackId`. |
-| `siglo:[<ns>:]context:<stackId>:<stepId>` | `hash` | 7 days (`604800000ms`) | Active context field mutations for auditing. Partitioned by tenant namespace if provided. TTL refreshed via `PEXPIRE`. |
-| `siglo:idemp:<key>` | `string` | 24 hours (`86400000ms`) | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). Can be overridden per claim/complete. |
-| `siglo:lock:<key>` | `string` | 10 seconds (`10000ms`) | Distributed mutex lock holding worker token (`lock_<timestamp>_<randomHex>` or custom). |
-| `siglo:wh:dedup:<key>` | `string` (`"1"`) | Caller specified (`ttlSeconds * 1000ms`) | Nonce deduplication token for webhook replay attack prevention. |
+| Key Pattern                               | Redis Type       | Default TTL                              | Description                                                                                                                          |
+| :---------------------------------------- | :--------------- | :--------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| `siglo:[<ns>:]checkpoint:<stackId>`       | `string` (JSON)  | 7 days (`604800000ms`)                   | Serialized execution stack for workflow resumption. Partitioned by tenant namespace if provided (`siglo:<ns>:checkpoint:<stackId>`). |
+| `siglo:cache:<key>`                       | `string` (JSON)  | 24 hours (`86400000ms`)                  | Cached step evaluation output. Can be overridden per `setCachedStep` call.                                                           |
+| `siglo:wait:<key>`                        | `string` (JSON)  | 7 days (`604800000ms`)                   | Durable wait/continuation record. Indexed by `correlationKey` and/or `stackId`.                                                      |
+| `siglo:[<ns>:]context:<stackId>:<stepId>` | `hash`           | 7 days (`604800000ms`)                   | Active context field mutations for auditing. Partitioned by tenant namespace if provided. TTL refreshed via `PEXPIRE`.               |
+| `siglo:idemp:<key>`                       | `string`         | 24 hours (`86400000ms`)                  | Idempotency lock status (`in-progress` or `COMPLETED:<json>`). Can be overridden per claim/complete.                                 |
+| `siglo:lock:<key>`                        | `string`         | 10 seconds (`10000ms`)                   | Distributed mutex lock holding worker token (`lock_<timestamp>_<randomHex>` or custom).                                              |
+| `siglo:wh:dedup:<key>`                    | `string` (`"1"`) | Caller specified (`ttlSeconds * 1000ms`) | Nonce deduplication token for webhook replay attack prevention.                                                                      |
 
 ---
 
@@ -104,13 +104,13 @@ import { RedisStorageAdapter } from '@siglo/redis';
 
 ### Options (`RedisStorageAdapterOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `client` | `RedisClientInterface` | *Required* | Active Redis client instance (e.g., `ioredis`). Throws if omitted. |
-| `keyPrefix` | `string` | `'siglo:'` | Root prefix for all Redis keys created by this adapter. |
-| `checkpointTtlMs` | `number` | `604800000` (7 days) | TTL for checkpoints, wait records, and context hashes. |
-| `cacheTtlMs` | `number` | `86400000` (24 hours) | Default step response cache expiration TTL. |
-| `recordContextChanges` | `boolean` | `true` | When `true`, streams field updates to Redis hashes. |
+| Option                 | Type                   | Default               | Description                                                        |
+| :--------------------- | :--------------------- | :-------------------- | :----------------------------------------------------------------- |
+| `client`               | `RedisClientInterface` | _Required_            | Active Redis client instance (e.g., `ioredis`). Throws if omitted. |
+| `keyPrefix`            | `string`               | `'siglo:'`            | Root prefix for all Redis keys created by this adapter.            |
+| `checkpointTtlMs`      | `number`               | `604800000` (7 days)  | TTL for checkpoints, wait records, and context hashes.             |
+| `cacheTtlMs`           | `number`               | `86400000` (24 hours) | Default step response cache expiration TTL.                        |
+| `recordContextChanges` | `boolean`              | `true`                | When `true`, streams field updates to Redis hashes.                |
 
 ### Methods
 
@@ -143,27 +143,27 @@ import { RedisIdempotencyStore } from '@siglo/redis';
 
 ### Options (`RedisIdempotencyOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `client` | `RedisClientInterface` | *Required* | Active Redis client instance. Throws if omitted. |
-| `keyPrefix` | `string` | `'siglo:idemp:'` | Root prefix for idempotency keys. |
-| `defaultTtlMs` | `number` | `86400000` (24 hours) | Default lock expiration TTL. |
+| Option         | Type                   | Default               | Description                                      |
+| :------------- | :--------------------- | :-------------------- | :----------------------------------------------- |
+| `client`       | `RedisClientInterface` | _Required_            | Active Redis client instance. Throws if omitted. |
+| `keyPrefix`    | `string`               | `'siglo:idemp:'`      | Root prefix for idempotency keys.                |
+| `defaultTtlMs` | `number`               | `86400000` (24 hours) | Default lock expiration TTL.                     |
 
 ### Claim States & Lifecycle Transitions
 
 1. **`claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'>`**:
-   - Executes atomic Redis `SET <keyPrefix><key> "in-progress" PX <effectiveTtl> NX`.
-   - If Redis returns `'OK'`: Returns `'claimed'` (caller acquired exclusive execution right).
-   - If the key already exists and starts with `COMPLETED:`: Returns `'completed'`.
-   - Otherwise returns `'in-progress'` (another worker is currently processing this key).
+    - Executes atomic Redis `SET <keyPrefix><key> "in-progress" PX <effectiveTtl> NX`.
+    - If Redis returns `'OK'`: Returns `'claimed'` (caller acquired exclusive execution right).
+    - If the key already exists and starts with `COMPLETED:`: Returns `'completed'`.
+    - Otherwise returns `'in-progress'` (another worker is currently processing this key).
 2. **`complete(key: string, result: unknown, ttlMs?: number): Promise<void>`**:
-   - Overwrites key with `COMPLETED:${JSON.stringify(result ?? null)}` and resets TTL to `effectiveTtl`.
+    - Overwrites key with `COMPLETED:${JSON.stringify(result ?? null)}` and resets TTL to `effectiveTtl`.
 3. **`fail(key: string, _error: unknown): Promise<void>`**:
-   - Reads the key and deletes it (`DEL`) **only** if its current value is `'in-progress'`. This frees the lock for immediate retry execution while preserving already completed results.
+    - Reads the key and deletes it (`DEL`) **only** if its current value is `'in-progress'`. This frees the lock for immediate retry execution while preserving already completed results.
 4. **`getResult(key: string): Promise<unknown | undefined>`**:
-   - Reads the key. If it starts with `COMPLETED:`, deserializes and returns the JSON payload. Returns `undefined` if missing or if parsing fails.
+    - Reads the key. If it starts with `COMPLETED:`, deserializes and returns the JSON payload. Returns `undefined` if missing or if parsing fails.
 5. **`get(key: string): Promise<unknown | undefined>`**:
-   - Direct alias delegating to `getResult(key)`.
+    - Direct alias delegating to `getResult(key)`.
 
 ---
 
@@ -186,34 +186,40 @@ const strictLock = new RedisLock(redis, {
 
 ### Options (`RedisLockOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `keyPrefix` | `string` | `'siglo:lock:'` | Root prefix for distributed mutex keys. |
-| `strictAtomicity` | `boolean` | `false` | When `true`, enforces atomic Lua evaluation (`client.eval`) during `release()`. If Lua scripting is unsupported, throws an error rather than falling back to non-atomic commands, preventing TOCTOU race conditions. |
+| Option            | Type      | Default         | Description                                                                                                                                                                                                          |
+| :---------------- | :-------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `keyPrefix`       | `string`  | `'siglo:lock:'` | Root prefix for distributed mutex keys.                                                                                                                                                                              |
+| `strictAtomicity` | `boolean` | `false`         | When `true`, enforces atomic Lua evaluation (`client.eval`) during `release()`. If Lua scripting is unsupported, throws an error rather than falling back to non-atomic commands, preventing TOCTOU race conditions. |
 
 ### Methods
 
 #### `acquire(lockKey: string, ttlMs: number = 10000, customToken?: string): Promise<RedisLockResult>`
+
 Attempts atomic acquisition via `SET <keyPrefix><lockKey> <token> PX <ttlMs> NX`.
+
 - Returns `RedisLockResult`: `{ acquired: boolean, token: string }`.
 - `token` defaults to `lock_${Date.now()}_${randomBytes(16).toString('hex')}` unless `customToken` is supplied.
 
 #### `release(lockKey: string, token: string): Promise<boolean>`
+
 Safely releases the lock only if the current value matches the caller's unique token.
+
 - **When `client.eval` is available**: Executes atomic Lua script:
-  ```lua
-  if redis.call("get", KEYS[1]) == ARGV[1] then
-      return redis.call("del", KEYS[1])
-  else
-      return 0
-  end
-  ```
+    ```lua
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+    else
+        return 0
+    end
+    ```
 - **When `client.eval` is unavailable**:
-  - If `strictAtomicity: true`: Throws `Error('RedisLock: client.eval is required for atomic release to prevent TOCTOU race condition.')`.
-  - If `strictAtomicity: false`: Falls back to two-step check-and-delete (`get` followed by `del`).
+    - If `strictAtomicity: true`: Throws `Error('RedisLock: client.eval is required for atomic release to prevent TOCTOU race condition.')`.
+    - If `strictAtomicity: false`: Falls back to two-step check-and-delete (`get` followed by `del`).
 
 #### `withLock<T>(lockKey: string, fn: () => Promise<T>, ttlMs: number = 10000): Promise<T>`
+
 Executes an asynchronous function wrapped in single-flight lock protection:
+
 1. Calls `acquire(lockKey, ttlMs)`.
 2. If acquisition fails, throws `Error('Failed to acquire lock for key: ${lockKey} (in-use or concurrent execution)')`.
 3. Executes `await fn()`.
@@ -236,14 +242,15 @@ const dedupStore = new RedisNonceStore({
 
 ### Options (`RedisNonceStoreOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `client` | `RedisClientInterface` | *Required* | Active Redis client instance. Throws if omitted. |
-| `keyPrefix` | `string` | `'siglo:wh:dedup:'` | Key prefix for replay prevention tokens. |
+| Option      | Type                   | Default             | Description                                      |
+| :---------- | :--------------------- | :------------------ | :----------------------------------------------- |
+| `client`    | `RedisClientInterface` | _Required_          | Active Redis client instance. Throws if omitted. |
+| `keyPrefix` | `string`               | `'siglo:wh:dedup:'` | Key prefix for replay prevention tokens.         |
 
 ### Methods
 
 #### `claim(key: string, ttlSeconds: number): Promise<boolean>`
+
 - Calculates `ttlMs = Math.max(1, Math.floor(ttlSeconds * 1000))`.
 - Executes atomic `SET <keyPrefix><key> "1" PX <ttlMs> NX`.
 - Returns `true` if the key was claimed (first delivery attempt within tolerance window).
@@ -256,12 +263,7 @@ const dedupStore = new RedisNonceStore({
 ```typescript
 import { Redis } from 'ioredis';
 import { Step, flow, useStorage } from '@siglo/core';
-import {
-    RedisStorageAdapter,
-    RedisIdempotencyStore,
-    RedisLock,
-    RedisNonceStore,
-} from '@siglo/redis';
+import { RedisStorageAdapter, RedisIdempotencyStore, RedisLock, RedisNonceStore } from '@siglo/redis';
 
 // 1. Initialize Redis Client
 const redis = new Redis('redis://localhost:6379');
@@ -270,7 +272,7 @@ const redis = new Redis('redis://localhost:6379');
 const storageAdapter = new RedisStorageAdapter({
     client: redis,
     checkpointTtlMs: 86400000, // 24 hours
-    cacheTtlMs: 300000,        // 5 minutes
+    cacheTtlMs: 300000, // 5 minutes
     recordContextChanges: true,
 });
 useStorage(storageAdapter);
@@ -294,14 +296,18 @@ const billingFlow = flow(fetchExchangeRates, settleInvoice);
 
 // 5. Single-Flight Execution Runner with Distributed Lock
 async function processDailySettlement() {
-    return await redisLock.withLock('lock:daily-settlement', async () => {
-        console.log('Acquired single-flight lock. Starting settlement flow...');
-        return await billingFlow.run({
-            invoiceId: 'INV-2026-10',
-            amount: 5000,
-            currency: 'EUR',
-        });
-    }, 15000); // 15-second lock timeout
+    return await redisLock.withLock(
+        'lock:daily-settlement',
+        async () => {
+            console.log('Acquired single-flight lock. Starting settlement flow...');
+            return await billingFlow.run({
+                invoiceId: 'INV-2026-10',
+                amount: 5000,
+                currency: 'EUR',
+            });
+        },
+        15000,
+    ); // 15-second lock timeout
 }
 
 // 6. Webhook Ingestion with Replay Protection & Idempotency

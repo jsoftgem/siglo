@@ -9,20 +9,19 @@ import {
     NetworkPolicyViolationException,
     isPrivateOrRestrictedIP,
     normalizeIP,
-
     validateAndPinTarget,
     isUnixSocket,
     isUnixSocketAllowed,
     networkPolicyStorage,
     installNetworkInterceptors,
-    uninstallNetworkInterceptors
+    uninstallNetworkInterceptors,
 } from '../../index';
 
 describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
     let server: http.Server;
     let serverPort: number;
 
-    before((done) => {
+    before(done => {
         installNetworkInterceptors();
         server = http.createServer((req, res) => {
             if (req.url === '/safe') {
@@ -65,12 +64,16 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
     });
 
     afterEach(() => {
-        try { networkPolicyStorage.disable(); } catch {}
+        try {
+            networkPolicyStorage.disable();
+        } catch {}
     });
 
-    after((done) => {
+    after(done => {
         uninstallNetworkInterceptors();
-        try { networkPolicyStorage.disable(); } catch {}
+        try {
+            networkPolicyStorage.disable();
+        } catch {}
         (server as any).closeAllConnections?.();
         server.close(done);
     });
@@ -144,15 +147,13 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
 
     describe('Pre-flight DNS Resolution & Socket IP Pinning Defense', () => {
         it('blocks DNS rebinding when domain resolves to 169.254.169.254 (cloud metadata)', async () => {
-            const fakeDns = async (_host: string) => [
-                { address: '169.254.169.254', family: 4 }
-            ];
+            const fakeDns = async (_host: string) => [{ address: '169.254.169.254', family: 4 }];
 
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.attacker.com'],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
 
             try {
@@ -165,15 +166,13 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
         });
 
         it('blocks DNS rebinding when domain resolves to private RFC 1918 IP (10.0.0.1)', async () => {
-            const fakeDns = async (_host: string) => [
-                { address: '10.0.0.1', family: 4 }
-            ];
+            const fakeDns = async (_host: string) => [{ address: '10.0.0.1', family: 4 }];
 
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['internal.attacker.com'],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
 
             try {
@@ -190,7 +189,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: [],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
 
             try {
@@ -206,7 +205,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['169.254.169.254'],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
 
             const ips = await validateAndPinTarget(new URL('http://169.254.169.254/meta-data'), policy);
@@ -222,7 +221,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['unresolvable.domain.xyz'],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
 
             try {
@@ -242,7 +241,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 return res.json();
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             try {
@@ -260,7 +259,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 return res.json();
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             try {
@@ -278,7 +277,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 return res.json();
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: false
+                allowLocalhost: false,
             });
 
             try {
@@ -295,7 +294,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 return res.json();
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             const result: any = await flow(step).run();
@@ -326,11 +325,14 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
 
         it('handles 303 redirect with method change to GET', async () => {
             const step = Step.create('redirectStep', async () => {
-                const res = await fetch(`http://127.0.0.1:${serverPort}/redirect-303`, { method: 'POST', body: 'data' });
+                const res = await fetch(`http://127.0.0.1:${serverPort}/redirect-303`, {
+                    method: 'POST',
+                    body: 'data',
+                });
                 return res.json();
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             const result: any = await flow(step).run();
@@ -343,7 +345,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 return { status: res.status };
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             const result: any = await flow(step).run();
@@ -355,7 +357,7 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                 await fetch(`http://127.0.0.1:${serverPort}/redirect-loop-1`);
             }).networkPolicy({
                 allowedHosts: [`127.0.0.1:${serverPort}`],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             try {
@@ -369,13 +371,13 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
     });
 
     describe('Unix Domain Socket Lockdown & Container Escape Prevention', () => {
-        it('strictly blocks unauthorized connection to /var/run/docker.sock by default', (done) => {
+        it('strictly blocks unauthorized connection to /var/run/docker.sock by default', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true, // Localhost does NOT grant Unix socket access!
-                stepName: 'containerStep'
+                stepName: 'containerStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -389,10 +391,12 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
             });
         });
 
-        it('allows unix socket connection when explicitly configured in allowUnixSockets', (done) => {
+        it('allows unix socket connection when explicitly configured in allowUnixSockets', done => {
             const safeSocketPath = `/tmp/siglo_safe_test_${Date.now()}_${process.pid}.sock`;
-            try { fs.unlinkSync(safeSocketPath); } catch {}
-            const unixServer = net.createServer((sock) => {
+            try {
+                fs.unlinkSync(safeSocketPath);
+            } catch {}
+            const unixServer = net.createServer(sock => {
                 sock.end('hello unix');
             });
 
@@ -403,16 +407,18 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
                     allowedHosts: [],
                     allowLocalhost: false,
                     allowUnixSockets: [safeSocketPath],
-                    stepName: 'safeUnixStep'
+                    stepName: 'safeUnixStep',
                 };
 
                 networkPolicyStorage.run(policy, () => {
                     const client = net.connect(safeSocketPath, () => {
-                        client.on('data', (d) => {
+                        client.on('data', d => {
                             expect(d.toString()).to.equal('hello unix');
                             client.end();
                             unixServer.close(() => {
-                                try { fs.unlinkSync(safeSocketPath); } catch {}
+                                try {
+                                    fs.unlinkSync(safeSocketPath);
+                                } catch {}
                                 done();
                             });
                         });
@@ -426,16 +432,24 @@ describe('Phase 3: Zero-Trust Network Perimeter Acceptance Tests', () => {
             expect(s.networkPolicy()?.allowUnixSockets).to.deep.equal(['/tmp/app.sock']);
             expect(s.networkPolicy()?.allowLocalhost).to.be.false;
         });
+
+        it('step.allowNetwork() preserves existing unix socket permissions', () => {
+            const s = Step.create('test', () => ({}))
+                .allowUnixSockets(['/tmp/app.sock'])
+                .allowNetwork(['api.example.com']);
+            expect(s.networkPolicy()?.allowUnixSockets).to.deep.equal(['/tmp/app.sock']);
+            expect(s.networkPolicy()?.allowedHosts).to.deep.equal(['api.example.com']);
+        });
     });
 
     describe('BlockedClientRequest HTTP Client Compatibility', () => {
-        it('BlockedClientRequest is an instanceof http.ClientRequest and http.OutgoingMessage', (done) => {
+        it('BlockedClientRequest is an instanceof http.ClientRequest and http.OutgoingMessage', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: [],
                 allowLocalhost: false,
-                stepName: 'compatStep'
+                stepName: 'compatStep',
             };
 
             networkPolicyStorage.run(policy, () => {

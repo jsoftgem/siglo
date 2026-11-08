@@ -1,6 +1,6 @@
 ---
-title: "PostgreSQL Adapter"
-description: "Enterprise ACID persistence, context mutation audit logging, OCC versioning, advisory locks, and idempotency store for Siglo workflows."
+title: 'PostgreSQL Adapter'
+description: 'Enterprise ACID persistence, context mutation audit logging, OCC versioning, advisory locks, and idempotency store for Siglo workflows.'
 ---
 
 # @siglo/postgres Adapter Guide
@@ -63,11 +63,11 @@ npm install --save-dev @types/pg
 
 ### Peer Dependency Matrix
 
-| Package | Version | Requirement |
-| :--- | :--- | :--- |
-| `@siglo/core` | `^1.0.0` | Core workflow engine & interfaces |
-| `pg` | `^8.0.0` | PostgreSQL client driver (supports both `Pool` and `Client`) |
-| PostgreSQL Server | `12+` | Requires JSONB, Advisory Locks (`hashtextextended`), and `TIMESTAMPTZ` |
+| Package           | Version  | Requirement                                                            |
+| :---------------- | :------- | :--------------------------------------------------------------------- |
+| `@siglo/core`     | `^1.0.0` | Core workflow engine & interfaces                                      |
+| `pg`              | `^8.0.0` | PostgreSQL client driver (supports both `Pool` and `Client`)           |
+| PostgreSQL Server | `12+`    | Requires JSONB, Advisory Locks (`hashtextextended`), and `TIMESTAMPTZ` |
 
 ---
 
@@ -138,6 +138,7 @@ CREATE INDEX IF NOT EXISTS idx_siglo_idempotency_expires ON siglo_idempotency(ex
 ### SQL Injection Protection
 
 Custom table names passed to `PostgresStorageAdapter` or `PostgresIdempotencyStore` are validated against strict SQL identifier constraints:
+
 - Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/`.
 - Must not exceed 63 characters (PostgreSQL standard identifier length limit).
 - Throws an descriptive `Error` if invalid characters or injection attempts are detected.
@@ -154,42 +155,48 @@ import { PostgresStorageAdapter } from '@siglo/postgres';
 
 ### Constructor Options (`PostgresStorageAdapterOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `client` | `PostgresClientInterface \| Pool \| Client` | *Required* | Active PostgreSQL `Pool`, `Client`, or compatible wrapper with a `.query(text, values)` method. |
-| `checkpointsTable` | `string` | `'siglo_checkpoints'` | Table name for execution checkpoints. |
-| `eventsTable` | `string` | `'siglo_context_events'` | Table name for context mutation audit logs. |
-| `waitRecordsTable` | `string` | `'siglo_wait_records'` | Table name for durable wait and continuation records. |
-| `recordContextChanges` | `boolean` | `true` | When `true`, automatically streams step context mutations into `eventsTable`. Set `false` for low-latency pipelines that do not require fine-grained field auditing. |
+| Option                 | Type                                        | Default                  | Description                                                                                                                                                          |
+| :--------------------- | :------------------------------------------ | :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client`               | `PostgresClientInterface \| Pool \| Client` | _Required_               | Active PostgreSQL `Pool`, `Client`, or compatible wrapper with a `.query(text, values)` method.                                                                      |
+| `checkpointsTable`     | `string`                                    | `'siglo_checkpoints'`    | Table name for execution checkpoints.                                                                                                                                |
+| `eventsTable`          | `string`                                    | `'siglo_context_events'` | Table name for context mutation audit logs.                                                                                                                          |
+| `waitRecordsTable`     | `string`                                    | `'siglo_wait_records'`   | Table name for durable wait and continuation records.                                                                                                                |
+| `recordContextChanges` | `boolean`                                   | `true`                   | When `true`, automatically streams step context mutations into `eventsTable`. Set `false` for low-latency pipelines that do not require fine-grained field auditing. |
 
 ### Checkpointing & Optimistic Concurrency Control (OCC)
 
 #### `ensureTables(): Promise<void>`
+
 Initializes `checkpointsTable`, `eventsTable`, and `waitRecordsTable` along with indexes and columns if they do not exist.
 
 #### `saveCheckpoint(checkpoint: SerializedExecutionStack, expectedVersion?: number): Promise<void>`
+
 Persists or updates an execution stack.
+
 - **OCC Enforcement**: If `expectedVersion` is specified (or exists on `checkpoint.occVersion`), executes an atomic version-guarded update:
-  ```sql
-  UPDATE siglo_checkpoints
-  SET state = CASE WHEN state->>'status' = 'cancelled' THEN jsonb_set($1::jsonb, '{status}', '"cancelled"') ELSE $1::jsonb END,
-      namespace = $2,
-      version = version + 1,
-      updated_at = NOW()
-  WHERE stack_id = $3 AND version = $4
-  RETURNING version
-  ```
+    ```sql
+    UPDATE siglo_checkpoints
+    SET state = CASE WHEN state->>'status' = 'cancelled' THEN jsonb_set($1::jsonb, '{status}', '"cancelled"') ELSE $1::jsonb END,
+        namespace = $2,
+        version = version + 1,
+        updated_at = NOW()
+    WHERE stack_id = $3 AND version = $4
+    RETURNING version
+    ```
 - **Conflict Handling**: If `rowCount === 0`, it fetches the current database version and throws an `OptimisticLockException(stackId, currentVersion, expectedVersion)`.
 - **Cancellation Preservation**: If a workflow was previously cancelled, updating the checkpoint preserves the `'cancelled'` status atomically.
 - **Version Tracking**: On success, assigns the new incremented version to `checkpoint.occVersion` and `checkpoint.revision`.
 - **Write Tracking**: Automatically serialized under `withWorkflowLock` scopes to drain all pending writes before lock release.
 
 #### `getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined>`
+
 Retrieves the serialized execution stack by `stackId`.
+
 - Automatically assigns `occVersion` and `revision` from the database `version` column.
 - Returns `undefined` if `stackId` is empty or not found.
 
 #### `cleanExpiredCheckpoints(): Promise<number>`
+
 Deletes checkpoints where `(state->>'expiresAt')::bigint <= (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint`. Returns the count of deleted rows.
 
 ---
@@ -197,18 +204,20 @@ Deletes checkpoints where `(state->>'expiresAt')::bigint <= (EXTRACT(EPOCH FROM 
 ### Context Mutation Audit Logging
 
 #### `onContextChange(entry): Promise<void>`
+
 Records step mutation audit events into `eventsTable`.
+
 - Parameter `entry`:
-  ```typescript
-  {
-      namespace?: string;
-      stackId: string;
-      stepId: string;
-      field: string;
-      value: any;
-      timestamp: number;
-  }
-  ```
+    ```typescript
+    {
+        namespace?: string;
+        stackId: string;
+        stepId: string;
+        field: string;
+        value: any;
+        timestamp: number;
+    }
+    ```
 - Converts `timestamp` (in milliseconds) using `to_timestamp(timestamp / 1000.0)`.
 - Operates as a non-blocking stream: internal errors are caught to avoid disrupting primary workflow execution.
 
@@ -217,6 +226,7 @@ Records step mutation audit events into `eventsTable`.
 ### Distributed Workflow Locking
 
 #### `withWorkflowLock<T>(stackId: string, action: () => Promise<T>): Promise<T>`
+
 Executes `action` inside a PostgreSQL session-level advisory lock using `pg_try_advisory_lock`:
 
 ```sql
@@ -236,14 +246,19 @@ SELECT pg_try_advisory_lock(hashtextextended('siglo:workflow:' || stackId, 0)) A
 ### Durable Wait Records & Resumption
 
 #### `saveWaitRecord(record: any): Promise<void>`
+
 Persists or updates a durable wait record in `waitRecordsTable` and embeds the record into the checkpoint metadata (`checkpoint.metadata.waitRecord`).
+
 - Key properties on `record`: `correlationKey`, `stackId`, `namespace`, `eventName`, `status`, `continuationStepIndex`, `version`, `data`, `expiresAt`.
 
 #### `getWaitRecord(correlationKeyOrStackId: string): Promise<any | undefined>`
+
 Retrieves a wait record from `waitRecordsTable` matching either `correlation_key` or `stack_id`. Falls back to querying `siglo_checkpoints.state->'metadata'->'waitRecord'` if not found in the wait records table.
 
 #### `claimWaitRecord(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>`
+
 Atomically claims a wait record for resumption via a single Compare-And-Swap (CAS) update:
+
 ```sql
 UPDATE siglo_wait_records
 SET status = 'RESUMING', locked_at = NOW(), locked_by = $1,
@@ -253,18 +268,23 @@ WHERE correlation_key = $2
   AND (resume_payload IS NOT NULL OR $4 OR expires_at IS NULL OR expires_at > NOW())
 RETURNING *
 ```
+
 - **Expiration Safety**: If the record has expired and `allowExpired` is not set, throws `ExpiredWaitException(correlationKey, expiresAt, eventName)`.
 - **Duplicate Safety**: If the record is already claimed or resumed, throws `DuplicateEventException(correlationKey)`.
 - **Returns**: The claimed wait record with `status: 'RESUMING'`, `lockedBy`, and parsed JSON `resumePayload`.
 
 #### `completeWaitRecord(correlationKey: string, claimantId: string): Promise<void>`
+
 Marks the claimed wait record as `'RESUMED'`, setting `resumed_by` and `resumed_at = NOW()`. Drains pending async writes before completing.
 
 #### `cancelWaitRecord(correlationKey: string): Promise<void>`
+
 Transitions a wait record status to `'CANCELLED'`.
 
 #### `cancelWorkflow(stackId: string): Promise<void>`
+
 Atomically cancels both active wait records and the execution checkpoint for `stackId`:
+
 - Cancels all wait records: `UPDATE siglo_wait_records SET status = 'CANCELLED' WHERE stack_id = $1`.
 - Updates the checkpoint state: `UPDATE siglo_checkpoints SET state = jsonb_set(state, '{status}', '"cancelled"'), version = version + 1 WHERE stack_id = $1`.
 
@@ -272,12 +292,12 @@ Atomically cancels both active wait records and the execution checkpoint for `st
 
 ### Retention & Cleanup
 
-| Method | Parameters | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `cleanupOldCheckpoints` | `retentionDays?: number` | `30` | Deletes checkpoints where `updated_at < NOW() - make_interval(days => $1)`. |
-| `cleanupOldEvents` | `retentionDays?: number` | `30` | Deletes audit events where `created_at < NOW() - make_interval(days => $1)`. |
-| `cleanupOldWaitRecords` | `retentionDays?: number` | `30` | Deletes wait records where `updated_at < NOW() - make_interval(days => $1)`. |
-| `cleanExpiredCheckpoints` | *(none)* | *(none)* | Deletes checkpoints whose embedded `state->>'expiresAt'` timestamp has passed. |
+| Method                    | Parameters               | Default  | Description                                                                    |
+| :------------------------ | :----------------------- | :------- | :----------------------------------------------------------------------------- |
+| `cleanupOldCheckpoints`   | `retentionDays?: number` | `30`     | Deletes checkpoints where `updated_at < NOW() - make_interval(days => $1)`.    |
+| `cleanupOldEvents`        | `retentionDays?: number` | `30`     | Deletes audit events where `created_at < NOW() - make_interval(days => $1)`.   |
+| `cleanupOldWaitRecords`   | `retentionDays?: number` | `30`     | Deletes wait records where `updated_at < NOW() - make_interval(days => $1)`.   |
+| `cleanExpiredCheckpoints` | _(none)_                 | _(none)_ | Deletes checkpoints whose embedded `state->>'expiresAt'` timestamp has passed. |
 
 ---
 
@@ -291,38 +311,47 @@ import { PostgresIdempotencyStore } from '@siglo/postgres';
 
 ### Constructor Options (`PostgresIdempotencyOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `client` | `PostgresClientInterface \| Pool \| Client` | *Required* | Active PostgreSQL client or connection pool. |
-| `tableName` | `string` | `'siglo_idempotency'` | Name of idempotency table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/`. |
-| `defaultTtlMs` | `number` | `86400000` (24 hours) | Default lock and result expiration TTL in milliseconds. |
+| Option         | Type                                        | Default               | Description                                                         |
+| :------------- | :------------------------------------------ | :-------------------- | :------------------------------------------------------------------ |
+| `client`       | `PostgresClientInterface \| Pool \| Client` | _Required_            | Active PostgreSQL client or connection pool.                        |
+| `tableName`    | `string`                                    | `'siglo_idempotency'` | Name of idempotency table. Must match `/^[a-zA-Z_][a-zA-Z0-9_]*$/`. |
+| `defaultTtlMs` | `number`                                    | `86400000` (24 hours) | Default lock and result expiration TTL in milliseconds.             |
 
 ### Methods
 
 #### `ensureTable(): Promise<void>`
+
 Creates `tableName` and the index on `expires_at` if they do not exist.
 
 #### `claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'>`
+
 Atomically attempts to claim the key:
+
 1. **Initial Insert**: Executes `INSERT ... VALUES ($1, 'in-progress', $2, NOW()) ON CONFLICT (key) DO NOTHING`. Returns `'claimed'` if row inserted.
 2. **Expired Lock Reclamation**: If the key exists but `expires_at <= NOW()`, updates status back to `'in-progress'`, updates `expires_at`, clears `result`, and returns `'claimed'`.
 3. **Completed Result**: If `status === 'completed'`, returns `'completed'`.
 4. **Active Claim**: If actively running and unexpired, returns `'in-progress'`.
 
 #### `complete(key: string, result: unknown, ttlMs?: number): Promise<void>`
+
 Transitions key status to `'completed'`, serializes `result` into `result JSONB`, and sets `expires_at = NOW() + ttlMs`.
 
 #### `fail(key: string, _error?: unknown): Promise<void>`
+
 Deletes in-progress claims (`WHERE key = $1 AND status = 'in-progress'`) so subsequent retries can proceed immediately.
 
 #### `getResult(key: string): Promise<unknown | undefined>`
+
 Retrieves and deserializes the stored `result` JSONB for completed keys. Returns `undefined` if key is not completed or missing.
 
 #### `get(key: string): Promise<unknown | undefined>`
+
 Convenience alias for `getResult(key)`.
 
 #### `getRecord(key: string): Promise<any | undefined>`
+
 Inspects the full raw idempotency record:
+
 ```typescript
 {
     status: string;           // 'in-progress' | 'completed'
@@ -333,6 +362,7 @@ Inspects the full raw idempotency record:
 ```
 
 #### `cleanupExpired(): Promise<number>`
+
 Deletes expired idempotency records (`DELETE FROM siglo_idempotency WHERE expires_at < NOW()`). Returns the count of deleted rows.
 
 ---
@@ -351,7 +381,7 @@ sequenceDiagram
     Note over W1,PG: 1. Advisory Workflow Locking (Distributed Mutex)
     W1->>PG: SELECT pg_try_advisory_lock(hashtextextended('siglo:workflow:stack-42', 0))
     PG-->>W1: locked = true
-    
+
     W2->>PG: SELECT pg_try_advisory_lock(hashtextextended('siglo:workflow:stack-42', 0))
     PG-->>W2: locked = false (Throws DuplicateEventException)
 
@@ -377,25 +407,27 @@ sequenceDiagram
 All exceptions extend `SigloError` and can be imported from `@siglo/core`:
 
 ```typescript
-import {
-    OptimisticLockException,
-    DuplicateEventException,
-    ExpiredWaitException
-} from '@siglo/core';
+import { OptimisticLockException, DuplicateEventException, ExpiredWaitException } from '@siglo/core';
 ```
 
 ### 1. `OptimisticLockException`
+
 Thrown by `saveCheckpoint` when an update fails because the version in the database differs from `expectedVersion`:
+
 - `err.stackId`: The workflow execution stack ID.
 - `err.currentVersion`: The version currently in PostgreSQL.
 - `err.expectedVersion`: The version expected by the writer.
 
 ### 2. `DuplicateEventException`
+
 Thrown by `withWorkflowLock` when another worker currently holds the workflow lock, or by `claimWaitRecord` when a wait record is already claimed or resumed:
+
 - `err.correlationKey` / `err.stackId`: The resource key that could not be locked.
 
 ### 3. `ExpiredWaitException`
+
 Thrown by `claimWaitRecord` when attempting to claim a wait record whose `expires_at` timestamp has passed and `allowExpired` is not set:
+
 - `err.correlationKey`: The wait record correlation key.
 - `err.expiresAt`: Expiration timestamp in milliseconds.
 - `err.eventName`: Name of the expected event.
@@ -419,7 +451,7 @@ const pool = new Pool({
     connectionTimeoutMillis: 5000,
 });
 
-pool.on('error', (err) => {
+pool.on('error', err => {
     console.error('Unexpected idle PostgreSQL client error:', err);
 });
 
@@ -476,7 +508,7 @@ const paymentWorkflow = flow(debitAccount, emitReceipt);
 // 6. Execute Workflow with Distributed Idempotency and Workflow Lock
 export async function processOrder(input: OrderInput) {
     const idempKey = `order:payment:${input.orderId}`;
-    
+
     // Attempt 60-second atomic claim lock
     const claimStatus = await idempotencyStore.claim(idempKey, 60000);
 
@@ -513,7 +545,9 @@ export async function processOrder(input: OrderInput) {
         await idempotencyStore.fail(idempKey, err);
 
         if (err instanceof OptimisticLockException) {
-            console.error(`OCC Conflict on stack ${err.stackId}: expected v${err.expectedVersion}, got v${err.currentVersion}`);
+            console.error(
+                `OCC Conflict on stack ${err.stackId}: expected v${err.expectedVersion}, got v${err.currentVersion}`,
+            );
         } else if (err instanceof DuplicateEventException) {
             console.warn(`Concurrent execution conflict on lock ${err.correlationKey}`);
         }
@@ -525,10 +559,10 @@ export async function processOrder(input: OrderInput) {
 // 7. Scheduled Maintenance & Retention Cleanup
 export async function runNightlyRetentionCleanup() {
     console.log('Starting automated PostgreSQL workflow data retention cleanup...');
-    
+
     const prunedCheckpoints = await storageAdapter.cleanupOldCheckpoints(14); // 14-day checkpoint retention
-    const prunedEvents = await storageAdapter.cleanupOldEvents(30);           // 30-day audit log retention
-    const prunedWaits = await storageAdapter.cleanupOldWaitRecords(14);       // 14-day wait record retention
+    const prunedEvents = await storageAdapter.cleanupOldEvents(30); // 30-day audit log retention
+    const prunedWaits = await storageAdapter.cleanupOldWaitRecords(14); // 14-day wait record retention
     const prunedExpiredCheckpoints = await storageAdapter.cleanExpiredCheckpoints();
     const prunedIdemp = await idempotencyStore.cleanupExpired();
 
@@ -546,4 +580,3 @@ export async function shutdown() {
     console.log('PostgreSQL connection pool closed.');
 }
 ```
-

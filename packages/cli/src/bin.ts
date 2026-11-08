@@ -14,12 +14,12 @@ import {
     exportWorkflow,
     startMonitor,
     reconcileCommand,
-    GenerateStepOptions
+    GenerateStepOptions,
 } from './index';
 
 function printHelp(): void {
     console.log(`
-siglo CLI v1.1.0
+siglo CLI v1.2.0
 
 USAGE:
     siglo <command> [arguments] [options]
@@ -58,7 +58,11 @@ async function loadWorkflowFromFile(filePath: string): Promise<any> {
 
     // Dynamic import of target workflow file
     const mod = await import(resolvedPath);
-    const flowCandidate = mod.default || mod.workflow || mod.pipeline || Object.values(mod).find((v: any) => v && (v.isFlow || typeof v.run === 'function'));
+    const flowCandidate =
+        mod.default ||
+        mod.workflow ||
+        mod.pipeline ||
+        Object.values(mod).find((v: any) => v && (v.isFlow || typeof v.run === 'function'));
     if (!flowCandidate) {
         throw new Error(`No exported Flow found in ${resolvedPath}. Export a flow as default or named export.`);
     }
@@ -93,7 +97,7 @@ async function main(): Promise<void> {
     }
 
     if (args.includes('--version') || args.includes('-v')) {
-        console.log('1.1.0');
+        console.log('1.2.0');
         return;
     }
 
@@ -128,10 +132,16 @@ async function main(): Promise<void> {
                     const options: Record<string, unknown> = {};
                     for (const arg of args.slice(3)) {
                         const match = /^--(type|url|provider|model|channel|interactive)=(.*)$/.exec(arg);
-                        if (!match || match[1] in options) throw new Error(`Invalid or duplicate generator option: ${arg}`);
-                        options[match[1]] = match[1] === 'interactive'
-                            ? match[2] === 'true' ? true : match[2] === 'false' ? false : match[2]
-                            : match[2];
+                        if (!match || match[1] in options)
+                            throw new Error(`Invalid or duplicate generator option: ${arg}`);
+                        options[match[1]] =
+                            match[1] === 'interactive'
+                                ? match[2] === 'true'
+                                    ? true
+                                    : match[2] === 'false'
+                                      ? false
+                                      : match[2]
+                                : match[2];
                     }
                     const res = generateStep(name, process.cwd(), options as GenerateStepOptions);
                     console.log(`✔ Generated step in ${res.filePath}`);
@@ -248,7 +258,9 @@ async function main(): Promise<void> {
                     }
                 }
                 const monitor = await startMonitor({ port, host, namespace: ns, flow: wf });
-                console.log(`🚀 Siglo Live Monitor running at http://${host === "0.0.0.0" ? "localhost" : host}:${monitor.port}`);
+                console.log(
+                    `🚀 Siglo Live Monitor running at http://${host === '0.0.0.0' ? 'localhost' : host}:${monitor.port}`,
+                );
                 console.log(`   - Dashboard: http://localhost:${monitor.port}/`);
                 console.log(`   - SSE Stream: http://localhost:${monitor.port}/events`);
                 console.log(`   - WebSocket: ws://localhost:${monitor.port}/ws`);
@@ -274,7 +286,7 @@ async function main(): Promise<void> {
                     action: actionArg,
                     mode: modeArg,
                     namespace: ns,
-                    flow: wf
+                    flow: wf,
                 });
                 writeOutput(JSON.stringify(report, null, 2), outArg);
                 break;

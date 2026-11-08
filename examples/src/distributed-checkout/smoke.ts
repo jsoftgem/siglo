@@ -9,9 +9,12 @@ const apiB = process.env.API_B_URL || 'http://127.0.0.1:3001';
 const monitor = process.env.MONITOR_URL || 'http://127.0.0.1:4000';
 const suffix = randomUUID().slice(0, 8);
 const order = { orderId: `smoke-${suffix}`, sku: `coffee-${suffix}`, quantity: 1, amountCents: 4500 };
-const post = (base: string, body: object, query = '') => fetch(`${base}/api/checkouts${query}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-});
+const post = (base: string, body: object, query = '') =>
+    fetch(`${base}/api/checkouts${query}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
 
 async function main() {
     const invalid = await post(apiA, { ...order, quantity: 0 });
@@ -42,13 +45,19 @@ async function main() {
     try {
         const keys = await redis.keys(`tutorial:cache:*${order.sku}*`);
         assert.equal(keys.length, 1, 'Redis contains the shared catalog entry');
-        assert.ok(await redis.pttl(keys[0]) > 0);
-    } finally { redis.disconnect(); }
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL || 'postgres://siglo:siglo@127.0.0.1:5433/checkout' });
+        assert.ok((await redis.pttl(keys[0])) > 0);
+    } finally {
+        redis.disconnect();
+    }
+    const pool = new Pool({
+        connectionString: process.env.DATABASE_URL || 'postgres://siglo:siglo@127.0.0.1:5433/checkout',
+    });
     try {
         const result = await pool.query('SELECT state FROM siglo_checkpoints WHERE stack_id = $1', [body.stackId]);
         assert.equal(result.rows[0].state.status, 'completed');
-    } finally { await pool.end(); }
+    } finally {
+        await pool.end();
+    }
     // Publication is asynchronous; wait briefly for the monitor's HTTP view.
     let observed = false;
     for (let attempt = 0; attempt < 30; attempt++) {
@@ -62,7 +71,12 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert.ok(observed, 'Central monitor received the execution');
-    console.log('Passed: validation, concurrent claim, cross-replica replay, payload conflict, checkpoints, Redis cache, failure, live monitoring.');
+    console.log(
+        'Passed: validation, concurrent claim, cross-replica replay, payload conflict, checkpoints, Redis cache, failure, live monitoring.',
+    );
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; });
+main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

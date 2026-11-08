@@ -35,11 +35,11 @@ export function createCdcLakehousePipeline() {
             operation: operationName,
             tableName: source.table,
             lsn: source.lsn,
-            capturedTimestamp: source.ts_ms
+            capturedTimestamp: source.ts_ms,
         };
     })
-      .spec('op', { require: true })
-      .spec('source', { require: true });
+        .spec('op', { require: true })
+        .spec('source', { require: true });
 
     // Step 2: Transform Schema (Translate legacy SQL row names to standardized Lakehouse model)
     const transformSchema = Step.create('cdcTransformSchema', async (param: any) => {
@@ -54,12 +54,12 @@ export function createCdcLakehousePipeline() {
             lastName: after.last_nm ?? null,
             accountBalance: after.acct_bal_amt ? Number(after.acct_bal_amt) : 0,
             cdcOperation: operation,
-            isDeleted: operation === 'DELETE'
+            isDeleted: operation === 'DELETE',
         };
 
         return {
             transformedRow,
-            schemaVersion: 'lakehouse.v2'
+            schemaVersion: 'lakehouse.v2',
         };
     });
 
@@ -71,11 +71,11 @@ export function createCdcLakehousePipeline() {
         const enrichedRow = {
             ...row,
             customerTier: row.accountBalance >= 5000 ? 'GOLD' : 'STANDARD',
-            enrichedAt: Date.now()
+            enrichedAt: Date.now(),
         };
 
         return {
-            enrichedRow
+            enrichedRow,
         };
     });
 
@@ -90,7 +90,7 @@ export function createCdcLakehousePipeline() {
 
         return {
             isDuplicate,
-            dedupKey: `cdc:lsn:${lsn}`
+            dedupKey: `cdc:lsn:${lsn}`,
         };
     });
 
@@ -104,7 +104,7 @@ export function createCdcLakehousePipeline() {
                 lsn,
                 isDuplicate: true,
                 cdcCaptured: true,
-                reason: 'Event already committed to lakehouse partition'
+                reason: 'Event already committed to lakehouse partition',
             };
         }
 
@@ -120,15 +120,9 @@ export function createCdcLakehousePipeline() {
             targetTable: tableName,
             partitionPath,
             committedLsn: lsn,
-            committedRecord: enrichedRow
+            committedRecord: enrichedRow,
         };
     });
 
-    return flow(
-        captureDbEvent,
-        transformSchema,
-        enrichFromCustomerService,
-        deduplicate,
-        sinkToWarehouse
-    );
+    return flow(captureDbEvent, transformSchema, enrichFromCustomerService, deduplicate, sinkToWarehouse);
 }

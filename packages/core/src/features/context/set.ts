@@ -3,7 +3,7 @@ export function setContextValue(
     stepId: string,
     name: string,
     value: any,
-    meta?: any
+    meta?: any,
 ): void {
     if (value instanceof Function) {
         throw new FunctionAsValueException();
@@ -15,12 +15,12 @@ export class FunctionAsValueException extends Error {
     constructor() {
         super('Function cannot be set as value.');
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class InvalidJSONValueException extends Error {
     constructor(value: any) {
         super(`${value}  is not a valid json value.`);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

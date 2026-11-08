@@ -6,7 +6,7 @@ import {
     withStepExecutionHook,
     getStepExecutionHook,
     StepExecutionContext,
-    StepExecutionHook
+    StepExecutionHook,
 } from './hooks';
 
 describe('StepExecutionHook & Runtime Hooks', () => {
@@ -68,7 +68,7 @@ describe('StepExecutionHook & Runtime Hooks', () => {
         };
 
         const wf = flow(step);
-        const res = await wf.execute({ input: 21 }, { stepExecutionHook: hook });
+        const res = await wf.run({ input: 21 }, { stepExecutionHook: hook });
         expect(res.val).to.equal(42);
         expect(intercepted).to.deep.equal(['optStep']);
     });
@@ -86,23 +86,31 @@ describe('StepExecutionHook & Runtime Hooks', () => {
         expect(intercepted).to.deep.equal(['directStep']);
     });
 
+    it('computes attempt from function on initialParam when executing hook', async () => {
+        let seenAttempt = 0;
+        const step = Step.create('attemptStep', async () => ({ ok: true }));
+        const hook: StepExecutionHook = async (ctx, next) => {
+            seenAttempt = ctx.attempt;
+            return next();
+        };
+        const wf = flow(step);
+        await wf.run({ $attempt: () => 2 }, { stepExecutionHook: hook });
+        expect(seenAttempt).to.equal(3);
+    });
+
     it('automatically wraps nested branch and when combinator targets', async () => {
         const executedHooks: string[] = [];
         const reserveStock = Step.create('reserveStock', async () => ({ reserved: true }));
         const queueReview = Step.create('queueReview', async () => ({ review: true }));
         const cancelOrder = Step.create('cancelOrder', async () => ({ cancelled: true }));
 
-        const placedOrder = when(
-            (o: any) => o.amount >= 1000,
-            queueReview,
-            reserveStock
-        );
+        const placedOrder = when((o: any) => o.amount >= 1000, queueReview, reserveStock);
 
         const wf = flow(
             branch((e: any) => e.type, {
                 'order.placed': placedOrder,
                 'order.cancelled': cancelOrder,
-            })
+            }),
         );
 
         const hook: StepExecutionHook = async (ctx, next) => {
@@ -116,11 +124,7 @@ describe('StepExecutionHook & Runtime Hooks', () => {
             expect(res1.reserved).to.be.true;
         });
 
-        expect(executedHooks).to.deep.equal([
-            'branch',
-            'when',
-            'reserveStock',
-        ]);
+        expect(executedHooks).to.deep.equal(['branch', 'when', 'reserveStock']);
 
         executedHooks.length = 0;
 
@@ -130,11 +134,7 @@ describe('StepExecutionHook & Runtime Hooks', () => {
             expect(res2.review).to.be.true;
         });
 
-        expect(executedHooks).to.deep.equal([
-            'branch',
-            'when',
-            'queueReview',
-        ]);
+        expect(executedHooks).to.deep.equal(['branch', 'when', 'queueReview']);
 
         executedHooks.length = 0;
 
@@ -144,10 +144,7 @@ describe('StepExecutionHook & Runtime Hooks', () => {
             expect(res3.cancelled).to.be.true;
         });
 
-        expect(executedHooks).to.deep.equal([
-            'branch',
-            'cancelOrder',
-        ]);
+        expect(executedHooks).to.deep.equal(['branch', 'cancelOrder']);
     });
 
     it('intercepts steps inside parallel branches', async () => {

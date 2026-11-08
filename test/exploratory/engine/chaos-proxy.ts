@@ -3,7 +3,7 @@ import {
     SerializedExecutionStack,
     ContextChangeEvent,
     CacheEvent,
-    CheckpointConflictException
+    CheckpointConflictException,
 } from '@siglo/core';
 
 export interface ChaosConfig {
@@ -23,7 +23,7 @@ export class ChaosStorageProxy implements StorageAdapter {
         getCheckpoint: number;
         getCachedStep: number;
         setCachedStep: number;
-    } = {saveCheckpoint: 0, getCheckpoint: 0, getCachedStep: 0, setCachedStep: 0};
+    } = { saveCheckpoint: 0, getCheckpoint: 0, getCachedStep: 0, setCachedStep: 0 };
 
     public activeConcurrentOps: number = 0;
     public highWaterMark: number = 0;
@@ -35,7 +35,7 @@ export class ChaosStorageProxy implements StorageAdapter {
             minLatencyMs: config.minLatencyMs ?? 0,
             maxLatencyMs: config.maxLatencyMs ?? 0,
             conflictRate: config.conflictRate ?? 0,
-            corruptionRate: config.corruptionRate ?? 0
+            corruptionRate: config.corruptionRate ?? 0,
         };
     }
 
@@ -49,7 +49,8 @@ export class ChaosStorageProxy implements StorageAdapter {
             // Latency injection
             if (this.config.maxLatencyMs > 0) {
                 const latency = Math.floor(
-                    Math.random() * (this.config.maxLatencyMs - this.config.minLatencyMs + 1) + this.config.minLatencyMs
+                    Math.random() * (this.config.maxLatencyMs - this.config.minLatencyMs + 1) +
+                        this.config.minLatencyMs,
                 );
                 if (latency > 0) {
                     await new Promise(r => setTimeout(r, latency));
@@ -65,10 +66,7 @@ export class ChaosStorageProxy implements StorageAdapter {
 
             // Injected optimistic concurrency conflicts
             if (this.config.conflictRate > 0 && Math.random() < this.config.conflictRate) {
-                throw new CheckpointConflictException('chaos-injected',
-                    1,
-                    2,
-                    {});
+                throw new CheckpointConflictException('chaos-injected', 1, 2, {});
             }
         } finally {
             this.activeConcurrentOps--;
@@ -90,7 +88,7 @@ export class ChaosStorageProxy implements StorageAdapter {
             const result = await this.underlying.getCheckpoint(stackId);
             if (result && this.config.corruptionRate > 0 && Math.random() < this.config.corruptionRate) {
                 // Return slightly corrupted checkpoint to test boundary resilience
-                const corrupted = {...result} as any;
+                const corrupted = { ...result } as any;
                 corrupted.schemaVersion = '999.0.0-corrupted';
                 return corrupted;
             }
@@ -120,7 +118,7 @@ export class ChaosStorageProxy implements StorageAdapter {
     }
 
     resetMetrics(): void {
-        this.callCounts = {saveCheckpoint: 0, getCheckpoint: 0, getCachedStep: 0, setCachedStep: 0};
+        this.callCounts = { saveCheckpoint: 0, getCheckpoint: 0, getCachedStep: 0, setCachedStep: 0 };
         this.activeConcurrentOps = 0;
         this.highWaterMark = 0;
     }

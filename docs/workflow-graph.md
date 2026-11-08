@@ -1,6 +1,6 @@
 ---
-title: "Workflow Graph Model"
-description: "Declarative workflow AST, pure JSON-serializable node hierarchy, cycle validation, and inspector API in Siglo."
+title: 'Workflow Graph Model'
+description: 'Declarative workflow AST, pure JSON-serializable node hierarchy, cycle validation, and inspector API in Siglo.'
 ---
 
 # Workflow Graph Model
@@ -14,40 +14,34 @@ description: "Declarative workflow AST, pure JSON-serializable node hierarchy, c
 All workflow entities are representable as pure JSON-serializable `WorkflowNode` data structures:
 
 ```typescript
-type WorkflowNode =
-  | StepNode
-  | SequenceNode
-  | ParallelNode
-  | BranchNode
-  | WaitNode
-  | MapNode;
+type WorkflowNode = StepNode | SequenceNode | ParallelNode | BranchNode | WaitNode | MapNode;
 ```
 
 ### Node Types
 
 1. **`StepNode` (`type: 'step'`)**
-   - Represents an atomic unit of execution.
-   - Contains: `id`, `name`, optional `metadata` (e.g. `reducer`, `isStrict`, `timeoutMs`, `cachedLast`).
+    - Represents an atomic unit of execution.
+    - Contains: `id`, `name`, optional `metadata` (e.g. `reducer`, `isStrict`, `timeoutMs`, `cachedLast`).
 
 2. **`SequenceNode` (`type: 'sequence'`)**
-   - Represents linear steps executed sequentially.
-   - Contains: `id`, `name`, and an ordered list of `children: WorkflowNode[]`.
+    - Represents linear steps executed sequentially.
+    - Contains: `id`, `name`, and an ordered list of `children: WorkflowNode[]`.
 
 3. **`ParallelNode` (`type: 'parallel'`)**
-   - Represents concurrent branches.
-   - Contains: `id`, `name`, `branches: WorkflowNode[]`, `mode` (`'fail-fast' | 'allSettled' | 'race'`), and `mergeStrategy`.
+    - Represents concurrent branches.
+    - Contains: `id`, `name`, `branches: WorkflowNode[]`, `mode` (`'fail-fast' | 'allSettled' | 'race'`), and `mergeStrategy`.
 
 4. **`BranchNode` (`type: 'branch'`)**
-   - Represents conditional control flow.
-   - Contains: `id`, `name`, `branches: Record<string, WorkflowNode>`, selector function, and optional `defaultBranch`.
+    - Represents conditional control flow.
+    - Contains: `id`, `name`, `branches: Record<string, WorkflowNode>`, selector function, and optional `defaultBranch`.
 
 5. **`WaitNode` (`type: 'wait'`)**
-   - Represents an asynchronous pause (timer or external event).
-   - Contains: `id`, `name`, optional `eventName`, `correlationKey`, `durationMs`, and `timeoutMs`.
+    - Represents an asynchronous pause (timer or external event).
+    - Contains: `id`, `name`, optional `eventName`, `correlationKey`, `durationMs`, and `timeoutMs`.
 
 6. **`MapNode` (`type: 'map'`)**
-   - Represents controlled iteration with bounded concurrency.
-   - Contains: `id`, `name`, `itemNode: WorkflowNode`, `concurrency`, `stopOnError`, and `preserveOrder`.
+    - Represents controlled iteration with bounded concurrency.
+    - Contains: `id`, `name`, `itemNode: WorkflowNode`, `concurrency`, `stopOnError`, and `preserveOrder`.
 
 ---
 
@@ -59,12 +53,9 @@ Any `Step`, `Flow`, nested array, function, or combinator can be converted to a 
 import { Step, flow, parallel, toGraph } from '@siglo/core';
 
 const workflow = flow(
-  Step.create('validate'),
-  parallel(
-    Step.create('inventory'),
-    Step.create('payment')
-  ),
-  Step.create('ship')
+    Step.create('validate'),
+    parallel(Step.create('inventory'), Step.create('payment')),
+    Step.create('ship'),
 );
 
 // Convert via standalone utility or instance method
@@ -75,6 +66,7 @@ const ast = workflow.ast;
 ```
 
 The resulting AST is consumed directly by developer tooling:
+
 - **`@siglo/monitor`**: Renders real-time execution DAGs, active node highlights, and duration heatmaps.
 - **`@siglo/cli`**: Produces terminal and SVG visualizations via `siglo visualize <workflow>`.
 
@@ -90,7 +82,7 @@ import { validateGraph, assertValidGraph, GraphValidationException } from '@sigl
 const result = validateGraph(graph);
 
 if (!result.valid) {
-  console.error('Graph validation errors:', result.errors);
+    console.error('Graph validation errors:', result.errors);
 }
 
 // Or throw GraphValidationException on failure:
@@ -98,6 +90,7 @@ assertValidGraph(graph);
 ```
 
 ### Validation Rules
+
 - Every node must possess a valid string `id` and recognized `type`.
 - `sequence` nodes must have at least one child.
 - `parallel` nodes must have at least one branch.

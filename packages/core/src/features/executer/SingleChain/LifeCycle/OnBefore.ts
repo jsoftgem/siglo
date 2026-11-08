@@ -13,7 +13,7 @@ export default class OnBefore {
         next: () => void,
         propertyToContextOrStackId?: any,
         stackId?: string,
-        options?: any
+        options?: any,
     ) {
         let propertyToContext: ((context: any, chainReturn: any) => void) | undefined;
         let actualStackId = stackId;
@@ -24,7 +24,8 @@ export default class OnBefore {
             actualStackId = propertyToContextOrStackId;
         }
 
-        const resolvedStackId = actualStackId ||
+        const resolvedStackId =
+            actualStackId ||
             options?.stackId ||
             (typeof param?.$stackId === 'function' ? param.$stackId() : param?.$stackId) ||
             (param && typeof param[STACK_ID] === 'function' ? param[STACK_ID]() : param?.[STACK_ID]) ||
@@ -38,7 +39,7 @@ export default class OnBefore {
                 stepId: chain.$stepId || chain.name || '',
                 stepName: chain.func || chain.name || '',
                 timestamp: Date.now(),
-                namespace: options?.namespace
+                namespace: options?.namespace,
             });
             new OnSkip(chain, param, resolve, reject, Context, propertyToContext, resolvedStackId);
         };
@@ -47,15 +48,17 @@ export default class OnBefore {
             const actionParam = toPOJO(param);
             const onbefore = chain.onbefore(actionParam);
             if (onbefore instanceof Promise) {
-                onbefore.then((con: any) => {
-                    if (con) {
-                        next();
-                    } else {
-                        handleSkip();
-                    }
-                }).catch((err: any) => {
-                    reject(err);
-                });
+                onbefore
+                    .then((con: any) => {
+                        if (con) {
+                            next();
+                        } else {
+                            handleSkip();
+                        }
+                    })
+                    .catch((err: any) => {
+                        reject(err);
+                    });
             } else if (onbefore) {
                 next();
             } else {
@@ -65,5 +68,5 @@ export default class OnBefore {
             reject(err);
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

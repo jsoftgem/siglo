@@ -19,7 +19,7 @@ export const fetchCustomer = Step.create('fetchCustomer', async (ctx: OrderPaylo
     return {
         customerTier: ctx.isVip ? 'VIP_PLATINUM' : 'STANDARD',
         verified: true,
-        region: 'US-EAST'
+        region: 'US-EAST',
     };
 });
 
@@ -31,16 +31,16 @@ export const assessRiskScore = Step.create('assessRiskScore', async (ctx: any) =
     }
     return {
         riskScore: ctx.amount > 500 ? 42 : 12,
-        requiresManualReview: ctx.amount > 500
+        requiresManualReview: ctx.amount > 500,
     };
 }).onFail({ maxRetries: 2, delay: 50 });
 
 export const applyVipDiscount = Step.create('applyVipDiscount', async (ctx: any) => {
-    const discount = ctx.amount * 0.20;
+    const discount = ctx.amount * 0.2;
     return {
         discountApplied: true,
         discountAmount: discount,
-        finalAmount: ctx.amount - discount
+        finalAmount: ctx.amount - discount,
     };
 }).onBefore((ctx: any) => ctx.isVip === true);
 
@@ -51,7 +51,7 @@ export const chargeCreditCard = Step.create('chargeCreditCard', async (ctx: any)
         netCharged: ctx.finalAmount || ctx.amount,
         // Sensitive data will be automatically masked in monitoring streams
         token: ctx.authToken,
-        cardNumber: ctx.cardNumber
+        cardNumber: ctx.cardNumber,
     };
 });
 
@@ -59,16 +59,16 @@ export const awaitHumanApproval = waitForEvent('order.approved', {
     correlationKey: (ctx: any) => {
         const id = typeof ctx.orderId === 'function' ? ctx.orderId() : ctx.orderId;
         console.log(`Awaiting human approval for order: ${id}`);
-        return id || (typeof ctx.$stackId === 'function' ? ctx.$stackId() : (ctx.$stackId || ctx.stackId));
+        return id || (typeof ctx.$stackId === 'function' ? ctx.$stackId() : ctx.$stackId || ctx.stackId);
     },
-    timeout: '24h'
+    timeout: '24h',
 });
 
 export const finalizeFulfillment = Step.create('finalizeFulfillment', async (ctx: any) => {
     return {
         fulfillmentStatus: 'DISPATCHED',
         trackingNumber: `TRK-USPS-${Math.floor(Math.random() * 900000 + 100000)}`,
-        shippedAt: new Date().toISOString()
+        shippedAt: new Date().toISOString(),
     };
 });
 
@@ -79,7 +79,7 @@ export const orderFulfillmentFlow = flow(
     applyVipDiscount,
     chargeCreditCard,
     awaitHumanApproval,
-    finalizeFulfillment
+    finalizeFulfillment,
 );
 
 /**
@@ -122,7 +122,7 @@ export function createOrderApiApp(workflow = orderFulfillmentFlow): Express {
             amount: Number(req.body?.amount) || 100,
             authToken: req.body?.authToken || 'jwt-auth-default-token',
             cardNumber: req.body?.cardNumber || '4111-2222-3333-4444',
-            isVip: Boolean(req.body?.isVip)
+            isVip: Boolean(req.body?.isVip),
         }),
         output: (result: any, res: Response) => {
             // Handle durable workflow suspension (waiting for human approval)
@@ -132,7 +132,7 @@ export function createOrderApiApp(workflow = orderFulfillmentFlow): Express {
                     stackId: result.stackId,
                     correlationKey: result.correlationKey,
                     waitingForEvent: result.eventName,
-                    message: `Workflow suspended waiting for '${result.eventName}'. Approve in DevTools UI or via POST /api/orders/${result.correlationKey}/approve`
+                    message: `Workflow suspended waiting for '${result.eventName}'. Approve in DevTools UI or via POST /api/orders/${result.correlationKey}/approve`,
                 });
             }
 
@@ -147,16 +147,16 @@ export function createOrderApiApp(workflow = orderFulfillmentFlow): Express {
                 discountApplied: result.discountApplied ?? false,
                 discountAmount: result.discountAmount || 0,
                 region: result.region,
-                paymentReference: result.paymentReference
+                paymentReference: result.paymentReference,
             });
         },
         onError: (err: any, _req: Request, res: Response) => {
             console.error('[Workflow API Error]:', err.message);
             const status = err.status || 500;
             return res.status(status).json({
-                error: err.message || 'Workflow execution failed'
+                error: err.message || 'Workflow execution failed',
             });
-        }
+        },
     });
 
     // Mount workflow execution routes
@@ -166,23 +166,23 @@ export function createOrderApiApp(workflow = orderFulfillmentFlow): Express {
     // Resumption endpoint to approve suspended orders via API
     app.post('/api/orders/:orderId/approve', async (req: Request, res: Response) => {
         const { orderId } = req.params;
-        const stackId = req.body?.stackId || req.query?.stackId as string;
+        const stackId = req.body?.stackId || (req.query?.stackId as string);
         try {
             const finalResult = await resumeWorkflow(workflow, stackId || orderId, {
                 approvedBy: req.body?.approvedBy || 'compliance-officer@corp.internal',
-                decisionNotes: req.body?.decisionNotes || 'Approved via Express API'
+                decisionNotes: req.body?.decisionNotes || 'Approved via Express API',
             });
             return res.json({
                 success: true,
                 orderId,
                 fulfillmentStatus: finalResult.fulfillmentStatus || 'DISPATCHED',
-                trackingNumber: finalResult.trackingNumber
+                trackingNumber: finalResult.trackingNumber,
             });
         } catch (err: any) {
             return res.status(400).json({
                 error: err.message,
                 orderId,
-                hint: 'The workflow is either already completed or not suspended waiting for approval.'
+                hint: 'The workflow is either already completed or not suspended waiting for approval.',
             });
         }
     });
@@ -207,8 +207,8 @@ export async function main() {
         host: '0.0.0.0',
         flow: orderFulfillmentFlow,
         redaction: {
-            redactKeys: ['authToken', 'cardNumber', 'secret']
-        }
+            redactKeys: ['authToken', 'cardNumber', 'secret'],
+        },
     });
 
     // Attach monitor to flow so API executions stream live into DevTools
@@ -234,7 +234,9 @@ export async function main() {
             apiServer = apiApp.listen(apiPort, '0.0.0.0', () => {
                 console.log(`📡 Express API Server running at http://localhost:${apiPort}`);
                 console.log(`   - Order Execution API:    POST http://localhost:${apiPort}/api/orders`);
-                console.log(`   - Order Approval API:     POST http://localhost:${apiPort}/api/orders/:orderId/approve`);
+                console.log(
+                    `   - Order Approval API:     POST http://localhost:${apiPort}/api/orders/:orderId/approve`,
+                );
             });
         } catch {
             // Ignore if port in use

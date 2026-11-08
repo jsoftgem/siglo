@@ -1,8 +1,4 @@
-import {
-    WorkflowExecutionEvent,
-    WorkflowExecutionEventType,
-    WorkflowExecutionEventMap
-} from './types';
+import { WorkflowExecutionEvent, WorkflowExecutionEventType, WorkflowExecutionEventMap } from './types';
 import { redactEvent } from './redaction';
 import { StorageAdapter } from '../storage';
 
@@ -19,7 +15,7 @@ export class WorkflowEventEmitter {
 
     on<K extends WorkflowExecutionEventType>(
         eventOrListener: K | '*' | EventListener<WorkflowExecutionEvent>,
-        listener?: EventListener<WorkflowExecutionEventMap[K]>
+        listener?: EventListener<WorkflowExecutionEventMap[K]>,
     ): this {
         if (typeof eventOrListener === 'function') {
             this.wildcardListeners.add(eventOrListener);
@@ -42,10 +38,7 @@ export class WorkflowEventEmitter {
         return this;
     }
 
-    once<K extends WorkflowExecutionEventType>(
-        event: K | '*',
-        listener: EventListener<any>
-    ): this {
+    once<K extends WorkflowExecutionEventType>(event: K | '*', listener: EventListener<any>): this {
         const onceWrapper = (ev: any) => {
             this.off(event, onceWrapper);
             return listener(ev);
@@ -55,7 +48,7 @@ export class WorkflowEventEmitter {
 
     off<K extends WorkflowExecutionEventType>(
         eventOrListener: K | '*' | EventListener<WorkflowExecutionEvent>,
-        listener?: EventListener<any>
+        listener?: EventListener<any>,
     ): this {
         if (typeof eventOrListener === 'function') {
             this.wildcardListeners.delete(eventOrListener);
@@ -86,9 +79,13 @@ export class WorkflowEventEmitter {
     emit(event: WorkflowExecutionEvent): void;
     emit<K extends WorkflowExecutionEventType>(type: K, event: WorkflowExecutionEventMap[K]): void;
     emit(eventOrType: WorkflowExecutionEvent | string, maybePayload?: any): void {
-        const event: WorkflowExecutionEvent = typeof eventOrType === 'string'
-            ? Object.assign({}, maybePayload, { type: eventOrType, timestamp: maybePayload?.timestamp || Date.now() })
-            : eventOrType;
+        const event: WorkflowExecutionEvent =
+            typeof eventOrType === 'string'
+                ? Object.assign({}, maybePayload, {
+                      type: eventOrType,
+                      timestamp: maybePayload?.timestamp || Date.now(),
+                  })
+                : eventOrType;
 
         if (!event || !event.type) {
             return;
@@ -148,7 +145,7 @@ export class WorkflowEventEmitter {
 
     filterNamespace(namespace: string): WorkflowEventEmitter {
         const scoped = new WorkflowEventEmitter(namespace);
-        this.on('*', (ev) => {
+        this.on('*', ev => {
             if (!ev.namespace || ev.namespace === namespace) {
                 scoped.emit(ev);
             }
@@ -159,7 +156,7 @@ export class WorkflowEventEmitter {
     toStorageAdapter(): StorageAdapter {
         return {
             name: 'workflow-event-emitter',
-            onContextChange: (entry) => {
+            onContextChange: entry => {
                 this.emit({
                     type: 'context:change',
                     stackId: entry.stackId,
@@ -167,10 +164,10 @@ export class WorkflowEventEmitter {
                     field: entry.field,
                     value: entry.value,
                     timestamp: entry.timestamp,
-                    namespace: entry.namespace
+                    namespace: entry.namespace,
                 });
             },
-            onCacheEvent: (event) => {
+            onCacheEvent: event => {
                 if (event.type === 'hit') {
                     this.emit({
                         type: 'cache:hit',
@@ -178,7 +175,7 @@ export class WorkflowEventEmitter {
                         stepId: event.stepId,
                         key: event.key,
                         timestamp: event.timestamp,
-                        namespace: event.namespace
+                        namespace: event.namespace,
                     });
                 } else {
                     this.emit({
@@ -187,19 +184,19 @@ export class WorkflowEventEmitter {
                         stepId: event.stepId,
                         key: event.key,
                         timestamp: event.timestamp,
-                        namespace: event.namespace
+                        namespace: event.namespace,
                     });
                 }
             },
-            saveCheckpoint: async (checkpoint) => {
+            saveCheckpoint: async checkpoint => {
                 this.emit({
                     type: 'checkpoint:save',
                     stackId: checkpoint.stackId,
                     status: checkpoint.status,
                     timestamp: checkpoint.timestamp || Date.now(),
-                    namespace: checkpoint.namespace
+                    namespace: checkpoint.namespace,
                 });
-            }
+            },
         };
     }
 }
@@ -217,7 +214,11 @@ export function getDefaultMonitor(): WorkflowEventEmitter | undefined {
 }
 
 export function emitMonitoringEvent(options: any, event: WorkflowExecutionEvent): void {
-    try { event = redactEvent(event); } catch { return; }
+    try {
+        event = redactEvent(event);
+    } catch {
+        return;
+    }
     const localMonitor = options?.monitor;
     const globalMonitor = globalDefaultMonitor;
 

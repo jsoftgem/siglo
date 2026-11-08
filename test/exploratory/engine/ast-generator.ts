@@ -1,12 +1,4 @@
-import {
-    flow,
-    parallel,
-    race,
-    allSettled,
-    when,
-    branch,
-    map
-} from '@siglo/core';
+import { flow, parallel, race, allSettled, when, branch, map } from '@siglo/core';
 import { step } from './step-helper';
 import { RandomSource } from './property-generators';
 
@@ -62,7 +54,7 @@ export class FlowAstGenerator {
             compensatedSteps: [],
             activeConcurrency: 0,
             highWaterMark: 0,
-            events: []
+            events: [],
         };
     }
 
@@ -70,7 +62,7 @@ export class FlowAstGenerator {
         name: string,
         execCtx: FuzzExecutionContext,
         opts: FlowGeneratorOptions,
-        leafSteps: GeneratedStepMetadata[]
+        leafSteps: GeneratedStepMetadata[],
     ): any {
         const shouldFail = this.rng.nextBoolean(opts.errorProbability ?? 0.1);
         const hasCompensation = this.rng.nextBoolean(opts.compensationProbability ?? 0.5);
@@ -85,36 +77,35 @@ export class FlowAstGenerator {
             hasCompensation,
             hasTimeout,
             timeoutMs,
-            delayMs
+            delayMs,
         });
 
         let s = step(name, async (ctx: any) => {
-                try {
-                    if (delayMs > 0) {
-                        await new Promise(r => setTimeout(r, delayMs));
-                    }
-
-                    if (shouldFail) {
-                        execCtx.events.push({ type: 'fail', step: name, timestamp: Date.now() });
-                        throw new Error(`Injected failure in step ${name}`);
-                    }
-
-                    execCtx.completedSteps.push(name);
-                    execCtx.events.push({ type: 'complete', step: name, timestamp: Date.now() });
-                    return { [`${name}_output`]: `value_${name}_${Date.now()}` };
-                } finally {
-                    execCtx.activeConcurrency = Math.max(0, execCtx.activeConcurrency - 1);
+            try {
+                if (delayMs > 0) {
+                    await new Promise(r => setTimeout(r, delayMs));
                 }
-            })
-            .onBefore(async () => {
-                execCtx.executedSteps.push(name);
-                execCtx.activeConcurrency++;
-                if (execCtx.activeConcurrency > execCtx.highWaterMark) {
-                    execCtx.highWaterMark = execCtx.activeConcurrency;
+
+                if (shouldFail) {
+                    execCtx.events.push({ type: 'fail', step: name, timestamp: Date.now() });
+                    throw new Error(`Injected failure in step ${name}`);
                 }
-                execCtx.events.push({ type: 'start', step: name, timestamp: Date.now() });
-                return true;
-            });
+
+                execCtx.completedSteps.push(name);
+                execCtx.events.push({ type: 'complete', step: name, timestamp: Date.now() });
+                return { [`${name}_output`]: `value_${name}_${Date.now()}` };
+            } finally {
+                execCtx.activeConcurrency = Math.max(0, execCtx.activeConcurrency - 1);
+            }
+        }).onBefore(async () => {
+            execCtx.executedSteps.push(name);
+            execCtx.activeConcurrency++;
+            if (execCtx.activeConcurrency > execCtx.highWaterMark) {
+                execCtx.highWaterMark = execCtx.activeConcurrency;
+            }
+            execCtx.events.push({ type: 'start', step: name, timestamp: Date.now() });
+            return true;
+        });
 
         if (hasCompensation) {
             s = s.compensate(async (ctx: any) => {
@@ -135,7 +126,7 @@ export class FlowAstGenerator {
         depth: number,
         opts: FlowGeneratorOptions = {},
         execCtx?: FuzzExecutionContext,
-        leafSteps: GeneratedStepMetadata[] = []
+        leafSteps: GeneratedStepMetadata[] = [],
     ): GeneratedFlowResult {
         const context = execCtx ?? this.createExecutionContext();
 
@@ -199,7 +190,7 @@ export class FlowAstGenerator {
             metadata: {
                 stepCount: leafSteps.length,
                 leafSteps,
-                depth
+                depth,
             },
             resetExecution: () => {
                 context.executedSteps.length = 0;
@@ -208,7 +199,7 @@ export class FlowAstGenerator {
                 context.activeConcurrency = 0;
                 context.highWaterMark = 0;
                 context.events.length = 0;
-            }
+            },
         };
     }
 }

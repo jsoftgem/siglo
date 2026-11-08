@@ -42,7 +42,11 @@ import { createKafkaMessageHandler } from '@siglo/kafka';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const groupId = 'order-acceptance';
-interface OrderEvent { eventId: string; tenant: string; orderId: string }
+interface OrderEvent {
+    eventId: string;
+    tenant: string;
+    orderId: string;
+}
 
 const acceptOrder = Step.create('acceptOrder', async (event: OrderEvent) => {
     const client = await pool.connect();
@@ -57,17 +61,19 @@ const acceptOrder = Step.create('acceptOrder', async (event: OrderEvent) => {
             await client.query('COMMIT');
             return { duplicate: true };
         }
-        await client.query(
-            'INSERT INTO accepted_orders VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [event.tenant, event.orderId],
-        );
+        await client.query('INSERT INTO accepted_orders VALUES ($1, $2) ON CONFLICT DO NOTHING', [
+            event.tenant,
+            event.orderId,
+        ]);
         const outgoingId = JSON.stringify([groupId, event.tenant, event.eventId, 'order.accepted']);
-        await client.query(
-            'INSERT INTO order_outbox(event_id, payload) VALUES ($1, $2::jsonb)',
-            [outgoingId, JSON.stringify({
-                eventId: outgoingId, tenant: event.tenant, orderId: event.orderId,
-            })],
-        );
+        await client.query('INSERT INTO order_outbox(event_id, payload) VALUES ($1, $2::jsonb)', [
+            outgoingId,
+            JSON.stringify({
+                eventId: outgoingId,
+                tenant: event.tenant,
+                orderId: event.orderId,
+            }),
+        ]);
         await client.query('COMMIT');
         return { accepted: true };
     } catch (error) {
@@ -80,8 +86,10 @@ const acceptOrder = Step.create('acceptOrder', async (event: OrderEvent) => {
 
 const handler = createKafkaMessageHandler<OrderEvent>(flow(acceptOrder), {
     validate: event => {
-        if (!event || ![event.eventId, event.tenant, event.orderId]
-            .every(value => typeof value === 'string' && value.length > 0)) {
+        if (
+            !event ||
+            ![event.eventId, event.tenant, event.orderId].every(value => typeof value === 'string' && value.length > 0)
+        ) {
             throw new Error('eventId, tenant, and orderId are required');
         }
     },
@@ -114,10 +122,7 @@ async function publishNextOutbox(): Promise<boolean> {
             topic: 'orders.accepted',
             messages: [{ key: row.event_id, value: JSON.stringify(row.payload) }],
         });
-        await client.query(
-            'UPDATE order_outbox SET published_at = NOW() WHERE event_id = $1',
-            [row.event_id],
-        );
+        await client.query('UPDATE order_outbox SET published_at = NOW() WHERE event_id = $1', [row.event_id]);
         await client.query('COMMIT');
         return true;
     } catch (error) {

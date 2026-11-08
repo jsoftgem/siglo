@@ -13,20 +13,25 @@ export function isolateTelemetryExporter(exporter: SpanExporter): SpanExporter {
     return {
         export: (spans, callback) => scope.runInAsyncScope(() => exporter.export(spans, callback)),
         shutdown: async () => {
-            try { await exporter.shutdown(); }
-            finally { scope.emitDestroy(); }
+            try {
+                await exporter.shutdown();
+            } finally {
+                scope.emitDestroy();
+            }
         },
     };
 }
 
 /** Opt in through the APM Compose overlay; the routing tutorial also runs without a collector. */
 export function startTelemetry(serviceName: string) {
-    if (process.env.OTEL_TRACES_EXPORTER === 'none'
-        || !(process.env.OTEL_EXPORTER_OTLP_ENDPOINT || process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)) {
+    if (
+        process.env.OTEL_TRACES_EXPORTER === 'none' ||
+        !(process.env.OTEL_EXPORTER_OTLP_ENDPOINT || process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
+    ) {
         return undefined;
     }
     const provider = new NodeTracerProvider({
-        resource: resourceFromAttributes({ 'service.name': serviceName, 'service.version': '1.1.0' }),
+        resource: resourceFromAttributes({ 'service.name': serviceName, 'service.version': '1.2.0' }),
         spanProcessors: [new BatchSpanProcessor(isolateTelemetryExporter(new OTLPTraceExporter()))],
     });
     provider.register();
@@ -43,24 +48,31 @@ export function traceKafkaHandler(handler: EachMessageHandler): EachMessageHandl
         };
         // A record without trace headers starts a fresh trace, even if the caller has an active span.
         const parent = context.with(ROOT_CONTEXT, () => extractTraceContext(carrier));
-        await context.with(parent, () => trace.getTracer('zero-code-apm-dashboards').startActiveSpan(
-            'kafka:process apm.orders',
-            { kind: SpanKind.CONSUMER, attributes: {
-                'messaging.system': 'kafka',
-                'messaging.destination.name': payload.topic,
-                'messaging.kafka.partition': payload.partition,
-                'messaging.kafka.offset': payload.message.offset,
-            } },
-            async span => {
-                try {
-                    await handler(payload);
-                    span.setStatus({ code: SpanStatusCode.OK });
-                } catch (error) {
-                    span.recordException(error instanceof Error ? error : String(error));
-                    span.setStatus({ code: SpanStatusCode.ERROR });
-                    throw error;
-                } finally { span.end(); }
-            },
-        ));
+        await context.with(parent, () =>
+            trace.getTracer('zero-code-apm-dashboards').startActiveSpan(
+                'kafka:process apm.orders',
+                {
+                    kind: SpanKind.CONSUMER,
+                    attributes: {
+                        'messaging.system': 'kafka',
+                        'messaging.destination.name': payload.topic,
+                        'messaging.kafka.partition': payload.partition,
+                        'messaging.kafka.offset': payload.message.offset,
+                    },
+                },
+                async span => {
+                    try {
+                        await handler(payload);
+                        span.setStatus({ code: SpanStatusCode.OK });
+                    } catch (error) {
+                        span.recordException(error instanceof Error ? error : String(error));
+                        span.setStatus({ code: SpanStatusCode.ERROR });
+                        throw error;
+                    } finally {
+                        span.end();
+                    }
+                },
+            ),
+        );
     };
 }

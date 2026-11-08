@@ -72,7 +72,9 @@ export function validateGraph(node: WorkflowNode): GraphValidationResult {
 
             case 'wait':
                 if (!curr.durationMs && !curr.timeoutMs && (!curr.eventName || !curr.correlationKey)) {
-                    errors.push(`Wait node '${curr.id}' must specify either durationMs/timeoutMs or eventName and correlationKey`);
+                    errors.push(
+                        `Wait node '${curr.id}' must specify either durationMs/timeoutMs or eventName and correlationKey`,
+                    );
                 }
                 break;
 
@@ -96,7 +98,7 @@ export function validateGraph(node: WorkflowNode): GraphValidationResult {
 
     return {
         valid: errors.length === 0,
-        errors
+        errors,
     };
 }
 

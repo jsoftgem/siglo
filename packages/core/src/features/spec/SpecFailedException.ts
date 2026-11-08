@@ -11,12 +11,12 @@ export class SpecFailedException {
             if (reject) {
                 reject({
                     field,
-                    error
+                    error,
                 });
             } else {
                 throw new Error('SpecFailedException: ' + error?.message);
             }
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

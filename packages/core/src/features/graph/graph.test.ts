@@ -12,7 +12,7 @@ import {
     map,
     waitForEvent,
     wait,
-    GraphValidationException
+    GraphValidationException,
 } from '../../index';
 
 describe('Workflow Graph Model Unit Tests', () => {
@@ -105,13 +105,16 @@ describe('Workflow Graph Model Unit Tests', () => {
             Step.create('s1'),
             parallel(Step.create('p1'), Step.create('p2')),
             when(() => true, Step.create('then1'), Step.create('else1')),
-            branch({
-                optA: Step.create('a'),
-                optB: Step.create('b')
-            }, Step.create('def')),
+            branch(
+                {
+                    optA: Step.create('a'),
+                    optB: Step.create('b'),
+                },
+                Step.create('def'),
+            ),
             map([1, 2], Step.create('itemProcess'), { concurrency: 2 }),
             waitForEvent('approved', { correlationKey: 'order-1', timeoutMs: 5000 }),
-            wait(100)
+            wait(100),
         );
 
         const graph = validFlow.toGraph();
@@ -166,13 +169,13 @@ describe('Workflow Graph Model Unit Tests', () => {
             id: 'node-cycle-1',
             name: 'cycle1',
             type: 'sequence',
-            children: []
+            children: [],
         };
         const childNode: any = {
             id: 'node-cycle-2',
             name: 'cycle2',
             type: 'sequence',
-            children: [cycleNode] // points back to cycleNode
+            children: [cycleNode], // points back to cycleNode
         };
         cycleNode.children.push(childNode);
 
@@ -184,16 +187,17 @@ describe('Workflow Graph Model Unit Tests', () => {
     it('inspectGraph traverses nodes, edges, entries, and exits accurately', () => {
         const f = flow(
             Step.create('step1'),
-            parallel(
-                Step.create('branchA'),
-                Step.create('branchB')
+            parallel(Step.create('branchA'), Step.create('branchB')),
+            branch(
+                ctx => ctx.kind,
+                {
+                    fast: Step.create('fastStep'),
+                    slow: flow(Step.create('slow1'), Step.create('slow2')),
+                },
+                Step.create('defaultStep'),
             ),
-            branch((ctx) => ctx.kind, {
-                fast: Step.create('fastStep'),
-                slow: flow(Step.create('slow1'), Step.create('slow2'))
-            }, Step.create('defaultStep')),
             map([1, 2], Step.create('processItem')),
-            waitForEvent('done', { correlationKey: 'k' })
+            waitForEvent('done', { correlationKey: 'k' }),
         );
 
         const inspection = inspectGraph(f);
@@ -208,19 +212,19 @@ describe('Workflow Graph Model Unit Tests', () => {
         expect(labels.some(l => l?.includes('branch-'))).to.be.true;
         expect(labels.some(l => l?.includes('when:'))).to.be.true;
     });
-    it("handles toGraph on existing WorkflowNode and DAG diamond structures in validateGraph", () => {
-        const existingNode = { id: "custom-node", type: "step" as const, name: "custom" };
+    it('handles toGraph on existing WorkflowNode and DAG diamond structures in validateGraph', () => {
+        const existingNode = { id: 'custom-node', type: 'step' as const, name: 'custom' };
         expect(toGraph(existingNode)).to.equal(existingNode);
 
-        const sharedExit = { id: "shared-exit", type: "step" as const, name: "exit" };
+        const sharedExit = { id: 'shared-exit', type: 'step' as const, name: 'exit' };
         const diamondParallel = {
-            id: "diamond-par",
-            type: "parallel" as const,
-            name: "diamond",
+            id: 'diamond-par',
+            type: 'parallel' as const,
+            name: 'diamond',
             branches: [
-                { id: "b1", type: "sequence" as const, name: "seq1", children: [sharedExit] },
-                { id: "b2", type: "sequence" as const, name: "seq2", children: [sharedExit] }
-            ]
+                { id: 'b1', type: 'sequence' as const, name: 'seq1', children: [sharedExit] },
+                { id: 'b2', type: 'sequence' as const, name: 'seq2', children: [sharedExit] },
+            ],
         };
         const validDiamond = validateGraph(diamondParallel);
         expect(validDiamond.valid).to.be.true;

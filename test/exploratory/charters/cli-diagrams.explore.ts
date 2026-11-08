@@ -3,10 +3,7 @@ import { RandomSource } from '../engine/property-generators';
 import { toMermaid, toDot, toGraph, validateGraph, inspectGraph } from '@siglo/core';
 import { CharterResult } from './combinators.explore';
 
-export async function runCliDiagramsCharter(
-    iterations: number = 20,
-    seed: number = 7007
-): Promise<CharterResult> {
+export async function runCliDiagramsCharter(iterations: number = 20, seed: number = 7007): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -19,7 +16,7 @@ export async function runCliDiagramsCharter(
 
         const generated = fuzzer.generateFlow(`graph_fuzz_${i}`, depth, {
             compensationProbability: 0.5,
-            timeoutProbability: 0.3
+            timeoutProbability: 0.3,
         });
 
         try {
@@ -32,7 +29,7 @@ export async function runCliDiagramsCharter(
             // 2. Mermaid Export Syntax Verification
             const mermaidText = toMermaid(generated.workflow, {
                 direction: rng.pick(['TD', 'LR', 'TB']),
-                includeBadges: true
+                includeBadges: true,
             });
 
             if (!mermaidText.startsWith('flowchart ')) {
@@ -50,7 +47,7 @@ export async function runCliDiagramsCharter(
             // 3. Graphviz DOT Export Syntax Verification
             const dotText = toDot(generated.workflow, {
                 graphName: `Graph_${i}`,
-                direction: 'TB'
+                direction: 'TB',
             });
 
             if (!dotText.includes('digraph')) {
@@ -82,6 +79,6 @@ export async function runCliDiagramsCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

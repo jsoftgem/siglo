@@ -99,7 +99,14 @@ function unwrapContext(obj: any): any {
     const clean: Record<string, any> = {};
     for (const key of Object.keys(obj)) {
         if (key.startsWith('$')) continue;
-        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
+        const val =
+            typeof obj[key] === 'function'
+                ? obj[key].val !== undefined
+                    ? obj[key].val
+                    : obj[key].length === 0
+                      ? obj[key]()
+                      : obj[key]
+                : obj[key];
         if (key === 'signal' && val instanceof AbortSignal) continue;
         clean[key] = val;
     }
@@ -119,7 +126,10 @@ function isTimeout(error: unknown): boolean {
 function delay(ms: number, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted();
     return new Promise((resolve, reject) => {
-        const onAbort = () => { clearTimeout(timer); reject(signal.reason); };
+        const onAbort = () => {
+            clearTimeout(timer);
+            reject(signal.reason);
+        };
         const timer = setTimeout(() => {
             signal.removeEventListener('abort', onAbort);
             resolve();
@@ -142,7 +152,8 @@ async function guarded<T>(
     const checkState = () => {
         try {
             if (options.signal?.aborted) abort('Kafka processing cancelled', options.signal.reason);
-            if (payload.isRunning?.() === false || payload.isStale?.() === true) abort('Kafka consumer stopped or batch became stale');
+            if (payload.isRunning?.() === false || payload.isStale?.() === true)
+                abort('Kafka consumer stopped or batch became stale');
             if (deadline !== undefined && Date.now() >= deadline) abort('Kafka processing deadline exceeded');
         } catch (error) {
             abort('Kafka consumer state check failed', error);
@@ -151,18 +162,26 @@ async function guarded<T>(
     const onAbort = () => abort('Kafka processing cancelled', options.signal?.reason);
     options.signal?.addEventListener('abort', onAbort, { once: true });
     let rejectCancellation: (error: unknown) => void = () => {};
-    const cancelled = new Promise<never>((_resolve, reject) => { rejectCancellation = reject; });
+    const cancelled = new Promise<never>((_resolve, reject) => {
+        rejectCancellation = reject;
+    });
     const onCancelled = () => rejectCancellation(controller.signal.reason);
     controller.signal.addEventListener('abort', onCancelled, { once: true });
     let pending: Promise<void> | undefined;
     let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
     const stateTimer = setInterval(checkState, 50);
-    const deadlineTimer = deadline === undefined ? undefined : setTimeout(checkState, Math.max(1, Math.ceil(deadline - Date.now())));
+    const deadlineTimer =
+        deadline === undefined ? undefined : setTimeout(checkState, Math.max(1, Math.ceil(deadline - Date.now())));
     const heartbeat = () => {
         if (pending || controller.signal.aborted || !payload.heartbeat) return;
-        pending = Promise.resolve().then(() => payload.heartbeat!()).catch(error => {
-            abort(`Kafka heartbeat failed: ${String(error)}`, error);
-        }).finally(() => { pending = undefined; });
+        pending = Promise.resolve()
+            .then(() => payload.heartbeat!())
+            .catch(error => {
+                abort(`Kafka heartbeat failed: ${String(error)}`, error);
+            })
+            .finally(() => {
+                pending = undefined;
+            });
     };
     try {
         checkState();
@@ -194,7 +213,7 @@ async function guarded<T>(
 /** Creates a handler that can be passed directly to KafkaJS eachMessage. */
 export function createKafkaMessageHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: SigloKafkaOptions<TInput, TOutput> = {}
+    options: SigloKafkaOptions<TInput, TOutput> = {},
 ) {
     duration('heartbeatIntervalMs', options.heartbeatIntervalMs ?? 5000, true);
     if (options.timeout !== undefined) duration('timeout', options.timeout);
@@ -207,9 +226,11 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
         throw new RangeError('timeout must be less than 80% of idempotencyTtlMs');
     }
     if (!['error', 'raw'].includes(options.invalidJson ?? 'error')) throw new Error('Invalid invalidJson policy');
-    if (!['skip', 'error', 'process'].includes(options.tombstone ?? 'skip')) throw new Error('Invalid tombstone policy');
+    if (!['skip', 'error', 'process'].includes(options.tombstone ?? 'skip'))
+        throw new Error('Invalid tombstone policy');
     const maxAttempts = options.retry?.maxAttempts ?? 1;
-    if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1) throw new RangeError('retry.maxAttempts must be a positive integer');
+    if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1)
+        throw new RangeError('retry.maxAttempts must be a positive integer');
     duration('retry.delayMs', options.retry?.delayMs ?? 0, true);
 
     return async (payload: SigloKafkaPayload): Promise<any> => {
@@ -224,8 +245,8 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
         const idempKey = `kafka:${JSON.stringify([options.groupId, namespace ?? null, options.idempotencyKey?.(message) ?? recordId])}`;
         const controller = new AbortController();
         let completionAttempted = false;
-        const mapOutcome = (outcome: Outcome) => outcome.kind === 'processed' && options.output
-            ? options.output(outcome.value, message) : outcome.value;
+        const mapOutcome = (outcome: Outcome) =>
+            outcome.kind === 'processed' && options.output ? options.output(outcome.value, message) : outcome.value;
         if (options.signal?.aborted || payload.isRunning?.() === false || payload.isStale?.() === true) {
             throw new KafkaProcessingCancelledError('Kafka processing cancelled before claim');
         }
@@ -233,89 +254,132 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
         if (store) {
             const status = await store.claim(idempKey, ttl);
             if (status === 'completed') {
-                return guarded(async signal => {
-                    const result: any = store.get ? await store.get(idempKey) : undefined;
-                    signal.throwIfAborted();
-                    return result?.$sigloKafka === 1 ? mapOutcome(result)
-                        : mapOutcome({ $sigloKafka: 1, kind: 'processed', value: result === undefined ? { deduplicated: true } : result });
-                }, payload, options, controller, options.timeout === undefined ? undefined : startedAt + options.timeout);
+                return guarded(
+                    async signal => {
+                        const result: any = store.get ? await store.get(idempKey) : undefined;
+                        signal.throwIfAborted();
+                        return result?.$sigloKafka === 1
+                            ? mapOutcome(result)
+                            : mapOutcome({
+                                  $sigloKafka: 1,
+                                  kind: 'processed',
+                                  value: result === undefined ? { deduplicated: true } : result,
+                              });
+                    },
+                    payload,
+                    options,
+                    controller,
+                    options.timeout === undefined ? undefined : startedAt + options.timeout,
+                );
             }
-            if (status === 'in-progress') throw new Error(`Kafka message ${idempKey} is already being processed concurrently`);
+            if (status === 'in-progress')
+                throw new Error(`Kafka message ${idempKey} is already being processed concurrently`);
         }
         const budget = Math.min(options.timeout ?? Infinity, store ? ttl * 0.8 : Infinity);
         const deadline = Number.isFinite(budget) ? startedAt + budget : undefined;
         let attempts = 0;
         try {
-            return await guarded(async signal => {
-                const checkActive = () => {
-                    if (deadline !== undefined && Date.now() >= deadline && !signal.aborted) {
-                        controller.abort(new KafkaProcessingCancelledError('Kafka processing deadline exceeded'));
-                    }
-                    signal.throwIfAborted();
-                };
-                const finish = async (kind: Outcome['kind'], value: any) => {
-                    checkActive();
-                    const outcome: Outcome = { $sigloKafka: 1, kind, value };
-                    if (store) {
-                        completionAttempted = true;
-                        await store.complete(idempKey, outcome);
-                    }
-                    checkActive();
-                    return mapOutcome(outcome);
-                };
-                let outcome: Outcome;
-                try {
-                    if (message.value == null && options.tombstone !== 'process') {
-                        if (options.tombstone === 'error') throw new KafkaInvalidMessageError('Kafka tombstone is not accepted');
-                        return finish('skipped', { skipped: true, recordId });
-                    }
-                    let input: any = {};
-                    if (options.input) input = await options.input(message);
-                    else if (message.value != null) {
-                        const text = String(message.value);
-                        try { input = JSON.parse(text); }
-                        catch (cause) {
-                            if (options.invalidJson === 'raw') input = { raw: text };
-                            else throw new KafkaInvalidMessageError('Kafka message contains invalid JSON', { cause });
+            return await guarded(
+                async signal => {
+                    const checkActive = () => {
+                        if (deadline !== undefined && Date.now() >= deadline && !signal.aborted) {
+                            controller.abort(new KafkaProcessingCancelledError('Kafka processing deadline exceeded'));
                         }
-                    }
-                    checkActive();
-                    if (options.validate) {
-                        try { await options.validate(input, message); }
-                        catch (cause) { throw new KafkaInvalidMessageError('Kafka workflow input validation failed', { cause }); }
-                    }
-                    for (;;) {
+                        signal.throwIfAborted();
+                    };
+                    const finish = async (kind: Outcome['kind'], value: any) => {
                         checkActive();
-                        attempts++;
-                        try {
-                            const execOptions: ExecutionOptions = { namespace, signal, timeout: options.timeout };
-                            const result = await workflow.run(input, execOptions);
-                            checkActive();
-                            outcome = { $sigloKafka: 1, kind: 'processed', value: unwrapContext(result) };
-                            break;
-                        } catch (error) {
-                            checkActive();
-                            if (isTimeout(error)) throw new KafkaProcessingCancelledError('Kafka workflow timed out', { cause: error });
-                            if (error instanceof KafkaInvalidMessageError || attempts >= maxAttempts ||
-                                options.retry?.shouldRetry?.(error, message) === false) throw error;
-                            await delay(options.retry?.delayMs ?? 0, signal);
+                        const outcome: Outcome = { $sigloKafka: 1, kind, value };
+                        if (store) {
+                            completionAttempted = true;
+                            await store.complete(idempKey, outcome);
                         }
+                        checkActive();
+                        return mapOutcome(outcome);
+                    };
+                    let outcome: Outcome;
+                    try {
+                        if (message.value == null && options.tombstone !== 'process') {
+                            if (options.tombstone === 'error')
+                                throw new KafkaInvalidMessageError('Kafka tombstone is not accepted');
+                            return finish('skipped', { skipped: true, recordId });
+                        }
+                        let input: any = {};
+                        if (options.input) input = await options.input(message);
+                        else if (message.value != null) {
+                            const text = String(message.value);
+                            try {
+                                input = JSON.parse(text);
+                            } catch (cause) {
+                                if (options.invalidJson === 'raw') input = { raw: text };
+                                else
+                                    throw new KafkaInvalidMessageError('Kafka message contains invalid JSON', {
+                                        cause,
+                                    });
+                            }
+                        }
+                        checkActive();
+                        if (options.validate) {
+                            try {
+                                await options.validate(input, message);
+                            } catch (cause) {
+                                throw new KafkaInvalidMessageError('Kafka workflow input validation failed', { cause });
+                            }
+                        }
+                        for (;;) {
+                            checkActive();
+                            attempts++;
+                            try {
+                                const execOptions: ExecutionOptions = { namespace, signal, timeout: options.timeout };
+                                const result = await workflow.run(input, execOptions);
+                                checkActive();
+                                outcome = { $sigloKafka: 1, kind: 'processed', value: unwrapContext(result) };
+                                break;
+                            } catch (error) {
+                                checkActive();
+                                if (isTimeout(error))
+                                    throw new KafkaProcessingCancelledError('Kafka workflow timed out', {
+                                        cause: error,
+                                    });
+                                if (
+                                    error instanceof KafkaInvalidMessageError ||
+                                    attempts >= maxAttempts ||
+                                    options.retry?.shouldRetry?.(error, message) === false
+                                )
+                                    throw error;
+                                await delay(options.retry?.delayMs ?? 0, signal);
+                            }
+                        }
+                    } catch (error) {
+                        checkActive();
+                        if (error instanceof KafkaProcessingCancelledError || !options.deadLetter) throw error;
+                        await options.deadLetter({ message, recordId, error, attempts });
+                        checkActive();
+                        outcome = {
+                            $sigloKafka: 1,
+                            kind: 'dead-lettered',
+                            value: { deadLettered: true, recordId, attempts },
+                        };
                     }
-                } catch (error) {
-                    checkActive();
-                    if (error instanceof KafkaProcessingCancelledError || !options.deadLetter) throw error;
-                    await options.deadLetter({ message, recordId, error, attempts });
-                    checkActive();
-                    outcome = { $sigloKafka: 1, kind: 'dead-lettered', value: { deadLettered: true, recordId, attempts } };
-                }
-                return finish(outcome.kind, outcome.value);
-            }, payload, options, controller, deadline);
+                    return finish(outcome.kind, outcome.value);
+                },
+                payload,
+                options,
+                controller,
+                deadline,
+            );
         } catch (error) {
             // Cancellation/timeouts may leave uncancelled external work in flight. Retain
             // the claim until expiry instead of making an immediate duplicate possible.
-            if (store && !completionAttempted && !controller.signal.aborted && !(error instanceof KafkaProcessingCancelledError)) {
-                try { await store.fail(idempKey, error); }
-                catch (cleanupError) {
+            if (
+                store &&
+                !completionAttempted &&
+                !controller.signal.aborted &&
+                !(error instanceof KafkaProcessingCancelledError)
+            ) {
+                try {
+                    await store.fail(idempKey, error);
+                } catch (cleanupError) {
                     throw new AggregateError([error, cleanupError], 'Kafka processing and claim cleanup failed');
                 }
             }
@@ -327,7 +391,7 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
 /** Processes partition batches sequentially; use eachBatchAutoResolve: false. */
 export function createKafkaBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: SigloKafkaBatchOptions<TInput, TOutput> = {}
+    options: SigloKafkaBatchOptions<TInput, TOutput> = {},
 ) {
     const handleMessage = createKafkaMessageHandler(workflow, options);
     return async (payload: SigloKafkaBatchPayload): Promise<void> => {
@@ -335,12 +399,16 @@ export function createKafkaBatchHandler<TInput = any, TOutput = any>(
             if (!payload.isRunning() || payload.isStale()) return;
             try {
                 await handleMessage({
-                    topic: payload.batch.topic, partition: payload.batch.partition, message,
+                    topic: payload.batch.topic,
+                    partition: payload.batch.partition,
+                    message,
                     heartbeat: () => payload.heartbeat(),
-                    isRunning: () => payload.isRunning(), isStale: () => payload.isStale(),
+                    isRunning: () => payload.isRunning(),
+                    isStale: () => payload.isStale(),
                 });
             } catch (error) {
-                if (error instanceof KafkaProcessingCancelledError && (!payload.isRunning() || payload.isStale())) return;
+                if (error instanceof KafkaProcessingCancelledError && (!payload.isRunning() || payload.isStale()))
+                    return;
                 throw error;
             }
             if (!payload.isRunning() || payload.isStale()) return;

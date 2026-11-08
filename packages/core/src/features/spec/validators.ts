@@ -15,41 +15,49 @@ export class Validators {
         const { require, requireMessage } = this.specData;
         const isRequired = require instanceof Function ? require() : require;
         return new Promise<void>((resolve, reject) => {
-            new this.SpecFailedException(() => {
-                const contextData = this.context.getData();
-                if (isRequired && (!contextData[this.field] || contextData[this.field]() === '')) {
-                    reject({
-                        field: this.field,
-                        error: new Error(requireMessage || `Field ${this.field} is required.`)
-                    });
-                } else {
-                    resolve();
-                }
-            }, this.field, reject);
+            new this.SpecFailedException(
+                () => {
+                    const contextData = this.context.getData();
+                    if (isRequired && (!contextData[this.field] || contextData[this.field]() === '')) {
+                        reject({
+                            field: this.field,
+                            error: new Error(requireMessage || `Field ${this.field} is required.`),
+                        });
+                    } else {
+                        resolve();
+                    }
+                },
+                this.field,
+                reject,
+            );
         });
     }
 
     runValidation(): Promise<void> {
         const { validator } = this.specData;
         return new Promise<void>((resolve, reject) => {
-            new this.SpecFailedException(() => {
-                const contextData = this.context.getData();
-                if (validator) {
-                    validator(contextData[this.field] ? contextData[this.field]() : undefined)
-                        .then(() => {
-                            resolve();
-                        })
-                        .catch((error: any) => {
-                            reject({
-                                field: this.field,
-                                error
+            new this.SpecFailedException(
+                () => {
+                    const contextData = this.context.getData();
+                    if (validator) {
+                        validator(contextData[this.field] ? contextData[this.field]() : undefined)
+                            .then(() => {
+                                resolve();
+                            })
+                            .catch((error: any) => {
+                                reject({
+                                    field: this.field,
+                                    error,
+                                });
                             });
-                        });
-                } else {
-                    resolve();
-                }
-            }, this.field, reject);
+                    } else {
+                        resolve();
+                    }
+                },
+                this.field,
+                reject,
+            );
         });
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

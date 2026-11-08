@@ -3,7 +3,9 @@ import { PostgresIdempotencyOptions, PostgresClientInterface } from './types';
 
 function validateIdentifier(name: string, paramName: string = 'tableName'): string {
     if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
-        throw new Error(`Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`);
+        throw new Error(
+            `Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`,
+        );
     }
     return name;
 }
@@ -45,7 +47,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             `INSERT INTO ${this.tableName} (key, status, expires_at, created_at)
              VALUES ($1, 'in-progress', $2, NOW())
              ON CONFLICT (key) DO NOTHING`,
-            [key, expiresAt]
+            [key, expiresAt],
         );
 
         if ((insertRes.rowCount || 0) > 0) {
@@ -55,7 +57,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         // Key exists, inspect current status and expiration
         const selectRes = await this.client.query(
             `SELECT status, result, expires_at FROM ${this.tableName} WHERE key = $1`,
-            [key]
+            [key],
         );
 
         if (!selectRes.rows || selectRes.rows.length === 0) {
@@ -71,7 +73,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
                 `UPDATE ${this.tableName}
                  SET status = 'in-progress', expires_at = $2, result = NULL
                  WHERE key = $1 AND expires_at <= NOW()`,
-                [key, expiresAt]
+                [key, expiresAt],
             );
             if ((updateRes.rowCount || 0) > 0) {
                 return 'claimed';
@@ -94,22 +96,19 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             `UPDATE ${this.tableName}
              SET status = 'completed', result = $2::jsonb, expires_at = $3
              WHERE key = $1`,
-            [key, resultJson, expiresAt]
+            [key, resultJson, expiresAt],
         );
     }
 
     async fail(key: string, _error: unknown): Promise<void> {
         // Clear in-flight claim to permit retry
-        await this.client.query(
-            `DELETE FROM ${this.tableName} WHERE key = $1 AND status = 'in-progress'`,
-            [key]
-        );
+        await this.client.query(`DELETE FROM ${this.tableName} WHERE key = $1 AND status = 'in-progress'`, [key]);
     }
 
     async getResult(key: string): Promise<unknown | undefined> {
         const res = await this.client.query(
             `SELECT result FROM ${this.tableName} WHERE key = $1 AND status = 'completed'`,
-            [key]
+            [key],
         );
         if (!res.rows || res.rows.length === 0) {
             return undefined;
@@ -125,7 +124,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
     async getRecord(key: string): Promise<any | undefined> {
         const res = await this.client.query(
             `SELECT status, result, expires_at, created_at FROM ${this.tableName} WHERE key = $1`,
-            [key]
+            [key],
         );
         if (!res.rows || res.rows.length === 0) {
             return undefined;
@@ -136,14 +135,12 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             status: row.status,
             result: resData,
             expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
-            claimedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+            claimedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
         };
     }
 
     async cleanupExpired(): Promise<number> {
-        const res = await this.client.query(
-            `DELETE FROM ${this.tableName} WHERE expires_at < NOW()`
-        );
+        const res = await this.client.query(`DELETE FROM ${this.tableName} WHERE expires_at < NOW()`);
         return res.rowCount || 0;
     }
 }

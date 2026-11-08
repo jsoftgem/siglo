@@ -33,18 +33,18 @@ import { flow } from '@siglo/core';
 import { verifyWebhookStep } from '@siglo/crypto';
 
 interface WebhookContext {
-  rawBody: string;
-  headers: Record<string, string>;
+    rawBody: string;
+    headers: Record<string, string>;
 }
 
 export const processWebhook = flow(
-  verifyWebhookStep('verifyStripe', {
-    provider: 'stripe',
-    secret: process.env.STRIPE_WEBHOOK_SECRET!,
-    payload: (ctx: WebhookContext) => ctx.rawBody,
-    signature: (ctx: WebhookContext) => ctx.headers['stripe-signature'],
-    toleranceSeconds: 300,
-  })
+    verifyWebhookStep('verifyStripe', {
+        provider: 'stripe',
+        secret: process.env.STRIPE_WEBHOOK_SECRET!,
+        payload: (ctx: WebhookContext) => ctx.rawBody,
+        signature: (ctx: WebhookContext) => ctx.headers['stripe-signature'],
+        toleranceSeconds: 300,
+    }),
 );
 ```
 
@@ -55,29 +55,29 @@ import { flow, waitForEvent, Step } from '@siglo/core';
 import { encryptFieldsStep, decryptFieldsStep } from '@siglo/crypto';
 
 interface UserContext {
-  userId: string;
-  ssn: string;
-  creditCard: string;
+    userId: string;
+    ssn: string;
+    creditCard: string;
 }
 
 export const sensitiveWorkflow = flow(
-  // Encrypt sensitive fields before saving durable checkpoint
-  encryptFieldsStep('securePii', {
-    fields: ['ssn', 'creditCard'],
-    secretKey: process.env.MASTER_KEY!,
-  }),
+    // Encrypt sensitive fields before saving durable checkpoint
+    encryptFieldsStep('securePii', {
+        fields: ['ssn', 'creditCard'],
+        secretKey: process.env.MASTER_KEY!,
+    }),
 
-  // State in checkpoint storage (PostgreSQL/Redis) is encrypted at rest!
-  waitForEvent('USER_VERIFIED', {
-    correlationKey: (ctx: UserContext) => ctx.userId,
-    timeout: '24h'
-  }),
+    // State in checkpoint storage (PostgreSQL/Redis) is encrypted at rest!
+    waitForEvent('USER_VERIFIED', {
+        correlationKey: (ctx: UserContext) => ctx.userId,
+        timeout: '24h',
+    }),
 
-  // Decrypt fields back into plaintext upon workflow resumption
-  decryptFieldsStep('unprotectPii', {
-    fields: ['ssn', 'creditCard'],
-    secretKey: process.env.MASTER_KEY!,
-  })
+    // Decrypt fields back into plaintext upon workflow resumption
+    decryptFieldsStep('unprotectPii', {
+        fields: ['ssn', 'creditCard'],
+        secretKey: process.env.MASTER_KEY!,
+    }),
 );
 ```
 
@@ -88,10 +88,10 @@ import { flow } from '@siglo/core';
 import { maskFieldsStep, maskPatterns } from '@siglo/crypto';
 
 export const sanitizeWorkflow = flow(
-  maskFieldsStep('maskSensitiveData', {
-    fields: ['creditCard', 'ssn'],
-    maskPattern: maskPatterns.last4,
-  })
+    maskFieldsStep('maskSensitiveData', {
+        fields: ['creditCard', 'ssn'],
+        maskPattern: maskPatterns.last4,
+    }),
 );
 ```
 
@@ -102,18 +102,18 @@ import { verifyWebhookStep, WebhookProtocol } from '@siglo/crypto';
 import crypto from 'node:crypto';
 
 export const customEd25519Protocol: WebhookProtocol = {
-  name: 'custom-ed25519',
-  verify({ secret, rawPayload, headers, signatureHeader, toleranceSeconds = 300 }) {
-    const timestamp = Number(headers['x-timestamp']);
-    const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - timestamp) > toleranceSeconds) {
-      return false;
-    }
+    name: 'custom-ed25519',
+    verify({ secret, rawPayload, headers, signatureHeader, toleranceSeconds = 300 }) {
+        const timestamp = Number(headers['x-timestamp']);
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - timestamp) > toleranceSeconds) {
+            return false;
+        }
 
-    const toSign = Buffer.from(`${timestamp}.${rawPayload}`);
-    const signature = Buffer.from(signatureHeader, 'base64');
-    return crypto.verify(null, toSign, secret, signature);
-  }
+        const toSign = Buffer.from(`${timestamp}.${rawPayload}`);
+        const signature = Buffer.from(signatureHeader, 'base64');
+        return crypto.verify(null, toSign, secret, signature);
+    },
 };
 ```
 

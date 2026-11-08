@@ -198,15 +198,27 @@ export interface AiCompleteEvent {
     timestamp: number;
     namespace?: string;
     aiMetrics: {
-        promptTokens: number; completionTokens: number; totalTokens: number;
-        estimatedCostUsd?: number; latencyMs: number; modelUsed: string;
-        providerUsed: string; repairAttempts: number; fallbackCount: number;
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+        estimatedCostUsd?: number;
+        latencyMs: number;
+        modelUsed: string;
+        providerUsed: string;
+        repairAttempts: number;
+        fallbackCount: number;
     };
 }
 
 export interface StepInspectionEvent {
-    type: 'step:inspection'; stackId: string; stepId: string; stepName: string;
-    attempt: number; timestamp: number; namespace?: string; inspection: EcosystemInspection;
+    type: 'step:inspection';
+    stackId: string;
+    stepId: string;
+    stepName: string;
+    attempt: number;
+    timestamp: number;
+    namespace?: string;
+    inspection: EcosystemInspection;
 }
 
 export type WorkflowExecutionEvent =

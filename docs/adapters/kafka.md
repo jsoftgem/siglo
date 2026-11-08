@@ -1,6 +1,6 @@
 ---
-title: "Kafka Consumer"
-description: "Partitioned Kafka consumer and batch handler adapter for executing Siglo workflows with idempotency deduplication and offset control."
+title: 'Kafka Consumer'
+description: 'Partitioned Kafka consumer and batch handler adapter for executing Siglo workflows with idempotency deduplication and offset control.'
 ---
 
 # @siglo/kafka Adapter Guide
@@ -54,7 +54,7 @@ process.on('SIGINT', async () => {
     await consumer.disconnect();
 });
 
-main().catch((error) => {
+main().catch(error => {
     console.error(error);
     process.exit(1);
 });
@@ -94,7 +94,7 @@ async function main() {
     }
 }
 
-main().catch((error) => {
+main().catch(error => {
     console.error(error);
     process.exit(1);
 });
@@ -175,19 +175,21 @@ flowchart TD
 
 ### In-Process Execution Architectural Trade-offs
 
-| Dimension | In-Process Orchestration (`Siglo`) | Distributed Step Orchestration |
-| :--- | :--- | :--- |
-| **Step-to-Step Invocation** | Direct in-memory async promise chaining. | Every step requires network RPC, queue write, and external coordination. |
-| **Execution Boundary** | Runs full workflow in-process on consumer node. | Dispatches individual steps across cluster workers. |
-| **Payload Handling** | Pass rich domain models, Buffers, Maps, or Streams directly in memory. | Payloads must be serialized to JSON across each step boundary. |
-| **Infrastructure Overhead** | Runs directly inside your application container with no extra engine servers. | Requires external orchestrator clusters and database infrastructure. |
-| **Debugging & Local Testing** | Standard debugger breakpoints stepping directly between steps. | Requires cross-machine distributed trace correlation and event replay. |
-| **Saga Compensation** | Immediate in-process reverse rollback if downstream step fails. | Rollback messages queue behind other cluster tasks. |
+| Dimension                     | In-Process Orchestration (`Siglo`)                                            | Distributed Step Orchestration                                           |
+| :---------------------------- | :---------------------------------------------------------------------------- | :----------------------------------------------------------------------- |
+| **Step-to-Step Invocation**   | Direct in-memory async promise chaining.                                      | Every step requires network RPC, queue write, and external coordination. |
+| **Execution Boundary**        | Runs full workflow in-process on consumer node.                               | Dispatches individual steps across cluster workers.                      |
+| **Payload Handling**          | Pass rich domain models, Buffers, Maps, or Streams directly in memory.        | Payloads must be serialized to JSON across each step boundary.           |
+| **Infrastructure Overhead**   | Runs directly inside your application container with no extra engine servers. | Requires external orchestrator clusters and database infrastructure.     |
+| **Debugging & Local Testing** | Standard debugger breakpoints stepping directly between steps.                | Requires cross-machine distributed trace correlation and event replay.   |
+| **Saga Compensation**         | Immediate in-process reverse rollback if downstream step fails.               | Rollback messages queue behind other cluster tasks.                      |
 
 #### 1. In-Process vs. Multi-Hop Step Orchestration
+
 In systems that distribute every individual step to different servers across a network, each step boundary incurs serialization, broker scheduling, and network transfer overhead. In `Siglo`, Step 1 yields to Step 2 directly in memory with zero network latency.
 
 #### 2. Horizontally Scaling via Partitions
+
 Work is scaled horizontally by **Kafka Partitions (Message-Level Distribution)**, not by splitting individual steps across machines:
 
 ```mermaid
@@ -211,8 +213,9 @@ Each consumer server processes independent messages in parallel at full hardware
 ## 4. How to Distribute Steps Across Different Servers (When Needed)
 
 Distributing individual steps across physically separate machines is only necessary in specific architectural scenarios:
+
 1. **Heterogeneous Compute**: Steps 1–3 run on standard Node.js CPU instances, but Step 4 requires dedicated GPU worker nodes (e.g. AI model inference).
-2. **Distinct Microservice Boundaries**: Steps 1–3 belong to the *Checkout Team*, while Steps 4–7 belong to the *Fulfillment Team*.
+2. **Distinct Microservice Boundaries**: Steps 1–3 belong to the _Checkout Team_, while Steps 4–7 belong to the _Fulfillment Team_.
 3. **Multi-Hour Uninterruptible Tasks**: Tasks taking hours where a crash cannot afford restarting from Step 1.
 
 For these cases, implement **Event-Driven Choreography** using intermediate Kafka topics:
@@ -253,7 +256,6 @@ const step3_publish = Step.create('publishValidated', async (ctx: any) => {
 const stage1Flow = flow(step1, step2, step3_publish);
 const stage1Handler = createKafkaMessageHandler(stage1Flow);
 
-
 // --- SERVICE B: GPU Processing Service (Runs Steps 4 to 6) ---
 const step4 = Step.create('generateAssets', async (ctx: any) => ({ assetUrl: 'https://...' }));
 const step5 = Step.create('renderVideo', async (ctx: any) => ({ videoRendered: true }));
@@ -291,7 +293,7 @@ Creates a handler for `consumer.run({ eachMessage: handler })`:
 ```typescript
 function createKafkaMessageHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloKafkaOptions<TInput, TOutput>
+    options?: SigloKafkaOptions<TInput, TOutput>,
 ): (payload: SigloKafkaPayload) => Promise<any>;
 
 interface SigloKafkaPayload {
@@ -322,23 +324,23 @@ export interface SigloKafkaMessage {
 
 ## 7. Configuration Options (`SigloKafkaOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `input` | `(message) => TInput \| Promise<TInput>` | JSON parser | Custom deserializer with record metadata. |
-| `validate` | `(input, message) => void \| Promise<void>` | `undefined` | Throw to reject invalid workflow input before execution. |
-| `invalidJson` | `'error' \| 'raw'` | `'error'` | Reject malformed JSON, or pass `{ raw: string }` for legacy behavior. |
-| `tombstone` | `'skip' \| 'error' \| 'process'` | `'skip'` | Skip null values, reject them, or run the input mapper/workflow. |
-| `output` | `(result, message) => TOutput \| Promise<TOutput>` | Workflow result | Formats successful workflow results, including cached ones. Not called for skips or dead letters. |
-| `groupId` | `string` | `undefined` | Required with an idempotency store. Set to the KafkaJS consumer group ID. |
-| `idempotencyStore` | `IdempotencyStore` | `undefined` | Tracks claims and results. Use a shared store across replicas of one consumer group. |
-| `idempotencyKey` | `(message) => string` | `getKafkaRecordId(message)` | Business identity; automatically scoped by group and tenant. |
-| `idempotencyTtlMs` | `number` | `86400000` | TTL passed explicitly to the store. Processing stops at 80% of this budget; claims are not renewed. |
-| `heartbeatIntervalMs` | `number` | `5000` | Kafka heartbeat cadence; set below the session timeout. `0` disables heartbeats, while cancellation checks remain active. |
-| `timeout` | `number` | `undefined` | Record processing budget in milliseconds, including retries. With a store, must be less than 80% of its TTL. |
-| `namespace` | `string \| (message) => string \| undefined` | `x-namespace` header | Tenant scope, also included in idempotency keys. |
-| `signal` | `AbortSignal` | `undefined` | Application shutdown/cancellation signal, forwarded to the workflow. |
-| `retry` | `{ maxAttempts, delayMs?, shouldRetry? }` | One attempt | Retries workflow errors only; `maxAttempts` includes the initial run. |
-| `deadLetter` | `(failure: KafkaDeadLetter) => Promise<void>` | `undefined` | Awaited quarantine callback after invalid input or exhausted workflow attempts. |
+| Option                | Type                                               | Default                     | Description                                                                                                               |
+| :-------------------- | :------------------------------------------------- | :-------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
+| `input`               | `(message) => TInput \| Promise<TInput>`           | JSON parser                 | Custom deserializer with record metadata.                                                                                 |
+| `validate`            | `(input, message) => void \| Promise<void>`        | `undefined`                 | Throw to reject invalid workflow input before execution.                                                                  |
+| `invalidJson`         | `'error' \| 'raw'`                                 | `'error'`                   | Reject malformed JSON, or pass `{ raw: string }` for legacy behavior.                                                     |
+| `tombstone`           | `'skip' \| 'error' \| 'process'`                   | `'skip'`                    | Skip null values, reject them, or run the input mapper/workflow.                                                          |
+| `output`              | `(result, message) => TOutput \| Promise<TOutput>` | Workflow result             | Formats successful workflow results, including cached ones. Not called for skips or dead letters.                         |
+| `groupId`             | `string`                                           | `undefined`                 | Required with an idempotency store. Set to the KafkaJS consumer group ID.                                                 |
+| `idempotencyStore`    | `IdempotencyStore`                                 | `undefined`                 | Tracks claims and results. Use a shared store across replicas of one consumer group.                                      |
+| `idempotencyKey`      | `(message) => string`                              | `getKafkaRecordId(message)` | Business identity; automatically scoped by group and tenant.                                                              |
+| `idempotencyTtlMs`    | `number`                                           | `86400000`                  | TTL passed explicitly to the store. Processing stops at 80% of this budget; claims are not renewed.                       |
+| `heartbeatIntervalMs` | `number`                                           | `5000`                      | Kafka heartbeat cadence; set below the session timeout. `0` disables heartbeats, while cancellation checks remain active. |
+| `timeout`             | `number`                                           | `undefined`                 | Record processing budget in milliseconds, including retries. With a store, must be less than 80% of its TTL.              |
+| `namespace`           | `string \| (message) => string \| undefined`       | `x-namespace` header        | Tenant scope, also included in idempotency keys.                                                                          |
+| `signal`              | `AbortSignal`                                      | `undefined`                 | Application shutdown/cancellation signal, forwarded to the workflow.                                                      |
+| `retry`               | `{ maxAttempts, delayMs?, shouldRetry? }`          | One attempt                 | Retries workflow errors only; `maxAttempts` includes the initial run.                                                     |
+| `deadLetter`          | `(failure: KafkaDeadLetter) => Promise<void>`      | `undefined`                 | Awaited quarantine callback after invalid input or exhausted workflow attempts.                                           |
 
 ---
 
@@ -423,15 +425,15 @@ const messageHandler = createKafkaMessageHandler(paymentPipeline, {
     groupId: 'payment-engine-group',
     idempotencyStore,
     idempotencyTtlMs: 3600000, // 1 hour claim lock
-    timeout: 5000,             // 5s execution SLA
-    namespace: (msg) => String(msg.headers?.['x-tenant-id'] || 'default'),
+    timeout: 5000, // 5s execution SLA
+    namespace: msg => String(msg.headers?.['x-tenant-id'] || 'default'),
 });
 
 await consumer.connect();
 await consumer.subscribe({ topic: 'payments.inbound', fromBeginning: false });
 
 await consumer.run({
-    eachMessage: async (payload) => {
+    eachMessage: async payload => {
         try {
             const result = await messageHandler(payload);
             console.log(`Processed payment message offset ${payload.message.offset}:`, result);
@@ -451,7 +453,6 @@ process.on('SIGTERM', async () => {
     process.exit(0);
 });
 ```
-
 
 ---
 
@@ -475,7 +476,6 @@ await consumer.run({
 Records run sequentially within each batch. After each successful handler call, the adapter checks that the consumer is running and the batch is still current, heartbeats, resolves that record's offset, and calls KafkaJS's `commitOffsetsIfNecessary()`. The callback checks KafkaJS's configured commit interval and threshold. It can commit when those conditions are met even if consumer auto-commit is disabled. For fully manual commits, set both KafkaJS's `autoCommit: false` and the adapter's batch option `commitOffsets: false`; records will still be resolved locally.
 
 An error stops the batch and leaves the failed and subsequent records unresolved. Stopping the consumer or marking a batch stale also stops further processing and offset resolution; the adapter requests cancellation of an active workflow. External operations must honor the workflow abort signal to stop their work. Keep `eachBatchAutoResolve: false` so KafkaJS does not automatically resolve the rest of a partially processed batch.
-
 
 ---
 
@@ -502,19 +502,28 @@ const handler = createKafkaMessageHandler(orderWorkflow, {
         shouldRetry: error => !(error instanceof PermanentOrderError),
     },
     deadLetter: async ({ message, recordId, error, attempts }) => {
-        const value = message.value == null ? null : Buffer.isBuffer(message.value)
-            ? message.value.toString('base64')
-            : Buffer.from(message.value).toString('base64');
+        const value =
+            message.value == null
+                ? null
+                : Buffer.isBuffer(message.value)
+                  ? message.value.toString('base64')
+                  : Buffer.from(message.value).toString('base64');
         await producer.send({
             topic: 'orders.dead-letter',
-            messages: [{
-                key: recordId,
-                value: JSON.stringify({
-                    recordId, sourceTopic: message.topic, partition: message.partition,
-                    offset: message.offset, valueBase64: value,
-                    error: String(error), attempts,
-                }),
-            }],
+            messages: [
+                {
+                    key: recordId,
+                    value: JSON.stringify({
+                        recordId,
+                        sourceTopic: message.topic,
+                        partition: message.partition,
+                        offset: message.offset,
+                        valueBase64: value,
+                        error: String(error),
+                        attempts,
+                    }),
+                },
+            ],
         });
     },
 });
@@ -542,7 +551,7 @@ With a store configured, the adapter stops processing at 80% of `idempotencyTtlM
 
 Cancellation prevents further adapter work, but cannot undo a payment or forcibly stop an external operation that ignores its signal. Use a stable business event ID as the provider's idempotency key. An expired claim, a long process pause, or a delayed store write can still race with another consumer; the generic store API cannot eliminate those races. Split work that exceeds the claim budget into separately persisted stages rather than relying on an arbitrarily long claim.
 
-For a database update followed by a Kafka event, use the [transactional inbox and outbox example](../../packages/kafka/docs/outbox.md). It commits the database effect, processed-event marker, and pending outgoing event together, then relays the event with a stable ID.
+For a database update followed by a Kafka event, use the [transactional inbox and outbox example](https://github.com/jsoftgem/siglo/blob/main/packages/kafka/docs/outbox.md). It commits the database effect, processed-event marker, and pending outgoing event together, then relays the event with a stable ID.
 
 ---
 

@@ -28,41 +28,57 @@ describe('shared.util.unit.test', () => {
     it('batch processes items in array sequentially', done => {
         const items = [1, 2, 3];
         const processed: number[] = [];
-        batch(items, (item, next) => {
-            processed.push(item);
-            next();
-        }, () => {
-            expect(processed).to.deep.equal([1, 2, 3]);
-            done();
-        });
+        batch(
+            items,
+            (item, next) => {
+                processed.push(item);
+                next();
+            },
+            () => {
+                expect(processed).to.deep.equal([1, 2, 3]);
+                done();
+            },
+        );
     });
 
     it('batch handles empty array', done => {
-        batch([], (_item, next) => {
-            next();
-        }, () => {
-            done();
-        });
+        batch(
+            [],
+            (_item, next) => {
+                next();
+            },
+            () => {
+                done();
+            },
+        );
     });
 
     it('batchIn processes object keys and values', done => {
         const obj = { a: 1, b: 2 };
         const processed: number[] = [];
-        batchIn(obj, (val, next) => {
-            processed.push(val);
-            next();
-        }, () => {
-            expect(processed).to.deep.equal([1, 2]);
-            done();
-        });
+        batchIn(
+            obj,
+            (val, next) => {
+                processed.push(val);
+                next();
+            },
+            () => {
+                expect(processed).to.deep.equal([1, 2]);
+                done();
+            },
+        );
     });
 
     it('batchIn handles empty object', done => {
-        batchIn({}, (_val, next) => {
-            next();
-        }, () => {
-            done();
-        });
+        batchIn(
+            {},
+            (_val, next) => {
+                next();
+            },
+            () => {
+                done();
+            },
+        );
     });
 
     it('CollectPromiseResult collects both successes and errors', done => {
@@ -71,7 +87,7 @@ describe('shared.util.unit.test', () => {
         const p3 = Promise.resolve('ok2');
         const p4 = Promise.reject(new Error('fail2'));
 
-        new CollectPromiseResult([p1, p2, p3, p4]).collect((result) => {
+        new CollectPromiseResult([p1, p2, p3, p4]).collect(result => {
             expect(result.success).to.deep.equal(['ok1', 'ok2']);
             expect(result.error.length).to.equal(2);
             expect(result.error[0].message).to.equal('fail1');
@@ -81,7 +97,7 @@ describe('shared.util.unit.test', () => {
     });
 
     it('CollectPromiseResult handles empty array', done => {
-        new CollectPromiseResult([]).collect((result) => {
+        new CollectPromiseResult([]).collect(result => {
             expect(result.success).to.deep.equal([]);
             expect(result.error).to.deep.equal([]);
             done();

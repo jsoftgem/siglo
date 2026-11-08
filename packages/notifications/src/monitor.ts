@@ -5,8 +5,10 @@ import { transformFields } from '@siglo/crypto';
  * Patterns use event-relative paths, e.g. outputSummary.customers.*.contact.
  */
 export class NotificationMonitor extends WorkflowEventEmitter {
-  constructor(private readonly paths: string[] = []) { super(); }
-  override emit(event: WorkflowExecutionEvent): void {
-    super.emit(redactEvent(transformFields(event, this.paths, () => '[REDACTED]')));
-  }
+    constructor(private readonly paths: string[] = []) {
+        super();
+    }
+    override emit(event: WorkflowExecutionEvent): void {
+        super.emit(redactEvent(transformFields(event, this.paths, () => '[REDACTED]')));
+    }
 }

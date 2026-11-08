@@ -13,24 +13,30 @@ export class Translator {
 
     runTranslate(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            new this.SpecFailedException(() => {
-                const { translator } = this.specData;
-                if (translator) {
-                    const contextData = this.context.getData();
-                    if (contextData[this.field]) {
-                        translator(contextData[this.field](), this.context)
-                            .then(() => {
-                                resolve();
-                            })
-                            .catch((error: any) => { reject({ field: this.field, error }); });
+            new this.SpecFailedException(
+                () => {
+                    const { translator } = this.specData;
+                    if (translator) {
+                        const contextData = this.context.getData();
+                        if (contextData[this.field]) {
+                            translator(contextData[this.field](), this.context)
+                                .then(() => {
+                                    resolve();
+                                })
+                                .catch((error: any) => {
+                                    reject({ field: this.field, error });
+                                });
+                        } else {
+                            resolve();
+                        }
                     } else {
                         resolve();
                     }
-                } else {
-                    resolve();
-                }
-            }, this.field, reject);
+                },
+                this.field,
+                reject,
+            );
         });
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

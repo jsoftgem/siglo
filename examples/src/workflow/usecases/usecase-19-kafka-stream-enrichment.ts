@@ -42,22 +42,25 @@ export function createKafkaEnrichmentWorkflow() {
             accountId,
             amount,
             currency: currency || 'USD',
-            decodedAt: Date.now()
+            decodedAt: Date.now(),
         };
     });
 
     // Step 2: Lookup Account Profile by Namespace & Account
     const enrichAccountProfile = Step.create('enrichAccountProfile', async (param: any) => {
         const { accountId, amount } = param;
-        const accountTier: 'BASIC' | 'PREMIUM' | 'VIP' =
-            accountId.startsWith('VIP') ? 'VIP' : (accountId.startsWith('PREM') ? 'PREMIUM' : 'BASIC');
+        const accountTier: 'BASIC' | 'PREMIUM' | 'VIP' = accountId.startsWith('VIP')
+            ? 'VIP'
+            : accountId.startsWith('PREM')
+              ? 'PREMIUM'
+              : 'BASIC';
 
-        const namespace = typeof param.$namespace === 'function' ? param.$namespace() : (param.$namespace || 'default');
+        const namespace = typeof param.$namespace === 'function' ? param.$namespace() : param.$namespace || 'default';
 
         return {
             accountTier,
             namespace,
-            isHighValue: amount > 5000
+            isHighValue: amount > 5000,
         };
     });
 
@@ -76,7 +79,7 @@ export function createKafkaEnrichmentWorkflow() {
             riskScore,
             isFlagged,
             pipelineStatus: isFlagged ? 'FLAGGED_FOR_REVIEW' : 'ENRICHED_CLEARED',
-            processedAt: Date.now()
+            processedAt: Date.now(),
         };
     });
 
@@ -92,13 +95,14 @@ export function createKafkaTransactionConsumer(workflow = createKafkaEnrichmentW
             status: 'COMMITTED',
             key: message.key ? message.key.toString() : null,
             enriched: {
-                transactionId: typeof result.transactionId === 'function' ? result.transactionId() : result.transactionId,
+                transactionId:
+                    typeof result.transactionId === 'function' ? result.transactionId() : result.transactionId,
                 riskScore: typeof result.riskScore === 'function' ? result.riskScore() : result.riskScore,
                 isFlagged: typeof result.isFlagged === 'function' ? result.isFlagged() : result.isFlagged,
                 accountTier: typeof result.accountTier === 'function' ? result.accountTier() : result.accountTier,
-                namespace: typeof result.namespace === 'function' ? result.namespace() : result.namespace
-            }
-        })
+                namespace: typeof result.namespace === 'function' ? result.namespace() : result.namespace,
+            },
+        }),
     });
 
     return async (payload: any) => {
@@ -110,7 +114,7 @@ export function createKafkaTransactionConsumer(workflow = createKafkaEnrichmentW
                 status: 'DEAD_LETTER',
                 error: err.message,
                 key: msg.key ? msg.key.toString() : null,
-                offset: msg.offset
+                offset: msg.offset,
             };
         }
     };

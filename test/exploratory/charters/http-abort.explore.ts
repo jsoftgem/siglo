@@ -4,10 +4,7 @@ import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
 import { CharterResult } from './combinators.explore';
 
-export async function runHttpAbortCharter(
-    iterations: number = 20,
-    seed: number = 6006
-): Promise<CharterResult> {
+export async function runHttpAbortCharter(iterations: number = 20, seed: number = 6006): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -37,7 +34,7 @@ export async function runHttpAbortCharter(
                             clearTimeout(timer);
                             reject(new CancellationException('Aborted'));
                         },
-                        { once: true }
+                        { once: true },
                     );
                 }
             });
@@ -63,18 +60,17 @@ export async function runHttpAbortCharter(
         }, abortDelay);
 
         try {
-            await testFlow.execute({}, { signal: controller.signal, pojo: true });
+            await testFlow.run({}, { signal: controller.signal, pojo: true });
             clearTimeout(abortTimer);
             errors.push(`Iteration ${i}: Expected workflow to be cancelled, but it completed successfully!`);
         } catch (err: any) {
             clearTimeout(abortTimer);
             try {
                 // Verify Oracle 4: Cooperative cancellation halts downstream steps
-                InvariantEvaluator.assertCancellationPromptness(
-                    'step_during_abort',
-                    executedSteps,
-                    ['step_post_abort_1', 'step_post_abort_2']
-                );
+                InvariantEvaluator.assertCancellationPromptness('step_during_abort', executedSteps, [
+                    'step_post_abort_1',
+                    'step_post_abort_2',
+                ]);
             } catch (invErr: any) {
                 errors.push(`Iteration ${i} Invariant Violation: ${invErr.message}`);
             }
@@ -87,6 +83,6 @@ export async function runHttpAbortCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

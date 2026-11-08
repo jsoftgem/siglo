@@ -1,6 +1,6 @@
 ---
-title: "AWS SQS Adapter"
-description: "AWS SQS batch consumer adapter for Lambda event source mappings and long-polling workers with partial batch failure handling."
+title: 'AWS SQS Adapter'
+description: 'AWS SQS batch consumer adapter for Lambda event source mappings and long-polling workers with partial batch failure handling.'
 ---
 
 # @siglo/sqs Adapter Guide
@@ -43,6 +43,7 @@ npm install --save-dev @types/aws-lambda
 ```
 
 Peer dependency matrix:
+
 - `Siglo`: `*` (v1.0.0+)
 - `@aws-sdk/client-sqs`: `^3.0.0` (optional if running in AWS Lambda runtime)
 
@@ -57,7 +58,7 @@ Creates an AWS Lambda-compliant batch processor function:
 ```typescript
 function createSqsBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloSqsOptions<TInput, TOutput>
+    options?: SigloSqsOptions<TInput, TOutput>,
 ): (event: SigloSqsEvent) => Promise<SqsBatchResponse>;
 ```
 
@@ -86,31 +87,32 @@ export interface SqsBatchResponse {
 
 ## 4. Configuration Options (`SigloSqsOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `input` | `(record: SigloSqsRecord) => Promise<TInput> \| TInput` | `JSON.parse(record.body)` | Custom mapper transforming an SQS record into workflow parameters. |
-| `output` | `(result: any, record: SigloSqsRecord) => Promise<TOutput> \| TOutput` | `result` | Custom post-processor for step result. |
-| `idempotencyStore` | `IdempotencyStore` | `undefined` | Distributed store to deduplicate across re-deliveries. |
-| `idempotencyTtlMs` | `number` | `undefined` | Time-to-live for idempotency lock in milliseconds. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
-| `timeout` | `number` | `undefined` | SLA execution timeout per record in milliseconds. |
-| `namespace` | `string \| ((record: SigloSqsRecord) => string \| undefined)` | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation. |
+| Option             | Type                                                                   | Default                              | Description                                                                                                                                                    |
+| :----------------- | :--------------------------------------------------------------------- | :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input`            | `(record: SigloSqsRecord) => Promise<TInput> \| TInput`                | `JSON.parse(record.body)`            | Custom mapper transforming an SQS record into workflow parameters.                                                                                             |
+| `output`           | `(result: any, record: SigloSqsRecord) => Promise<TOutput> \| TOutput` | `result`                             | Custom post-processor for step result.                                                                                                                         |
+| `idempotencyStore` | `IdempotencyStore`                                                     | `undefined`                          | Distributed store to deduplicate across re-deliveries.                                                                                                         |
+| `idempotencyTtlMs` | `number`                                                               | `undefined`                          | Time-to-live for idempotency lock in milliseconds. Passed through to store (Redis/Postgres default: 24h; InMemory has no default expiration unless specified). |
+| `timeout`          | `number`                                                               | `undefined`                          | SLA execution timeout per record in milliseconds.                                                                                                              |
+| `namespace`        | `string \| ((record: SigloSqsRecord) => string \| undefined)`          | `record.messageAttributes.namespace` | Namespace extractor for multi-tenant isolation.                                                                                                                |
 
 ---
 
 ## 5. AWS Lambda Configuration: `ReportBatchItemFailures`
 
 To enable partial batch responses in AWS Lambda:
+
 1. In the AWS Lambda Console, navigate to your SQS Trigger configuration.
 2. Under **Additional settings**, check the option: **Report batch item failures**.
 3. In AWS SAM / CloudFormation / Serverless Framework / CDK:
-   ```yaml
-   FunctionEventSource:
-     Type: SQS
-     Properties:
-       Queue: !GetAtt MyQueue.Arn
-       FunctionResponseTypes:
-         - ReportBatchItemFailures
-   ```
+    ```yaml
+    FunctionEventSource:
+        Type: SQS
+        Properties:
+            Queue: !GetAtt MyQueue.Arn
+            FunctionResponseTypes:
+                - ReportBatchItemFailures
+    ```
 
 When this is enabled, returning `{ batchItemFailures: [{ itemIdentifier: 'msg-01' }] }` tells AWS SQS to delete all successful messages in the batch from the queue, while leaving only `msg-01` in the queue to be retried or routed to the Dead Letter Queue (DLQ).
 
@@ -155,7 +157,7 @@ const notificationFlow = flow(formatNotification, dispatchEmail);
 const sqsHandler = createSqsBatchHandler(notificationFlow, {
     idempotencyStore,
     timeout: 10000, // 10-second deadline per message
-    namespace: (record) => record.messageAttributes?.tenantId?.stringValue,
+    namespace: record => record.messageAttributes?.tenantId?.stringValue,
 });
 
 // 4. Export AWS Lambda Handler

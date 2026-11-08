@@ -21,7 +21,7 @@ export function createMonitoredOrderWorkflow(emitter?: WorkflowEventEmitter) {
             validated: true,
             orderId: ctx.orderId,
             amount: ctx.amount,
-            authToken: ctx.authToken
+            authToken: ctx.authToken,
         };
     });
 
@@ -37,7 +37,7 @@ export function createMonitoredOrderWorkflow(emitter?: WorkflowEventEmitter) {
         return {
             discountApplied: true,
             discountAmount: ctx.amount * 0.15,
-            finalAmount: ctx.amount * 0.85
+            finalAmount: ctx.amount * 0.85,
         };
     }).onBefore((ctx: any) => ctx.isVip === true);
 
@@ -45,20 +45,20 @@ export function createMonitoredOrderWorkflow(emitter?: WorkflowEventEmitter) {
         return {
             charged: true,
             transactionId: `tx_${Date.now()}`,
-            amountCharged: ctx.finalAmount || ctx.amount
+            amountCharged: ctx.finalAmount || ctx.amount,
         };
     });
 
     const awaitFulfillmentApproval = waitForEvent('fulfillment.approved', {
         correlationKey: (ctx: any) => ctx.orderId,
-        timeout: '1h'
+        timeout: '1h',
     });
 
     const completeOrder = Step.create('completeOrder', async (ctx: any) => {
         return {
             status: 'COMPLETED',
             orderId: ctx.orderId,
-            shippedAt: new Date().toISOString()
+            shippedAt: new Date().toISOString(),
         };
     });
 
@@ -68,7 +68,7 @@ export function createMonitoredOrderWorkflow(emitter?: WorkflowEventEmitter) {
         applyVipDiscount,
         chargeCustomer,
         awaitFulfillmentApproval,
-        completeOrder
+        completeOrder,
     );
 
     if (emitter) {
@@ -77,7 +77,7 @@ export function createMonitoredOrderWorkflow(emitter?: WorkflowEventEmitter) {
 
     return {
         pipeline,
-        getAttempts: () => inventoryAttempts
+        getAttempts: () => inventoryAttempts,
     };
 }
 
@@ -93,8 +93,8 @@ export async function runLiveMonitoringSample(): Promise<{
         port: 0, // dynamic port for testing & zero conflict
         host: '0.0.0.0',
         redaction: {
-            redactKeys: ['authToken', 'creditCard']
-        }
+            redactKeys: ['authToken', 'creditCard'],
+        },
     });
 
     const { pipeline } = createMonitoredOrderWorkflow(monitor.emitter);
@@ -104,20 +104,23 @@ export async function runLiveMonitoringSample(): Promise<{
     let runResult: any;
 
     try {
-        runResult = await pipeline.run({
-            orderId: 'ORD-LIVE-777',
-            customerId: 'cust_882',
-            amount: 250,
-            authToken: 'super-secret-jwt-token',
-            isVip: false
-        }, {
-            durable: true,
-            monitor: (ev) => {
-                if (ev.type === 'flow:start') {
-                    suspendedStackId = ev.stackId;
-                }
-            }
-        });
+        runResult = await pipeline.run(
+            {
+                orderId: 'ORD-LIVE-777',
+                customerId: 'cust_882',
+                amount: 250,
+                authToken: 'super-secret-jwt-token',
+                isVip: false,
+            },
+            {
+                durable: true,
+                monitor: ev => {
+                    if (ev.type === 'flow:start') {
+                        suspendedStackId = ev.stackId;
+                    }
+                },
+            },
+        );
     } catch {
         // Expected suspension at awaitFulfillmentApproval
     }
@@ -131,6 +134,6 @@ export async function runLiveMonitoringSample(): Promise<{
     return {
         monitor,
         runResult,
-        metricsText
+        metricsText,
     };
 }

@@ -19,11 +19,7 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "index",
-              "01-getting-started",
-              "02-core-concepts"
-            ]
+            "pages": ["index", "01-getting-started", "02-core-concepts"]
           },
           {
             "group": "Workflow Patterns",
@@ -51,16 +47,13 @@
               "distributed-rest-and-live-monitoring",
               "durable-distributed-checkout",
               "kafka-order-routing",
+              "signed-order-intake",
               "zero-code-apm-dashboards"
             ]
           },
           {
             "group": "Developer Tools",
-            "pages": [
-              "ide-workflow-explorer",
-              "live-monitoring",
-              "ecosystem-devtools"
-            ]
+            "pages": ["ide-workflow-explorer", "live-monitoring", "ecosystem-devtools"]
           }
         ]
       },
@@ -69,41 +62,23 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "ecosystem-adapters"
-            ]
+            "pages": ["ecosystem-adapters"]
           },
           {
             "group": "Storage & Persistence",
-            "pages": [
-              "adapters/postgres",
-              "adapters/redis",
-              "adapters/scheduler"
-            ]
+            "pages": ["adapters/postgres", "adapters/redis", "adapters/scheduler"]
           },
           {
             "group": "Messaging & Queues",
-            "pages": [
-              "adapters/kafka",
-              "adapters/bullmq",
-              "adapters/sqs"
-            ]
+            "pages": ["adapters/kafka", "adapters/bullmq", "adapters/sqs"]
           },
           {
             "group": "HTTP & Web Frameworks",
-            "pages": [
-              "adapters/http",
-              "adapters/express",
-              "adapters/fastify",
-              "adapters/hono"
-            ]
+            "pages": ["adapters/http", "adapters/express", "adapters/fastify", "adapters/hono"]
           },
           {
             "group": "Security & AI",
-            "pages": [
-              "adapters/crypto",
-              "adapters/ai"
-            ]
+            "pages": ["adapters/crypto", "adapters/ai"]
           },
           {
             "group": "Observability & Notifications",
@@ -116,10 +91,7 @@
           },
           {
             "group": "Developer Tooling",
-            "pages": [
-              "adapters/cli",
-              "adapters/testing"
-            ]
+            "pages": ["adapters/cli", "adapters/testing"]
           }
         ]
       },

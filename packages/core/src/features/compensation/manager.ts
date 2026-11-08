@@ -30,7 +30,7 @@ export class CompensationManager {
     async runCompensations(
         stackId: string,
         originalError?: any,
-        options?: CompensationRunOptions
+        options?: CompensationRunOptions,
     ): Promise<CompensationRunResult> {
         const records = this.getCompensations(stackId);
         const adapter = defaultStorageManager.getAdapter();
@@ -60,11 +60,9 @@ export class CompensationManager {
                 }
 
                 if (!handler) {
-                    const missingErr = new UnresolvableCompensationException(
-                        record.stepName,
-                        record.handlerName,
-                        { stackId }
-                    );
+                    const missingErr = new UnresolvableCompensationException(record.stepName, record.handlerName, {
+                        stackId,
+                    });
                     record.status = Status.FAILED;
                     record.error = missingErr;
                     failed.push({ stepName: record.stepName, error: missingErr });
@@ -80,7 +78,7 @@ export class CompensationManager {
                             failedCompensation: { stepName: record.stepName, error: missingErr.message },
                             error: missingErr.message,
                             record,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
                         });
                     }
 
@@ -133,10 +131,13 @@ export class CompensationManager {
                             stackId,
                             stepName: record.stepName,
                             handlerName: record.handlerName,
-                            failedCompensation: { stepName: record.stepName, error: lastErr?.message || String(lastErr) },
+                            failedCompensation: {
+                                stepName: record.stepName,
+                                error: lastErr?.message || String(lastErr),
+                            },
                             error: lastErr?.message || String(lastErr),
                             record,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
                         });
                     }
 
@@ -152,14 +153,15 @@ export class CompensationManager {
                     {
                         originalError: originalError || new Error('Workflow execution failed'),
                         compensationErrors: failed,
-                        completedCompensations: completed
+                        completedCompensations: completed,
                     },
-                    { stackId }
+                    { stackId },
                 );
             }
 
             return { completed, failed };
         };
+        // prettier-ignore
         return adapter?.withWorkflowLock && records.length ? adapter.withWorkflowLock(stackId, execute) : withLocalWorkflowLock(stackId, execute);
     }
 }

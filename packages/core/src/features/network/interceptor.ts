@@ -29,7 +29,10 @@ class BlockedClientRequest extends http.ClientRequest {
     constructor() {
         const dummySocket = new stream.Duplex({
             read() {},
-            write(_chunk, _enc, cb) { cb(); }
+            /* c8 ignore next 3 */
+            write(_chunk, _enc, cb) {
+                cb();
+            },
         });
         (dummySocket as any).connecting = false;
         (dummySocket as any).destroyed = false;
@@ -42,7 +45,7 @@ class BlockedClientRequest extends http.ClientRequest {
             protocol: 'http:',
             hostname: 'localhost',
             path: '/',
-            createConnection: () => dummySocket as any
+            createConnection: () => dummySocket as any,
         });
     }
 
@@ -137,7 +140,7 @@ function wrapLookup(existingLookup: any, store: any, target: { urlString: string
                             target.urlString,
                             target.host,
                             store.allowedHosts,
-                            { reason: `Target host '${hostname}' resolved to restricted IP: ${item.address}` } as any
+                            { reason: `Target host '${hostname}' resolved to restricted IP: ${item.address}` } as any,
                         );
                         return callback(blockErr);
                     }
@@ -178,12 +181,7 @@ async function patchedFetch(input: any, init?: any): Promise<Response> {
     const port = urlObj.port;
 
     if (!isHostAllowed(urlString, host, store, port)) {
-        const error = new NetworkPolicyViolationException(
-            store.stepName,
-            urlString,
-            host,
-            store.allowedHosts
-        );
+        const error = new NetworkPolicyViolationException(store.stepName, urlString, host, store.allowedHosts);
         return Promise.reject(error);
     }
 
@@ -211,13 +209,9 @@ async function patchedFetch(input: any, init?: any): Promise<Response> {
             }
             redirectCount++;
             if (redirectCount > maxRedirects) {
-                throw new NetworkPolicyViolationException(
-                    store.stepName,
-                    currentUrl,
-                    host,
-                    store.allowedHosts,
-                    { reason: 'Maximum redirect count exceeded' } as any
-                );
+                throw new NetworkPolicyViolationException(store.stepName, currentUrl, host, store.allowedHosts, {
+                    reason: 'Maximum redirect count exceeded',
+                } as any);
             }
 
             const targetUrlObj = new URL(location, currentUrl);
@@ -230,7 +224,7 @@ async function patchedFetch(input: any, init?: any): Promise<Response> {
                     store.stepName,
                     targetUrlString,
                     targetHost,
-                    store.allowedHosts
+                    store.allowedHosts,
                 );
             }
             await validateAndPinTarget(targetUrlObj, store);
@@ -259,7 +253,7 @@ function patchedHttpRequest(...args: any[]): http.ClientRequest {
             store.stepName,
             target.urlString,
             target.host,
-            store.allowedHosts
+            store.allowedHosts,
         );
         process.nextTick(() => {
             req.emit('error', error);
@@ -267,9 +261,8 @@ function patchedHttpRequest(...args: any[]): http.ClientRequest {
         return req as any;
     }
 
-    const opts = typeof args[0] === 'string' || args[0] instanceof URL
-        ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {})
-        : (args[0] || {});
+    // prettier-ignore
+    const opts = typeof args[0] === 'string' || args[0] instanceof URL ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {}) : (args[0] || {});
     opts.lookup = wrapLookup(opts.lookup, store, target);
 
     const req = origHttpRequest!.apply(http, args as any);
@@ -298,7 +291,7 @@ function patchedHttpsRequest(...args: any[]): http.ClientRequest {
             store.stepName,
             target.urlString,
             target.host,
-            store.allowedHosts
+            store.allowedHosts,
         );
         process.nextTick(() => {
             req.emit('error', error);
@@ -306,9 +299,8 @@ function patchedHttpsRequest(...args: any[]): http.ClientRequest {
         return req as any;
     }
 
-    const opts = typeof args[0] === 'string' || args[0] instanceof URL
-        ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {})
-        : (args[0] || {});
+    // prettier-ignore
+    const opts = typeof args[0] === 'string' || args[0] instanceof URL ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {}) : (args[0] || {});
     opts.lookup = wrapLookup(opts.lookup, store, target);
 
     const req = origHttpsRequest!.apply(https, args as any);
@@ -358,7 +350,7 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
                 store.stepName,
                 `unix://${socketPath}`,
                 socketPath,
-                store.allowedHosts || []
+                store.allowedHosts || [],
             );
             process.nextTick(() => {
                 this.destroy(error);
@@ -374,7 +366,7 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
             store.stepName,
             `tcp://${hostWithPort}`,
             host,
-            store.allowedHosts
+            store.allowedHosts,
         );
         process.nextTick(() => {
             this.destroy(error);
@@ -435,7 +427,9 @@ export function uninstallNetworkInterceptors(): void {
     origHttpsGet = nativeHttpsGet;
     origSocketConnect = nativeSocketConnect;
 
-    try { networkPolicyStorage.disable(); } catch {} 
+    try {
+        networkPolicyStorage.disable();
+    } catch {}
     isInstalled = false;
 }
 

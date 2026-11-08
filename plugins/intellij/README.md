@@ -168,12 +168,12 @@ From `plugins/intellij`:
 *(Note: If your system default Java is JDK 25+, Gradle automatically delegates to a compatible daemon JVM via `gradle/gradle-daemon-jvm.properties` without requiring manual environment switches).*
 
 The resulting installable ZIP distribution is located at:
-`plugins/intellij/build/distributions/siglo-intellij-plugin-1.1.0.zip`
+`plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.0.zip`
 
 ### Step 3: Install in IntelliJ IDEA
 1. Open IntelliJ IDEA $\rightarrow$ **Settings / Preferences** (`⌘,` on macOS, `Ctrl+Alt+S` on Linux/Windows).
 2. Navigate to **Plugins** $\rightarrow$ Click the gear icon ⚙️ $\rightarrow$ **Install Plugin from Disk...**.
-3. Select `plugins/intellij/build/distributions/siglo-intellij-plugin-1.1.0.zip`.
+3. Select `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.0.zip`.
 4. Click **Restart IDE**.
 5. The **Siglo Workflows** tool window will be available on the right-hand stripe.
 

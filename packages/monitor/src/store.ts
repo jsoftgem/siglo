@@ -9,7 +9,12 @@ export class WorkflowExecutionStore {
     private maxDiffsPerRun: number;
     private redaction?: RedactionOptions;
 
-    constructor(maxRuns: number = 1000, maxEventsPerRun: number = 500, maxDiffsPerRun: number = 200, redaction?: RedactionOptions) {
+    constructor(
+        maxRuns: number = 1000,
+        maxEventsPerRun: number = 500,
+        maxDiffsPerRun: number = 200,
+        redaction?: RedactionOptions,
+    ) {
         this.redaction = redaction;
         this.maxRuns = maxRuns;
         this.maxEventsPerRun = maxEventsPerRun;
@@ -32,7 +37,7 @@ export class WorkflowExecutionStore {
                 steps: {},
                 context: {},
                 contextDiffs: [],
-                events: []
+                events: [],
             };
             this.runs.set(event.stackId, run);
 
@@ -59,9 +64,14 @@ export class WorkflowExecutionStore {
                 const data = sanitizeInspection(event.inspection);
                 if (data) {
                     const step = this.getOrCreateStep(run, event.stepId, event.stepName);
-                    step.inspections = [...(step.inspections || []), {
-                        attempt: event.attempt || step.attempts, timestamp: event.timestamp, data
-                    }].slice(-50);
+                    step.inspections = [
+                        ...(step.inspections || []),
+                        {
+                            attempt: event.attempt || step.attempts,
+                            timestamp: event.timestamp,
+                            data,
+                        },
+                    ].slice(-50);
                 }
                 break;
             }
@@ -121,7 +131,7 @@ export class WorkflowExecutionStore {
                     stepId: event.stepId,
                     field: event.field,
                     value: event.value,
-                    timestamp: event.timestamp
+                    timestamp: event.timestamp,
                 };
                 run.contextDiffs.push(diff);
                 if (run.contextDiffs.length > this.maxDiffsPerRun) {
@@ -163,7 +173,7 @@ export class WorkflowExecutionStore {
                 stepId,
                 stepName: stepName || stepId,
                 status: 'PENDING',
-                attempts: 1
+                attempts: 1,
             };
             run.steps[stepId] = step;
         }

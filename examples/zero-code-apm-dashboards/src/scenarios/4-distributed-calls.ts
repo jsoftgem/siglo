@@ -1,9 +1,5 @@
 import { type WorkflowEventEmitter, Step, flow, toPOJO } from '@siglo/core';
-import {
-    instrumentWorkflow,
-    injectTraceContext,
-    extractTraceContext
-} from '@siglo/opentelemetry';
+import { instrumentWorkflow, injectTraceContext, extractTraceContext } from '@siglo/opentelemetry';
 import { context as otelContext } from '@opentelemetry/api';
 import { initTelemetry, getRecordedSpans, clearRecordedSpans, printTraceWaterfall, runScenario } from '../tracer';
 
@@ -36,7 +32,7 @@ export async function runDistributedCallsScenario(options: { silent?: boolean; e
         return {
             orderId: param.orderId,
             carrierHeaders,
-            eventPublished: true
+            eventPublished: true,
         };
     });
 
@@ -46,12 +42,12 @@ export async function runDistributedCallsScenario(options: { silent?: boolean; e
     const monitoredCheckout = instrumentWorkflow(checkoutFlow, {
         tracer: apiTracer,
         workflowName: 'CheckoutAPIFlow',
-        workflowVersion: '3.0.0'
+        workflowVersion: '3.0.0',
     });
 
     const rawUpstreamResult = await monitoredCheckout.run({
         orderId: 'ORD-7740',
-        items: ['Mechanical Keyboard', 'Desk Mat']
+        items: ['Mechanical Keyboard', 'Desk Mat'],
     });
     const upstreamResult = toPOJO(rawUpstreamResult);
 
@@ -81,14 +77,14 @@ export async function runDistributedCallsScenario(options: { silent?: boolean; e
     const monitoredFulfillment = instrumentWorkflow(fulfillmentFlow, {
         tracer: workerTracer,
         workflowName: 'WarehouseFulfillmentFlow',
-        workflowVersion: '1.0.0'
+        workflowVersion: '1.0.0',
     });
 
     // Run downstream flow within the extracted parent trace context
     const rawDownstreamResult = await otelContext.with(parentContext, async () => {
         return monitoredFulfillment.run({
             orderId: upstreamResult.orderId,
-            items: upstreamResult.items
+            items: upstreamResult.items,
         });
     });
     const downstreamResult = toPOJO(rawDownstreamResult);
@@ -96,10 +92,7 @@ export async function runDistributedCallsScenario(options: { silent?: boolean; e
     const spans = getRecordedSpans();
 
     if (!options.silent) {
-        printTraceWaterfall(
-            'Scenario 4: Distributed Parent-Child Tracing (checkout-api -> warehouse-worker)',
-            spans
-        );
+        printTraceWaterfall('Scenario 4: Distributed Parent-Child Tracing (checkout-api -> warehouse-worker)', spans);
     }
 
     return { upstreamResult, downstreamResult, spans, outgoingHeaders };

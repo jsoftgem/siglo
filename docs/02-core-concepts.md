@@ -1,6 +1,6 @@
 ---
-title: "Core Concepts"
-description: "Mental model and architecture of Siglo: AST graph representation, accumulated context inference, step lifecycles, and metadata namespaces."
+title: 'Core Concepts'
+description: 'Mental model and architecture of Siglo: AST graph representation, accumulated context inference, step lifecycles, and metadata namespaces.'
 ---
 
 # Core Concepts
@@ -12,6 +12,7 @@ This chapter outlines the fundamental mental model and architecture of `Siglo`.
 ## 1. Workflows as Directed Acyclic Graphs (AST)
 
 In `Siglo`, a workflow is not a simple promise chain. It is an **executable Abstract Syntax Tree (AST)** composed of typed nodes:
+
 - `StepNode`: An isolated unit of work with input schemas, lifecycles, retries, and policies.
 - `SequenceNode`: Sequential execution pipeline created with `flow(...)`.
 - `ParallelNode`: Concurrent fan-out/fan-in with merge strategies (`parallel`, `race`).
@@ -94,18 +95,18 @@ flowchart TD
 
 `Siglo` reserves specific context keys prefixed with `$` to expose execution metadata without polluting business properties:
 
-| Reserved Key | Description | Type |
-|---|---|---|
-| `$steps` / `$history` | Record of each named step's exact output | `Record<string, any>` |
-| `$attempt` | Current retry attempt index (1-based) | `number` |
-| `$retryDelay` | Current backoff delay applied before retry in ms | `number` |
-| `$services` / `$deps` | Injected service containers and mock clients | `Record<string, any>` |
-| `signal` / `$signal` | Cancellation signal (`param.signal` is native `AbortSignal`; `$signal` is callable accessor) | `AbortSignal` / `(() => AbortSignal)` |
-| `$stackId` | Unique execution instance identifier | `string` |
-| `$namespace` | Logical key partitioning and storage scoping tag (requires app auth) | `string` |
-| `$isDurable` | Flag indicating if durable storage is active | `boolean` |
-| `$branchSelected` | Active branch key selected by `branch()` or `when()` | `string` (`'then'`, `'else'`, or branch route) |
-| `$skippedBranches` | Branch keys bypassed during dynamic routing | `string[]` |
+| Reserved Key          | Description                                                                                  | Type                                           |
+| --------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `$steps` / `$history` | Record of each named step's exact output                                                     | `Record<string, any>`                          |
+| `$attempt`            | Current retry attempt index (1-based)                                                        | `number`                                       |
+| `$retryDelay`         | Current backoff delay applied before retry in ms                                             | `number`                                       |
+| `$services` / `$deps` | Injected service containers and mock clients                                                 | `Record<string, any>`                          |
+| `signal` / `$signal`  | Cancellation signal (`param.signal` is native `AbortSignal`; `$signal` is callable accessor) | `AbortSignal` / `(() => AbortSignal)`          |
+| `$stackId`            | Unique execution instance identifier                                                         | `string`                                       |
+| `$namespace`          | Logical key partitioning and storage scoping tag (requires app auth)                         | `string`                                       |
+| `$isDurable`          | Flag indicating if durable storage is active                                                 | `boolean`                                      |
+| `$branchSelected`     | Active branch key selected by `branch()` or `when()`                                         | `string` (`'then'`, `'else'`, or branch route) |
+| `$skippedBranches`    | Branch keys bypassed during dynamic routing                                                  | `string[]`                                     |
 
 ---
 
@@ -117,7 +118,7 @@ import { Step, flow } from '@siglo/core';
 const auditStep = Step.create('auditStep', async (param: { transactionId: string }) => {
     return {
         loggedAt: Date.now(),
-        status: 'RECORDED'
+        status: 'RECORDED',
     };
 });
 
@@ -148,8 +149,8 @@ try {
     await wf.run({ age: 16 });
 } catch (err: any) {
     console.log(err.stepName); // 'validateAge'
-    console.log(err.phase);    // 'action'
-    console.log(err.stackId);  // UUID of execution stack
+    console.log(err.phase); // 'action'
+    console.log(err.stackId); // UUID of execution stack
 }
 ```
 
@@ -192,7 +193,7 @@ describe('Core Concepts Test', () => {
 
 ## API Reference Links
 
-- [Sequential Workflows](./03-sequential-workflows.md)
-- [Branching and Parallelism](./04-branching-and-parallelism.md)
-- [Storage and Adapters](./07-storage-and-adapters.md)
-- [TypeScript Reference](./10-typescript-reference.md)
+- [Sequential Workflows](/03-sequential-workflows)
+- [Branching and Parallelism](/04-branching-and-parallelism)
+- [Storage and Adapters](/07-storage-and-adapters)
+- [TypeScript Reference](/10-typescript-reference)

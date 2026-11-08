@@ -26,17 +26,13 @@ export class GetChainTypeException extends Error {
     constructor() {
         super('Get chain plugin must be a function.');
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export const getLogMonitor = (state: StorageState): any => {
-    return state.config && state.config.logMonitor
-        ? state.config.logMonitor
-        : () => false;
+    return state.config && state.config.logMonitor ? state.config.logMonitor : () => false;
 };
 
 export const getPlugins = (state: StorageState): any => {
-    return state.config && state.config.plugins
-        ? state.config.plugins
-        : () => false;
+    return state.config && state.config.plugins ? state.config.plugins : () => false;
 };

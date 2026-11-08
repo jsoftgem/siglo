@@ -29,14 +29,14 @@ export function createDurableExpenseApprovalWorkflow() {
             amount,
             submissionTimestamp: Date.now(),
             requiresExecutiveSignoff,
-            workflowPhase: 'PENDING_APPROVAL'
+            workflowPhase: 'PENDING_APPROVAL',
         };
     });
 
     // Step 2: Durable Suspension Point (Awaits webhook / human approval event)
     const awaitManagerApproval = waitForEvent('expense.decision', {
-        correlationKey: (ctx) => ctx.reportId,
-        timeout: '7d' // Human SLA: 7 days
+        correlationKey: ctx => ctx.reportId,
+        timeout: '7d', // Human SLA: 7 days
     });
 
     // Step 3: Process Disbursement upon Resumption
@@ -54,15 +54,11 @@ export function createDurableExpenseApprovalWorkflow() {
             approvedBy,
             disbursedAmount: approvedAmount,
             disbursementRef,
-            policyV2Applied: param.policyV2Applied ?? false
+            policyV2Applied: param.policyV2Applied ?? false,
         };
     });
 
-    const workflow = flow(
-        submitExpenseReport,
-        awaitManagerApproval,
-        disburseFunds
-    ).version('v2.0.0');
+    const workflow = flow(submitExpenseReport, awaitManagerApproval, disburseFunds).version('v2.0.0');
 
     return workflow;
 }

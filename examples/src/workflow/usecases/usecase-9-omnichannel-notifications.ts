@@ -1,4 +1,4 @@
-import {Step, flow} from '@siglo/core';
+import { Step, flow } from '@siglo/core';
 
 export type NotificationChannel = 'PUSH' | 'SMS' | 'EMAIL';
 
@@ -26,17 +26,17 @@ export function createOmnichannelNotificationPipeline() {
 
     // Step 1: Trigger Campaign
     const triggerCampaign = Step.create('notifyTriggerCampaign', async (param: any) => {
-        const {campaignId, userId} = param;
+        const { campaignId, userId } = param;
 
         return {
             campaignTriggered: true,
             dispatchId: `DISPATCH-${campaignId}-${userId}`,
-            triggeredAt: Date.now()
+            triggeredAt: Date.now(),
         };
     })
-        .spec('campaignId', {require: true})
-        .spec('userId', {require: true})
-        .spec('templateKey', {require: true});
+        .spec('campaignId', { require: true })
+        .spec('userId', { require: true })
+        .spec('templateKey', { require: true });
 
     // Step 2: Resolve User Preferences & Channel Priority
     const resolveUserPreferences = Step.create('notifyResolvePreferences', async (param: any) => {
@@ -48,13 +48,13 @@ export function createOmnichannelNotificationPipeline() {
         return {
             optedIn: true,
             primaryChannel: selectedChannel,
-            availableFallbacks: fallbackChannels.slice(1)
+            availableFallbacks: fallbackChannels.slice(1),
         };
     });
 
     // Step 3: Render Template
     const renderTemplate = Step.create('notifyRenderTemplate', async (param: any) => {
-        const {templateKey, templateVariables: vars = {}} = param;
+        const { templateKey, templateVariables: vars = {} } = param;
 
         let body = `Hello ${vars.name || 'Valued Customer'}, here is your update.`;
         if (templateKey === 'PROMO_FLASH_SALE') {
@@ -64,13 +64,13 @@ export function createOmnichannelNotificationPipeline() {
         return {
             renderedSubject: 'Special Offer Just For You',
             renderedBody: body,
-            characterCount: body.length
+            characterCount: body.length,
         };
     });
 
     // Step 4: Route to Channel & Dispatch (with onFail retries for external SMS/Push gateways)
     const routeToChannel = Step.create('notifyRouteToChannel', async (param: any) => {
-        const {primaryChannel, recipientPhone: phone, recipientEmail: email} = param;
+        const { primaryChannel, recipientPhone: phone, recipientEmail: email } = param;
 
         pushAttempts++;
         // Demonstrate handling transient rate limiting (HTTP 429) on first attempt
@@ -84,12 +84,12 @@ export function createOmnichannelNotificationPipeline() {
             channelDispatched: primaryChannel,
             gatewayMessageId,
             destinationTarget: primaryChannel === 'EMAIL' ? email : phone,
-            deliveryStatus: 'SENT'
+            deliveryStatus: 'SENT',
         };
     }).onFail({
         maxRetries: 2,
         delay: 10,
-        backoff: () => 1.5
+        backoff: () => 1.5,
     });
 
     // Step 5: Track Engagement
@@ -101,7 +101,7 @@ export function createOmnichannelNotificationPipeline() {
             campaignTriggered,
             optedIn,
             renderedBody,
-            deliveryStatus
+            deliveryStatus,
         } = param;
 
         const trackingPixelUrl = `https://track.notifications.io/pixel/${dispatchId}.gif`;
@@ -116,15 +116,9 @@ export function createOmnichannelNotificationPipeline() {
             channel,
             gatewayMessageId,
             trackingPixelUrl,
-            sentAt: new Date().toISOString()
+            sentAt: new Date().toISOString(),
         };
     });
 
-    return flow(
-        triggerCampaign,
-        resolveUserPreferences,
-        renderTemplate,
-        routeToChannel,
-        trackEngagement
-    );
+    return flow(triggerCampaign, resolveUserPreferences, renderTemplate, routeToChannel, trackEngagement);
 }

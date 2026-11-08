@@ -8,15 +8,15 @@
 
 In enterprise backend workflows, human intervention (e.g., invoice approvals, deployment sign-offs, manual fraud reviews) and multi-channel notifications (Slack, Discord, Email, SMS) are standard operational requirements. However, implementing notifications and interactive callbacks with ad-hoc scripts introduces critical failure modes:
 
-| Ad-Hoc Notification Anti-Pattern | Operational Risk in Distributed Workflows | How `@siglo/notifications` Solves It |
-|---|---|---|
-| **Unregulated Network Egress** | Notification HTTP calls (Slack, Resend, Twilio) bypass the workflow security perimeter, leaving workflows vulnerable to SSRF or data exfiltration. | Enforces Siglo's AsyncLocalStorage (ASL) network egress perimeter (`allowNetwork`) with static host assertions (`slack.com`, `api.resend.com`, `api.twilio.com`) verified in the `BEFORE` phase. |
-| **Split-Brain Dual-Worker Resumption** | Multiple workers behind a load balancer receive the same webhook approval callback simultaneously, resuming the same workflow twice and executing duplicate downstream side effects. | Integrates with Siglo's atomic storage claims (`claimWaitRecord`), CAS state transitions, and idempotency locks, rejecting redundant triggers with `WorkflowAlreadyResumedException` or `DuplicateEventException`. |
-| **Dormant Zombie Workflows** | Workflows suspended on approval timeouts (`waitForEvent(..., { timeout: '48h' })`) remain dormant indefinitely if the process restarts or crashes. | Direct integration with `@siglo/scheduler` (`PostgresWaitPoller` with `FOR UPDATE SKIP LOCKED` or Cloud Scheduler dispatchers) to awaken expired approvals deterministically. |
-| **Tampered / Replayed Approval Tokens** | Approval URLs in emails or Slack can be forged, manipulated, or replayed by unauthorized users. | Native integration with `@siglo/crypto`: constant-time HMAC tokens (`timingSafeEqual`), replay defense with timestamp tolerance (`toleranceSeconds`), and `KeyRing` key rotation. |
-| **Orphaned Notifications on Downstream Failure** | If a workflow fails or cancels after an approval card is sent, users can still click buttons in Slack, triggering invalid state transitions. | Integrates with Siglo's Named Saga Compensation registry (`registerCompensationHandler('cancelNotification')`), updating the Slack card to "Workflow Cancelled" or invalidating the token. |
-| **Duplicate Alerts on Step Retries** | Transient failures in downstream steps cause upstream retry re-executions, spamming recipients with duplicate emails or alerts. | Native integration with `@siglo/core`'s `IdempotencyStore` (`buildIdempotencyKey`), deduplicating messages based on workflow ID, step name, and recipient hash. |
-| **PII & Credential Leaks** | Recipient emails, phone numbers, and bearer tokens leak into DevTools, OpenTelemetry traces, and server logs. | Automatic context redaction using `@siglo/crypto` path masking and `@siglo/core`'s `redactEvent` before telemetry dispatch. |
+| Ad-Hoc Notification Anti-Pattern                 | Operational Risk in Distributed Workflows                                                                                                                                            | How `@siglo/notifications` Solves It                                                                                                                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Unregulated Network Egress**                   | Notification HTTP calls (Slack, Resend, Twilio) bypass the workflow security perimeter, leaving workflows vulnerable to SSRF or data exfiltration.                                   | Enforces Siglo's AsyncLocalStorage (ASL) network egress perimeter (`allowNetwork`) with static host assertions (`slack.com`, `api.resend.com`, `api.twilio.com`) verified in the `BEFORE` phase.                   |
+| **Split-Brain Dual-Worker Resumption**           | Multiple workers behind a load balancer receive the same webhook approval callback simultaneously, resuming the same workflow twice and executing duplicate downstream side effects. | Integrates with Siglo's atomic storage claims (`claimWaitRecord`), CAS state transitions, and idempotency locks, rejecting redundant triggers with `WorkflowAlreadyResumedException` or `DuplicateEventException`. |
+| **Dormant Zombie Workflows**                     | Workflows suspended on approval timeouts (`waitForEvent(..., { timeout: '48h' })`) remain dormant indefinitely if the process restarts or crashes.                                   | Direct integration with `@siglo/scheduler` (`PostgresWaitPoller` with `FOR UPDATE SKIP LOCKED` or Cloud Scheduler dispatchers) to awaken expired approvals deterministically.                                      |
+| **Tampered / Replayed Approval Tokens**          | Approval URLs in emails or Slack can be forged, manipulated, or replayed by unauthorized users.                                                                                      | Native integration with `@siglo/crypto`: constant-time HMAC tokens (`timingSafeEqual`), replay defense with timestamp tolerance (`toleranceSeconds`), and `KeyRing` key rotation.                                  |
+| **Orphaned Notifications on Downstream Failure** | If a workflow fails or cancels after an approval card is sent, users can still click buttons in Slack, triggering invalid state transitions.                                         | Integrates with Siglo's Named Saga Compensation registry (`registerCompensationHandler('cancelNotification')`), updating the Slack card to "Workflow Cancelled" or invalidating the token.                         |
+| **Duplicate Alerts on Step Retries**             | Transient failures in downstream steps cause upstream retry re-executions, spamming recipients with duplicate emails or alerts.                                                      | Native integration with `@siglo/core`'s `IdempotencyStore` (`buildIdempotencyKey`), deduplicating messages based on workflow ID, step name, and recipient hash.                                                    |
+| **PII & Credential Leaks**                       | Recipient emails, phone numbers, and bearer tokens leak into DevTools, OpenTelemetry traces, and server logs.                                                                        | Automatic context redaction using `@siglo/crypto` path masking and `@siglo/core`'s `redactEvent` before telemetry dispatch.                                                                                        |
 
 ---
 
@@ -81,30 +81,35 @@ Siglo executes steps through a formal 5-phase lifecycle: `BEFORE` &rarr; `VALIDA
 ## 3. Core Features & Capabilities
 
 ### 1. Pluggable Multi-Channel Transports
-* **Email**: Resend, SendGrid, Postmark, and generic SMTP with responsive HTML action buttons.
-* **Chat**: Slack Web API (interactive Block Kit buttons, modals) and Discord Webhooks (embeds with action links).
-* **SMS / Push**: Twilio SMS (two-way SMS reply parsing) and generic mobile push webhooks.
+
+- **Email**: Resend, SendGrid, Postmark, and generic SMTP with responsive HTML action buttons.
+- **Chat**: Slack Web API (interactive Block Kit buttons, modals) and Discord Webhooks (embeds with action links).
+- **SMS / Push**: Twilio SMS (two-way SMS reply parsing) and generic mobile push webhooks.
 
 ### 2. Zero-Trust Cryptographic Action Tokens
-* Leverages `@siglo/crypto` primitives to generate tamper-proof callback tokens without requiring an external database lookup for token verification:
+
+- Leverages `@siglo/crypto` primitives to generate tamper-proof callback tokens without requiring an external database lookup for token verification:
   $$\text{Token} = \text{base64url}(\text{Payload}) \,\|\, \text{HMAC-SHA256}(\text{Payload}, \text{Secret})$$
-* Embeds `stackId`, `correlationKey`, `expectedEvent`, and `expiresAt`.
-* Verified using `timingSafeEqual` and timestamp tolerance windows to defeat replay and timing attacks.
-* Supports secret rotation via `KeyRing` (accepts tokens signed with current or prior key).
+- Embeds `stackId`, `correlationKey`, `expectedEvent`, and `expiresAt`.
+- Verified using `timingSafeEqual` and timestamp tolerance windows to defeat replay and timing attacks.
+- Supports secret rotation via `KeyRing` (accepts tokens signed with current or prior key).
 
 ### 3. Distributed Durable Resumption & Schedulers
-* Seamlessly coordinates with `@siglo/core`'s durable execution:
-  * Pairs `sendInteractiveApprovalStep` with `waitForEvent('APPROVAL_RESOLVED', { correlationKey, timeout })`.
-  * Multi-worker safe: relies on atomic SQL `FOR UPDATE SKIP LOCKED` claims via `claimWaitRecord`.
-  * Background timeouts managed by `@siglo/scheduler` (`PostgresWaitPoller`).
+
+- Seamlessly coordinates with `@siglo/core`'s durable execution:
+    - Pairs `sendInteractiveApprovalStep` with `waitForEvent('APPROVAL_RESOLVED', { correlationKey, timeout })`.
+    - Multi-worker safe: relies on atomic SQL `FOR UPDATE SKIP LOCKED` claims via `claimWaitRecord`.
+    - Background timeouts managed by `@siglo/scheduler` (`PostgresWaitPoller`).
 
 ### 4. Sagas & Interactive Message Invalidation
-* Implements named compensation handlers (`cancelNotification`).
-* When a pipeline aborts or compensates, Siglo automatically calls the channel provider to update the Slack message (e.g., replacing interactive buttons with `"⚠️ Request cancelled due to timeout"`) or marks the token as invalid in storage.
+
+- Implements named compensation handlers (`cancelNotification`).
+- When a pipeline aborts or compensates, Siglo automatically calls the channel provider to update the Slack message (e.g., replacing interactive buttons with `"⚠️ Request cancelled due to timeout"`) or marks the token as invalid in storage.
 
 ### 5. Web Framework Middleware Adapters
-* First-class middleware bindings for `@siglo/express`, `@siglo/fastify`, and `@siglo/hono`.
-* Automatically decodes tokens, handles CORS, redirects to user-friendly confirmation pages, and passes resume payloads to `resumeWorkflow()`.
+
+- First-class middleware bindings for `@siglo/express`, `@siglo/fastify`, and `@siglo/hono`.
+- Automatically decodes tokens, handles CORS, redirects to user-friendly confirmation pages, and passes resume payloads to `resumeWorkflow()`.
 
 ---
 
@@ -118,105 +123,109 @@ import { StandardSchemaV1 } from '@siglo/http';
 export type NotificationChannel = 'email' | 'slack' | 'discord' | 'sms';
 
 export interface NotificationRecipient {
-  email?: string;
-  phone?: string;
-  slackUserId?: string;
-  slackChannelId?: string;
-  discordWebhookUrl?: string;
+    email?: string;
+    phone?: string;
+    slackUserId?: string;
+    slackChannelId?: string;
+    discordWebhookUrl?: string;
 }
 
 export interface NotificationMetadata {
-  notificationId: string;
-  channel: NotificationChannel;
-  dispatchedAt: number;
-  recipientMasked: string;
+    notificationId: string;
+    channel: NotificationChannel;
+    dispatchedAt: number;
+    recipientMasked: string;
 }
 
 export interface NotificationTransport {
-  readonly channel: NotificationChannel;
-  readonly allowedHosts: string[];
-  send(message: ResolvedNotificationMessage): Promise<{ id: string; timestamp: number }>;
-  cancel?(notificationId: string, reason: string): Promise<void>;
+    readonly channel: NotificationChannel;
+    readonly allowedHosts: string[];
+    send(message: ResolvedNotificationMessage): Promise<{ id: string; timestamp: number }>;
+    cancel?(notificationId: string, reason: string): Promise<void>;
 }
 
 export interface ResolvedNotificationMessage {
-  to: string | NotificationRecipient;
-  subject?: string;
-  content: string;
-  interactiveActions?: {
-    approveUrl: string;
-    rejectUrl: string;
-    title: string;
-    description?: string;
-  };
-  metadata?: Record<string, unknown>;
+    to: string | NotificationRecipient;
+    subject?: string;
+    content: string;
+    interactiveActions?: {
+        approveUrl: string;
+        rejectUrl: string;
+        title: string;
+        description?: string;
+    };
+    metadata?: Record<string, unknown>;
 }
 
 export interface SendNotificationOptions<TInput> {
-  channel: NotificationChannel | ((ctx: TInput) => NotificationChannel);
-  recipient: string | NotificationRecipient | ((ctx: TInput) => string | NotificationRecipient);
-  subject?: string | ((ctx: TInput) => string);
-  template: string | ((ctx: TInput) => string);
-  dataSchema?: StandardSchemaV1;
-  data?: (ctx: TInput) => Record<string, unknown>;
-  /** Idempotency TTL in seconds (default: 86400) */
-  deduplicationTtl?: number;
-  /** Custom compensation handler if downstream fails */
-  compensateOnFailure?: boolean;
+    channel: NotificationChannel | ((ctx: TInput) => NotificationChannel);
+    recipient: string | NotificationRecipient | ((ctx: TInput) => string | NotificationRecipient);
+    subject?: string | ((ctx: TInput) => string);
+    template: string | ((ctx: TInput) => string);
+    dataSchema?: StandardSchemaV1;
+    data?: (ctx: TInput) => Record<string, unknown>;
+    /** Idempotency TTL in seconds (default: 86400) */
+    deduplicationTtl?: number;
+    /** Custom compensation handler if downstream fails */
+    compensateOnFailure?: boolean;
 }
 
 export function sendNotificationStep<const TName extends string, TInput = any>(
-  name: TName,
-  options: SendNotificationOptions<TInput>
+    name: TName,
+    options: SendNotificationOptions<TInput>,
 ): Step<TInput, { notificationId: string; sentAt: number; $notificationMetadata: NotificationMetadata }, TName>;
 
 export interface InteractiveApprovalOptions<TInput> {
-  channel: 'email' | 'slack';
-  recipient: string | NotificationRecipient | ((ctx: TInput) => string | NotificationRecipient);
-  title: string | ((ctx: TInput) => string);
-  description?: string | ((ctx: TInput) => string);
-  /** Durable correlation key generator */
-  correlationKey: string | ((ctx: TInput) => string);
-  /** Human approval timeout (e.g. '24h', '7d') */
-  timeout: string;
-  onApproveEvent: string;
-  onRejectEvent: string;
-  /** Base URL for callback webhooks (e.g. 'https://api.acme.com/siglo/callback') */
-  callbackBaseUrl: string;
-  /** Secret key or KeyRing instance for HMAC signature */
-  signingSecret: string | KeyRing;
-  /** Whether to register compensation rollback to update/disable message on workflow failure */
-  autoCompensate?: boolean;
+    channel: 'email' | 'slack';
+    recipient: string | NotificationRecipient | ((ctx: TInput) => string | NotificationRecipient);
+    title: string | ((ctx: TInput) => string);
+    description?: string | ((ctx: TInput) => string);
+    /** Durable correlation key generator */
+    correlationKey: string | ((ctx: TInput) => string);
+    /** Human approval timeout (e.g. '24h', '7d') */
+    timeout: string;
+    onApproveEvent: string;
+    onRejectEvent: string;
+    /** Base URL for callback webhooks (e.g. 'https://api.acme.com/siglo/callback') */
+    callbackBaseUrl: string;
+    /** Secret key or KeyRing instance for HMAC signature */
+    signingSecret: string | KeyRing;
+    /** Whether to register compensation rollback to update/disable message on workflow failure */
+    autoCompensate?: boolean;
 }
 
 export function sendInteractiveApprovalStep<const TName extends string, TInput = any>(
-  name: TName,
-  options: InteractiveApprovalOptions<TInput>
+    name: TName,
+    options: InteractiveApprovalOptions<TInput>,
 ): Step<
-  TInput,
-  {
-    notificationId: string;
-    correlationKey: string;
-    approvalTokens: { approveUrl: string; rejectUrl: string };
-    $notificationMetadata: NotificationMetadata;
-  },
-  TName
+    TInput,
+    {
+        notificationId: string;
+        correlationKey: string;
+        approvalTokens: { approveUrl: string; rejectUrl: string };
+        $notificationMetadata: NotificationMetadata;
+    },
+    TName
 >;
 
 export interface CallbackHandlerOptions {
-  signingSecret: string | KeyRing;
-  /** Flow instance to resume upon valid webhook receipt */
-  workflow: Flow<any, any>;
-  onSuccessRedirect?: string;
-  onExpiredRedirect?: string;
-  onErrorRedirect?: string;
+    signingSecret: string | KeyRing;
+    /** Flow instance to resume upon valid webhook receipt */
+    workflow: Flow<any, any>;
+    onSuccessRedirect?: string;
+    onExpiredRedirect?: string;
+    onErrorRedirect?: string;
 }
 
 /** Express middleware for approval callback handling */
-export function createNotificationExpressMiddleware(options: CallbackHandlerOptions): (req: any, res: any) => Promise<void>;
+export function createNotificationExpressMiddleware(
+    options: CallbackHandlerOptions,
+): (req: any, res: any) => Promise<void>;
 
 /** Fastify route plugin for approval callback handling */
-export function createNotificationFastifyHandler(options: CallbackHandlerOptions): (req: any, reply: any) => Promise<void>;
+export function createNotificationFastifyHandler(
+    options: CallbackHandlerOptions,
+): (req: any, reply: any) => Promise<void>;
 
 /** Hono route handler for approval callback handling */
 export function createNotificationHonoHandler(options: CallbackHandlerOptions): (c: any) => Promise<Response>;
@@ -234,50 +243,50 @@ import { sendInteractiveApprovalStep } from '@siglo/notifications';
 import { StaticKeyRing } from '@siglo/crypto';
 
 interface DeploymentContext {
-  deploymentId: string;
-  service: string;
-  version: string;
-  leadDevSlackId: string;
-  approved?: boolean;
-  decider?: string;
+    deploymentId: string;
+    service: string;
+    version: string;
+    leadDevSlackId: string;
+    approved?: boolean;
+    decider?: string;
 }
 
 const approvalKeyRing = new StaticKeyRing('current', {
-  current: process.env.SIGLO_APPROVAL_SECRET_CURRENT!,
-  previous: process.env.SIGLO_APPROVAL_SECRET_PREVIOUS!
+    current: process.env.SIGLO_APPROVAL_SECRET_CURRENT!,
+    previous: process.env.SIGLO_APPROVAL_SECRET_PREVIOUS!,
 });
 
 export const productionDeploymentFlow = flow<DeploymentContext, any>(
-  // Step 1: Send Slack Block Kit card with interactive HMAC-signed Approve/Reject buttons
-  sendInteractiveApprovalStep('requestApproval', {
-    channel: 'slack',
-    recipient: (ctx) => ({ slackUserId: ctx.leadDevSlackId }),
-    title: (ctx) => `Production Deployment Request: ${ctx.service}@${ctx.version}`,
-    description: (ctx) => `Deployment ${ctx.deploymentId} requires human sign-off.`,
-    correlationKey: (ctx) => `deploy:${ctx.deploymentId}`,
-    timeout: '2h',
-    onApproveEvent: 'DEPLOY_APPROVED',
-    onRejectEvent: 'DEPLOY_REJECTED',
-    callbackBaseUrl: 'https://orchestrator.acme.com/api/siglo/callback',
-    signingSecret: approvalKeyRing,
-    autoCompensate: true // Automatically updates Slack card to 'Cancelled' if downstream fails
-  }),
+    // Step 1: Send Slack Block Kit card with interactive HMAC-signed Approve/Reject buttons
+    sendInteractiveApprovalStep('requestApproval', {
+        channel: 'slack',
+        recipient: ctx => ({ slackUserId: ctx.leadDevSlackId }),
+        title: ctx => `Production Deployment Request: ${ctx.service}@${ctx.version}`,
+        description: ctx => `Deployment ${ctx.deploymentId} requires human sign-off.`,
+        correlationKey: ctx => `deploy:${ctx.deploymentId}`,
+        timeout: '2h',
+        onApproveEvent: 'DEPLOY_APPROVED',
+        onRejectEvent: 'DEPLOY_REJECTED',
+        callbackBaseUrl: 'https://orchestrator.acme.com/api/siglo/callback',
+        signingSecret: approvalKeyRing,
+        autoCompensate: true, // Automatically updates Slack card to 'Cancelled' if downstream fails
+    }),
 
-  // Step 2: Flow suspends into PostgreSQL/Redis durable checkpoint with 2h expiration timer
-  waitForEvent('DEPLOY_APPROVED', {
-    correlationKey: (ctx) => `deploy:${ctx.deploymentId}`,
-    timeout: '2h'
-  }),
+    // Step 2: Flow suspends into PostgreSQL/Redis durable checkpoint with 2h expiration timer
+    waitForEvent('DEPLOY_APPROVED', {
+        correlationKey: ctx => `deploy:${ctx.deploymentId}`,
+        timeout: '2h',
+    }),
 
-  // Both approval decisions and scheduler expiry resume this continuation.
-  // Guard before executing any deployment side effect.
-  new Step('requireApproval', async (ctx: DeploymentContext & { event?: { type: string } }) => {
-    if (ctx.approved !== true || ctx.event?.type === 'timer:expired') {
-      throw new Error('Deployment approval rejected or expired');
-    }
-    return {};
-  }),
-  deployToProductionStep
+    // Both approval decisions and scheduler expiry resume this continuation.
+    // Guard before executing any deployment side effect.
+    new Step('requireApproval', async (ctx: DeploymentContext & { event?: { type: string } }) => {
+        if (ctx.approved !== true || ctx.event?.type === 'timer:expired') {
+            throw new Error('Deployment approval rejected or expired');
+        }
+        return {};
+    }),
+    deployToProductionStep,
 );
 ```
 
@@ -291,14 +300,14 @@ import { productionDeploymentFlow } from './workflow';
 const app = express();
 
 app.get(
-  '/api/siglo/callback',
-  createNotificationExpressMiddleware({
-    signingSecret: process.env.SIGLO_APPROVAL_SECRET_CURRENT!,
-    workflow: productionDeploymentFlow,
-    onSuccessRedirect: 'https://dashboard.acme.com/deployments/approved',
-    onExpiredRedirect: 'https://dashboard.acme.com/deployments/expired',
-    onErrorRedirect: 'https://dashboard.acme.com/deployments/error'
-  })
+    '/api/siglo/callback',
+    createNotificationExpressMiddleware({
+        signingSecret: process.env.SIGLO_APPROVAL_SECRET_CURRENT!,
+        workflow: productionDeploymentFlow,
+        onSuccessRedirect: 'https://dashboard.acme.com/deployments/approved',
+        onExpiredRedirect: 'https://dashboard.acme.com/deployments/expired',
+        onErrorRedirect: 'https://dashboard.acme.com/deployments/error',
+    }),
 );
 
 app.listen(3000);
@@ -309,19 +318,19 @@ app.listen(3000);
 ## 6. Testing Strategy & Zero-Network Verification
 
 1. **Virtual Clock Fast-Forwarding (`@siglo/testing`)**:
-   * Uses `@siglo/testing`'s `FakeClock` to fast-forward approval timeouts (`'2h'`, `'48h'`) without real-time delays.
-   * Asserts that expired approvals trigger `ExpiredWaitException` and are reclaimed properly.
+    - Uses `@siglo/testing`'s `FakeClock` to fast-forward approval timeouts (`'2h'`, `'48h'`) without real-time delays.
+    - Asserts that expired approvals trigger `ExpiredWaitException` and are reclaimed properly.
 2. **Deterministic Mock Transports (`MockNotificationTransport`)**:
-   * Ships with `@siglo/notifications/testing` containing `MockNotificationTransport`.
-   * Records all dispatched payloads, Slack Block Kit structures, and generated action URLs without external network traffic.
+    - Ships with `@siglo/notifications/testing` containing `MockNotificationTransport`.
+    - Records all dispatched payloads, Slack Block Kit structures, and generated action URLs without external network traffic.
 3. **Cryptographic Tamper & Replay Validation**:
-   * Verifies that tampered payloads, altered correlation keys, or expired timestamps are rejected with `ValidationException`.
-   * Tests key rotation: verifies tokens signed with `previous` keys in `KeyRing` are accepted while unknown secrets are rejected.
+    - Verifies that tampered payloads, altered correlation keys, or expired timestamps are rejected with `ValidationException`.
+    - Tests key rotation: verifies tokens signed with `previous` keys in `KeyRing` are accepted while unknown secrets are rejected.
 4. **Atomic Concurrent Resumption Test**:
-   * Simulates two concurrent HTTP callbacks hitting the handler with identical tokens simultaneously.
-   * Asserts Worker 1 claims the record (`200 OK`) and Worker 2 receives `WorkflowAlreadyResumedException` (`409 Conflict`).
+    - Simulates two concurrent HTTP callbacks hitting the handler with identical tokens simultaneously.
+    - Asserts Worker 1 claims the record (`200 OK`) and Worker 2 receives `WorkflowAlreadyResumedException` (`409 Conflict`).
 5. **ASL Network Perimeter Egress Assertion**:
-   * Asserts that unlisted notification transport hostnames throw `NetworkPolicyViolationException` in the `BEFORE` phase.
+    - Asserts that unlisted notification transport hostnames throw `NetworkPolicyViolationException` in the `BEFORE` phase.
 
 ---
 
@@ -331,15 +340,15 @@ app.listen(3000);
 - [x] Core notification interfaces and transport registry.
 - [x] Network policy static host assertions (`allowNetwork`) on all transports.
 - [x] Built-in adapters:
-  - [x] Slack (Block Kit interactive cards and message updater).
-  - [x] Resend, SendGrid, and SMTP (HTML email action templates).
-  - [x] Twilio SMS.
-  - [x] Discord Webhooks.
+    - [x] Slack (Block Kit interactive cards and message updater).
+    - [x] Resend, SendGrid, and SMTP (HTML email action templates).
+    - [x] Twilio SMS.
+    - [x] Discord Webhooks.
 - [x] Cryptographic action token engine integrated with `@siglo/crypto` (`timingSafeEqual`, `KeyRing`, replay defense).
 - [x] Resumption web framework adapters:
-  - [x] `@siglo/express` callback middleware.
-  - [x] `@siglo/fastify` callback plugin.
-  - [x] `@siglo/hono` callback handler.
+    - [x] `@siglo/express` callback middleware.
+    - [x] `@siglo/fastify` callback plugin.
+    - [x] `@siglo/hono` callback handler.
 - [x] Named Saga Compensation handler (`cancelNotification`) for revoking stale messages.
 - [x] Integration with `@siglo/core`'s `IdempotencyStore`.
 - [x] Real PostgreSQL multi-worker/restart integration validation (independent callback workers, persisted revocations, and fresh-process timeout resumption; PostgreSQL 16 verified locally and configured in CI).

@@ -58,24 +58,28 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
             res.cleanup();
         });
 
-        it('aborts combined signal when any constituent signal fires', (done) => {
+        it('aborts combined signal when any constituent signal fires', done => {
             const ctrl1 = new AbortController();
             const ctrl2 = new AbortController();
 
             const res = combineAbortSignals([ctrl1.signal, ctrl2.signal]);
             expect(res.signal).to.not.be.undefined;
 
-            res.signal?.addEventListener('abort', () => {
-                expect(res.signal?.aborted).to.be.true;
-                expect(res.signal?.reason?.message).to.equal('Ctrl2 fired');
-                res.cleanup();
-                done();
-            }, { once: true });
+            res.signal?.addEventListener(
+                'abort',
+                () => {
+                    expect(res.signal?.aborted).to.be.true;
+                    expect(res.signal?.reason?.message).to.equal('Ctrl2 fired');
+                    res.cleanup();
+                    done();
+                },
+                { once: true },
+            );
 
             ctrl2.abort(new Error('Ctrl2 fired'));
         });
 
-        it('falls back to manual controller when AbortSignal.any is undefined', (done) => {
+        it('falls back to manual controller when AbortSignal.any is undefined', done => {
             const originalAny = (AbortSignal as any).any;
             try {
                 (AbortSignal as any).any = undefined;
@@ -85,11 +89,15 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                 const res = combineAbortSignals([ctrl1.signal, ctrl2.signal]);
                 expect(res.signal).to.not.be.undefined;
 
-                res.signal?.addEventListener('abort', () => {
-                    expect(res.signal?.aborted).to.be.true;
-                    res.cleanup();
-                    done();
-                }, { once: true });
+                res.signal?.addEventListener(
+                    'abort',
+                    () => {
+                        expect(res.signal?.aborted).to.be.true;
+                        res.cleanup();
+                        done();
+                    },
+                    { once: true },
+                );
 
                 ctrl1.abort(new Error('Fallback abort'));
             } finally {
@@ -145,10 +153,14 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
             const step = Step.create('cooperativeStep', async (p: any) => {
                 const sig = p.$signal?.();
                 if (sig) {
-                    sig.addEventListener('abort', () => {
-                        wasAborted = true;
-                        abortReason = sig.reason;
-                    }, { once: true });
+                    sig.addEventListener(
+                        'abort',
+                        () => {
+                            wasAborted = true;
+                            abortReason = sig.reason;
+                        },
+                        { once: true },
+                    );
                 }
                 await new Promise(r => setTimeout(r, 150));
                 return { done: true };
@@ -189,11 +201,11 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                 }
                 return { attempts, success: true };
             })
-            .timeout(50)
-            .onFail({
-                maxRetries: 2,
-                delay: 20
-            });
+                .timeout(50)
+                .onFail({
+                    maxRetries: 2,
+                    delay: 20,
+                });
 
             const result = await step.run();
             expect(result.success).to.be.true;
@@ -208,11 +220,11 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                 await new Promise(r => setTimeout(r, 100));
                 return { done: true };
             })
-            .timeout(30)
-            .onFail({
-                maxRetries: 2,
-                delay: 10
-            });
+                .timeout(30)
+                .onFail({
+                    maxRetries: 2,
+                    delay: 10,
+                });
 
             try {
                 await step.run();
@@ -279,7 +291,7 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                 throw new Error('Transient error');
             }).onFail({
                 maxRetries: 5,
-                delay: 2000 // 2s backoff delay
+                delay: 2000, // 2s backoff delay
             });
 
             const f = flow(failingStep).timeout(50);
@@ -295,7 +307,7 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
             }
         });
 
-        it('aborts retry delay if signal was already aborted before delay starts', (done) => {
+        it('aborts retry delay if signal was already aborted before delay starts', done => {
             const controller = new AbortController();
             controller.abort(new Error('Already aborted'));
 
@@ -303,7 +315,7 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                 throw new Error('Failed');
             }).onFail({
                 maxRetries: 2,
-                delay: 500
+                delay: 500,
             });
 
             step.run({}, { signal: controller.signal }).catch((err: any) => {
@@ -337,7 +349,7 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
                     validate: async () => {
                         await new Promise(() => {}); // never resolves
                         return true;
-                    }
+                    },
                 })
                 .timeout(40);
 
@@ -352,7 +364,7 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
             }
         });
 
-        it('clears initial macrotask timer when signal aborts before turn fires', (done) => {
+        it('clears initial macrotask timer when signal aborts before turn fires', done => {
             const controller = new AbortController();
             let stepStarted = false;
             const step = Step.create('abortedStep', () => {

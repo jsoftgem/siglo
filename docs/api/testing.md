@@ -1,6 +1,6 @@
 ---
-title: "Deterministic Testing"
-description: "API reference for the @siglo/testing harness: virtual clocks (FakeClock), InMemoryStorageFake, step spies, step mocks, event injection, assertions, and execution replay."
+title: 'Deterministic Testing'
+description: 'API reference for the @siglo/testing harness: virtual clocks (FakeClock), InMemoryStorageFake, step spies, step mocks, event injection, assertions, and execution replay.'
 ---
 
 # API Reference: Deterministic Testing (`@siglo/testing`)
@@ -13,23 +13,23 @@ The `@siglo/testing` package provides a zero-flake, deterministic test harness f
 
 - [Overview and Installation](#overview-and-installation)
 - [Workflow Test Harness](#workflow-test-harness)
-  - [`createWorkflowHarness(flow, options?)`](#createworkflowharnessflow-options)
-  - [`harness.run and harness.execute`](#harnessrun-and-harnessexecute)
-  - [`harness.mockStep(stepName, mockImpl)`](#harnessmockstepstepname-mockimpl)
-  - [`harness.spyStep(stepName)`](#harnessspystepstepname)
-  - [`harness.injectEvent(eventName, correlationKey, payload?)`](#harnessinjecteventeventname-correlationkey-payload)
-  - [`harness.getTrace()`](#harnessgettrace)
-  - [Harness Properties: `clock` and `storage`](#harness-properties-clock-and-storage)
+    - [`createWorkflowHarness(flow, options?)`](#createworkflowharnessflow-options)
+    - [`harness.run and harness.execute`](#harnessrun-and-harnessexecute)
+    - [`harness.mockStep(stepName, mockImpl)`](#harnessmockstepstepname-mockimpl)
+    - [`harness.spyStep(stepName)`](#harnessspystepstepname)
+    - [`harness.injectEvent(eventName, correlationKey, payload?)`](#harnessinjecteventeventname-correlationkey-payload)
+    - [`harness.getTrace()`](#harnessgettrace)
+    - [Harness Properties: `clock` and `storage`](#harness-properties-clock-and-storage)
 - [Harness Assertions](#harness-assertions)
-  - [`harness.assertStepExecuted(stepName, times?)`](#harnessassertstepexecutedstepname-times)
-  - [`harness.assertStepRetried(stepName, minAttempts?)`](#harnessassertstepretriedstepname-minattempts)
-  - [`harness.assertStepFailed(stepName, errorPattern?)`](#harnessassertstepfailedstepname-errorpattern)
+    - [`harness.assertStepExecuted(stepName, times?)`](#harnessassertstepexecutedstepname-times)
+    - [`harness.assertStepRetried(stepName, minAttempts?)`](#harnessassertstepretriedstepname-minattempts)
+    - [`harness.assertStepFailed(stepName, errorPattern?)`](#harnessassertstepfailedstepname-errorpattern)
 - [Virtual Clock (`FakeClock`)](#virtual-clock-fakeclock)
 - [In-Memory Storage Fake (`InMemoryStorageFake`)](#in-memory-storage-fake-inmemorystoragefake)
 - [Execution Fixtures and Replay](#execution-fixtures-and-replay)
-  - [`harness.exportExecutionRecord(options?)`](#harnessexportexecutionrecordoptions)
-  - [`replayExecution(record, flow, options?)`](#replayexecutionrecord-flow-options)
-  - [`sanitizeExecutionRecord(record, options?)`](#sanitizeexecutionrecordrecord-options)
+    - [`harness.exportExecutionRecord(options?)`](#harnessexportexecutionrecordoptions)
+    - [`replayExecution(record, flow, options?)`](#replayexecutionrecord-flow-options)
+    - [`sanitizeExecutionRecord(record, options?)`](#sanitizeexecutionrecordrecord-options)
 - [Full Test Suite Example](#full-test-suite-example)
 
 ---
@@ -58,10 +58,7 @@ export interface HarnessOptions {
     recordTrace?: boolean;
 }
 
-export function createWorkflowHarness(
-    workflow: any,
-    options?: HarnessOptions
-): WorkflowHarness;
+export function createWorkflowHarness(workflow: any, options?: HarnessOptions): WorkflowHarness;
 ```
 
 #### Example
@@ -165,7 +162,7 @@ await harness.run({ orderId: 'ord_123' }, { durable: true });
 
 // 2. Inject event to resume execution
 const result = await harness.injectEvent('paymentWebhook', 'ord_123', {
-    paymentStatus: 'PAID'
+    paymentStatus: 'PAID',
 });
 
 expect(result.orderStatus).to.equal('COMPLETED');
@@ -290,7 +287,7 @@ Exports a sanitized execution record fixture containing initial inputs, outputs,
 
 ```typescript
 const fixture = harness.exportExecutionRecord({
-    excludeKeys: ['internalSessionId']
+    excludeKeys: ['internalSessionId'],
 });
 
 fs.writeFileSync('fixtures/failed-run.json', JSON.stringify(fixture, null, 2));
@@ -317,11 +314,7 @@ export interface ReplayResult {
     discrepancies: string[];
 }
 
-export function replayExecution(
-    record: ExecutionRecord,
-    workflow: any,
-    options?: ReplayOptions
-): Promise<ReplayResult>;
+export function replayExecution(record: ExecutionRecord, workflow: any, options?: ReplayOptions): Promise<ReplayResult>;
 ```
 
 #### Example
@@ -344,10 +337,7 @@ Sanitizes an `ExecutionRecord` by recursively redacting sensitive keys (e.g. pas
 #### Signature
 
 ```typescript
-export function sanitizeExecutionRecord(
-    record: ExecutionRecord,
-    options?: { excludeKeys?: string[] }
-): ExecutionRecord;
+export function sanitizeExecutionRecord(record: ExecutionRecord, options?: { excludeKeys?: string[] }): ExecutionRecord;
 ```
 
 #### Example
@@ -356,7 +346,7 @@ export function sanitizeExecutionRecord(
 import { sanitizeExecutionRecord } from '@siglo/testing';
 
 const cleanRecord = sanitizeExecutionRecord(rawRecord, {
-    excludeKeys: ['internalSecret', 'customToken']
+    excludeKeys: ['internalSecret', 'customToken'],
 });
 ```
 
@@ -371,11 +361,11 @@ import { Step, flow } from '@siglo/core';
 
 const fetchUser = Step.create('fetchUser', async (ctx: { userId: string }) => ({
     name: 'Alice',
-    tier: 'PRO'
+    tier: 'PRO',
 }));
 
 const calculateDiscount = Step.create('calculateDiscount', async (ctx: { tier: string }) => ({
-    discount: ctx.tier === 'PRO' ? 0.2 : 0.05
+    discount: ctx.tier === 'PRO' ? 0.2 : 0.05,
 }));
 
 const checkoutWorkflow = flow(fetchUser, calculateDiscount);
@@ -407,6 +397,6 @@ describe('Checkout Workflow Test Suite', () => {
 
 ## Related Topic Guides
 
-- [09. Testing and Replay](../09-testing-and-replay.md)
-- [02. Core Concepts](../02-core-concepts.md)
-- [Testing Adapter & Harness Guide](../adapters/testing.md)
+- [09. Testing and Replay](/09-testing-and-replay)
+- [02. Core Concepts](/02-core-concepts)
+- [Testing Adapter & Harness Guide](/adapters/testing)

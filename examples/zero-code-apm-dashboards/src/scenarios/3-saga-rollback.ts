@@ -21,34 +21,30 @@ export async function runSagaRollbackScenario(options: { silent?: boolean; emitt
         await sleep(30);
         auditTrail.push('HOTEL_RESERVED');
         return { bookingId: param.bookingId, hotelConf: 'HTL-8821' };
-    })
-        .compensate(async (output: any) => {
-            const span = tracer.startSpan('compensation:releaseHotelRoom', {
-                attributes: { 'saga.action': 'rollback', 'hotel.conf': output?.hotelConf }
-            });
-            await sleep(25);
-            auditTrail.push('HOTEL_CANCELLED');
-            span.setStatus({ code: SpanStatusCode.OK });
-            span.end();
-        })
-        ;
+    }).compensate(async (output: any) => {
+        const span = tracer.startSpan('compensation:releaseHotelRoom', {
+            attributes: { 'saga.action': 'rollback', 'hotel.conf': output?.hotelConf },
+        });
+        await sleep(25);
+        auditTrail.push('HOTEL_CANCELLED');
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+    });
 
     // Step 2: Payment Authorization with compensation
     const chargeTravelerCard = Step.create('chargeTravelerCard', async (param: any) => {
         await sleep(40);
         auditTrail.push('PAYMENT_CHARGED');
         return { chargeId: 'CHG-9932', amountCharged: 450.0 };
-    })
-        .compensate(async (output: any) => {
-            const span = tracer.startSpan('compensation:refundPayment', {
-                attributes: { 'saga.action': 'rollback', 'charge.id': output?.chargeId }
-            });
-            await sleep(20);
-            auditTrail.push('PAYMENT_REFUNDED');
-            span.setStatus({ code: SpanStatusCode.OK });
-            span.end();
-        })
-        ;
+    }).compensate(async (output: any) => {
+        const span = tracer.startSpan('compensation:refundPayment', {
+            attributes: { 'saga.action': 'rollback', 'charge.id': output?.chargeId },
+        });
+        await sleep(20);
+        auditTrail.push('PAYMENT_REFUNDED');
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+    });
 
     // Step 3: Flight Booking (Fails due to sold out inventory!)
     const bookFlightSeat = Step.create('bookFlightSeat', async () => {
@@ -56,18 +52,14 @@ export async function runSagaRollbackScenario(options: { silent?: boolean; emitt
         throw new Error('AirlineInventoryExhausted: No seats available on flight FL-302');
     });
 
-    const bookingSaga = flow(
-        reserveHotelRoom,
-        chargeTravelerCard,
-        bookFlightSeat
-    );
+    const bookingSaga = flow(reserveHotelRoom, chargeTravelerCard, bookFlightSeat);
 
     if (options.emitter) bookingSaga.monitor(options.emitter);
 
     const monitoredSaga = instrumentWorkflow(bookingSaga, {
         tracer,
         workflowName: 'HolidayBookingSaga',
-        workflowVersion: '1.0.0'
+        workflowVersion: '1.0.0',
     });
 
     let caughtError: Error | null = null;

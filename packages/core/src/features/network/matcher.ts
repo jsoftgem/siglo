@@ -44,9 +44,7 @@ export function isLocalhost(hostOrTarget: string): boolean {
         const hostPart = slashIdx !== -1 ? withoutProto.slice(0, slashIdx) : withoutProto;
         const firstColon = hostPart.indexOf(':');
         const lastColon = hostPart.lastIndexOf(':');
-        hostname = (firstColon !== -1 && firstColon === lastColon)
-            ? hostPart.slice(0, firstColon)
-            : hostPart;
+        hostname = firstColon !== -1 && firstColon === lastColon ? hostPart.slice(0, firstColon) : hostPart;
     }
 
     if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
@@ -63,7 +61,10 @@ export function isLocalhost(hostOrTarget: string): boolean {
     return false;
 }
 
-export function parseHostAndPort(rawHost: string, defaultPort?: string | number): {
+export function parseHostAndPort(
+    rawHost: string,
+    defaultPort?: string | number,
+): {
     hostname: string;
     port?: string;
     hostWithPort: string;
@@ -71,7 +72,10 @@ export function parseHostAndPort(rawHost: string, defaultPort?: string | number)
     if (!rawHost || typeof rawHost !== 'string') {
         return { hostname: '', hostWithPort: '' };
     }
-    const clean = rawHost.trim().toLowerCase().replace(/^[a-z]+:\/\//, '');
+    const clean = rawHost
+        .trim()
+        .toLowerCase()
+        .replace(/^[a-z]+:\/\//, '');
     const slashIdx = clean.indexOf('/');
     const hostPart = slashIdx !== -1 ? clean.slice(0, slashIdx) : clean;
 
@@ -106,7 +110,7 @@ export function matchesPattern(
     targetHost: string,
     targetHostname: string,
     targetPort: string | undefined,
-    pattern: HostPattern
+    pattern: HostPattern,
 ): boolean {
     const normTargetHostname = (targetHostname || '').toLowerCase();
     const normTargetHost = (targetHost || '').toLowerCase();
@@ -176,15 +180,17 @@ export function isHostAllowed(
     requestedUrl: string,
     requestedHost: string,
     policy: EffectiveNetworkPolicy,
-    port?: string | number
+    port?: string | number,
 ): boolean {
     if (!policy || !policy.enabled) {
         return true;
     }
 
     if (policy.flowPolicy && policy.stepPolicy) {
-        return isHostAllowed(requestedUrl, requestedHost, policy.flowPolicy, port) &&
-               isHostAllowed(requestedUrl, requestedHost, policy.stepPolicy, port);
+        return (
+            isHostAllowed(requestedUrl, requestedHost, policy.flowPolicy, port) &&
+            isHostAllowed(requestedUrl, requestedHost, policy.stepPolicy, port)
+        );
     }
 
     // Unix domain sockets check

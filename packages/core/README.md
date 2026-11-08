@@ -3,13 +3,14 @@
 </p>
 
 # Siglo Core
+
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
 [![NPM Version](https://img.shields.io/npm/v/@siglo/core.svg)](https://www.npmjs.com/package/@siglo/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](<>)
 
 **Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic Sagas, durable checkpoints, and live DevTools without external infrastructure.
 
@@ -17,12 +18,12 @@
 
 ## Positioning: In-Process Orchestration vs Distributed Engines
 
-| Dimension | `Siglo` | Distributed Engines (Temporal, Inngest) |
-|---|---|---|
-| **Architecture** | Lightweight, zero-infrastructure in-process library | Heavy multi-cluster / external orchestrator daemon |
-| **Latency** | Microsecond direct async function invocation | Millisecond-to-second RPC / polling overhead |
-| **Footprint** | Zero external dependencies, pure TypeScript | Requires persistent workers, queue servers, and databases |
-| **Primary Focus** | Modular workflows, parallel fan-out/fan-in, bounded worker mapping, request-scoped sagas, idempotency, durable event waits, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows |
+| Dimension         | `Siglo`                                                                                                                                                                  | Distributed Engines (Temporal, Inngest)                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| **Architecture**  | Lightweight, zero-infrastructure in-process library                                                                                                                      | Heavy multi-cluster / external orchestrator daemon        |
+| **Latency**       | Microsecond direct async function invocation                                                                                                                             | Millisecond-to-second RPC / polling overhead              |
+| **Footprint**     | Zero external dependencies, pure TypeScript                                                                                                                              | Requires persistent workers, queue servers, and databases |
+| **Primary Focus** | Modular workflows, parallel fan-out/fan-in, bounded worker mapping, request-scoped sagas, idempotency, durable event waits, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows           |
 
 ---
 
@@ -61,7 +62,7 @@ const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => 
 });
 
 const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: string }) => {
-    const discount = param.tier === 'PRO' ? 0.20 : 0.05;
+    const discount = param.tier === 'PRO' ? 0.2 : 0.05;
     return { discountPercentage: discount };
 });
 
@@ -71,9 +72,9 @@ export const orderWorkflow = flow(fetchUser, calculateDiscount);
 // 3. Run the flow with full type safety
 async function main() {
     const result = await orderWorkflow.run({ userId: 'u_123' }, { pojo: true });
-    console.log(result.name);               // 'Alice'
+    console.log(result.name); // 'Alice'
     console.log(result.discountPercentage); // 0.20
-    console.log(result.$steps.fetchUser);   // { name: 'Alice', tier: 'PRO' }
+    console.log(result.$steps.fetchUser); // { name: 'Alice', tier: 'PRO' }
 }
 
 main();

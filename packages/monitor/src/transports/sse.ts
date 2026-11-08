@@ -12,10 +12,7 @@ export class SSEBroadcaster {
     private redaction?: RedactionOptions;
     private heartbeatTimer?: NodeJS.Timeout;
 
-    constructor(options?: {
-        redaction?: RedactionOptions;
-        heartbeatIntervalMs?: number;
-    }) {
+    constructor(options?: { redaction?: RedactionOptions; heartbeatIntervalMs?: number }) {
         this.redaction = options?.redaction;
         const interval = options?.heartbeatIntervalMs || 15000;
         this.heartbeatTimer = setInterval(() => {
@@ -27,14 +24,14 @@ export class SSEBroadcaster {
         res.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no'
+            Connection: 'keep-alive',
+            'X-Accel-Buffering': 'no',
         });
 
         const client: SSEClient = {
             id: Math.random().toString(36).slice(2),
             res,
-            namespace
+            namespace,
         };
 
         this.clients.add(client);

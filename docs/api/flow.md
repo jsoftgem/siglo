@@ -1,6 +1,6 @@
 ---
-title: "Flow Instance Methods"
-description: "API reference for the Siglo Flow interface: run, execute, start, timeout, version, networkPolicy, monitor, hook, resume, compensate, and AST export methods."
+title: 'Flow Instance Methods'
+description: 'API reference for the Siglo Flow interface: run, timeout, version, networkPolicy, monitor, hook, resume, compensate, and AST export methods.'
 ---
 
 # API Reference: Flow Instance Methods (`Flow`)
@@ -13,31 +13,29 @@ The `Flow` interface represents an executable, composable workflow pipeline in *
 
 - [The `Flow` Interface](#the-flow-interface)
 - [Execution Methods](#execution-methods)
-  - [`flow.run(param?, options?)`](#flowrunparam-options)
-  - [`flow.execute(param?, options?)`](#flowexecuteparam-options)
-  - [`flow.start(param?, options?)`](#flowstartparam-options)
+    - [`flow.run(param?, options?)`](#flowrunparam-options)
 - [Configuration Methods](#configuration-methods)
-  - [`flow.timeout(ms)`](#flowtimeoutms)
-  - [`flow.version(version)`](#flowversionversion)
-  - [`flow.networkPolicy(policy?)`](#flownetworkpolicypolicy)
-  - [`flow.monitor(emitter)`](#flowmonitoremitter)
-  - [`flow.hook(hook)`](#flowhookhook)
+    - [`flow.timeout(ms)`](#flowtimeoutms)
+    - [`flow.version(version)`](#flowversionversion)
+    - [`flow.networkPolicy(policy?)`](#flownetworkpolicypolicy)
+    - [`flow.monitor(emitter)`](#flowmonitoremitter)
+    - [`flow.hook(hook)`](#flowhookhook)
 - [Lifecycle and Resumption Methods](#lifecycle-and-resumption-methods)
-  - [`flow.resume(correlationKeyOrStackId, payload?, options?)`](#flowresumecorrelationkeyorstackid-payload-options)
-  - [`flow.compensate(stackId, options?)`](#flowcompensatestackid-options)
+    - [`flow.resume(correlationKeyOrStackId, payload?, options?)`](#flowresumecorrelationkeyorstackid-payload-options)
+    - [`flow.compensate(stackId, options?)`](#flowcompensatestackid-options)
 - [Graph and Export Methods](#graph-and-export-methods)
-  - [`flow.toGraph()`](#flowtograph)
-  - [`flow.inspect()`](#flowinspect)
-  - [`flow.toMermaid(options?)`](#flowtomermaidoptions)
-  - [`flow.toDot(options?)`](#flowtodotoptions)
-  - [`flow.toJSON()`](#flowtojson)
+    - [`flow.toGraph()`](#flowtograph)
+    - [`flow.inspect()`](#flowinspect)
+    - [`flow.toMermaid(options?)`](#flowtomermaidoptions)
+    - [`flow.toDot(options?)`](#flowtodotoptions)
+    - [`flow.toJSON()`](#flowtojson)
 - [Properties](#properties)
-  - [`flow.steps`](#flowsteps)
-  - [`flow.timeoutMs`](#flowtimeoutms-property)
-  - [`flow.workflowVersion`](#flowworkflowversion)
-  - [`flow.networkPolicyConfig`](#flownetworkpolicyconfig)
-  - [`flow.monitorEmitter`](#flowmonitoremitter-property)
-  - [`flow.stepExecutionHook`](#flowstepexecutionhook)
+    - [`flow.steps`](#flowsteps)
+    - [`flow.timeoutMs`](#flowtimeoutms-property)
+    - [`flow.workflowVersion`](#flowworkflowversion)
+    - [`flow.networkPolicyConfig`](#flownetworkpolicyconfig)
+    - [`flow.monitorEmitter`](#flowmonitoremitter-property)
+    - [`flow.stepExecutionHook`](#flowstepexecutionhook)
 - [Composing Flows Within Flows](#composing-flows-within-flows)
 
 ---
@@ -46,8 +44,6 @@ The `Flow` interface represents an executable, composable workflow pipeline in *
 
 ```typescript
 export interface Flow<TInput = any, TOutput = any> {
-    execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
-    start: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     steps: Step<any, any, any>[];
     readonly isFlow?: boolean;
@@ -87,12 +83,13 @@ flow.run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
 
 #### Parameters
 
-- `param`: `TInput` *(optional)* &mdash; Initial POJO input parameters passed to the first step.
-- `options`: [`ExecutionOptions`](execution-options.md) *(optional)* &mdash; Runtime options such as `signal`, `timeout`, `services`, `pojo`, `durable`, `namespace`, `stepExecutionHook`, and `idempotencyKey`.
+- `param`: `TInput` _(optional)_ &mdash; Initial POJO input parameters passed to the first step.
+- `options`: [`ExecutionOptions`](/api/execution-options) _(optional)_ &mdash; Runtime options such as `signal`, `timeout`, `services`, `pojo`, `durable`, `namespace`, `stepExecutionHook`, and `idempotencyKey`.
 
 #### Returns
 
 A Promise resolving to `TOutput`, which contains:
+
 - All fields accumulated across step outputs.
 - `$steps`: Typed record containing outputs of every named step (e.g. `result.$steps.fetchUser`).
 
@@ -107,23 +104,11 @@ const step2 = Step.create('calculate', async (ctx: { status: string }) => ({ tot
 const orderFlow = flow(step1, step2);
 
 const output = await orderFlow.run({ orderId: 'ord_123' }, { pojo: true });
-console.log(output.status);            // 'pending'
-console.log(output.total);             // 99.95
-console.log(output.$steps.init);       // { status: 'pending' }
-console.log(output.$steps.calculate);  // { total: 99.95 }
+console.log(output.status); // 'pending'
+console.log(output.total); // 99.95
+console.log(output.$steps.init); // { status: 'pending' }
+console.log(output.$steps.calculate); // { total: 99.95 }
 ```
-
----
-
-### `flow.execute(param?, options?)`
-
-Direct alias for `flow.run()`. Provided for functional style preferences or backwards compatibility.
-
----
-
-### `flow.start(param?, options?)`
-
-Direct alias for `flow.run()`. Starts asynchronous execution of the workflow.
 
 ---
 
@@ -188,6 +173,7 @@ Returns the `flow` instance for fluent chaining.
 #### Behavior
 
 When a durable workflow resumes:
+
 - The declared `flow.workflowVersion` is compared against the version stored in the checkpoint.
 - If they differ and no migration function was supplied in `options.migrations`, a `WorkflowVersionMismatchException` is thrown.
 
@@ -196,9 +182,7 @@ When a durable workflow resumes:
 ```typescript
 import { Step, flow } from '@siglo/core';
 
-export const userOnboarding = flow(
-    Step.create('step1', async () => ({ v: 2 }))
-).version('v2.1');
+export const userOnboarding = flow(Step.create('step1', async () => ({ v: 2 }))).version('v2.1');
 ```
 
 ---
@@ -219,11 +203,11 @@ Returns the `flow` instance for fluent chaining.
 
 #### Parameters
 
-- `policy`: `NetworkPolicyConfig` *(optional)*
-  - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Outer permissible hosts or wildcard patterns.
-  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Outer perimeter default policy when policy is active. (When no policy is declared on flow or step, network enforcement is inactive).
-  - `allowLocalhost`: `boolean` *(optional, default: `false`)* &mdash; Loopback exemption (`localhost`, `127.0.0.1`, `::1`).
-  - `allowUnixSockets`: `string[]` *(optional)* &mdash; Explicit permitted Unix domain socket filesystem paths.
+- `policy`: `NetworkPolicyConfig` _(optional)_
+    - `allowedHosts`: `(string | RegExp)[]` _(optional)_ &mdash; Outer permissible hosts or wildcard patterns.
+    - `defaultPolicy`: `'allow' | 'deny'` _(optional, default: `'deny'`)_ &mdash; Outer perimeter default policy when policy is active. (When no policy is declared on flow or step, network enforcement is inactive).
+    - `allowLocalhost`: `boolean` _(optional, default: `false`)_ &mdash; Loopback exemption (`localhost`, `127.0.0.1`, `::1`).
+    - `allowUnixSockets`: `string[]` _(optional)_ &mdash; Explicit permitted Unix domain socket filesystem paths.
 
 #### Precedence and Narrowing Rules
 
@@ -245,11 +229,10 @@ const sendEmail = Step.create('email', async () => {
 }).allowNetwork(['api.sendgrid.com']);
 
 // Flow allows both, but individual steps only have access to their designated service
-export const paymentFlow = flow(chargeCustomer, sendEmail)
-    .networkPolicy({
-        defaultPolicy: 'deny',
-        allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
-    });
+export const paymentFlow = flow(chargeCustomer, sendEmail).networkPolicy({
+    defaultPolicy: 'deny',
+    allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
+});
 ```
 
 ---
@@ -271,9 +254,7 @@ flow.monitor(
 ```typescript
 import { flow, Step, defaultWorkflowEventEmitter } from '@siglo/core';
 
-const orderFlow = flow(
-    Step.create('processOrder', async (ctx) => ({ processed: true }))
-).monitor((event) => {
+const orderFlow = flow(Step.create('processOrder', async ctx => ({ processed: true }))).monitor(event => {
     console.log(`[Event] ${event.type} for step ${event.stepName} on stack ${event.stackId}`);
 });
 ```
@@ -297,10 +278,10 @@ import { flow, Step } from '@siglo/core';
 
 const auditFlow = flow(
     Step.create('step1', async () => ({ value: 1 })),
-    Step.create('step2', async () => ({ value: 2 }))
+    Step.create('step2', async () => ({ value: 2 })),
 ).hook({
-    onStepStart: (context) => console.log(`Starting step ${context.stepName}`),
-    onStepEnd: (context, result) => console.log(`Finished step ${context.stepName}`)
+    onStepStart: context => console.log(`Starting step ${context.stepName}`),
+    onStepEnd: (context, result) => console.log(`Finished step ${context.stepName}`),
 });
 ```
 
@@ -325,8 +306,8 @@ flow.resume(
 #### Parameters
 
 - `correlationKeyOrStackId`: `string` &mdash; Either the correlation key specified during `waitForEvent` or the execution `stackId`.
-- `eventPayload`: `any` *(optional)* &mdash; Data injected from the external event (e.g. webhook body). Merged into context before resumed steps execute.
-- `options`: `ExecutionOptions` *(optional)* &mdash; Runtime options including schema migrations.
+- `eventPayload`: `any` _(optional)_ &mdash; Data injected from the external event (e.g. webhook body). Merged into context before resumed steps execute.
+- `options`: `ExecutionOptions` _(optional)_ &mdash; Runtime options including schema migrations.
 
 #### Example
 
@@ -336,9 +317,9 @@ import { Step, flow, waitForEvent } from '@siglo/core';
 const orderFlow = flow(
     Step.create('create', async () => ({ orderId: 'ord_123' })),
     waitForEvent('paymentReceived', {
-        correlationKey: (ctx) => ctx.orderId
+        correlationKey: ctx => ctx.orderId,
     }),
-    Step.create('fulfill', async (ctx: { paymentId: string }) => ({ fulfilled: true }))
+    Step.create('fulfill', async (ctx: { paymentId: string }) => ({ fulfilled: true })),
 );
 
 // Resumed upon receiving webhook:
@@ -361,7 +342,7 @@ flow.compensate(stackId: string, options?: CompensationRunOptions): Promise<any>
 #### Parameters
 
 - `stackId`: `string` &mdash; The execution stack ID whose registered compensations should run.
-- `options`: `CompensationRunOptions` *(optional)* &mdash; Optional compensation execution options (e.g. `timeoutMs`, `stopOnError`).
+- `options`: `CompensationRunOptions` _(optional)_ &mdash; Optional compensation execution options (e.g. `timeoutMs`, `stopOnError`).
 
 #### Example
 
@@ -396,9 +377,9 @@ Analyzes the workflow graph and returns structural metrics including `totalNodes
 
 ```typescript
 const metrics = flow.inspect();
-console.log(metrics.totalNodes);   // 5
-console.log(metrics.entryNodeId);  // 'node_0'
-console.log(metrics.exitNodeIds);  // ['node_4']
+console.log(metrics.totalNodes); // 5
+console.log(metrics.entryNodeId); // 'node_0'
+console.log(metrics.exitNodeIds); // ['node_4']
 ```
 
 ---
@@ -483,19 +464,17 @@ import { Step, flow } from '@siglo/core';
 
 const subFlowA = flow(
     Step.create('stepA1', async () => ({ a1: true })),
-    Step.create('stepA2', async () => ({ a2: true }))
+    Step.create('stepA2', async () => ({ a2: true })),
 );
 
-const subFlowB = flow(
-    Step.create('stepB1', async () => ({ b1: true }))
-);
+const subFlowB = flow(Step.create('stepB1', async () => ({ b1: true })));
 
 export const masterWorkflow = flow(
     subFlowA,
     subFlowB,
     Step.create('finalize', async (ctx: { a1: boolean; b1: boolean }) => ({
-        complete: ctx.a1 && ctx.b1
-    }))
+        complete: ctx.a1 && ctx.b1,
+    })),
 );
 
 const result = await masterWorkflow.run();
@@ -506,12 +485,12 @@ console.log(result.complete); // true
 
 ## Related Topic Guides
 
-- [02. Core Concepts](../02-core-concepts.md)
-- [03. Sequential Workflows](../03-sequential-workflows.md)
-- [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [08. Observability](../08-observability.md)
-- [Network Egress Policy](../network-egress-policy.md)
-- [Compensation and Sagas Contract](../compensation-and-sagas.md)
-- [Live Monitoring and DevTools](../live-monitoring.md)
-- [Workflow Versioning and Migrations](../workflow-versioning.md)
+- [02. Core Concepts](/02-core-concepts)
+- [03. Sequential Workflows](/03-sequential-workflows)
+- [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [06. Durable Workflows](/06-durable-workflows)
+- [08. Observability](/08-observability)
+- [Network Egress Policy](/network-egress-policy)
+- [Compensation and Sagas Contract](/compensation-and-sagas)
+- [Live Monitoring and DevTools](/live-monitoring)
+- [Workflow Versioning and Migrations](/workflow-versioning)

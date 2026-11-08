@@ -1,6 +1,6 @@
 ---
-title: "Durable Waits and External Events"
-description: "Formal specification and operational contracts for durable suspension, correlation keys, event resumption, and checkpoint state restoration in Siglo."
+title: 'Durable Waits and External Events'
+description: 'Formal specification and operational contracts for durable suspension, correlation keys, event resumption, and checkpoint state restoration in Siglo.'
 ---
 
 # Durable Waits and External Events
@@ -19,31 +19,31 @@ When a workflow runs with `{ durable: true }`, encounter of a wait node halts ex
 import { Step, flow, waitForEvent, wait } from '@siglo/core';
 
 const registerAccount = Step.create('registerAccount', async (ctx: { userId: string; email: string }) => {
-  return { registeredAt: Date.now(), status: 'PENDING_VERIFICATION' };
+    return { registeredAt: Date.now(), status: 'PENDING_VERIFICATION' };
 });
 
 const activateAccount = Step.create('activateAccount', async (ctx: { userId: string; verificationToken: string }) => {
-  return { status: 'ACTIVE', activatedAt: Date.now() };
+    return { status: 'ACTIVE', activatedAt: Date.now() };
 });
 
 export const userRegistrationFlow = flow(
-  registerAccount,
-  waitForEvent('email.verified', {
-    correlationKey: (ctx) => `user:${ctx.userId}`,
-    timeout: '48h'
-  }),
-  activateAccount
+    registerAccount,
+    waitForEvent('email.verified', {
+        correlationKey: ctx => `user:${ctx.userId}`,
+        timeout: '48h',
+    }),
+    activateAccount,
 ).version('1.0.0');
 
 // Starts and runs until email.verified wait node
 const suspension = await userRegistrationFlow.run(
-  { userId: 'u_101', email: 'user@example.com' },
-  { durable: true, pojo: true }
+    { userId: 'u_101', email: 'user@example.com' },
+    { durable: true, pojo: true },
 );
 
-console.log(suspension.status);         // 'waiting'
+console.log(suspension.status); // 'waiting'
 console.log(suspension.correlationKey); // 'user:u_101'
-console.log(suspension.stackId);        // Execution stack UUID
+console.log(suspension.stackId); // Execution stack UUID
 ```
 
 If a workflow executes without `{ durable: true }` and hits a wait node, Siglo throws a `WorkflowSuspendedException` containing the waiting descriptor.
@@ -53,19 +53,23 @@ If a workflow executes without `{ durable: true }` and hits a wait node, Siglo t
 ## 2. Wait Combinators
 
 ### `waitForEvent(eventName, options)`
+
 Waits for an incoming event correlated by key:
+
 - `correlationKey`: String or dynamic context selector `(ctx) => string`.
 - `timeout` / `timeoutMs`: Duration string (e.g. `'2h'`, `'30m'`, `'7d'`) or milliseconds.
 
 ```typescript
 waitForEvent('managerApproval', {
-  correlationKey: (ctx) => `expense:${ctx.expenseId}`,
-  timeout: '7d'
+    correlationKey: ctx => `expense:${ctx.expenseId}`,
+    timeout: '7d',
 });
 ```
 
 ### `wait(duration, options?)`
+
 Durable sleep/timer that suspends workflow execution:
+
 - `duration`: Duration string (e.g. `'24h'`, `'15m'`, `'60s'`) or numeric milliseconds.
 
 ```typescript
@@ -84,15 +88,11 @@ import { userRegistrationFlow } from './workflows';
 
 // Incoming webhook handler
 app.post('/webhooks/email-verified', async (req, res) => {
-  const { userId, verificationToken } = req.body;
+    const { userId, verificationToken } = req.body;
 
-  const result = await userRegistrationFlow.resume(
-    `user:${userId}`,
-    { verificationToken },
-    { pojo: true }
-  );
+    const result = await userRegistrationFlow.resume(`user:${userId}`, { verificationToken }, { pojo: true });
 
-  res.json({ success: true, result });
+    res.json({ success: true, result });
 });
 ```
 
@@ -100,17 +100,18 @@ Alternatively, use the standalone `resumeWorkflow` utility:
 
 ```typescript
 const result = await resumeWorkflow(
-  userRegistrationFlow,
-  `user:${userId}`,
-  { verificationToken },
-  {
-    pojo: true,
-    targetVersion: '1.0.0'
-  }
+    userRegistrationFlow,
+    `user:${userId}`,
+    { verificationToken },
+    {
+        pojo: true,
+        targetVersion: '1.0.0',
+    },
 );
 ```
 
 ### Resumption Lifecycle
+
 1. **Wait Record Validation**: Resolves the wait record from `DurableManager` or storage adapter (`claimWaitRecord`).
 2. **State Restoration**: Restores context and `$steps` history snapshots from the checkpoint.
 3. **Event Payload Merge**: Merges incoming event payload into the execution context.
@@ -121,8 +122,8 @@ const result = await resumeWorkflow(
 ## 4. Event Safety & Concurrency Guarantees
 
 - **Duplicate Resumption Defense**:
-  - In-memory runs: Resuming an already-resumed or non-waiting workflow throws `DuplicateEventException`.
-  - Storage-backed runs: Concurrent claims on the same wait record throw `WorkflowAlreadyResumedException`.
+    - In-memory runs: Resuming an already-resumed or non-waiting workflow throws `DuplicateEventException`.
+    - Storage-backed runs: Concurrent claims on the same wait record throw `WorkflowAlreadyResumedException`.
 - **Expired Wait Enforcement**: If an event arrives after the declared `timeout` has elapsed, `ExpiredWaitException` is thrown (unless explicitly overridden with `allowExpired: true`).
 - **Resource Efficiency**: In-memory timers and context closures are freed while suspended, allowing thousands of workflows to pause concurrently in production without resource leaks.
 
@@ -130,4 +131,4 @@ const result = await resumeWorkflow(
 
 ## 5. Human-in-the-Loop Approvals
 
-For production human intervention flows (interactive Slack Block Kit cards, responsive HTML emails, signed HMAC action URLs, two-way Twilio SMS, and web framework callback routers), use [`@siglo/notifications`](./adapters/notifications.md). It pairs `sendInteractiveApprovalStep` with `waitForEvent` and provides signed bearer tokens with application-provided authorization, distributed concurrency claims, and automated saga rollback.
+For production human intervention flows (interactive Slack Block Kit cards, responsive HTML emails, signed HMAC action URLs, two-way Twilio SMS, and web framework callback routers), use [`@siglo/notifications`](/adapters/notifications). It pairs `sendInteractiveApprovalStep` with `waitForEvent` and provides signed bearer tokens with application-provided authorization, distributed concurrency claims, and automated saga rollback.

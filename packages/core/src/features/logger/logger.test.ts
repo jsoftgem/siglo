@@ -13,7 +13,7 @@ describe('logger.unit.test', () => {
                 expect(monitor.source).to.be.equal('sampleChain');
                 expect(monitor.message).to.be.equal('first log');
                 called = true;
-            }
+            },
         });
         logInfo('sampleChain', 'first log');
         expect(called).to.be.true;
@@ -26,7 +26,7 @@ describe('logger.unit.test', () => {
                 expect(monitor.source).to.be.equal('sampleChain');
                 expect(monitor.message).to.be.equal('first error');
                 called = true;
-            }
+            },
         });
         try {
             throw new Error('first error');

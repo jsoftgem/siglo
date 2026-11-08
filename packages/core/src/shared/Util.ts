@@ -7,7 +7,7 @@ export const generateUUID = (): string => {
 export const batchIn = (
     object: Record<string, any>,
     next: (value: any, nextCb: () => void) => void,
-    done: () => void
+    done: () => void,
 ): void => {
     const keys = Object.keys(object);
     batchForObject(keys, object, next, done);
@@ -18,7 +18,7 @@ function batchForObject(
     object: Record<string, any>,
     next: (value: any, nextCb: () => void) => void,
     done: () => void,
-    index = 0
+    index = 0,
 ): void {
     if (index < keys.length) {
         const value = object[keys[index]];
@@ -34,7 +34,7 @@ export const batch = (
     array: any[],
     next: (value: any, nextCb: () => void) => void,
     done: () => void,
-    index = 0
+    index = 0,
 ): void => {
     if (index < array.length) {
         const value = array[index];
@@ -132,20 +132,17 @@ export class CollectPromiseResult<T = any> {
         this.promises = [...promises];
     }
 
-    collect(
-        callback: (result: PromiseCollectResult<T>) => void,
-        results: PromiseStepResult<T>[] = []
-    ): void {
+    collect(callback: (result: PromiseCollectResult<T>) => void, results: PromiseStepResult<T>[] = []): void {
         if (this.promises.length > 0) {
             const promise = this.promises.shift();
             if (promise) {
                 promise
                     .then(data => {
-                        results.push({success: true, data});
+                        results.push({ success: true, data });
                         new CollectPromiseResult(this.promises).collect(callback, results);
                     })
                     .catch(error => {
-                        results.push({failed: true, error});
+                        results.push({ failed: true, error });
                         new CollectPromiseResult(this.promises).collect(callback, results);
                     });
             }
@@ -154,7 +151,7 @@ export class CollectPromiseResult<T = any> {
             const success = results.filter(result => result.success).map(result => result.data as T);
             callback({
                 error,
-                success
+                success,
             });
         }
     }

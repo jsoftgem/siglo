@@ -54,6 +54,7 @@ Siglo <command> [arguments] [options]
 ```
 
 ### Global Options:
+
 - `--format=mermaid|text|dot|json`: Diagram representation or export format (default: `mermaid`).
 - `--direction=TD|LR|TB`: Graph layout direction for Mermaid or DOT diagrams (default: `TD`).
 - `--out=<file>`: Write output directly to a file instead of `stdout`.
@@ -72,6 +73,7 @@ siglo init ./services/order-orchestrator
 ```
 
 #### Generated Files:
+
 1. `package.json`: Contains scripts (`npm test`, `npm start`) and required dependencies.
 2. `src/workflow.ts`: Example order processing pipeline with validation and payment steps.
 3. `src/workflow.test.ts`: Automated test executing the workflow with assertions.
@@ -87,6 +89,7 @@ siglo generate workflow order-processing
 ```
 
 #### Generated Files:
+
 1. `src/workflows/order-processing.workflow.ts`: Strongly-typed input/output interfaces, steps, and default workflow export.
 2. `src/workflows/order-processing.workflow.test.ts`: Test harness setup verifying end-to-end execution and step invocations.
 
@@ -101,6 +104,7 @@ siglo generate step send-notification
 ```
 
 #### Generated Files:
+
 1. `src/steps/send-notification.step.ts`: Typed step module with input/output interfaces.
 2. `src/steps/send-notification.step.test.ts`: Direct step execution test.
 
@@ -111,10 +115,13 @@ siglo generate step send-notification
 Renders the workflow graph AST as either a Mermaid flowchart or an indented ASCII text hierarchy.
 
 #### Mermaid Diagram (Default):
+
 ```bash
 siglo visualize src/workflows/checkout.ts
 ```
-*Output:*
+
+_Output:_
+
 ```mermaid
 flowchart TD
     validateOrder["validateOrder (step)"]
@@ -125,10 +132,13 @@ flowchart TD
 ```
 
 #### Text Diagram (`--format=text`):
+
 ```bash
 siglo visualize src/workflows/checkout.ts --format=text
 ```
-*Output:*
+
+_Output:_
+
 ```text
 Workflow Graph (total nodes: 3, edges: 2):
 ├── [step] validateOrder (validateOrder)
@@ -141,6 +151,7 @@ Workflow Graph (total nodes: 3, edges: 2):
 ### Command 5: `siglo export <workflow-file> [options]`
 
 Exports the workflow topology graph directly to standard formats for architectural documentation, diagrams, or web visualization:
+
 - `--format=mermaid`: Mermaid flowchart with policy badges (retries, timeouts, fallback).
 - `--format=dot`: Graphviz DOT format compatible with Graphviz tools and PlantUML.
 - `--format=json`: Comprehensive AST node/edge graph JSON.
@@ -163,6 +174,7 @@ siglo export src/workflows/order.workflow.ts --format=json --out=dist/order-ast.
 ### Command 6: `siglo validate <workflow-file>`
 
 Performs static analysis on the workflow graph AST without executing any step business logic:
+
 - Detects cyclic dependencies.
 - Identifies unreachable nodes or disconnected subgraphs.
 - Verifies combinator structures (`parallel`, `branch`, `map`).
@@ -171,12 +183,14 @@ Performs static analysis on the workflow graph AST without executing any step bu
 siglo validate src/workflows/loan-pipeline.ts
 ```
 
-*Success Output:*
+_Success Output:_
+
 ```text
 ✔ Workflow graph is valid (acyclic, reachable)
 ```
 
-*Failure Output (Exit Code 1):*
+_Failure Output (Exit Code 1):_
+
 ```text
 ✖ Workflow validation failed:
   - Cycle detected between nodes 'processPayment' and 'retryPayment'
@@ -192,20 +206,21 @@ Returns a detailed JSON telemetry summary of the workflow topology, node classif
 siglo inspect src/workflows/settlement.ts --redact=taxId,secretKey
 ```
 
-*Output:*
+_Output:_
+
 ```json
 {
-  "totalNodes": 4,
-  "edges": [
-    { "from": "step1", "to": "step2" },
-    { "from": "step2", "to": "step3" }
-  ],
-  "nodes": [
-    { "id": "step1", "name": "validateInput", "type": "step" },
-    { "id": "step2", "name": "[REDACTED]", "type": "step" },
-    { "id": "step3", "name": "persistAudit", "type": "step" }
-  ],
-  "redactedFields": ["taxId", "secretKey"]
+    "totalNodes": 4,
+    "edges": [
+        { "from": "step1", "to": "step2" },
+        { "from": "step2", "to": "step3" }
+    ],
+    "nodes": [
+        { "id": "step1", "name": "validateInput", "type": "step" },
+        { "id": "step2", "name": "[REDACTED]", "type": "step" },
+        { "id": "step3", "name": "persistAudit", "type": "step" }
+    ],
+    "redactedFields": ["taxId", "secretKey"]
 }
 ```
 
@@ -219,21 +234,22 @@ Parses and validates a serialized checkpoint state JSON file (e.g., dumped from 
 siglo checkpoint ./logs/crash-checkpoint.json --redact=apiKey,password
 ```
 
-*Output:*
+_Output:_
+
 ```json
 {
-  "stackId": "stack-8123-bba8",
-  "namespace": "tenant-enterprise",
-  "type": "flow",
-  "stepCount": 3,
-  "chains": ["validate", "charge", "notify"],
-  "contexts": {
-    "charge": {
-      "apiKey": "[REDACTED]",
-      "status": "APPROVED",
-      "amount": 250
+    "stackId": "stack-8123-bba8",
+    "namespace": "tenant-enterprise",
+    "type": "flow",
+    "stepCount": 3,
+    "chains": ["validate", "charge", "notify"],
+    "contexts": {
+        "charge": {
+            "apiKey": "[REDACTED]",
+            "status": "APPROVED",
+            "amount": 250
+        }
     }
-  }
 }
 ```
 
@@ -251,12 +267,14 @@ siglo replay fixtures/order-regression.json
 siglo replay fixtures/order-regression.json src/workflows/order.workflow.ts
 ```
 
-*Success Output:*
+_Success Output:_
+
 ```text
 ✔ Replay passed in 14ms
 ```
 
-*Regression Output (Exit Code 1):*
+_Regression Output (Exit Code 1):_
+
 ```text
 ✖ Replay failed with discrepancies: {
   "total": {
@@ -288,7 +306,7 @@ import {
     ReplayFixture,
     ReplayResult,
     WorkflowVisualizationResult,
-    ExportWorkflowOptions
+    ExportWorkflowOptions,
 } from '@siglo/cli';
 ```
 
@@ -325,18 +343,18 @@ Exports a workflow to Mermaid, Graphviz DOT, or JSON format:
 const mermaidDiagram = exportWorkflow(myWorkflow, {
     format: 'mermaid',
     direction: 'TD',
-    includeBadges: true
+    includeBadges: true,
 });
 
 // Graphviz DOT format with left-to-right layout
 const dotGraph = exportWorkflow(myWorkflow, {
     format: 'dot',
-    direction: 'LR'
+    direction: 'LR',
 });
 
 // JSON AST format
 const jsonAST = exportWorkflow(myWorkflow, {
-    format: 'json'
+    format: 'json',
 });
 ```
 
@@ -349,8 +367,8 @@ Generates both Mermaid and ASCII text representations of a workflow:
 ```typescript
 const result: WorkflowVisualizationResult = visualizeWorkflow(orderWorkflow);
 
-console.log(result.mermaid);   // Mermaid flowchart TD string
-console.log(result.text);      // ASCII text tree
+console.log(result.mermaid); // Mermaid flowchart TD string
+console.log(result.text); // ASCII text tree
 console.log(result.nodeCount); // Total nodes in AST
 console.log(result.hasCycles); // Boolean cycle indicator
 ```
@@ -377,7 +395,7 @@ Analyzes graph structure and optionally redacts sensitive node names:
 
 ```typescript
 const inspection = inspectWorkflow(myWorkflow, {
-    redact: ['confidentialStep', 'authStep']
+    redact: ['confidentialStep', 'authStep'],
 });
 ```
 
@@ -389,7 +407,7 @@ Inspects a checkpoint object or JSON string, redacting specified context fields 
 
 ```typescript
 const summary = inspectCheckpoint(checkpointJsonString, {
-    redact: ['accessToken', 'cardToken']
+    redact: ['accessToken', 'cardToken'],
 });
 ```
 
@@ -428,19 +446,19 @@ Use `replayFixture` in your test suite to ensure that workflow refactoring prese
 
 ```json
 {
-  "name": "StandardTierPricing",
-  "version": "2.0.0",
-  "initialParam": {
-    "seats": 10,
-    "tier": "pro",
-    "annualDiscount": true
-  },
-  "expectedOutputs": {
-    "subtotal": 1200,
-    "discount": 240,
-    "total": 960,
-    "approved": true
-  }
+    "name": "StandardTierPricing",
+    "version": "2.0.0",
+    "initialParam": {
+        "seats": 10,
+        "tier": "pro",
+        "annualDiscount": true
+    },
+    "expectedOutputs": {
+        "subtotal": 1200,
+        "discount": 240,
+        "total": 960,
+        "approved": true
+    }
 }
 ```
 
@@ -457,11 +475,7 @@ test('Pricing Flow matches golden fixture expectations', async () => {
     const fixturePath = path.resolve(__dirname, 'fixtures/pricing-fixture.json');
     const result = await replayFixture(pricingFlow, fixturePath);
 
-    assert.equal(
-        result.success,
-        true,
-        `Workflow regression detected: ${JSON.stringify(result.diff, null, 2)}`
-    );
+    assert.equal(result.success, true, `Workflow regression detected: ${JSON.stringify(result.diff, null, 2)}`);
 
     assert.ok(result.durationMs < 500, `Execution took ${result.durationMs}ms, exceeded 500ms budget`);
 });
@@ -472,10 +486,11 @@ test('Pricing Flow matches golden fixture expectations', async () => {
 ## 6. Workflow File Loading Mechanics
 
 When `Siglo` loads a workflow file specified on the command line (e.g. `siglo visualize src/workflow.ts` or `siglo export src/workflow.ts`):
+
 1. The file is dynamically imported using Node.js ES modules.
 2. The loader checks exports in the following order:
-   - `export default flowInstance`
-   - `export const workflow = flowInstance`
-   - `export const pipeline = flowInstance`
-   - Any named export satisfying `isFlow` or containing a `run()` function.
-   - If the candidate is a zero-argument factory function (e.g., `export default () => flow(...)`), it is invoked automatically to construct the graph.
+    - `export default flowInstance`
+    - `export const workflow = flowInstance`
+    - `export const pipeline = flowInstance`
+    - Any named export satisfying `isFlow` or containing a `run()` function.
+    - If the candidate is a zero-argument factory function (e.g., `export default () => flow(...)`), it is invoked automatically to construct the graph.

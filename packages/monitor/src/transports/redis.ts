@@ -74,7 +74,7 @@ export class RedisMonitoringAdapter {
 
     attachToEmitter(emitter: WorkflowEventEmitter): this {
         this.emitter = emitter;
-        emitter.on('*', (event) => {
+        emitter.on('*', event => {
             this.publish(event).catch(() => {});
         });
         return this;

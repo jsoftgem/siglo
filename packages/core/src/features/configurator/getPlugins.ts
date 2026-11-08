@@ -10,7 +10,7 @@ export interface PluginItem {
 export const getPlugins = (
     config: Record<string, any>,
     props: Record<string, any>,
-    plugins: PluginStore = {}
+    plugins: PluginStore = {},
 ): void => {
     if (props.plugins) {
         if (props.plugins instanceof Array) {

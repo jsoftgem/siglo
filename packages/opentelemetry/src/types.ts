@@ -20,5 +20,4 @@ export interface ActiveExecutionSpan {
     stepSpans: Map<string, Span>;
 }
 
-
 export type RivuletTelemetryOptions = SigloTelemetryOptions;

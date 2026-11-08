@@ -1,11 +1,11 @@
 ---
-title: "Execution Options"
-description: "API reference for ExecutionOptions in Siglo: pojo, mode, signal, timeout, services, durable checkpoints, migrations, namespaces, idempotency, stepExecutionHook, and network policy."
+title: 'Execution Options'
+description: 'API reference for ExecutionOptions in Siglo: pojo, mode, signal, timeout, services, durable checkpoints, migrations, namespaces, idempotency, stepExecutionHook, and network policy.'
 ---
 
 # API Reference: Execution Options (`ExecutionOptions`)
 
-The `ExecutionOptions` object configures runtime execution behavior across `flow.run()`, `flow.execute()`, `step.run()`, and `resumeWorkflow()`. It governs cancellation signals, deadlines, dependency injection, durable persistence, multi-tenant namespaces, schema migrations, execution hooks, and idempotency deduplication.
+The `ExecutionOptions` object configures runtime execution behavior across `flow.run()`, `step.run()`, and `resumeWorkflow()`. It governs cancellation signals, deadlines, dependency injection, durable persistence, multi-tenant namespaces, schema migrations, execution hooks, and idempotency deduplication.
 
 ---
 
@@ -13,21 +13,21 @@ The `ExecutionOptions` object configures runtime execution behavior across `flow
 
 - [The `ExecutionOptions` Interface](#the-executionoptions-interface)
 - [Option Details](#option-details)
-  - [`pojo` and `mode`](#pojo-and-mode)
-  - [`signal`](#signal)
-  - [`timeout` and `timeoutMs`](#timeout-and-timeoutms)
-  - [`services` and `dependencies`](#services-and-dependencies)
-  - [`durable`](#durable)
-  - [`workflowVersion`](#workflowversion)
-  - [`migrations`](#migrations)
-  - [`namespace`](#namespace)
-  - [`idempotencyKey`](#idempotencykey)
-  - [`idempotencyStore`](#idempotencystore)
-  - [`idempotencyTtlMs`](#idempotencyttlms)
-  - [`stepExecutionHook`](#stepexecutionhook)
-  - [`networkPolicy`](#networkpolicy)
-  - [`workflowId`](#workflowid)
-  - [`stackId`](#stackid)
+    - [`pojo` and `mode`](#pojo-and-mode)
+    - [`signal`](#signal)
+    - [`timeout` and `timeoutMs`](#timeout-and-timeoutms)
+    - [`services` and `dependencies`](#services-and-dependencies)
+    - [`durable`](#durable)
+    - [`workflowVersion`](#workflowversion)
+    - [`migrations`](#migrations)
+    - [`namespace`](#namespace)
+    - [`idempotencyKey`](#idempotencykey)
+    - [`idempotencyStore`](#idempotencystore)
+    - [`idempotencyTtlMs`](#idempotencyttlms)
+    - [`stepExecutionHook`](#stepexecutionhook)
+    - [`networkPolicy`](#networkpolicy)
+    - [`workflowId`](#workflowid)
+    - [`stackId`](#stackid)
 - [Comprehensive Production Example](#comprehensive-production-example)
 
 ---
@@ -63,7 +63,9 @@ export interface ExecutionOptions {
     workflowVersion?: string | number;
 
     /** State migration map (e.g. { 'v1->v2': (from, to, state) => newState }) or single migration function. */
-    migrations?: Record<string, (fromVersion: any, toVersion: any, state: any) => any> | ((fromVersion: any, toVersion: any, state: any) => any);
+    migrations?:
+        | Record<string, (fromVersion: any, toVersion: any, state: any) => any>
+        | ((fromVersion: any, toVersion: any, state: any) => any);
 
     /** Multi-tenant partition namespace scoping checkpoints, caches, and idempotency keys. */
     namespace?: string;
@@ -115,7 +117,7 @@ export interface ExecutionOptions {
 
 Controls output normalization for the workflow result:
 
-- `pojo: true` *(default in v1.0)*: Automatically strips internal proxy wrappers and execution internals, returning clean plain objects. The runtime output path always applies `toPOJO` normalization.
+- `pojo: true` _(default in v1.0)_: Automatically strips internal proxy wrappers and execution internals, returning clean plain objects. The runtime output path always applies `toPOJO` normalization.
 - `mode: 'pojo' | 'wrapped'`: Compatibility configuration. Note that reserved context history accessors remain getter functions, and native types like `BigInt` are not automatically JSON-serializable.
 
 ```typescript
@@ -176,14 +178,17 @@ const myFlow = flow(
     Step.create('charge', async (param: any) => {
         const paymentGateway = param.$services.paymentGateway;
         return await paymentGateway.charge(param.amount);
-    })
+    }),
 );
 
-await myFlow.run({ amount: 50 }, {
-    services: {
-        paymentGateway: new StripePaymentGateway(apiKey)
-    }
-});
+await myFlow.run(
+    { amount: 50 },
+    {
+        services: {
+            paymentGateway: new StripePaymentGateway(apiKey),
+        },
+    },
+);
 ```
 
 ---
@@ -191,6 +196,7 @@ await myFlow.run({ amount: 50 }, {
 ### `durable`
 
 When set to `true`, enables durable workflow state management:
+
 - When a workflow encounters `waitForEvent()` or `wait()`, Siglo suspends the workflow, serializes the current execution context into a checkpoint, persists it to the configured `StorageAdapter`, and resolves with an execution descriptor containing `{ status: 'waiting', stackId, waitKey }`.
 - Allows workflows to pause for hours, days, or months and resume safely upon external event delivery via `resumeWorkflow()`.
 
@@ -222,13 +228,13 @@ const migrations = {
     // Migrates checkpoint created under v1 to v2 schema
     'v1->v2': (fromVersion: string, toVersion: string, oldState: any) => ({
         ...oldState,
-        customerFullName: `${oldState.firstName} ${oldState.lastName}`
-    })
+        customerFullName: `${oldState.firstName} ${oldState.lastName}`,
+    }),
 };
 
 await resumeWorkflow(orderWorkflowV2, correlationKey, eventPayload, {
     targetVersion: 'v2',
-    migrations
+    migrations,
 });
 ```
 
@@ -244,7 +250,7 @@ A string partition key used for multi-tenant metadata scoping and storage key pa
 
 ```typescript
 await tenantFlow.run(tenantPayload, {
-    namespace: 'org_enterprise_tenant_99'
+    namespace: 'org_enterprise_tenant_99',
 });
 ```
 
@@ -260,7 +266,7 @@ A string or generator function providing workflow-level deduplication.
 
 ```typescript
 await orderFlow.run(payload, {
-    idempotencyKey: (ctx) => `checkout:${ctx.orderId}`
+    idempotencyKey: ctx => `checkout:${ctx.orderId}`,
 });
 ```
 
@@ -275,6 +281,7 @@ Custom adapter implementing the `IdempotencyStore` interface (e.g. `PostgresIdem
 ### `idempotencyTtlMs`
 
 Retention window for idempotency records in milliseconds:
+
 - **Redis / PostgreSQL stores**: Default to `86400000` (24 hours).
 - **In-Memory store**: No expiration by default (`expiresAt` remains undefined unless `ttlMs` is explicitly supplied; TTL starts at claim time).
 - **Queue adapters** (Kafka, BullMQ, SQS): Pass `undefined` through to the store when `idempotencyTtlMs` is omitted.
@@ -288,9 +295,9 @@ Intercepts step execution boundaries within Node's `AsyncLocalStorage` context. 
 ```typescript
 await myFlow.run(payload, {
     stepExecutionHook: {
-        onStepStart: (context) => console.log(`Starting step ${context.stepName}`),
-        onStepEnd: (context, result) => console.log(`Finished step ${context.stepName}`)
-    }
+        onStepStart: context => console.log(`Starting step ${context.stepName}`),
+        onStepEnd: (context, result) => console.log(`Finished step ${context.stepName}`),
+    },
 });
 ```
 
@@ -305,8 +312,8 @@ await myFlow.run(payload, {
     networkPolicy: {
         allowedHosts: ['api.stripe.com'],
         defaultPolicy: 'deny',
-        allowLocalhost: true
-    }
+        allowLocalhost: true,
+    },
 });
 ```
 
@@ -337,7 +344,7 @@ const checkoutFlow = flow(
     }),
     Step.create('processPayment', async (ctx: { amount: number }) => {
         return { paymentId: 'pay_999' };
-    })
+    }),
 );
 
 async function handleOrderWebhook(request: any) {
@@ -355,8 +362,8 @@ async function handleOrderWebhook(request: any) {
         idempotencyTtlMs: 24 * 60 * 60 * 1000,
         services: {
             db: request.dbClient,
-            metrics: request.metricsReporter
-        }
+            metrics: request.metricsReporter,
+        },
     };
 
     return await checkoutFlow.run(request.body, options);
@@ -367,10 +374,10 @@ async function handleOrderWebhook(request: any) {
 
 ## Related Topic Guides
 
-- [02. Core Concepts](../02-core-concepts.md)
-- [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [07. Storage and Adapters](../07-storage-and-adapters.md)
-- [Idempotency Contract](../idempotency.md)
-- [Network Egress Policy](../network-egress-policy.md)
-- [Storage and Checkpoint Contract](../storage-contract.md)
+- [02. Core Concepts](/02-core-concepts)
+- [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [06. Durable Workflows](/06-durable-workflows)
+- [07. Storage and Adapters](/07-storage-and-adapters)
+- [Idempotency Contract](/idempotency)
+- [Network Egress Policy](/network-egress-policy)
+- [Storage and Checkpoint Contract](/storage-contract)

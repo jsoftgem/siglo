@@ -1,6 +1,6 @@
 ---
-title: "Testing and Replay"
-description: "Zero-flake test harness for Siglo: step mocking, spies, virtual clocks, execution trace snapshots, and production failure replay."
+title: 'Testing and Replay'
+description: 'Zero-flake test harness for Siglo: step mocking, spies, virtual clocks, execution trace snapshots, and production failure replay.'
 ---
 
 # Testing and Replay
@@ -19,8 +19,8 @@ import { orderWorkflow } from './order.workflow';
 
 const harness = createWorkflowHarness(orderWorkflow, {
     services: {
-        paymentGateway: mockPaymentGateway
-    }
+        paymentGateway: mockPaymentGateway,
+    },
 });
 
 const result = await harness.run({ orderId: 'ord-100' });
@@ -37,8 +37,8 @@ const spy = harness.spyStep('validateOrder');
 
 await harness.run({ orderId: 'ord-100' });
 
-console.log(spy.called);     // true
-console.log(spy.callCount);  // 1
+console.log(spy.called); // true
+console.log(spy.callCount); // 1
 console.log(spy.firstCall()?.input); // { orderId: 'ord-100' }
 
 // Built-in assertions
@@ -54,7 +54,7 @@ harness.assertStepFailed('riskyStep', /timeout/);
 Replace third-party dependencies or expensive external APIs without modifying workflow code:
 
 ```typescript
-harness.mockStep('callStripe', async (param) => {
+harness.mockStep('callStripe', async param => {
     return { chargeId: 'ch_mock_123', status: 'SUCCESS' };
 });
 ```
@@ -87,7 +87,7 @@ Export sanitized execution records from real executions or staging runs and repl
 ```typescript
 // 1. Export sanitized record from execution
 const record = harness.exportExecutionRecord({
-    excludeKeys: ['internalSecret']
+    excludeKeys: ['internalSecret'],
 });
 
 // 2. Replay execution against workflow definition
@@ -96,11 +96,11 @@ import { replayExecution } from '@siglo/testing';
 const replayResult = await replayExecution(record, orderWorkflow, {
     substituteFixtures: {
         // Replace flaky third-party API with recorded response
-        chargeCard: { success: true, txnId: 'txn_999' }
-    }
+        chargeCard: { success: true, txnId: 'txn_999' },
+    },
 });
 
-console.log(replayResult.matched);       // true or false
+console.log(replayResult.matched); // true or false
 console.log(replayResult.discrepancies); // List of mismatches if any
 ```
 
@@ -131,15 +131,13 @@ import { replayExecution } from '@siglo/testing';
 import { Step, flow } from '@siglo/core';
 
 // Modified workflow with a bug: calculates 10% tax instead of 5%
-const buggyWf = flow(
-    Step.create('calcTax', (p: { amount: number }) => ({ tax: p.amount * 0.10 }))
-);
+const buggyWf = flow(Step.create('calcTax', (p: { amount: number }) => ({ tax: p.amount * 0.1 })));
 
 const recordedBaseline = {
     input: { amount: 100 },
     output: { tax: 5 }, // Expected 5 from baseline
     trace: [],
-    recordedAt: new Date().toISOString()
+    recordedAt: new Date().toISOString(),
 };
 
 const result = await replayExecution(recordedBaseline, buggyWf);
@@ -192,6 +190,6 @@ describe('Full Harness Suite', () => {
 
 ## API Reference Links
 
-- [TypeScript Reference](./10-typescript-reference.md)
-- [Testing Adapter Reference](./adapters/testing.md)
-- [CLI Reference](./adapters/cli.md)
+- [TypeScript Reference](/10-typescript-reference)
+- [Testing Adapter Reference](/adapters/testing)
+- [CLI Reference](/adapters/cli)

@@ -10,19 +10,23 @@ const executeActions = (
     plugins: PluginActionItem[],
     resolvedContext: Record<string, any> = {},
     index = 0,
-    done: (err?: any, resolvedContext?: Record<string, any>) => void
+    done: (err?: any, resolvedContext?: Record<string, any>) => void,
 ): void => {
     if (index < plugins.length) {
         try {
             const plugin = plugins[index];
             const action = plugin.action(context);
             if (action instanceof Promise) {
-                action.then((data: any) => {
-                    resolvedContext = { ...resolvedContext };
-                    resolvedContext[plugin.name] = data;
-                    index++;
-                    executeActions(context, plugins, resolvedContext, index, done);
-                }).catch((err: any) => { done(err); });
+                action
+                    .then((data: any) => {
+                        resolvedContext = { ...resolvedContext };
+                        resolvedContext[plugin.name] = data;
+                        index++;
+                        executeActions(context, plugins, resolvedContext, index, done);
+                    })
+                    .catch((err: any) => {
+                        done(err);
+                    });
             } else {
                 if (action !== undefined) {
                     resolvedContext = { ...resolvedContext };
@@ -42,7 +46,7 @@ const executeActions = (
 export const executeBeforePlugins = (
     chain: string,
     context: any,
-    plugins?: PluginStore
+    plugins?: PluginStore,
 ): Promise<Record<string, any> | void> => {
     const beforeChain = `before_${chain}`;
     const chainPlugins = plugins ? plugins[beforeChain] : undefined;

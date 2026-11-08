@@ -1,6 +1,6 @@
 ---
-title: "Sequential Workflows"
-description: "Compose linear pipelines with strict step execution order, accumulated context, and declarative lifecycle hooks in Siglo."
+title: 'Sequential Workflows'
+description: 'Compose linear pipelines with strict step execution order, accumulated context, and declarative lifecycle hooks in Siglo.'
 ---
 
 # Sequential Workflows
@@ -20,7 +20,7 @@ export const parseInvoice = Step.create('parseInvoice', async (param: { rawText:
     const lines = param.rawText.split('\n');
     return {
         lineCount: lines.length,
-        parsedAt: Date.now()
+        parsedAt: Date.now(),
     };
 });
 ```
@@ -47,11 +47,7 @@ const sendWelcomeEmail = Step.create('sendEmail', async (param: { email: string;
     return { emailSent: true };
 });
 
-export const signupWorkflow = flow(
-    validateInput,
-    createAccount,
-    sendWelcomeEmail
-);
+export const signupWorkflow = flow(validateInput, createAccount, sendWelcomeEmail);
 ```
 
 ---
@@ -61,41 +57,51 @@ export const signupWorkflow = flow(
 Every step supports declarative lifecycle hooks and validation rules:
 
 ### `spec(field, rules)` and `schema(StandardSchema)`
+
 Validate input context before running the step action:
+
 ```typescript
-const registerUser = Step.create('register', async (param) => ({ registered: true }))
+const registerUser = Step.create('register', async param => ({ registered: true }))
     .spec('email', { require: true })
-    .spec('age', { custom: (val) => val >= 18 })
+    .spec('age', { custom: val => val >= 18 })
     .strict();
 ```
 
 ### `onBefore(predicate)`
+
 Conditionally execute or skip the step action based on context:
+
 ```typescript
-const notifyVip = Step.create('notifyVip', async (param: any) => ({ notified: true }))
-    .onBefore((param) => param.isVip === true);
+const notifyVip = Step.create('notifyVip', async (param: any) => ({ notified: true })).onBefore(
+    param => param.isVip === true,
+);
 ```
 
 ### `onSkip(fallbackAction)`
+
 Provide fallback data when a step is skipped by `onBefore`:
+
 ```typescript
 const chargeCard = Step.create('chargeCard', async () => ({ charged: true }))
-    .onBefore((param) => param.amount > 0)
+    .onBefore(param => param.amount > 0)
     .onSkip(() => ({ charged: false, reason: 'Zero amount order' }));
 ```
 
 ### `onAfter(transformer)`
+
 Enrich or transform step output before context assignment:
+
 ```typescript
-const fetchRate = Step.create('fetchRate', async () => ({ rate: 1.25 }))
-    .onAfter((output, param) => ({
-        ...output,
-        calculatedTotal: param.base * output.rate
-    }));
+const fetchRate = Step.create('fetchRate', async () => ({ rate: 1.25 })).onAfter((output, param) => ({
+    ...output,
+    calculatedTotal: param.base * output.rate,
+}));
 ```
 
 ### `cache(ttlMs)`
+
 Cache step output in memory or across distributed storage:
+
 ```typescript
 const fetchExchangeRates = Step.create('fetchRates', async () => {
     return { EUR: 1.08, GBP: 1.26 };
@@ -128,8 +134,8 @@ const strictStep = Step.create('strictStep', (param: { age: number }) => {
     if (param.age < 0) throw new Error('Invalid age');
     return { valid: true };
 })
-.spec('age', { require: true })
-.strict();
+    .spec('age', { require: true })
+    .strict();
 
 const wf = flow(strictStep);
 
@@ -165,12 +171,15 @@ describe('Sequential Workflows Suite', () => {
         const result = await harness.run();
 
         expect(result.b).to.equal('hello world');
-        
+
         // Harness trace records both start and complete phases for each step
         expect(harness.getTrace().map(t => `${t.stepName}:${t.phase}`)).to.deep.equal([
-            'step1:start', 'step1:complete', 'step2:start', 'step2:complete'
+            'step1:start',
+            'step1:complete',
+            'step2:start',
+            'step2:complete',
         ]);
-        
+
         // Assert built-in step execution counts
         harness.assertStepExecuted('step1', 1);
         harness.assertStepExecuted('step2', 1);
@@ -190,9 +199,9 @@ describe('Sequential Workflows Suite', () => {
 
 ## API Reference Links
 
-- [Core Concepts Guide](./02-core-concepts.md)
-- [Branching and Parallelism](./04-branching-and-parallelism.md)
-- [Retries, Timeouts, and Cancellation](./05-retries-timeouts-and-cancellation.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
-- [Scheduler Adapter Guide](./adapters/scheduler.md)
-- [Production Best Practices](./production-best-practices.md)
+- [Core Concepts Guide](/02-core-concepts)
+- [Branching and Parallelism](/04-branching-and-parallelism)
+- [Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [Testing & Replay Reference](/09-testing-and-replay)
+- [Scheduler Adapter Guide](/adapters/scheduler)
+- [Production Best Practices](/production-best-practices)

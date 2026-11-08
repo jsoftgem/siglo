@@ -1,11 +1,6 @@
-import {
-    StorageAdapter,
-    ContextChangeEvent,
-    SerializedExecutionStack,
-    Step
-} from '@siglo/core';
-import { IRedisClient } from "../database/redis";
-import { IMongoClient } from "../database/mongodb";
+import { StorageAdapter, ContextChangeEvent, SerializedExecutionStack, Step } from '@siglo/core';
+import { IRedisClient } from '../database/redis';
+import { IMongoClient } from '../database/mongodb';
 
 export interface ExecutionLogRecord {
     _id?: string;
@@ -39,16 +34,16 @@ export interface CheckpointRecord {
  * NOTE: Application step code closures are never stored in databases; they live in versioned application bundles.
  */
 export class RedisMongoStorageAdapter implements StorageAdapter {
-    readonly name = "RedisMongoStorageAdapter";
+    readonly name = 'RedisMongoStorageAdapter';
     private logsCollection;
     private checkpointsCollection;
 
     constructor(
         private readonly redis: IRedisClient,
-        private readonly mongo: IMongoClient
+        private readonly mongo: IMongoClient,
     ) {
-        this.logsCollection = this.mongo.collection<ExecutionLogRecord>("siglo_execution_logs");
-        this.checkpointsCollection = this.mongo.collection<CheckpointRecord>("siglo_checkpoints");
+        this.logsCollection = this.mongo.collection<ExecutionLogRecord>('siglo_execution_logs');
+        this.checkpointsCollection = this.mongo.collection<CheckpointRecord>('siglo_checkpoints');
     }
 
     async onContextChange(entry: ContextChangeEvent): Promise<void> {
@@ -62,14 +57,16 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
         }
 
         // MongoDB: Execution audit event log
-        await this.logsCollection.insertOne({
-            namespace,
-            stackId,
-            stepId,
-            field,
-            value,
-            timestamp
-        }).catch(console.error);
+        await this.logsCollection
+            .insertOne({
+                namespace,
+                stackId,
+                stepId,
+                field,
+                value,
+                timestamp,
+            })
+            .catch(console.error);
     }
 
     async saveCheckpoint(checkpoint: SerializedExecutionStack): Promise<void> {
@@ -86,12 +83,11 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
             type: checkpoint.type,
             chains: checkpoint.chains,
             contexts: checkpoint.contexts,
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
         };
-        const updateRes = await this.checkpointsCollection.updateOne(
-            { stackId },
-            { $set: record }
-        ).catch(console.error);
+        const updateRes = await this.checkpointsCollection
+            .updateOne({ stackId }, { $set: record })
+            .catch(console.error);
 
         if (updateRes && updateRes.matchedCount === 0) {
             await this.checkpointsCollection.insertOne(record).catch(console.error);
@@ -120,7 +116,7 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
                 namespace: doc.namespace,
                 type: doc.type,
                 chains: doc.chains,
-                contexts: doc.contexts
+                contexts: doc.contexts,
             };
         }
         return undefined;
@@ -149,6 +145,6 @@ export class RedisMongoStorageAdapter implements StorageAdapter {
 export function registerRedisMongoStorage(redis: IRedisClient, mongo: IMongoClient): RedisMongoStorageAdapter {
     const adapter = new RedisMongoStorageAdapter(redis, mongo);
     Step.useStorage(adapter);
-    console.log("[StoragePlugin] Successfully registered Redis & MongoDB storage adapter for siglo.");
+    console.log('[StoragePlugin] Successfully registered Redis & MongoDB storage adapter for siglo.');
     return adapter;
 }

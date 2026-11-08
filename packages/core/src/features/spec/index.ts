@@ -133,9 +133,12 @@ export default class Spec {
             const result = await schema.safeParse(targetValue);
             if (!result.success) {
                 const issues = result.error?.issues;
-                const message = issues && issues.length
-                    ? issues.map((i: any) => (i.path && i.path.length ? i.path.join('.') + ': ' : '') + i.message).join('; ')
-                    : (result.error?.message || 'Schema validation failed');
+                const message =
+                    issues && issues.length
+                        ? issues
+                              .map((i: any) => (i.path && i.path.length ? i.path.join('.') + ': ' : '') + i.message)
+                              .join('; ')
+                        : result.error?.message || 'Schema validation failed';
                 new SpecFailedException(() => {
                     throw new Error(message);
                 }, this.field);
@@ -207,7 +210,7 @@ export default class Spec {
             }
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 function addAction(spec: Spec, actionName: string): void {

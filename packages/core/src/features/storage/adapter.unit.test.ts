@@ -9,7 +9,7 @@ import {
     getCheckpoint,
     StorageAdapter,
     SerializedExecutionStack,
-    ContextChangeEvent
+    ContextChangeEvent,
 } from '../../index';
 
 describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
@@ -19,7 +19,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
 
     it('registers and retrieves adapter via useStorage and getStorageAdapter', () => {
         const customAdapter: StorageAdapter = {
-            name: 'MockAdapter'
+            name: 'MockAdapter',
         };
 
         const mgr = new StorageManager();
@@ -45,7 +45,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             name: 'StreamAdapter',
             onContextChange(entry) {
                 events.push(entry);
-            }
+            },
         };
 
         defaultStorageManager.useStorage(streamAdapter);
@@ -72,7 +72,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             name: 'FaultyAdapter',
             onContextChange() {
                 throw new Error('Adapter crash');
-            }
+            },
         };
 
         defaultStorageManager.useStorage(faultyAdapter);
@@ -87,7 +87,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             name: 'AsyncFaultyAdapter',
             async onContextChange() {
                 return Promise.reject(new Error('Async adapter crash'));
-            }
+            },
         };
 
         defaultStorageManager.useStorage(faultyAdapter);
@@ -107,7 +107,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             },
             async getCheckpoint(stackId) {
                 return savedCheckpoints.get(stackId);
-            }
+            },
         };
 
         const mgr = new StorageManager();
@@ -133,7 +133,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             name: 'FailingCheckpointAdapter',
             async getCheckpoint() {
                 throw new Error('Database down');
-            }
+            },
         };
 
         const mgr = new StorageManager();
@@ -172,7 +172,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             },
             async setCachedStep(key: string, value: any) {
                 cacheStore.set(key, value);
-            }
+            },
         };
 
         defaultStorageManager.useStorage(cachingAdapter);
@@ -208,7 +208,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             },
             async setCachedStep() {
                 throw new Error('Redis write failed');
-            }
+            },
         };
 
         defaultStorageManager.useStorage(errorCacheAdapter);
@@ -224,7 +224,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             name: 'SyncStoreAdapter',
             setCachedStep(key, val) {
                 store.set(key, val);
-            }
+            },
         };
         defaultStorageManager.useStorage(adapter);
 
@@ -240,22 +240,22 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
             asyncCalls++;
             return { val: p.v * 10 };
         })
-        .spec('v', { require: true })
-        .strict()
-        .cache(5000);
+            .spec('v', { require: true })
+            .strict()
+            .cache(5000);
 
         const combinedFlow = flow(asyncStep, asyncStep);
         const res = await combinedFlow.run({ v: 3 });
         expect(res.val).to.equal(30);
         expect(asyncCalls).to.equal(1); // Second step in same flow read from cache!
     });
-    it("handles async step action caching when adapter setCachedStep is defined", async () => {
+    it('handles async step action caching when adapter setCachedStep is defined', async () => {
         const store = new Map<string, any>();
         const adapter: StorageAdapter = {
-            name: "AsyncStoreAdapter",
+            name: 'AsyncStoreAdapter',
             async setCachedStep(key, val) {
                 store.set(key, val);
-            }
+            },
         };
         defaultStorageManager.useStorage(adapter);
 
@@ -264,37 +264,37 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         expect(res.doubled).to.equal(50);
         expect(store.size).to.equal(1);
     });
-    it("resolves stackId and namespace from existing stacks in onContextChange if not provided in meta", () => {
+    it('resolves stackId and namespace from existing stacks in onContextChange if not provided in meta', () => {
         const events: ContextChangeEvent[] = [];
         const adapter: StorageAdapter = {
-            name: "ResolveMetaAdapter",
+            name: 'ResolveMetaAdapter',
             onContextChange(e) {
                 events.push(e);
-            }
+            },
         };
 
         const mgr = new StorageManager();
         mgr.useStorage(adapter);
 
-        const stackId1 = mgr.createStack("stack_search", "namespace_found");
-        mgr.addChainToStack(stackId1, "step_discovered");
+        const stackId1 = mgr.createStack('stack_search', 'namespace_found');
+        mgr.addChainToStack(stackId1, 'step_discovered');
 
         // Call putChainContext without meta -> resolves stackId and namespace by scanning stacks
-        mgr.putChainContext("step_discovered", "status", "ready");
+        mgr.putChainContext('step_discovered', 'status', 'ready');
         expect(events.length).to.equal(1);
-        expect(events[0].stackId).to.equal("stack_search");
-        expect(events[0].namespace).to.equal("namespace_found");
+        expect(events[0].stackId).to.equal('stack_search');
+        expect(events[0].namespace).to.equal('namespace_found');
 
         // Call putChainContext with stackId in meta but without namespace -> resolves namespace from stack
-        const stackId2 = mgr.createStack("stack_lookup", "namespace_lookup_val");
-        mgr.putChainContext("step_any", "metric", 100, { stackId: stackId2 });
+        const stackId2 = mgr.createStack('stack_lookup', 'namespace_lookup_val');
+        mgr.putChainContext('step_any', 'metric', 100, { stackId: stackId2 });
         expect(events.length).to.equal(2);
         expect(events[1].stackId).to.equal(stackId2);
-        expect(events[1].namespace).to.equal("namespace_lookup_val");
+        expect(events[1].namespace).to.equal('namespace_lookup_val');
 
         // Call putChainContext with string meta
-        mgr.putChainContext("step_str", "metric", 200, "string_stack_id");
+        mgr.putChainContext('step_str', 'metric', 200, 'string_stack_id');
         expect(events.length).to.equal(3);
-        expect(events[2].stackId).to.equal("string_stack_id");
+        expect(events[2].stackId).to.equal('string_stack_id');
     });
 });

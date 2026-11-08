@@ -13,7 +13,7 @@ import {
     EXPIRED,
     CLAIMED,
     IN_PROGRESS,
-    isStatus
+    isStatus,
 } from './Status';
 
 describe('shared.status.unit.test', () => {

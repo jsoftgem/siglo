@@ -1,11 +1,11 @@
 ---
-title: "Run Checkout Across Two Servers with PostgreSQL and Redis"
-description: "Scale a Siglo checkout workflow across multiple API servers using PostgreSQL idempotency and Redis pub/sub live monitoring."
+title: 'Run Checkout Across Two Servers with PostgreSQL and Redis'
+description: 'Scale a Siglo checkout workflow across multiple API servers using PostgreSQL idempotency and Redis pub/sub live monitoring.'
 ---
 
 # Run Checkout Across Two Servers with PostgreSQL and Redis
 
-In [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md), the API and dashboard shared one process. Now imagine running a second API instance: a request can arrive at either server, and an in-memory duplicate-request guard cannot see what the other server is doing.
+In [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring), the API and dashboard shared one process. Now imagine running a second API instance: a request can arrive at either server, and an in-memory duplicate-request guard cannot see what the other server is doing.
 
 This continuation runs two checkout APIs, a separate monitoring process, PostgreSQL, and Redis. We reuse the previous tutorial's checkout steps and fake services, including payment retry and shipping compensation. You can send an order to one API, replay it through the other, and inspect both servers in one dashboard.
 
@@ -16,7 +16,7 @@ The [complete runnable example](../examples/src/distributed-checkout) includes a
 Before starting, have the following ready:
 
 - A checkout of this repository, including `package-lock.json`, `packages`, and `examples`. The Docker build uses the repository as its build context.
-- Familiarity with [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md). Its checkout implementation and fake services are already included in the repository; you can run this example without creating those files yourself.
+- Familiarity with [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring). Its checkout implementation and fake services are already included in the repository; you can run this example without creating those files yourself.
 - Docker with its daemon running and Docker Compose v2 supporting `up --wait`. Docker Desktop or a Docker Engine installation with the Compose plugin works.
 - Internet access for the first build to download container images and npm dependencies.
 - `curl`, a browser for the dashboard, and a Bash-compatible shell such as Bash or Zsh for the command examples. Windows users can run them in WSL.
@@ -50,12 +50,12 @@ flowchart LR
 
 Each API executes the whole checkout and waits before responding. The two processes share state through adapters; this example does not enqueue jobs or move individual steps between servers.
 
-| Responsibility | Implementation |
-|---|---|
-| Execution checkpoints and context audit | `PostgresStorageAdapter` from `@siglo/postgres` |
+| Responsibility                                            | Implementation                                    |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| Execution checkpoints and context audit                   | `PostgresStorageAdapter` from `@siglo/postgres`   |
 | Cross-instance duplicate-request claim and saved response | `PostgresIdempotencyStore` from `@siglo/postgres` |
-| Shared catalog lookup cache | `RedisStorageAdapter` from `@siglo/redis` |
-| Events from both APIs to the dashboard | `RedisMonitoringAdapter` from `@siglo/monitor` |
+| Shared catalog lookup cache                               | `RedisStorageAdapter` from `@siglo/redis`         |
+| Events from both APIs to the dashboard                    | `RedisMonitoringAdapter` from `@siglo/monitor`    |
 
 PostgreSQL owns execution persistence. Redis holds disposable lookup data and transports telemetry. Registering two storage adapters with `Step.useStorage` would replace the first one, so we compose their methods explicitly.
 
@@ -67,13 +67,13 @@ docker compose -f examples/distributed-checkout/docker-compose.yml up --build -d
 
 The first build installs the repository's locked dependencies and compiles the four packages used by the example. A one-shot `init-db` service creates the PostgreSQL tables before either API starts; this avoids concurrent schema initialization. The monitor subscribes before the APIs become available.
 
-| Service | Local address |
-|---|---|
-| API A | `http://127.0.0.1:3000` |
-| API B | `http://127.0.0.1:3001` |
-| Dashboard | `http://127.0.0.1:4000` |
+| Service    | Local address                                    |
+| ---------- | ------------------------------------------------ |
+| API A      | `http://127.0.0.1:3000`                          |
+| API B      | `http://127.0.0.1:3001`                          |
+| Dashboard  | `http://127.0.0.1:4000`                          |
 | PostgreSQL | `postgres://siglo:siglo@127.0.0.1:5433/checkout` |
-| Redis | `redis://127.0.0.1:6380` |
+| Redis      | `redis://127.0.0.1:6380`                         |
 
 These ports avoid the default database ports used by other repository examples. Stop the previous tutorial's API and monitor first if they still occupy ports 3000 or 4000. Alternatively, prefix the startup command with `API_A_PORT=3100 API_B_PORT=3101 MONITOR_HOST_PORT=4100` and adjust curl/browser URLs accordingly. The database credentials are local demo values, and all published ports bind to loopback.
 
@@ -101,14 +101,14 @@ const storage: StorageAdapter = {
     getCheckpoint: id => postgres.getCheckpoint(id),
     onContextChange: entry => postgres.onContextChange(entry),
     getCachedStep: key => cache.getCachedStep(key),
-    setCachedStep: (key, value, ttl) => cache.setCachedStep(key, value, ttl)
+    setCachedStep: (key, value, ttl) => cache.setCachedStep(key, value, ttl),
 };
 Step.useStorage(storage);
 ```
 
 `writes` starts as `Promise.resolve()`. The engine can dispatch checkpoint writes asynchronously, so this example serializes them and waits for the chain before acknowledging a successful checkout. If a checkpoint write fails, the chain remains rejected and subsequent successful workflows return an infrastructure error; fix storage and restart the API. Context auditing is best effort in the PostgreSQL adapter.
 
-The example wraps the small Redis client interfaces to accommodate ioredis overloads. Only the Redis cache methods are used; workflow checkpoints never go to Redis. This composition intentionally does not expose durable-wait methods. For event-driven suspension and resumption, use the full PostgreSQL adapter and the [durable waits guide](durable-waits.md).
+The example wraps the small Redis client interfaces to accommodate ioredis overloads. Only the Redis cache methods are used; workflow checkpoints never go to Redis. This composition intentionally does not expose durable-wait methods. For event-driven suspension and resumption, use the full PostgreSQL adapter and the [durable waits guide](/durable-waits).
 
 Before the existing checkout steps, [`api.ts`](../examples/src/distributed-checkout/api.ts) adds a read-only catalog lookup:
 
@@ -119,7 +119,7 @@ const loadCatalog = Step.create('loadCatalog', async (order: Order) => {
     return { catalogLabel: `Demo product: ${order.sku}` };
 }).cache({
     ttl: 300_000,
-    keySerializer: (_stepId, order: Order, ns) => `${ns}:catalog:v1:${order.sku}`
+    keySerializer: (_stepId, order: Order, ns) => `${ns}:catalog:v1:${order.sku}`,
 });
 
 const checkout = flow(loadCatalog, ...createCheckout(services).steps).monitor(emitter);
@@ -139,10 +139,10 @@ API A returns `201 Created`, `X-Instance-Id: api-a`, and `X-Workflow-Stack-Id`. 
 
 ```json
 {
-  "orderId": "distributed-1001",
-  "status": "confirmed",
-  "trackingId": "tracking-distributed-1001",
-  "stackId": "<execution UUID>"
+    "orderId": "distributed-1001",
+    "status": "confirmed",
+    "trackingId": "tracking-distributed-1001",
+    "stackId": "<execution UUID>"
 }
 ```
 
@@ -194,7 +194,8 @@ Each API publishes its workflow emitter over Redis:
 
 ```typescript
 new RedisMonitoringAdapter({
-    publisher: pubsubClient(infra.redis), channel
+    publisher: pubsubClient(infra.redis),
+    channel,
 }).attachToEmitter(emitter);
 ```
 
@@ -329,7 +330,7 @@ node --import tsx examples/src/distributed-checkout/smoke.ts
 
 This is a local distributed execution demo using fake business services. A PostgreSQL checkpoint does not automatically schedule recovery after a process dies. There is no background worker or recovery loop here; an interrupted claim stays in progress until its 24-hour TTL expires or an operator reconciles it.
 
-The TTL is a deduplication window, not a renewable lease with fencing. A paused process could outlive it, and provider side effects cannot be committed atomically with the saved HTTP response. Before handling real payments, add provider idempotency keys, bounded service calls and cancellation, reconciliation for ambiguous failures, and explicit recovery ownership. Do not infer exactly-once side effects from these claims. See [Idempotency](idempotency.md), [Durable Workflows](06-durable-workflows.md), and [Compensation and Sagas](compensation-and-sagas.md).
+The TTL is a deduplication window, not a renewable lease with fencing. A paused process could outlive it, and provider side effects cannot be committed atomically with the saved HTTP response. Before handling real payments, add provider idempotency keys, bounded service calls and cancellation, reconciliation for ambiguous failures, and explicit recovery ownership. Do not infer exactly-once side effects from these claims. See [Idempotency](/idempotency), [Durable Workflows](/06-durable-workflows), and [Compensation and Sagas](/compensation-and-sagas).
 
 For production, replace fake services, remove `failShipping`, derive prices from trusted data, authenticate the API and monitor, and derive namespaces from trusted identity. The status endpoint exposes only stack ID and status; it still needs authorization in a real service. Configure database retention and monitor redaction. Redis cache loss only removes the lookup optimization; PostgreSQL remains the checkpoint and response store. API health endpoints report process readiness, not continuous dependency health.
 
@@ -341,4 +342,4 @@ docker compose -f examples/distributed-checkout/docker-compose.yml down
 
 To deliberately delete this demo's PostgreSQL history and saved responses, add `--volumes` to that command. Redis data is ephemeral in this setup.
 
-Continue the tutorial with [Suspend Checkout for Approval and Resume Across Servers](durable-distributed-checkout.md) to pause checkout at durable event waits, survive process restarts, and resume across replicas with webhooks.
+Continue the tutorial with [Suspend Checkout for Approval and Resume Across Servers](/durable-distributed-checkout) to pause checkout at durable event waits, survive process restarts, and resume across replicas with webhooks.

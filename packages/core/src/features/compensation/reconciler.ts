@@ -27,9 +27,7 @@ export interface ReconcileReport {
     }>;
 }
 
-export async function reconcileAbandonedStacks(
-    options: ReconcilerOptions = {}
-): Promise<ReconcileReport> {
+export async function reconcileAbandonedStacks(options: ReconcilerOptions = {}): Promise<ReconcileReport> {
     const staleThresholdMs = options.staleThresholdMs ?? 10 * 60 * 1000;
     const action = options.action ?? 'compensate';
     const mode = options.mode ?? 'best-effort';
@@ -54,7 +52,7 @@ export async function reconcileAbandonedStacks(
                 stackId: stack.stackId,
                 workflowId: stack.workflowId,
                 staleForMs,
-                status: stack.status || Status.RUNNING
+                status: stack.status || Status.RUNNING,
             });
 
             if (action === 'inspect') {
@@ -72,7 +70,7 @@ export async function reconcileAbandonedStacks(
                     if (flow && typeof flow.compensate === 'function') {
                         await flow.compensate(stack.stackId, {
                             mode,
-                            deadLetterQueue: options.deadLetterQueue
+                            deadLetterQueue: options.deadLetterQueue,
                         });
                     } else {
                         // Direct compensation via checkpoint hydration
@@ -90,7 +88,7 @@ export async function reconcileAbandonedStacks(
                                         throw new UnresolvableCompensationException(
                                             record.stepName,
                                             record.handlerName,
-                                            { stackId: stack.stackId }
+                                            { stackId: stack.stackId },
                                         );
                                     }
                                     defaultCompensationManager.registerCompensation(stack.stackId, {
@@ -103,7 +101,7 @@ export async function reconcileAbandonedStacks(
                                         payload: record.payload,
                                         options: record.options,
                                         status: record.status,
-                                        completedAt: record.completedAt
+                                        completedAt: record.completedAt,
                                     });
                                 }
                             }
@@ -114,8 +112,8 @@ export async function reconcileAbandonedStacks(
                             new Error(`Abandoned workflow stack exceeded stale threshold of ${staleThresholdMs}ms`),
                             {
                                 mode,
-                                deadLetterQueue: options.deadLetterQueue
-                            }
+                                deadLetterQueue: options.deadLetterQueue,
+                            },
                         );
                     }
                     if (defaultStorageManager.getStack(stack.stackId)) {
@@ -133,6 +131,6 @@ export async function reconcileAbandonedStacks(
         inspected: candidateStacks.length,
         staleStacks,
         reconciled,
-        failed
+        failed,
     };
 }

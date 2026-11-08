@@ -57,6 +57,7 @@ npm install @siglo/monitor @siglo/core
 ```
 
 For developer CLI commands (`siglo monitor`):
+
 ```bash
 npm install --save-dev @siglo/cli
 ```
@@ -75,19 +76,18 @@ async function main() {
     // 1. Launch monitor server on port 4000
     const monitor = await createMonitorServer({
         port: 4000,
-        host: '0.0.0.0'
+        host: '0.0.0.0',
     });
 
     console.log(`Live DevTools available at: http://localhost:${monitor.port}`);
 
     // 2. Define workflow steps
     const fetchUser = Step.create('fetchUser', async () => ({ id: 'usr_100', name: 'Alice' }));
-    const chargeCard = Step.create('chargeCard', async (ctx) => {
+    const chargeCard = Step.create('chargeCard', async ctx => {
         return { charged: true, amount: 49.99 };
     });
 
-    const orderPipeline = flow(fetchUser, chargeCard)
-        .monitor(monitor.emitter); // Attach live monitoring
+    const orderPipeline = flow(fetchUser, chargeCard).monitor(monitor.emitter); // Attach live monitoring
 
     // 3. Execute workflow
     await orderPipeline.run({ orderId: 'ord_999' });
@@ -113,11 +113,12 @@ import { flow } from '@siglo/core';
 import { attachToMonitorServer } from '@siglo/monitor';
 
 // Attach workflow directly to the running server by port or URL
-const orderPipeline = flow(fetchUser, chargeCard)
-    .monitor(attachToMonitorServer('https://monitor.internal.corp:4000', {
-        apiKey: process.env.MONITOR_API_KEY
-    }));
-    // or local dev: .monitor(attachToMonitorServer(4000))
+const orderPipeline = flow(fetchUser, chargeCard).monitor(
+    attachToMonitorServer('https://monitor.internal.corp:4000', {
+        apiKey: process.env.MONITOR_API_KEY,
+    }),
+);
+// or local dev: .monitor(attachToMonitorServer(4000))
 
 await orderPipeline.run({ orderId: 'ord_123' });
 ```
@@ -135,15 +136,15 @@ import { createMonitorServer, attachToMonitorServer, getMonitorEmitter } from '@
 // In server startup file (e.g., server.ts):
 const monitor = await createMonitorServer({
     port: 4000,
-    reuseExisting: true // Reuses existing instance instead of throwing EADDRINUSE
+    reuseExisting: true, // Reuses existing instance instead of throwing EADDRINUSE
 });
 
 // In any other file / workflow definition:
-const orderPipeline = flow(fetchUser, chargeCard)
-    .monitor(attachToMonitorServer()); // Automatically resolves the active in-process server
+const orderPipeline = flow(fetchUser, chargeCard).monitor(attachToMonitorServer()); // Automatically resolves the active in-process server
 ```
 
 You can also retrieve the global emitter directly:
+
 ```typescript
 import { getMonitorEmitter } from '@siglo/monitor';
 
@@ -160,15 +161,14 @@ import { createMonitorClient } from '@siglo/monitor';
 
 const client = createMonitorClient({
     url: 'http://monitor-service:4000',
-    batchSize: 20,          // Flush when 20 events accumulate
-    flushIntervalMs: 50,    // Or flush every 50ms
+    batchSize: 20, // Flush when 20 events accumulate
+    flushIntervalMs: 50, // Or flush every 50ms
     redaction: {
-        redactKeys: ['password', 'creditCard']
-    }
+        redactKeys: ['password', 'creditCard'],
+    },
 });
 
-const orderPipeline = flow(fetchUser, chargeCard)
-    .monitor(client.monitor);
+const orderPipeline = flow(fetchUser, chargeCard).monitor(client.monitor);
 ```
 
 ---
@@ -222,16 +222,16 @@ app.use('/_siglo/*', honoMonitorMiddleware());
 
 The web dashboard is a responsive single-page application built with React, Vite, and Tailwind CSS:
 
-| View / Feature | Description |
-|---|---|
-| **Topology (DAG)** | Interactive step sequence diagram highlighting active nodes (`RUNNING`), completions, failures, and retry counters. Clicking a node opens an inspector with execution duration and errors. |
-| **Latency Waterfall** | Horizontal timeline chart showing execution offset, relative latency, and attempt counts for each step. |
-| **Context & State Diff** | Monospace JSON viewer with tabs for current state and chronological field mutations (`context:change`), plus one-click copy. |
-| **Live Events Stream** | Chronological feed of all 14 Siglo events with filtering by event type and expandable raw payloads. |
-| **Interactive Resume** | Modal for durable workflows suspended on `waitForEvent()`. Enter signal event name and JSON payload to resume execution. |
-| **Replay Trigger** | One-click workflow replay button to re-trigger executions with recorded input context. |
-| **Search & Status Filter** | Instant client-side search by flow name, namespace, or stack ID with status filter tabs (`ALL`, `RUNNING`, `SUSPENDED`, `FAILED`, `COMPLETED`). |
-| **Multi-Tenant Filter** | Top header dropdown to isolate telemetry to a specific `$namespace`. |
+| View / Feature             | Description                                                                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Topology (DAG)**         | Interactive step sequence diagram highlighting active nodes (`RUNNING`), completions, failures, and retry counters. Clicking a node opens an inspector with execution duration and errors. |
+| **Latency Waterfall**      | Horizontal timeline chart showing execution offset, relative latency, and attempt counts for each step.                                                                                    |
+| **Context & State Diff**   | Monospace JSON viewer with tabs for current state and chronological field mutations (`context:change`), plus one-click copy.                                                               |
+| **Live Events Stream**     | Chronological feed of all 14 Siglo events with filtering by event type and expandable raw payloads.                                                                                        |
+| **Interactive Resume**     | Modal for durable workflows suspended on `waitForEvent()`. Enter signal event name and JSON payload to resume execution.                                                                   |
+| **Replay Trigger**         | One-click workflow replay button to re-trigger executions with recorded input context.                                                                                                     |
+| **Search & Status Filter** | Instant client-side search by flow name, namespace, or stack ID with status filter tabs (`ALL`, `RUNNING`, `SUSPENDED`, `FAILED`, `COMPLETED`).                                            |
+| **Multi-Tenant Filter**    | Top header dropdown to isolate telemetry to a specific `$namespace`.                                                                                                                       |
 
 ---
 
@@ -244,20 +244,21 @@ Clients can subscribe to `/events` for one-way live event streaming with automat
 ```javascript
 const es = new EventSource('http://localhost:4000/events');
 
-es.addEventListener('flow:start', (e) => {
+es.addEventListener('flow:start', e => {
     console.log('Flow started:', JSON.parse(e.data));
 });
 
-es.addEventListener('step:complete', (e) => {
+es.addEventListener('step:complete', e => {
     console.log('Step finished:', JSON.parse(e.data));
 });
 
-es.addEventListener('flow:suspended', (e) => {
+es.addEventListener('flow:suspended', e => {
     console.log('Waiting for signal:', JSON.parse(e.data));
 });
 ```
 
 Filter events by namespace via query parameter:
+
 ```javascript
 const es = new EventSource('http://localhost:4000/events?namespace=tenant-a');
 ```
@@ -269,7 +270,7 @@ For bidirectional communication or interactive controls, connect to `ws://localh
 ```javascript
 const ws = new WebSocket('ws://localhost:4000/ws');
 
-ws.onmessage = (event) => {
+ws.onmessage = event => {
     const data = JSON.parse(event.data);
     console.log('WebSocket event:', data);
 };
@@ -292,10 +293,10 @@ const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const publisher = new Redis(redisUrl);
 const workerAdapter = new RedisMonitoringAdapter({
     publisher,
-    channel: 'siglo:monitor:events'
+    channel: 'siglo:monitor:events',
 });
 
-emitter.on('*', (event) => {
+emitter.on('*', event => {
     workerAdapter.publish(event);
 });
 
@@ -306,7 +307,7 @@ const monitor = await createMonitorServer({ port: 4000 });
 const serverAdapter = new RedisMonitoringAdapter({
     subscriber,
     channel: 'siglo:monitor:events',
-    emitter: monitor.emitter // Automatically routes incoming Redis events to monitor store & SSE
+    emitter: monitor.emitter, // Automatically routes incoming Redis events to monitor store & SSE
 });
 ```
 
@@ -338,6 +339,7 @@ Import the ready-to-use Grafana JSON dashboard located in:
 When deploying `@siglo/monitor` across internal networks or attaching remote workers, apply production-grade security controls:
 
 ### 10.1 API Key & Token Authentication
+
 Protect telemetry ingestion, control-plane endpoints, and event streams with API keys:
 
 ```typescript
@@ -345,47 +347,52 @@ const monitor = await createMonitorServer({
     port: 4000,
     auth: {
         ingestionKey: 'ingest-secret-token', // Required for POST /api/events
-        adminKey: 'admin-secret-token',       // Required for /resume, /replay, /api/workflows
-    }
+        adminKey: 'admin-secret-token', // Required for /resume, /replay, /api/workflows
+    },
     // Or shorthand for general single key: auth: 'my-secret-key'
 });
 ```
 
 Remote clients attach with their key:
+
 ```typescript
 const monitor = attachToMonitorServer('https://monitor.corp.internal:4000', {
-    apiKey: 'ingest-secret-token'
+    apiKey: 'ingest-secret-token',
 });
 ```
 
 The Web UI and SSE clients authenticate via `Authorization: Bearer <token>`, `X-API-Key: <token>`, or URL query parameter `?token=<token>`.
 
 ### 10.2 Disabling Remote Control in Sensitive Environments
+
 In production, disable interactive workflow resumption (`/resume`) and replays (`/replay`) to prevent remote state manipulation:
 
 ```typescript
 const monitor = await createMonitorServer({
-    allowRemoteResume: false // Returns 403 Forbidden on resume/replay
+    allowRemoteResume: false, // Returns 403 Forbidden on resume/replay
 });
 ```
 
 ### 10.3 CORS Hardening
+
 Restrict browser DevTools access to explicit trusted origins (preventing drive-by intranet CSRF):
 
 ```typescript
 const monitor = await createMonitorServer({
     cors: {
         origin: ['https://devtools.internal.corp', 'http://localhost:3000'],
-        credentials: true
-    }
+        credentials: true,
+    },
 });
 ```
 
 ### 10.4 Payload Caps & Client Memory Protection
+
 - **Payload Limits**: Limits JSON ingestion payloads to 1MB (configurable via `maxPayloadBytes`). Exceeding requests receive `413 Payload Too Large`.
 - **Bounded Client Queue**: Remote client automatically drops oldest events if telemetry buffer exceeds `maxQueueSize` (default: 1000) when the network is slow or unreachable.
 
 ### 10.5 Context & Credential Redaction
+
 Prevent sensitive credentials, API keys, or personal identifiable information (PII) from leaking to dashboards and event streams:
 
 ```typescript
@@ -395,8 +402,8 @@ const monitor = await createMonitorServer({
         redactHook: (key, val) => {
             if (key === 'email') return val.replace(/(?<=.).(?=[^@]*?@)/g, '*');
             return undefined; // use default '[REDACTED]'
-        }
-    }
+        },
+    },
 });
 ```
 
@@ -407,12 +414,14 @@ const monitor = await createMonitorServer({
 The live monitor web interface source code is located in [`packages/monitor/ui`](./ui) and adheres to modular, industry-standard frontend architecture.
 
 ### Tech Stack
+
 - **React 18** with typed hooks and functional components
 - **Tailwind CSS** for dark-mode DevTools styling
 - **Lucide React** for icons
 - **Vite** with `vite-plugin-singlefile` for self-contained distribution
 
 ### Directory Layout
+
 ```
 packages/monitor/ui/
 ├── src/
@@ -478,34 +487,39 @@ npm run build:ui
 
 The monitor server exposes REST endpoints for programmatic inspection and control:
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` or `/index.html` | Serves the single-page DevTools web dashboard |
-| `GET` | `/events` | Server-Sent Events (SSE) stream (`?namespace=...`) |
-| `POST` | `/api/events` | Ingests telemetry events from external processes / clients |
-| `GET` | `/metrics` | Prometheus metrics exposition format |
-| `GET` | `/api/workflows` | List recorded workflow runs (`?namespace=...&status=...`) |
-| `GET` | `/api/workflows/:stackId` | Get execution details and step history for a workflow |
-| `POST` | `/api/workflows/:stackId/resume` | Resume a suspended workflow (`{ eventName, payload }`) |
-| `POST` | `/api/workflows/:stackId/replay` | Trigger replay of a recorded workflow |
+| Method | Endpoint                         | Description                                                |
+| ------ | -------------------------------- | ---------------------------------------------------------- |
+| `GET`  | `/` or `/index.html`             | Serves the single-page DevTools web dashboard              |
+| `GET`  | `/events`                        | Server-Sent Events (SSE) stream (`?namespace=...`)         |
+| `POST` | `/api/events`                    | Ingests telemetry events from external processes / clients |
+| `GET`  | `/metrics`                       | Prometheus metrics exposition format                       |
+| `GET`  | `/api/workflows`                 | List recorded workflow runs (`?namespace=...&status=...`)  |
+| `GET`  | `/api/workflows/:stackId`        | Get execution details and step history for a workflow      |
+| `POST` | `/api/workflows/:stackId/resume` | Resume a suspended workflow (`{ eventName, payload }`)     |
+| `POST` | `/api/workflows/:stackId/replay` | Trigger replay of a recorded workflow                      |
 
 ---
 
 ## 13. Programmatic API Reference
 
 ### `attachToMonitorServer(target?: string | number | MonitorServerInstance | MonitorClientOptions): (event: WorkflowExecutionEvent) => void`
+
 Convenient hook to attach a workflow to a running monitor server (in-process or remote over HTTP).
 
 ### `createMonitorClient(options?: MonitorClientOptions): MonitorClientInstance`
+
 Creates a remote client with configurable buffering and auto-flush to stream events to an external monitor server.
 
 ### `getActiveMonitorServer(port?: number): MonitorServerInstance | undefined`
+
 Returns the active in-process monitor server instance.
 
 ### `getMonitorEmitter(port?: number): WorkflowEventEmitter | undefined`
+
 Returns the event emitter of the currently active in-process monitor server.
 
 ### `createMonitorServer(options?: MonitorServerOptions): Promise<MonitorServerInstance>`
+
 Creates and starts an HTTP monitor server. Supports `reuseExisting: true` to reuse an already running instance.
 
 ---

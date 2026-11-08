@@ -56,7 +56,7 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
         this.records.set(key, {
             status: Status.IN_PROGRESS,
             claimedAt: now,
-            expiresAt: ttlMs !== undefined ? now + ttlMs : undefined
+            expiresAt: ttlMs !== undefined ? now + ttlMs : undefined,
         });
 
         return Status.CLAIMED;
@@ -72,7 +72,7 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
             this.records.set(key, {
                 status: Status.COMPLETED,
                 result,
-                claimedAt: Date.now()
+                claimedAt: Date.now(),
             });
         }
     }

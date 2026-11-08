@@ -8,7 +8,7 @@ async function main(): Promise<void> {
     const monitor = await createMonitorServer({
         port: 4000,
         host: '0.0.0.0',
-        allowRemoteResume: false
+        allowRemoteResume: false,
     });
     const controller = new AbortController();
     const stop = () => controller.abort();
