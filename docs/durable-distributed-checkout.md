@@ -74,12 +74,12 @@ Data survives `down`; add `--volumes` only when you want to reset this example's
 
 | File                                                                                                          | Purpose                                                                     |
 | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| [checkout-durable.ts](../examples/src/durable-distributed-checkout/checkout-durable.ts)                       | Reserve, charge with retry, wait for approval, and ship                     |
-| [api-durable.ts](../examples/src/durable-distributed-checkout/api-durable.ts)                                 | Express adapter submission, validation, deduplication, and approval webhook |
-| [infrastructure.ts](../examples/src/durable-distributed-checkout/infrastructure.ts)                           | PostgreSQL checkpoint/wait persistence, locking, and Redis clients          |
-| [monitor.ts](../examples/src/durable-distributed-checkout/monitor.ts)                                         | Central dashboard, Redis subscription, and interactive resumption           |
-| [smoke.ts](../examples/src/durable-distributed-checkout/smoke.ts)                                             | Assertions before and after API restarts                                    |
-| [docker-compose.yml](../examples/durable-distributed-checkout/docker-compose.yml)                             | Isolated two-replica stack                                                  |
+| [checkout-durable.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/checkout-durable.ts)                       | Reserve, charge with retry, wait for approval, and ship                     |
+| [api-durable.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/api-durable.ts)                                 | Express adapter submission, validation, deduplication, and approval webhook |
+| [infrastructure.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/infrastructure.ts)                           | PostgreSQL checkpoint/wait persistence, locking, and Redis clients          |
+| [monitor.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/monitor.ts)                                         | Central dashboard, Redis subscription, and interactive resumption           |
+| [smoke.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/smoke.ts)                                             | Assertions before and after API restarts                                    |
+| [docker-compose.yml](https://github.com/jsoftgem/siglo/tree/main/examples/durable-distributed-checkout/docker-compose.yml)                             | Isolated two-replica stack                                                  |
 | [Example README](https://github.com/jsoftgem/siglo/blob/main/examples/durable-distributed-checkout/README.md) | Commands, ports, and rebuilding after edits                                 |
 
 The stock, payment, and shipping services are fake; no external provider credentials are needed. After trying the example, edit these files and rerun the build command above. The sections below explain how they fit together.
@@ -134,7 +134,7 @@ sequenceDiagram
 
 The runnable demo reserves stock and charges the customer, then pauses every order for manager sign-off before shipping. A real checkout could apply an amount or risk rule before choosing an approval workflow.
 
-[checkout-durable.ts](../examples/src/durable-distributed-checkout/checkout-durable.ts) uses the existing demo service interfaces:
+[checkout-durable.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/checkout-durable.ts) uses the existing demo service interfaces:
 
 ```typescript
 import { Step, flow, waitForEvent } from '@siglo/core';
@@ -196,7 +196,7 @@ export function createDurableCheckout(services: CheckoutServices) {
 
 In [Distributed Checkout with PostgreSQL and Redis](/distributed-rest-and-live-monitoring#3-connect-both-adapters), our storage adapter only forwarded checkpoints and cache operations.
 
-For durable workflows, the storage adapter must expose wait record persistence and distributed locking. [infrastructure.ts](../examples/src/durable-distributed-checkout/infrastructure.ts) serializes checkpoint and wait writes and exposes `flush()`. The submission wrapper drains these writes before acknowledging `202`; the resume path drains them while holding the workflow lock. Compose runs schema initialization once before starting the API replicas and monitor:
+For durable workflows, the storage adapter must expose wait record persistence and distributed locking. [infrastructure.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/infrastructure.ts) serializes checkpoint and wait writes and exposes `flush()`. The submission wrapper drains these writes before acknowledging `202`; the resume path drains them while holding the workflow lock. Compose runs schema initialization once before starting the API replicas and monitor:
 
 ```typescript
 import { Pool } from 'pg';
@@ -337,7 +337,7 @@ The `PostgresStorageAdapter` automatically manages the `siglo_wait_records` tabl
 
 ## 4. Implement the API and Webhook Endpoints
 
-[api-durable.ts](../examples/src/durable-distributed-checkout/api-durable.ts) provides submission and approval endpoints, plus health and checkpoint status routes:
+[api-durable.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/durable-distributed-checkout/api-durable.ts) provides submission and approval endpoints, plus health and checkpoint status routes:
 
 1. `POST /api/checkouts`: uses `@siglo/express` with `{ durable: true }` and returns `202 Accepted` when suspended or `200 OK` when completed.
 2. `POST /api/webhooks/orders/:orderId/approval`: accepts approval webhooks and calls `resumeWorkflow`.

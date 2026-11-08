@@ -9,7 +9,7 @@ In [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring), the
 
 This continuation runs two checkout APIs, a separate monitoring process, PostgreSQL, and Redis. We reuse the previous tutorial's checkout steps and fake services, including payment retry and shipping compensation. You can send an order to one API, replay it through the other, and inspect both servers in one dashboard.
 
-The [complete runnable example](../examples/src/distributed-checkout) includes a [Dockerfile and Compose file](../examples/distributed-checkout). Run the commands below from the **repository root**.
+The [complete runnable example](https://github.com/jsoftgem/siglo/tree/main/examples/src/distributed-checkout) includes a [Dockerfile and Compose file](https://github.com/jsoftgem/siglo/tree/main/examples/distributed-checkout). Run the commands below from the **repository root**.
 
 ## Prerequisites
 
@@ -89,7 +89,7 @@ The responses identify `api-a` and `api-b`. API responses also include `X-Instan
 
 ## 3. Connect Both Adapters
 
-See [`infrastructure.ts`](../examples/src/distributed-checkout/infrastructure.ts) for client setup and cleanup. Its storage adapter delegates checkpoints and context changes to PostgreSQL and cache operations to Redis:
+See [`infrastructure.ts`](https://github.com/jsoftgem/siglo/tree/main/examples/src/distributed-checkout/infrastructure.ts) for client setup and cleanup. Its storage adapter delegates checkpoints and context changes to PostgreSQL and cache operations to Redis:
 
 ```typescript
 const storage: StorageAdapter = {
@@ -110,7 +110,7 @@ Step.useStorage(storage);
 
 The example wraps the small Redis client interfaces to accommodate ioredis overloads. Only the Redis cache methods are used; workflow checkpoints never go to Redis. This composition intentionally does not expose durable-wait methods. For event-driven suspension and resumption, use the full PostgreSQL adapter and the [durable waits guide](/durable-waits).
 
-Before the existing checkout steps, [`api.ts`](../examples/src/distributed-checkout/api.ts) adds a read-only catalog lookup:
+Before the existing checkout steps, [`api.ts`](https://github.com/jsoftgem/siglo/tree/main/examples/src/distributed-checkout/api.ts) adds a read-only catalog lookup:
 
 ```typescript
 const loadCatalog = Step.create('loadCatalog', async (order: Order) => {
@@ -199,7 +199,7 @@ new RedisMonitoringAdapter({
 }).attachToEmitter(emitter);
 ```
 
-The [monitor process](../examples/src/distributed-checkout/monitor.ts) has a dedicated subscriber connection and routes incoming events into `monitor.emitter`. The subscriber does not share a connection with cache commands: Redis subscription mode requires its own connection.
+The [monitor process](https://github.com/jsoftgem/siglo/tree/main/examples/src/distributed-checkout/monitor.ts) has a dedicated subscriber connection and routes incoming events into `monitor.emitter`. The subscriber does not share a connection with cache commands: Redis subscription mode requires its own connection.
 
 Open **http://127.0.0.1:4000** and select the execution using its stack ID. You will see `loadCatalog` followed by the previous tutorial's checkout steps, including the payment retry. To create a second execution on B, repeat the request with a new order ID and the same `coffee-kit` SKU. Its lookup should reuse Redis's cached label.
 

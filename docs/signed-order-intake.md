@@ -112,7 +112,7 @@ flowchart LR
 
 `@siglo/crypto` includes HMAC provider presets and a **`WebhookProtocol` extension point** for custom verification, including asymmetric signatures. It has no built-in RFC 9421 provider. The `secret` option accepts the public key for this custom protocol; no shared signing secret is needed.
 
-The integration in [workflow.ts](../examples/src/signed-order-intake/workflow.ts) is:
+The integration in [workflow.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/workflow.ts) is:
 
 ```typescript
 const authenticate = verifyWebhookStep('verifyOrderSignature', {
@@ -128,11 +128,11 @@ const authenticate = verifyWebhookStep('verifyOrderSignature', {
 
 The custom protocol owns timestamp and nonce validation. Do not add `dedupStore` to this step expecting client-scoped nonce protection: the adapter's generic store deduplicates signature material and claims before protocol verification. That differs from the nonce policy required here.
 
-A future-dated signature can remain acceptable for almost twice the clock window after first receipt. The nonce TTL is therefore **601 seconds** for the ±300-second policy. [security.ts](../examples/src/signed-order-intake/security.ts) uses exact expiration times in a single-process store. A production service needs a shared atomic claim store across replicas, retained across restarts; for Redis, for example, use `SET key value NX EX ttl` and reject on store failure.
+A future-dated signature can remain acceptable for almost twice the clock window after first receipt. The nonce TTL is therefore **601 seconds** for the ±300-second policy. [security.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/security.ts) uses exact expiration times in a single-process store. A production service needs a shared atomic claim store across replicas, retained across restarts; for Redis, for example, use `SET key value NX EX ttl` and reject on store failure.
 
 ## 4. Preserve Raw Bytes in `@siglo/express`
 
-The route in [app.ts](../examples/src/signed-order-intake/app.ts) uses `express.raw` before `sigloExpressMiddleware`:
+The route in [app.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/app.ts) uses `express.raw` before `sigloExpressMiddleware`:
 
 ```typescript
 app.post(
@@ -170,7 +170,7 @@ The example publishes the same order shape used in the previous tutorial, with a
 }
 ```
 
-[server.ts](../examples/src/signed-order-intake/server.ts) starts its own Kafka consumer through `createKafkaMessageHandler`. Its independent [routing flow](../examples/src/signed-order-intake/routing.ts) sends amounts at or above 100,000 cents to review, optionally wraps gifts, and logs the result. There are no imports from the Kafka tutorial and no shared PostgreSQL or Redis services.
+[server.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/server.ts) starts its own Kafka consumer through `createKafkaMessageHandler`. Its independent [routing flow](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/routing.ts) sends amounts at or above 100,000 cents to review, optionally wraps gifts, and logs the result. There are no imports from the Kafka tutorial and no shared PostgreSQL or Redis services.
 
 The nonce prevents replay of an authenticated HTTP request during its acceptance window. It does **not** deduplicate the same business event sent under a new nonce. Unlike the previous tutorial, this compact consumer has no persistent event deduplication or persisted outcomes. For real payments or fulfillment, retain the previous tutorial's shared event-id policy and make external effects idempotent.
 
@@ -200,7 +200,7 @@ lsof -nP -iTCP:4500 -sTCP:LISTEN
 
 Both ports should show the same PID. Stop older example servers with Ctrl-C in their terminals and start one server again. Wait for `Signed order intake ready` (or HTTP 200 from `/health`) before running the client. A duplicate start now exits with an address-in-use error before starting another consumer or dashboard. Startup failures close any resources already opened.
 
-The wiring in [monitoring.ts](../examples/src/signed-order-intake/monitoring.ts) creates a localhost monitor with remote resumption disabled. The server attaches its emitter to both root workflows and sets it as the default monitor so nested routing targets also report events. Run history is held in memory and clears when the server stops. Stopping the server also closes the dashboard.
+The wiring in [monitoring.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/monitoring.ts) creates a localhost monitor with remote resumption disabled. The server attaches its emitter to both root workflows and sets it as the default monitor so nested routing targets also report events. Run history is held in memory and clears when the server stops. Stopping the server also closes the dashboard.
 
 ## 7. Try Rejection and Replay Cases
 
@@ -234,15 +234,15 @@ The tests use fresh keys and an ephemeral HTTP port. They verify exact-body auth
 
 | File                                                                                                                                              | Purpose                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [security.ts](../examples/src/signed-order-intake/security.ts)                                                                                    | Restricted signature profile, signing client helper, key lookup, verification, nonce store |
-| [workflow.ts](../examples/src/signed-order-intake/workflow.ts)                                                                                    | Crypto step, authenticated order validation, publication                                   |
-| [app.ts](../examples/src/signed-order-intake/app.ts)                                                                                              | Raw-body route, Express adapter, safe responses                                            |
-| [server.ts](../examples/src/signed-order-intake/server.ts)                                                                                        | Dedicated Kafka topic, producer, consumer, and dashboard startup                           |
-| [monitoring.ts](../examples/src/signed-order-intake/monitoring.ts) / [monitoring.test.ts](../examples/src/signed-order-intake/monitoring.test.ts) | Live monitor, redaction, and monitoring checks                                             |
-| [routing.ts](../examples/src/signed-order-intake/routing.ts) / [routing.test.ts](../examples/src/signed-order-intake/routing.test.ts)             | Independent routing flow and Kafka adapter checks                                          |
-| [keys.ts](../examples/src/signed-order-intake/keys.ts) / [client.ts](../examples/src/signed-order-intake/client.ts)                               | Local key generation and signed request scenarios                                          |
-| [security.test.ts](../examples/src/signed-order-intake/security.test.ts)                                                                          | HTTP and replay-policy checks                                                              |
-| [docker-compose.yml](../examples/signed-order-intake/docker-compose.yml)                                                                          | Independent Kafka broker and volume                                                        |
+| [security.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/security.ts)                                                                                    | Restricted signature profile, signing client helper, key lookup, verification, nonce store |
+| [workflow.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/workflow.ts)                                                                                    | Crypto step, authenticated order validation, publication                                   |
+| [app.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/app.ts)                                                                                              | Raw-body route, Express adapter, safe responses                                            |
+| [server.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/server.ts)                                                                                        | Dedicated Kafka topic, producer, consumer, and dashboard startup                           |
+| [monitoring.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/monitoring.ts) / [monitoring.test.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/monitoring.test.ts) | Live monitor, redaction, and monitoring checks                                             |
+| [routing.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/routing.ts) / [routing.test.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/routing.test.ts)             | Independent routing flow and Kafka adapter checks                                          |
+| [keys.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/keys.ts) / [client.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/client.ts)                               | Local key generation and signed request scenarios                                          |
+| [security.test.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/signed-order-intake/security.test.ts)                                                                          | HTTP and replay-policy checks                                                              |
+| [docker-compose.yml](https://github.com/jsoftgem/siglo/tree/main/examples/signed-order-intake/docker-compose.yml)                                                                          | Independent Kafka broker and volume                                                        |
 
 Stop the server with Ctrl-C, then stop its broker:
 

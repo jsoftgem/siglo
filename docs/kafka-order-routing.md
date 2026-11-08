@@ -15,7 +15,7 @@ This tutorial uses **`@siglo/kafka`** to start a Siglo workflow for each Kafka r
 
 The fulfillment operations are fake. You can explore routing, consumer groups, duplicate events, and dead-letter handling without payment or shipping accounts. A `review-required` outcome records a decision; it does not suspend a durable workflow. The previous tutorial remains the example for persisted waits and cross-server resumption.
 
-The integration point in [worker.ts](../examples/src/kafka-order-routing/worker.ts) is **`createKafkaMessageHandler` from `@siglo/kafka`**. Once the workflow and KafkaJS consumer are defined and the consumer is connected and subscribed:
+The integration point in [worker.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/worker.ts) is **`createKafkaMessageHandler` from `@siglo/kafka`**. Once the workflow and KafkaJS consumer are defined and the consumer is connected and subscribed:
 
 ```typescript
 import { createKafkaMessageHandler } from '@siglo/kafka';
@@ -108,14 +108,14 @@ Kafka records, consumer offsets, and PostgreSQL results survive `down`. Add `--v
 
 | File                                                                                                 | Purpose                                                                                    |
 | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [workflow.ts](../examples/src/kafka-order-routing/workflow.ts)                                       | Event routing, nested conditions, named steps, and validation                              |
-| [worker.ts](../examples/src/kafka-order-routing/worker.ts)                                           | Kafka adapter, PostgreSQL idempotency, retries, dead letters, and health/results endpoints |
-| [infrastructure.ts](../examples/src/kafka-order-routing/infrastructure.ts)                           | Kafka topics, shared database schema, and result persistence                               |
-| [publish.ts](../examples/src/kafka-order-routing/publish.ts)                                         | Six scenarios with event IDs, entity keys, and tenant headers                              |
-| [monitor.ts](../examples/src/kafka-order-routing/monitor.ts)                                         | Shared live monitor consuming Redis events                                                 |
-| [workflow.test.ts](../examples/src/kafka-order-routing/workflow.test.ts)                             | Routing, threshold, optional-step, and validation tests                                    |
-| [smoke.ts](../examples/src/kafka-order-routing/smoke.ts)                                             | Real Kafka, PostgreSQL, Redis, and restart assertions                                      |
-| [docker-compose.yml](../examples/kafka-order-routing/docker-compose.yml)                             | Isolated broker, database, Redis, two workers, and monitor                                 |
+| [workflow.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/workflow.ts)                                       | Event routing, nested conditions, named steps, and validation                              |
+| [worker.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/worker.ts)                                           | Kafka adapter, PostgreSQL idempotency, retries, dead letters, and health/results endpoints |
+| [infrastructure.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/infrastructure.ts)                           | Kafka topics, shared database schema, and result persistence                               |
+| [publish.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/publish.ts)                                         | Six scenarios with event IDs, entity keys, and tenant headers                              |
+| [monitor.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/monitor.ts)                                         | Shared live monitor consuming Redis events                                                 |
+| [workflow.test.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/workflow.test.ts)                             | Routing, threshold, optional-step, and validation tests                                    |
+| [smoke.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/smoke.ts)                                             | Real Kafka, PostgreSQL, Redis, and restart assertions                                      |
+| [docker-compose.yml](https://github.com/jsoftgem/siglo/tree/main/examples/kafka-order-routing/docker-compose.yml)                             | Isolated broker, database, Redis, two workers, and monitor                                 |
 | [Example README](https://github.com/jsoftgem/siglo/blob/main/examples/kafka-order-routing/README.md) | Commands, ports, and rebuilding after edits                                                |
 
 ---
@@ -173,7 +173,7 @@ The publisher sends JSON like this, with `event-id` and `x-namespace` headers:
 }
 ```
 
-The input mapper supplies `tenant: "shop-demo"` from the header. [workflow.ts](../examples/src/kafka-order-routing/workflow.ts) validates identifiers, positive integer amounts for placed orders, and the optional boolean flag.
+The input mapper supplies `tenant: "shop-demo"` from the header. [workflow.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/workflow.ts) validates identifiers, positive integer amounts for placed orders, and the optional boolean flag.
 
 ### Use `branch` to Choose an Event Handler
 
@@ -234,7 +234,7 @@ The same pattern can add an audit, notification, or optional enrichment without 
 
 The initializer creates the topics, outcome tables, and `PostgresIdempotencyStore` table once before either worker starts. Both workers connect to that same database and use the same consumer group.
 
-The key adapter options in [worker.ts](../examples/src/kafka-order-routing/worker.ts) are:
+The key adapter options in [worker.ts](https://github.com/jsoftgem/siglo/tree/main/examples/src/kafka-order-routing/worker.ts) are:
 
 ```typescript
 import { createKafkaMessageHandler, getKafkaRecordId } from '@siglo/kafka';

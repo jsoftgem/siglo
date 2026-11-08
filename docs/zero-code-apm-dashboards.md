@@ -176,7 +176,7 @@ These screenshots come from real records sent through the Docker example. Trace 
 
 ## 5. Read the Grafana Metrics
 
-The dedicated stack uses [`prometheus.kafka.yml`](../examples/zero-code-apm-dashboards/prometheus.kafka.yml) to scrape **`monitor:4000/metrics`** inside Docker. Port 4400 is its host mapping. The original routing tutorial’s monitor on port 4300 is not part of this scrape configuration.
+The dedicated stack uses [`prometheus.kafka.yml`](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/prometheus.kafka.yml) to scrape **`monitor:4000/metrics`** inside Docker. Port 4400 is its host mapping. The original routing tutorial’s monitor on port 4300 is not part of this scrape configuration.
 
 Prometheus scrapes every five seconds. After publishing, wait about 15 seconds for counters to appear. Publish fresh events over at least a minute to make the rate charts useful.
 
@@ -226,12 +226,12 @@ Use fresh event IDs when repeating the tutorial. A completed event ID represents
 
 | File                                                                                | What it connects                                                                                   |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [telemetry.ts](../examples/zero-code-apm-dashboards/src/order-routing/telemetry.ts) | Optional Node OpenTelemetry provider, batch OTLP export, and consumer span around adapter handling |
-| [publish.ts](../examples/zero-code-apm-dashboards/src/order-routing/publish.ts)     | Producer span, W3C header injection, printed trace ID, flush on CLI shutdown                       |
-| [worker.ts](../examples/zero-code-apm-dashboards/src/order-routing/worker.ts)       | Per-replica telemetry, extracted Kafka headers, traced handler, SDK shutdown                       |
-| [workflow.ts](../examples/zero-code-apm-dashboards/src/order-routing/workflow.ts)   | Workflow definition and automatic nested execution tracing via `instrumentWorkflow`                |
-| [monitor.ts](../examples/zero-code-apm-dashboards/src/order-routing/monitor.ts)     | This tutorial’s shared Redis monitor and `/metrics` endpoint                                       |
-| [docker-compose.yml](../examples/zero-code-apm-dashboards/docker-compose.yml)       | Dedicated Kafka, PostgreSQL, Redis, workers, monitor, and APM services                             |
+| [telemetry.ts](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/src/order-routing/telemetry.ts) | Optional Node OpenTelemetry provider, batch OTLP export, and consumer span around adapter handling |
+| [publish.ts](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/src/order-routing/publish.ts)     | Producer span, W3C header injection, printed trace ID, flush on CLI shutdown                       |
+| [worker.ts](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/src/order-routing/worker.ts)       | Per-replica telemetry, extracted Kafka headers, traced handler, SDK shutdown                       |
+| [workflow.ts](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/src/order-routing/workflow.ts)   | Workflow definition and automatic nested execution tracing via `instrumentWorkflow`                |
+| [monitor.ts](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/src/order-routing/monitor.ts)     | This tutorial’s shared Redis monitor and `/metrics` endpoint                                       |
+| [docker-compose.yml](https://github.com/jsoftgem/siglo/tree/main/examples/zero-code-apm-dashboards/docker-compose.yml)       | Dedicated Kafka, PostgreSQL, Redis, workers, monitor, and APM services                             |
 
 The CLI initializes a provider before sending. `publishScenario` creates a producer span and injects its context into the Kafka headers. The worker extracts that context, starts a consumer span, and runs `createKafkaMessageHandler` inside it. `instrumentWorkflow` establishes execution hooks that automatically trace every executed step—including nested flows, `branch`, `when`, and concurrent operations—without requiring explicit child step instrumentation.
 

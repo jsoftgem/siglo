@@ -9,43 +9,60 @@ The Siglo Web Monitor and Developer Tools provide deep runtime diagnostics and o
 
 Ecosystem inspection operates through versioned telemetry (`EcosystemInspection` exported by `@siglo/core`) correlated by stack ID, runtime step ID, and workflow attempt. Telemetry is non-intrusive, strictly bounded, and fail-closed: diagnostic failures never alter workflow execution outcomes.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             Siglo Workflow Runtime                          │
-│                                                                             │
-│  ┌────────────┐   ┌───────────────┐   ┌─────────────────┐   ┌────────────┐  │
-│  │  httpStep  │   │ verifyWebhook │   │ sendNotification│   │   aiStep   │  │
-│  └──────┬─────┘   └───────┬───────┘   └────────┬────────┘   └─────┬──────┘  │
-│         │                 │                    │                  │         │
-│         └─────────────────┼────────────────────┴──────────────────┘         │
-│                           ▼                                                 │
-│             stepInspectionStorage (AsyncLocalStorage)                       │
-│                           │                                                 │
-│                           ▼                                                 │
-│       captureInspection & sanitizeInspection (Defense-in-depth)             │
-│        • 4096-byte UTF-8 cap (complete code points)                         │
-│        • Mandatory application redactor + credential scrubbing              │
-│        • Strict header allowlist + URL/Bearer scrubbing                     │
-│                           │                                                 │
-│                           ▼                                                 │
-│                   emitMonitoringEvent                                       │
-│                           │                                                 │
-└───────────────────────────┼─────────────────────────────────────────────────┘
-                            │
-            ┌───────────────┴───────────────┐
-            ▼                               ▼
-  WorkflowExecutionStore          WebSocketBroadcaster / SSE
-            │                               │
-            ▼                               ▼
-  REST API (/api/workflows)       Real-time JSON Frames (Masked)
-            │                               │
-            └───────────────┬───────────────┘
-                            ▼
-              Monitor Web UI (StepDetailCard)
-               • HTTP: Attempts, Retry-After, origin-only cURL
-               • Crypto: Safe rejection categories, payload sizes
-               • AI: Token metrics, repair turns, inference timeline
-               • Notifications: Sandboxed iframe preview, UTC expiries
+```mermaid
+flowchart TD
+    subgraph RUNTIME["Siglo Workflow Runtime (Fail-Closed Perimeter)"]
+        direction TB
+        subgraph STEPS["Ecosystem Step Execution"]
+            HTTP["<code>httpStep</code><br/>HTTP client calls"]
+            CRYPTO["<code>verifyWebhook</code><br/>Signature verification"]
+            NOTIFY["<code>sendNotification</code><br/>Email, Slack & approvals"]
+            AI["<code>aiStep</code><br/>LLM inference & schema repairs"]
+        end
+
+        STORAGE["<code>stepInspectionStorage</code><br/><i>AsyncLocalStorage correlation context</i>"]
+
+        subgraph DEFENSE["Defense-in-Depth Sanitization"]
+            SANITIZE["<code>captureInspection & sanitizeInspection</code><br/>• 4096-byte UTF-8 cap (complete code points)<br/>• Mandatory application redactor + credential scrubbing<br/>• Strict header allowlist + URL/Bearer scrubbing"]
+        end
+
+        EMIT["<code>emitMonitoringEvent</code><br/><i>Correlated by stackId, stepId & attempt</i>"]
+
+        HTTP --> STORAGE
+        CRYPTO --> STORAGE
+        NOTIFY --> STORAGE
+        AI --> STORAGE
+        STORAGE --> SANITIZE
+        SANITIZE --> EMIT
+    end
+
+    subgraph DISTRIBUTION["Telemetry Transport & Persistence"]
+        STORE[("WorkflowExecutionStore<br/>Historical execution state")]
+        BROADCASTER["WebSocketBroadcaster / SSE<br/>Live telemetry streaming (1 MiB cap)"]
+        REST["REST API<br/><code>/api/workflows</code>"]
+        FRAMES["Masked JSON Frames<br/>RFC 6455 client stream"]
+
+        EMIT --> STORE
+        EMIT --> BROADCASTER
+        STORE --> REST
+        BROADCASTER --> FRAMES
+    end
+
+    subgraph DASHBOARD["Monitor Web UI (StepDetailCard)"]
+        CARD["<b>StepDetailCard & EcosystemInspector</b>"]
+        INSP_HTTP["<b>HTTP Inspector</b><br/>• Origin-only cURL copy<br/>• Attempts & durations<br/>• Retry-After & backoff source"]
+        INSP_CRYPTO["<b>Crypto Inspector</b><br/>• Safe rejection categories<br/>• Payload byte metrics<br/>• Timestamp & replay checks"]
+        INSP_AI["<b>AI Inspector</b><br/>• Token usage & cost in USD<br/>• Fallback counts<br/>• JSON repair attempts"]
+        INSP_NOTIFY["<b>Notification Inspector</b><br/>• Channel & masked recipient<br/>• Signed token status (HMAC)<br/>• Sandboxed iframe preview"]
+
+        CARD --> INSP_HTTP
+        CARD --> INSP_CRYPTO
+        CARD --> INSP_AI
+        CARD --> INSP_NOTIFY
+    end
+
+    REST --> CARD
+    FRAMES --> CARD
 ```
 
 ---
@@ -126,9 +143,27 @@ Siglo applies several layered safeguards to prevent secret leakage:
 8. **Context Telemetry Suppression**: Once a workflow stack executes an ecosystem step, generic runtime context, output summaries, and failure errors are suppressed for that stack (`hasEcosystemContent(stackId)`). This prevents later workflow steps from inadvertently leaking earlier sensitive responses via merged execution context.
 9. **No Client-Side Unmasking**: Discarded or redacted values are omitted before storage and transport. The web dashboard provides no mechanism to unmask server-redacted data.
 
+```mermaid
+flowchart LR
+    RAW["Raw Step Data"] --> REDACT["1. Application Redactor<br/><i>(Immutable clone)</i>"]
+    REDACT --> SCRUB["2. Credential Scrubbing<br/><i>(token, password, apiKey)</i>"]
+    SCRUB --> ALLOWLIST["3. Header Allowlist<br/><i>(accept, content-type, retry-after)</i>"]
+    ALLOWLIST --> STRIP["4. URL & Bearer Stripping<br/><i>([URL omitted], [Credential omitted])</i>"]
+    STRIP --> BOUND["5. Code Point Truncation<br/><i>(≤ 4096 UTF-8 bytes)</i>"]
+    BOUND --> FINAL["Sanitized Telemetry<br/><i>(EcosystemInspection)</i>"]
+```
+
 ---
 
 ## 2. Inspector Behavior & Web UI Panels
+
+The Siglo Web Monitor UI provides interactive diagnostics through the DAG visualizer and `StepDetailCard` inspector panel:
+
+![Siglo live monitor showing workflow execution, interactive DAG visualizer, and step detail inspection](assets/rest-and-live-monitoring/checkout-success.png)
+
+The companion latency waterfall visualizes per-attempt step durations, HTTP retry delays, and backoff sleeps:
+
+![Siglo latency waterfall showing step execution durations, retries, and proportional execution timeline](assets/rest-and-live-monitoring/checkout-waterfall.png)
 
 ### HTTP Inspector
 
@@ -199,43 +234,58 @@ The Notification inspector tracks delivery and interactive human-in-the-loop app
 
 Siglo decouples notification dispatch from durable suspension. The approval step issues a cryptographically signed action token and dispatches the notification, while a subsequent `waitForEvent` node suspends the workflow until the user acts or a timeout occurs.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as External Approver
+    participant Engine as Workflow Engine
+    participant Notify as @siglo/notifications
+    participant Channel as Delivery Transport (Email / Slack)
+    participant Callback as Callback Server (/api/approvals/callback)
+    participant Monitor as Siglo Monitor
+
+    rect rgb(30, 41, 59)
+        Note over Engine, Notify: 1. Action Token Dispatch & Durable Suspension
+        Engine->>Notify: sendInteractiveApprovalStep(config)
+        Notify->>Notify: Generate HMAC-SHA256 action token<br/>(signs stackId, stepId, correlationKey, expiresAt)
+        Notify->>Channel: Dispatch notification with signed action URL
+        Channel-->>User: Delivers message with action buttons / links
+        Notify->>Monitor: emitMonitoringEvent({ kind: 'notification', approvalState: 'requested', tokenStatus: 'issued' })
+        Engine->>Engine: waitForEvent (Enters SUSPENDED / WAITING status)
+    end
+
+    rect rgb(15, 23, 42)
+        Note over User, Callback: 2. Dual-Phase Confirmation & State Mutation
+        User->>Callback: Clicks Action URL: GET /callback?token=...
+        Note over Callback: Read-Only Phase: Displays preview form<br/>Guarantees GET cannot mutate workflow state
+        Callback-->>User: 200 OK: Renders Confirmation Dialog (with CSRF token)
+        User->>Callback: Submits Decision: POST /callback { token, approved: true }
+    end
+
+    rect rgb(30, 41, 59)
+        Note over Callback, Engine: 3. Cryptographic Verification & Workflow Resumption
+        Callback->>Callback: verifyActionToken(token)<br/>• Validates HMAC signature against SIGLO_SIGNING_SECRET<br/>• Checks token expiration timestamp (UTC)<br/>• Acquires correlation lock (prevents duplicate callbacks)
+        Callback->>Engine: resumeWorkflow(stackId, { approved: true })
+        Callback->>Monitor: emitMonitoringEvent({ kind: 'notification', approvalState: 'approved' })
+        Callback-->>User: 302 Redirect (to onSuccessRedirect)
+        Engine->>Engine: Transition: WAITING -> RESUMED -> COMPLETED
+        Engine->>Engine: Advance workflow to next step
+    end
 ```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                        Interactive Approval Flow                          │
-│                                                                           │
-│   Workflow Engine                         External User                   │
-│   ───────────────                         ─────────────                   │
-│          │                                      │                         │
-│   sendInteractiveApprovalStep                   │                         │
-│   (Signs action token with HMAC-SHA256)         │                         │
-│          │                                      │                         │
-│          ▼                                      │                         │
-│   Notification Dispatched ─────────────────────>│ Receives Email/Slack    │
-│          │                                      │ with Action URLs        │
-│          ▼                                      │                         │
-│   waitForEvent (Durable Suspension)             │                         │
-│   Status: SUSPENDED / WAITING                   │                         │
-│          │                                      │                         │
-│          │                                      ▼                         │
-│          │                                Clicks Action URL               │
-│          │                                      │                         │
-│          │                                      ▼                         │
-│          │                            GET /callback?token=...             │
-│          │                            (Shows Confirmation Form)           │
-│          │                                      │                         │
-│          │                                      ▼                         │
-│          │                            POST /callback                      │
-│          │                            (CSRF-safe state mutation)          │
-│          │                                      │                         │
-│          ▼                                      ▼                         │
-│   resumeWorkflow <─────────────────── verifyActionToken                   │
-│   Status: COMPLETED / RESUMED         • Validates HMAC signature          │
-│          │                            • Verifies token expiry (UTC)       │
-│          ▼                            • Checks approval revocation lock   │
-│   Next Step Executes                  • Emits correlated inspection       │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-```
+
+### Live Monitor Suspension & Resumption
+
+When `sendInteractiveApprovalStep` dispatches an approval request and registers `waitForEvent`, the live monitor highlights the suspended execution in amber, displaying the durable wait state and UTC deadline in the inspector:
+
+![Durable approval step in the live monitor showing the suspended wait state and UTC deadline in StepDetailCard](assets/durable-distributed-checkout/waiting-for-approval.png)
+
+Workflows can also be inspected and manually resumed or rejected directly from the live monitor dashboard during development and testing:
+
+![Live monitor Resume Suspended Flow dialog with waiting stack ID, event signal name, JSON payload, and action controls](assets/durable-distributed-checkout/dashboard-resume-dialog.png)
+
+Once resumed (either via callback POST or monitor signal), the workflow completes and records the approved execution event:
+
+![Durable checkout live monitor showing a completed resumed execution with confirmed approval status](assets/durable-distributed-checkout/dashboard-approved-event.png)
 
 ### Callback Server Integration
 

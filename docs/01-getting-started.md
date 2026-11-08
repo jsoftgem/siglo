@@ -49,7 +49,7 @@ npm install --save-dev typescript tsx @types/node
 
 The files below use the CommonJS default created by `npm init -y`; `tsx` runs the TypeScript directly. No build configuration is needed for this demo.
 
-**Already working in this repository?** The completed files are in [`examples/src/getting-started`](../examples/src/getting-started). With the repository dependencies installed, build core and run:
+**Already working in this repository?** The completed files are in [`examples/src/getting-started`](https://github.com/jsoftgem/siglo/tree/main/examples/src/getting-started). With the repository dependencies installed, build core and run:
 
 ```bash
 npm run build --workspace=@siglo/core
@@ -335,9 +335,9 @@ Checkout is one example. Look for a business operation with several stages and e
 
 | Real-world problem                                                                     | Where Siglo helps                                                                             | Continue with                                                                                           |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A travel booking reserves a flight, then fails to book a hotel                         | Attach cancellation actions to completed reservations and compensate in reverse order         | [Travel booking example](../examples/src/workflow/usecases/usecase-11-distributed-saga-compensation.ts) |
+| A travel booking reserves a flight, then fails to book a hotel                         | Attach cancellation actions to completed reservations and compensate in reverse order         | [Travel booking example](https://github.com/jsoftgem/siglo/tree/main/examples/src/workflow/usecases/usecase-11-distributed-saga-compensation.ts) |
 | An expense claim waits for a manager’s decision                                        | Suspend at an event wait, persist the checkpoint, and resume when a verified approval arrives | [Durable workflows](/06-durable-workflows)                                                              |
-| A document import overloads an embedding service when every item runs at once          | Use bounded `map` concurrency to limit active work                                            | [Batch ingestion example](../examples/src/workflow/usecases/usecase-12-bounded-batch-mapping.ts)        |
+| A document import overloads an embedding service when every item runs at once          | Use bounded `map` concurrency to limit active work                                            | [Batch ingestion example](https://github.com/jsoftgem/siglo/tree/main/examples/src/workflow/usecases/usecase-12-bounded-batch-mapping.ts)        |
 | A Kafka message needs validation, customer enrichment, and an audit write              | Reuse named steps inside a consumer, with retry and deduplication policies                    | [Kafka adapter](/adapters/kafka)                                                                        |
 | A support assistant needs structured model output and an alternate provider on failure | Compose AI steps with output validation and fallback policies                                 | [AI adapter](/adapters/ai)                                                                              |
 

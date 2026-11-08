@@ -15,27 +15,54 @@ Unlike black-box execution engines, `Siglo` streams structured, strongly-typed e
 
 ## 1. Architecture & Observability Layers
 
-```text
-                           +---------------------------+
-                           |    Siglo Workflow Run     |
-                           +-------------+-------------+
-                                         |
-                                         v
-                    +--------------------+--------------------+
-                    | Workflow Event Bus / Monitoring Adapter |
-                    +--------------------+--------------------+
-                                         |
-                 +-----------------------+-----------------------+
-                 |                                               |
-                 v (SSE / WebSocket)                             v (Prometheus / APM)
-    +------------+------------+                     +------------+------------+
-    |   React DevTools UI     |                     |  Production Telemetry   |
-    | - Live DAG Visualizer   |                     | - Prometheus Metrics    |
-    | - Context Diff Viewer   |                     | - Grafana Dashboards    |
-    | - Latency Waterfall     |                     | - Multi-Worker Pub/Sub  |
-    | - Interactive Resume    |                     | - OpenTelemetry Traces  |
-    | - Replay Trigger        |                     |                         |
-    +-------------------------+                     +-------------------------+
+```mermaid
+flowchart TD
+    subgraph Run["Workflow Runtime"]
+        WFR["Siglo Workflow Run<br/>flow().run()"]
+        StepStore["Async Context & Storage<br/>stepInspectionStorage"]
+        WFR --> StepStore
+    end
+
+    subgraph Bus["Event & Monitoring Backbone"]
+        EventEmitter["WorkflowEventEmitter<br/>(18 typed lifecycle events)"]
+        Adapter["Monitoring Adapters<br/>attachToMonitorServer()"]
+        StepStore --> EventEmitter
+        EventEmitter --> Adapter
+    end
+
+    subgraph Stream["Real-Time Streaming Transports"]
+        SSE["SSE Broadcaster<br/>/events"]
+        WS["WebSocket Server<br/>/ws (RFC 6455)"]
+        Redis["Distributed Redis Pub/Sub<br/>RedisMonitoringAdapter"]
+    end
+
+    subgraph DevTools["React 18 DevTools UI (SPA)"]
+        DAG["Live DAG Visualizer"]
+        Diff["Context Diff Viewer"]
+        Waterfall["Latency Waterfall"]
+        Inspector["Ecosystem Inspector"]
+        Resume["Interactive Resume & Replay"]
+    end
+
+    subgraph Prod["Production Telemetry & APM"]
+        Prom["Prometheus Exporter<br/>/metrics"]
+        Grafana["Grafana Dashboards"]
+        OTel["OpenTelemetry Distributed Traces"]
+    end
+
+    Adapter --> SSE
+    Adapter --> WS
+    Adapter --> Redis
+    Adapter --> Prom
+    Adapter --> OTel
+
+    SSE --> DAG
+    SSE --> Diff
+    SSE --> Waterfall
+    SSE --> Inspector
+    WS --> Resume
+    Resume -.-> WS
+    Prom --> Grafana
 ```
 
 Observability is divided into four integrated layers:
@@ -194,13 +221,18 @@ Content capture guarantees:
 
 Workflows utilizing `waitForEvent()` with optional timeouts have their wait lifecycles automatically tracked and surfaced in the monitor:
 
-```text
-[ flow:suspended ] -> ( waitState: 'waiting', waitExpiresAt: UTC timestamp )
-       |
-       +---> [ flow:resumed by signal ]  -> ( waitState: 'resumed', status: 'COMPLETED' )
-       |
-       +---> [ flow:resumed by timeout ] -> ( waitState: 'expired', resumeReason: 'timer-expired', status: 'COMPLETED' )
+```mermaid
+flowchart TD
+    Run["Step calls waitForEvent()"] --> Suspended["flow:suspended<br/>waitState: waiting<br/>waitExpiresAt: UTC timestamp"]
+
+    Suspended -->|External signal arrives<br/>via UI, REST, or WS| SignalResumed["flow:resumed (signal)<br/>waitState: resumed<br/>status: COMPLETED"]
+    Suspended -->|Timeout reached before signal| TimeoutResumed["flow:resumed (timer-expired)<br/>waitState: expired<br/>resumeReason: timer-expired<br/>status: COMPLETED"]
+
+    SignalResumed --> ResumeExec["Workflow resumes execution<br/>with signal payload"]
+    TimeoutResumed --> ExpireExec["Workflow resumes execution<br/>with timeout fallback"]
 ```
+
+![Durable checkout live monitor showing the suspended approval wait in amber, completed reservation and payment steps, and the wait state and UTC deadline in the right-hand panel](assets/durable-distributed-checkout/waiting-for-approval.png)
 
 - **Step Isolation**: The `applyWaitEvent` live reducer correlates wait state changes strictly by `stepId`. Concurrent or sibling wait steps in nested flows remain completely isolated.
 - **Deadline Formatting**: The monitor UI renders exact UTC deadlines (`waitExpiresAt`), allowing operators to see when a suspended approval or SLA window will expire.
@@ -243,6 +275,9 @@ The web dashboard is an interactive, zero-dependency Single Page Application (SP
         - 🟢 **Completed** (`CheckCircle2` icon)
         - 🔴 **Failed** (`XCircle` icon with rose border)
         - 🟡 **Suspended** / **Waiting** (`PauseCircle` icon with amber border)
+
+    ![Siglo live monitor showing a completed checkout, its four workflow steps in the interactive DAG visualizer, and step detail inspection](assets/rest-and-live-monitoring/checkout-success.png)
+
 2. **Step Detail Inspector (`StepDetailCard`)**:
     - Clicking any step node opens a detailed inspection card.
     - Shows Step ID, execution status, exact duration, and retry attempts.
@@ -251,21 +286,37 @@ The web dashboard is an interactive, zero-dependency Single Page Application (SP
     - **Sanitized cURL Export**: One-click button to copy a safe, origin-only cURL command.
     - **Content Inspection & Sandboxed Previews**: Expandable redacted request/response headers and bodies, with sandboxed iframe rendering for email notification previews.
     - **Error Details**: Formatted error message and stack trace.
+
+    ![Siglo live monitor showing a failed step highlighted in rose with error message and stack trace in the inspector](assets/rest-and-live-monitoring/checkout-shipping-failure.png)
+
 3. **Step Latency Waterfall Timeline (`WaterfallView`)**:
     - Tabular view listing step name, status badge, attempt count, duration in milliseconds, and proportional duration bar (`WaterfallBar`).
     - Quickly identifies latency bottlenecks across serial and parallel steps.
+
+    ![Siglo latency waterfall showing step execution durations, retries, and proportional execution timeline](assets/rest-and-live-monitoring/checkout-waterfall.png)
+
 4. **Context & State Diff Inspector (`ContextViewer`)**:
     - **Current State Tab**: Monospace syntax-highlighted JSON viewer with one-click copy to clipboard.
     - **Mutations Tab**: Chronological audit trail of granular field mutations (`context:change`) with timestamps, keys, and values.
+
+    ![Siglo context viewer showing the JSON state and granular field mutations from workflow execution](assets/rest-and-live-monitoring/checkout-context.png)
+
 5. **Live Events Feed (`EventsFeed`)**:
     - Real-time event log streaming all 18 lifecycle events.
     - Filter by event type (`ALL`, `step:start`, `step:complete`, `step:inspection`, `ai:complete`, etc.).
     - Expandable raw event JSON viewer (`EventRow`).
+
 6. **Interactive Durable Resumption (`ResumeModal`)**:
     - Resumption modal for workflows suspended on `waitForEvent()`.
     - Configure Stack ID / correlation key, event signal name, and custom JSON payload to unblock workflows directly from the browser.
+
+    ![Live monitor Resume Suspended Flow dialog with waiting stack ID, event signal name, JSON payload, and Dispatch Signal action](assets/durable-distributed-checkout/dashboard-resume-dialog.png)
+
 7. **Workflow Replay**:
     - One-click replay button (`POST /api/workflows/:stackId/replay`) to re-trigger recorded workflow runs.
+
+    ![Shared live monitor showing one completed execution after replay through the monitor](assets/distributed-rest-and-live-monitoring/checkout-and-replay.png)
+
 8. **Search, Metrics & Multi-Tenant Isolation**:
     - Search runs by flow name, stack ID, or namespace.
     - Status filters: `ALL`, `RUNNING`, `SUSPENDED`, `FAILED`, `COMPLETED`.
@@ -525,6 +576,41 @@ ws.send(
 
 For distributed clusters where workflows execute across multiple serverless functions or worker nodes:
 
+```mermaid
+flowchart LR
+    subgraph Workers["Distributed Worker Fleet"]
+        W1["Worker Node A<br/>RedisMonitoringAdapter"]
+        W2["Worker Node B<br/>RedisMonitoringAdapter"]
+        W3["Serverless Function<br/>createMonitorClient"]
+    end
+
+    subgraph Broker["Redis Pub/Sub"]
+        RedisChan[("Channel: siglo:monitor:events")]
+    end
+
+    subgraph Central["Central Monitor Server (:4000)"]
+        ServerAdapter["RedisMonitoringAdapter<br/>(Subscriber)"]
+        Store["WorkflowExecutionStore"]
+        SSE["SSE / WebSocket Broadcaster"]
+        Prom["Prometheus Metrics (:4000/metrics)"]
+    end
+
+    subgraph Consumers["Monitoring Clients"]
+        UI["React DevTools Dashboard"]
+        Grafana["Grafana & Alertmanager"]
+    end
+
+    W1 -->|PUBLISH| RedisChan
+    W2 -->|PUBLISH| RedisChan
+    W3 -->|"POST /api/events"| Store
+    RedisChan -->|SUBSCRIBE| ServerAdapter
+    ServerAdapter --> Store
+    Store --> SSE
+    Store --> Prom
+    SSE --> UI
+    Prom --> Grafana
+```
+
 ```typescript
 import { RedisMonitoringAdapter, createMonitorServer } from '@siglo/monitor';
 import { WorkflowEventEmitter } from '@siglo/core';
@@ -587,6 +673,8 @@ siglo_steps_total{status="completed"} 432
 siglo_steps_total{status="failed"} 2
 ```
 
+![Prometheus target health page showing the siglo-monitor scrape target UP at monitor port 4000 /metrics](assets/zero-code-apm-dashboards/prometheus-targets.png)
+
 ### Pre-Configured Grafana Dashboard
 
 Import the JSON dashboard template located at:
@@ -599,6 +687,8 @@ Panels include:
 - Step retries counter
 - Workflow execution duration time-series graph
 - Step throughput breakdown
+
+![Grafana Live Workflow Monitoring dashboard with populated completion and failure counters, workflow duration time-series, and step throughput](assets/zero-code-apm-dashboards/metrics.png)
 
 ---
 

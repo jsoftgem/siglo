@@ -38,7 +38,7 @@ npm install --save-dev @types/express
 
 This assumes the Node.js and TypeScript setup from [Getting Started](/01-getting-started). The server code below uses that tutorial’s CommonJS setup.
 
-**Running from this repository?** The complete example is already in [`examples/src/getting-started`](../examples/src/getting-started). With repository dependencies installed, run these commands from the repository root:
+**Running from this repository?** The complete example is already in [`examples/src/getting-started`](https://github.com/jsoftgem/siglo/tree/main/examples/src/getting-started). With repository dependencies installed, run these commands from the repository root:
 
 ```bash
 npm run build --workspace=@siglo/core
@@ -297,7 +297,7 @@ The [HTTP integration test](../examples/src/getting-started/checkout-server.test
 node --import tsx --test examples/src/getting-started/checkout-server.test.ts
 ```
 
-It checks the response body and stack header, recorded retry, failed-run status, rejection of invalid input, exclusion of arbitrary secret fields, metrics, and dashboard HTML delivery. The [checkout tests](../examples/src/getting-started/checkout.test.ts) verify the actual compensation order.
+It checks the response body and stack header, recorded retry, failed-run status, rejection of invalid input, exclusion of arbitrary secret fields, metrics, and dashboard HTML delivery. The [checkout tests](https://github.com/jsoftgem/siglo/blob/main/examples/src/getting-started/checkout.test.ts) verify the actual compensation order.
 
 ## 8. Take It Beyond the Local Demo
 

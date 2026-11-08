@@ -11,31 +11,55 @@ description: 'Master engineering guide for deploying Siglo workflows in mission-
 
 ## Architecture Overview
 
-```
-                                 ┌─────────────────────────────────────────────────────────┐
-                                 │                 Client & Ingress Layer                  │
-                                 │           (API Gateway / Load Balancer)                 │
-                                 └────────────────────────────┬────────────────────────────┘
-                                                              │
-                                    ┌─────────────────────────┴─────────────────────────┐
-                                    ▼                                                   ▼
-┌────────────────────────────────────────────────────────┐     ┌────────────────────────────────────────────────────────┐
-│                   Worker Pod A                         │     │                   Worker Pod B                         │
-│  - Siglo Runtime (Deterministic Concurrency)           │     │  - Siglo Runtime (Deterministic Concurrency)           │
-│  - Zero-Trust Network Perimeter (DNS IP Pinning)       │     │  - Zero-Trust Network Perimeter (DNS IP Pinning)       │
-│  - Named Compensation Registry                         │     │  - Named Compensation Registry                         │
-│  - PostgresWaitPoller (Advisory Selection & Locks)     │     │  - PostgresWaitPoller (Advisory Selection & Locks)     │
-└───────────────────────────┬────────────────────────────┘     └───────────────────────────┬────────────────────────────┘
-                            │                                                              │
-                            └─────────────────────────────┬────────────────────────────────┘
-                                                          │
-                                                          ▼
-                                ┌──────────────────────────────────────────────────┐
-                                │          PostgreSQL 14+ / Redis Cluster          │
-                                │  - siglo_checkpoints (CAS OCC Versioning)        │
-                                │  - siglo_wait_records (Atomic Resumption Claims) │
-                                │  - siglo_idempotency_records (Wait-and-Settle)   │
-                                └──────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Ingress["Client & Ingress Layer"]
+        Gateway["API Gateway / Enterprise Load Balancer<br/>(HTTPS, Webhooks, gRPC)"]
+    end
+
+    subgraph Workers["Distributed Worker Fleet"]
+        subgraph PodA["Worker Pod A"]
+            RuntimeA["Siglo Runtime<br/>(Deterministic Concurrency)"]
+            NetA["Network Perimeter<br/>(DNS Pinning & Egress Policy)"]
+            CompA["Compensation Registry<br/>(Named Saga Handlers)"]
+            PollerA["PostgresWaitPoller<br/>(Row-Level Advisory Locks)"]
+        end
+
+        subgraph PodB["Worker Pod B"]
+            RuntimeB["Siglo Runtime<br/>(Deterministic Concurrency)"]
+            NetB["Network Perimeter<br/>(DNS Pinning & Egress Policy)"]
+            CompB["Compensation Registry<br/>(Named Saga Handlers)"]
+            PollerB["PostgresWaitPoller<br/>(Row-Level Advisory Locks)"]
+        end
+    end
+
+    subgraph Storage["Distributed State Layer (PostgreSQL 14+ / Redis)"]
+        Checkpoints["siglo_checkpoints<br/>(CAS OCC Versioning & State Snapshots)"]
+        WaitRecords["siglo_wait_records<br/>(Durable Timers & Resumption Claims)"]
+        Idempotency["siglo_idempotency_records<br/>(Wait-and-Settle Key Locks)"]
+    end
+
+    subgraph External["External Infrastructure & Egress Targets"]
+        APIs["Allowlisted External APIs<br/>(Stripe, Slack, Partner Webhooks)"]
+        DLQ["Dead-Letter Queue Sink<br/>(AWS SQS / Kafka DLQ)"]
+    end
+
+    Gateway --> RuntimeA
+    Gateway --> RuntimeB
+
+    RuntimeA --> Checkpoints
+    RuntimeA --> Idempotency
+    PollerA --> WaitRecords
+
+    RuntimeB --> Checkpoints
+    RuntimeB --> Idempotency
+    PollerB --> WaitRecords
+
+    NetA --> APIs
+    NetB --> APIs
+
+    CompA -.->|On Failure| DLQ
+    CompB -.->|On Failure| DLQ
 ```
 
 ---
@@ -184,6 +208,20 @@ When scheduling a durable timer in Cloud Tasks:
 
 In high-volume webhook endpoints (e.g., Stripe, Shopify) or distributed messaging consumers (Kafka, SQS), concurrent duplicates can hit workers within milliseconds.
 
+```mermaid
+flowchart TD
+    Req1["Incoming Request A (Original)"] --> Claim["Acquire Idempotency Key Claim"]
+    Req2["Incoming Request B (Duplicate)"] --> Wait["Wait-and-Settle (Spin-wait)"]
+
+    Claim --> Exec["Execute Step Action"]
+    Exec -->|Success| Complete["Complete & Cache Result in Store"]
+    Exec -->|Transient Error| Release["Release Claim for Retry"]
+
+    Wait --> Check{"State Settled?"}
+    Check -->|Yes, within settleTimeoutMs| ReturnCached["Return Cached Result (No re-run)"]
+    Check -->|No, timeout exceeded| SettleTimeout["Throw SettleTimeoutException"]
+```
+
 Instead of rejecting duplicates immediately with 409 Conflict, enable **Wait-and-Settle**:
 
 ```typescript
@@ -245,6 +283,27 @@ flowInstance.networkPolicy({
 ---
 
 ## 5. Sagas, Named Compensations & Dead-Letter Queues (DLQ)
+
+```mermaid
+flowchart TD
+    subgraph Forward["Forward Execution Pipeline"]
+        Step1["reserveInventory (Output: reservationId)"] --> Step2["chargeCard (Output: chargeId)"]
+        Step2 --> Step3["arrangeShipping (FAILS)"]
+    end
+
+    subgraph Rollback["Saga Compensation (LIFO Inverse Order)"]
+        Comp2["billing:refundCharge (Refunds chargeId)"]
+        Comp1["inventory:releaseHold (Releases reservationId)"]
+        Step3 -->|Trigger Rollback| Comp2
+        Comp2 --> Comp1
+    end
+
+    subgraph DLQSink["Dead-Letter Queue Sink"]
+        DLQ["Persistent DLQ (AWS SQS / Kafka)<br/>Captures Failed Compensation Payload"]
+        Comp2 -.->|Rollback Error| DLQ
+        Comp1 -.->|Rollback Error| DLQ
+    end
+```
 
 ### A. Named Compensation Registry
 
