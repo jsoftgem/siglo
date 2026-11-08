@@ -3,8 +3,6 @@ title: 'Concurrency and Parallelism'
 description: 'Comprehensive guide to concurrent execution, parallel fan-out, competitive racing, conditional routing, and bounded collection mapping in Siglo.'
 ---
 
-# Concurrency and Parallelism
-
 `Siglo` provides high-performance, functional combinators for concurrent execution, competitive racing, conditional routing, and bounded batch mapping. Designed around cooperative cancellation, state isolation, and deterministic merging, Siglo enables complex asynchronous coordination while preventing race conditions, unhandled rejections, and resource exhaustion.
 
 ---

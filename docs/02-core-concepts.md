@@ -3,12 +3,6 @@ title: 'Core Concepts'
 description: 'Mental model and architecture of Siglo: AST graph representation, accumulated context inference, step lifecycles, and metadata namespaces.'
 ---
 
-# Core Concepts
-
-This chapter outlines the fundamental mental model and architecture of `Siglo`.
-
----
-
 ## 1. Workflows as Directed Acyclic Graphs (AST)
 
 In `Siglo`, a workflow is not a simple promise chain. It is an **executable Abstract Syntax Tree (AST)** composed of typed nodes:

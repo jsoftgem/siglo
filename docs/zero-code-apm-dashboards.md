@@ -3,8 +3,6 @@ title: 'Zero-Code APM Dashboards'
 description: 'Explore OpenTelemetry traces in Jaeger and Prometheus metrics in pre-provisioned Grafana dashboards for distributed Kafka order routing workflows.'
 ---
 
-# Zero-Code APM Dashboards
-
 In [Route Kafka Order Events with `branch` and `when`](/kafka-order-routing), you published orders to Kafka, let two consumers share the work, and inspected routing decisions in Siglo’s live monitor. Now you’ll use **a separate APM example with its own producer, workers, workflow, PostgreSQL claims, and Redis monitor** to explore traces in Jaeger and metrics in Grafana.
 
 You’ll follow a gift order from publication through Kafka to its selected worker, compare fulfillment with review and cancellation, and distinguish a failed workflow from a successfully quarantined Kafka record. The fulfillment operations remain fake; the Kafka, PostgreSQL, and Redis connections are real. The routing model continues the previous tutorial, while all runnable APM code lives in [`examples/zero-code-apm-dashboards`](../examples/zero-code-apm-dashboards). Neither tutorial imports the other’s application code.

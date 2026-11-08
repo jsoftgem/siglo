@@ -3,8 +3,6 @@ title: 'Testing and Replay'
 description: 'Zero-flake test harness for Siglo: step mocking, spies, virtual clocks, execution trace snapshots, and production failure replay.'
 ---
 
-# Testing and Replay
-
 `@siglo/testing` provides a comprehensive, zero-flake test harness for deterministic execution, step mocking, spy inspection, virtual timers, execution trace snapshots, and production failure replay.
 
 ---

@@ -3,8 +3,6 @@ title: 'Observability'
 description: 'Telemetry, diagram exports, and real-time DevTools in Siglo: OpenTelemetry distributed tracing, Mermaid/DOT AST exports, and React live monitoring.'
 ---
 
-# Observability
-
 For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](/zero-code-apm-dashboards).
 
 For a complete HTTP example, follow [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring).

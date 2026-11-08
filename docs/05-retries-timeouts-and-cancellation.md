@@ -2,9 +2,6 @@
 title: 'Retries, Timeouts, and Cancellation'
 description: 'Fault tolerance patterns in Siglo: exponential backoff retries with jitter, step and workflow deadlines, AbortSignal cooperative cancellation, and automatic Saga rollbacks.'
 ---
-
-# Retries, Timeouts, and Cancellation
-
 Enterprise systems encounter network hiccups, slow external services, and user cancellations. `Siglo` provides built-in fault tolerance without requiring external cron daemons.
 
 ---

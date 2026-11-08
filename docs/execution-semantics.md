@@ -3,12 +3,6 @@ title: 'Execution Semantics Contract'
 description: 'Formal runtime execution semantics, lifecycle phases, context accumulation, error propagation, network boundaries, and saga compensation contracts in Siglo.'
 ---
 
-# Execution Semantics Contract
-
-This document provides a formal, binding contract for the runtime execution semantics of `Siglo` v1.0.0.
-
----
-
 ### 1. What does a step return to the next step when it returns an object, a primitive, undefined, or a promise?
 
 - **Object (`Record<string, any>`)**: The returned keys are shallow-merged into the execution context as clean plain JavaScript objects (POJOs). Properties are directly accessible without wrappers or getter closures, allowing native object destructuring.

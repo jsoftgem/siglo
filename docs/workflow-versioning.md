@@ -3,8 +3,6 @@ title: 'Workflow Versioning and State Migrations'
 description: 'Semantic version tagging on flows, compatibility validation during resumption, state migration functions, and deployment best practices in Siglo.'
 ---
 
-# Workflow Versioning and State Migrations
-
 Long-running workflows that pause for days or weeks often outlive the software release that initiated them. If workflow code changes while executions are suspended, resuming workflows must be done deterministically and safely.
 
 `Siglo` provides native workflow version tagging, compatibility enforcement, and state migration functions.

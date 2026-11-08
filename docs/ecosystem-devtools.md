@@ -3,8 +3,6 @@ title: 'Ecosystem DevTools and Offline Testing'
 description: 'Web monitor, runtime inspection protocols, zero-capture redaction contracts, and offline test recipes for Siglo ecosystem steps.'
 ---
 
-# Ecosystem DevTools and Offline Testing
-
 The Siglo Web Monitor and Developer Tools provide deep runtime diagnostics and offline testing capabilities for ecosystem steps: HTTP client calls, webhook verification, AI completions, and interactive human notifications.
 
 Ecosystem inspection operates through versioned telemetry (`EcosystemInspection` exported by `@siglo/core`) correlated by stack ID, runtime step ID, and workflow attempt. Telemetry is non-intrusive, strictly bounded, and fail-closed: diagnostic failures never alter workflow execution outcomes.

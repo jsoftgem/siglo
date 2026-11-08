@@ -3,12 +3,6 @@ title: 'Automated Exploratory Testing Plan'
 description: 'Comprehensive automated exploratory testing architecture, generative fuzzing, chaos engineering, and invariant verification across the Siglo ecosystem.'
 ---
 
-# Automated Exploratory Testing Plan for `Siglo`
-
-> **Comprehensive Automated Exploratory Testing (AET) Architecture, Generative Fuzzing, Chaos Engineering, and Invariant Verification Across the Entire Monorepo Ecosystem**
-
----
-
 ## 1. Executive Summary & Vision
 
 `Siglo` is a high-performance, in-process workflow orchestrator engineered for zero-daemon operational simplicity, sub-millisecond execution, and resilient enterprise semantics (Sagas, OCC checkpointing, bounded dynamic mapping, durable event waits, network egress policy enforcement, agentic AI pipelines, distributed clustering, and ecosystem adapters).

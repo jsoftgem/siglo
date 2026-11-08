@@ -3,8 +3,6 @@ title: 'Serve a REST Endpoint and Watch It Run Live'
 description: 'Expose a Siglo checkout workflow through an Express REST endpoint, stream execution events, and inspect step retries and compensations in the live monitor.'
 ---
 
-# Serve a REST Endpoint and Watch It Run Live
-
 A customer reports that checkout failed. Your API log shows a `500`, but it doesn’t tell you whether stock was reserved, payment was retried, or shipping caused the failure.
 
 In this tutorial, we’ll expose the checkout from [Getting Started](/01-getting-started) through an Express REST endpoint and attach Siglo’s live monitor. We’ll send real HTTP requests, inspect the named steps, and compare a successful checkout with a failed one.

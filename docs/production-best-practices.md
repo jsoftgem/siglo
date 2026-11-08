@@ -3,12 +3,6 @@ title: 'Production Best Practices & Operational Runbook'
 description: 'Master engineering guide for deploying Siglo workflows in mission-critical, distributed, high-throughput enterprise production environments.'
 ---
 
-# Production Best Practices & Operational Runbook
-
-> Master engineering guide for deploying **Siglo** workflows in mission-critical, distributed, high-throughput enterprise production environments.
-
----
-
 ## Architecture Overview
 
 ```mermaid

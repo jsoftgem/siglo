@@ -3,8 +3,6 @@ title: 'Storage and Adapters'
 description: 'Pluggable persistence architecture for Siglo: PostgreSQL and Redis adapters, durable checkpoints, distributed locks, multi-tenant namespaces, and storage error modes.'
 ---
 
-# Storage and Adapters
-
 `Siglo` features a decoupled storage architecture: the workflow runtime operates cleanly in memory, while state persistence, distributed caching, audit trails, and idempotency claims are delegated to pluggable `StorageAdapter` implementations.
 
 ---

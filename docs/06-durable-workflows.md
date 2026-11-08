@@ -3,8 +3,6 @@ title: 'Durable Workflows'
 description: 'Long-running and suspendable workflows in Siglo: asynchronous event suspension with waitForEvent, durable timer sleeps, event-driven resumption, and schema migrations.'
 ---
 
-# Durable Workflows
-
 Durable workflows allow executions to sleep, suspend, wait for external human approvals or webhooks, survive process restarts, and resume safely days or months later.
 
 ---

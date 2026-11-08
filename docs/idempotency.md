@@ -3,8 +3,6 @@ title: 'Idempotency and Deduplication'
 description: 'Workflow-level and step-level idempotency guarantees, atomic claim lifecycle, wait-and-settle thundering herd defense, and error classification.'
 ---
 
-# Idempotency and Deduplication
-
 Workflows in distributed environments are subject to network retries, duplicate webhooks, and at-least-once execution semantics. `Siglo` provides first-class idempotency guarantees at both the workflow level and individual step level.
 
 ---

@@ -3,8 +3,6 @@ title: 'TypeScript Reference'
 description: 'Type safety and static inference in Siglo: Step generic signatures, accumulated context union typing, typed $steps history, and Standard Schema validation.'
 ---
 
-# TypeScript Reference
-
 `Siglo` is built from the ground up for modern TypeScript (strict mode, noImplicitAny, exactOptionalPropertyTypes).
 
 ---

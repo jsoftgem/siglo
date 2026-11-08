@@ -3,8 +3,6 @@ title: 'Live Monitoring & DevTools'
 description: 'Real-time DAG topology visualization, execution state diff inspection, latency waterfalls, and interactive DevTools for Siglo workflows.'
 ---
 
-# Live Monitoring & DevTools
-
 Follow [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring) for a runnable Express checkout with HTTP requests, live events, and failure inspection.
 
 `Siglo` provides complete real-time live monitoring, dynamic DAG topology visualization, execution state diff inspection, and interactive DevTools for complex asynchronous workflows.

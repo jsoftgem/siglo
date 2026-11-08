@@ -3,8 +3,6 @@ title: 'Storage & Checkpoint Contract'
 description: 'Persistence model, checkpoint schema v2.0.0, optimistic concurrency control (OCC), field redaction, and StorageAdapter interface in Siglo.'
 ---
 
-# Storage & Checkpoint Contract
-
 This document outlines the persistence model, checkpoint schema, optimistic concurrency guarantees, and adapter error modes in `Siglo` v1.0.0.
 
 ---

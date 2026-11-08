@@ -3,8 +3,6 @@ title: 'Siglo Workflow Explorer & IDE Tooling'
 description: 'Visual static graph inspection, live-typing feedback, and bidirectional source code navigation for Siglo workflows in IntelliJ IDEA and VS Code.'
 ---
 
-# Siglo Workflow Explorer & IDE Tooling
-
 The **Siglo Workflow Explorer** provides developers with visual static graph inspection, live-typing feedback, and bidirectional source code navigation for Siglo workflows directly inside their IDE.
 
 Supported IDEs:

@@ -3,8 +3,6 @@ title: 'Accept Asymmetrically Signed Orders'
 description: 'Authenticate partner order requests with @siglo/crypto and @siglo/express before publishing them to Kafka, with timestamp and nonce replay protection.'
 ---
 
-# Accept Asymmetrically Signed Orders
-
 In [Route Kafka Order Events with `branch` and `when`](/kafka-order-routing), a producer published orders directly to Kafka. Now give a partner an HTTP entry point: the partner signs each request with its private key, and your service verifies it with a registered public key before publishing an order event.
 
 This tutorial combines **`@siglo/crypto`**, **`@siglo/express`**, and **`@siglo/monitor`**. Its Kafka consumer repeats the earlier tutorial's standard, gift, and high-value routing decisions. All fulfillment actions are simulated. The example has its own broker, topic, consumer group, keys, and port; it runs independently while the previous tutorials keep running.

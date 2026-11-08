@@ -3,8 +3,6 @@ title: 'Sequential Workflows'
 description: 'Compose linear pipelines with strict step execution order, accumulated context, and declarative lifecycle hooks in Siglo.'
 ---
 
-# Sequential Workflows
-
 Sequential workflows are the primary building block in `Siglo`. They execute a series of steps in strict order, passing accumulated context forward.
 
 ---

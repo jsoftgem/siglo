@@ -3,8 +3,6 @@ title: 'Durable Waits and External Events'
 description: 'Formal specification and operational contracts for durable suspension, correlation keys, event resumption, and checkpoint state restoration in Siglo.'
 ---
 
-# Durable Waits and External Events
-
 Long-running workflows frequently need to pause execution for minutes, hours, or days awaiting an external event (such as human approval, webhook verification, or payment clearance) or a duration timer.
 
 `Siglo` supports durable suspension and resumption without keeping active event listeners or worker processes running in memory.

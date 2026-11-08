@@ -3,8 +3,6 @@ title: 'Production Operations'
 description: 'Runbook and operational best practices for Siglo in mission-critical environments: zero-daemon topologies, PostgreSQL OCC, distributed locking, and graceful container shutdown.'
 ---
 
-# Production Operations
-
 This runbook covers operational best practices, capacity planning, distributed coordination, and disaster recovery when running `Siglo` workflows in mission-critical production environments.
 
 > [!TIP]

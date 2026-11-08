@@ -3,8 +3,6 @@ title: 'Branching and Parallelism'
 description: 'High-performance workflow combinators for concurrent fan-out, racing, conditional routing, and bounded batch mapping in Siglo.'
 ---
 
-# Branching and Parallelism
-
 `Siglo` provides high-performance combinators for concurrent fan-out, competitive racing, conditional routing, and bounded batch processing.
 
 ---

@@ -3,8 +3,6 @@ title: 'Ecosystem Adapters & Integrations'
 description: 'Production-ready ecosystem integrations for Siglo: HTTP web frameworks, message brokers, persistent storage, security, generative AI, and developer tools.'
 ---
 
-# Siglo Ecosystem Adapters & Integrations Guide
-
 The `Siglo` ecosystem provides modular, production-ready integrations across observability, HTTP web frameworks, message brokers, persistent storage backends, generative AI, and developer tooling.
 
 The core runtime (`@siglo/core`) remains strictly **zero-dependency**; all ecosystem integrations are published as independent packages that depend only on standard interfaces (`StorageAdapter`, `IdempotencyStore`, `Flow`, `ExecutionOptions`).

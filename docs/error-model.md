@@ -3,8 +3,6 @@ title: 'Error Model & Exception Hierarchy'
 description: 'Comprehensive exception hierarchy rooted at SigloError: timeout, cancellation, spec validation, optimistic concurrency, durable events, sagas, network egress, and error normalization.'
 ---
 
-# Error Model & Exception Hierarchy
-
 Siglo v1.0.0 introduces a structured, predictable error hierarchy rooted at `SigloError`. Every exception attaches execution metadata—including lifecycle phase, step name, execution stack UUID, tenant namespace, retryability flag, and original cause.
 
 ---

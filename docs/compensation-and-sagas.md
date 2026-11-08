@@ -1,4 +1,7 @@
-# Compensation and Sagas
+---
+title: 'Compensation and Sagas'
+description: 'Saga pattern implementation in Siglo: automatic LIFO rollback, inline closures, named persistent handlers, retry policies, strict vs best-effort execution, and abandoned stack reconciliation.'
+---
 
 Distributed workflows frequently require undoing partial side effects when a downstream step fails (the Saga Pattern). `Siglo` provides first-class support for forward execution with automatic backward compensation.
 
