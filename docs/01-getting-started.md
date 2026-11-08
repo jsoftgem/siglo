@@ -1,6 +1,6 @@
 ---
-title: "Getting Started"
-description: "Build a resilient checkout workflow with retries, compensation rollbacks, and unit tests using Siglo."
+title: 'Getting Started'
+description: 'Build a resilient checkout workflow with retries, compensation rollbacks, and unit tests using Siglo.'
 ---
 
 # Build a Checkout That Handles Failure
@@ -24,12 +24,12 @@ const shipment = await shipping.create(order, reservation, payment);
 
 Now consider what can go wrong:
 
-| What happens? | What the application needs to do |
-|---|---|
-| Payment gateway is unavailable before accepting a charge | Retry payment without reserving stock again |
-| Card is declined | Stop and release reserved stock |
-| No courier is available after payment succeeds | Refund payment, then release stock |
-| Customer submits the same checkout twice | Recognize the same request and reuse a completed result |
+| What happens?                                            | What the application needs to do                        |
+| -------------------------------------------------------- | ------------------------------------------------------- |
+| Payment gateway is unavailable before accepting a charge | Retry payment without reserving stock again             |
+| Card is declined                                         | Stop and release reserved stock                         |
+| No courier is available after payment succeeds           | Refund payment, then release stock                      |
+| Customer submits the same checkout twice                 | Recognize the same request and reuse a completed result |
 
 You can implement these rules with functions, loops, and `try/catch`. Siglo becomes useful when those rules repeat across business processes: each operation becomes a named **step**, and a **flow** defines their order. Retry and recovery policies live beside the operation they belong to.
 
@@ -83,35 +83,44 @@ export class TemporaryPaymentError extends Error {}
 
 export function createCheckout(services: CheckoutServices) {
     const validateOrder = Step.create('validateOrder', (order: Order) => {
-        if (!order.orderId || !order.sku || !Number.isInteger(order.quantity) || order.quantity < 1
-            || !Number.isSafeInteger(order.amountCents) || order.amountCents < 1) {
+        if (
+            !order.orderId ||
+            !order.sku ||
+            !Number.isInteger(order.quantity) ||
+            order.quantity < 1 ||
+            !Number.isSafeInteger(order.amountCents) ||
+            order.amountCents < 1
+        ) {
             throw new Error('An order needs an ID, SKU, positive quantity, and amount in cents');
         }
         return { validated: true };
     });
 
     const reserveStock = Step.create('reserveStock', async (order: Order) => ({
-        reservationId: await services.reserve(order)
+        reservationId: await services.reserve(order),
     })).compensate(async (output: { reservationId: string }) => {
         await services.release(output.reservationId);
     });
 
     const chargePayment = Step.create('chargePayment', async (order: Order) => ({
-        paymentId: await services.charge(order)
-    })).onFail({
-        maxRetries: 2,
-        delay: 10,
-        backoff: 'exponential',
-        retryIf: (error) => error instanceof TemporaryPaymentError
-    }).compensate(async (output: { paymentId: string }) => {
-        await services.refund(output.paymentId);
-    });
+        paymentId: await services.charge(order),
+    }))
+        .onFail({
+            maxRetries: 2,
+            delay: 10,
+            backoff: 'exponential',
+            retryIf: error => error instanceof TemporaryPaymentError,
+        })
+        .compensate(async (output: { paymentId: string }) => {
+            await services.refund(output.paymentId);
+        });
 
-    const arrangeShipping = Step.create('arrangeShipping', async (
-        order: Order & { reservationId: string; paymentId: string }
-    ) => ({
-        trackingId: await services.ship(order)
-    }));
+    const arrangeShipping = Step.create(
+        'arrangeShipping',
+        async (order: Order & { reservationId: string; paymentId: string }) => ({
+            trackingId: await services.ship(order),
+        }),
+    );
 
     return flow(validateOrder, reserveStock, chargePayment, arrangeShipping);
 }
@@ -125,12 +134,12 @@ Let’s unpack the parts that matter.
 
 Siglo adds returned fields to the accumulated context. Later steps can read both the original order and earlier results:
 
-| After this step | Fields available to later steps |
-|---|---|
-| `validateOrder` | Original order fields, `validated` |
-| `reserveStock` | Everything above, `reservationId` |
-| `chargePayment` | Everything above, `paymentId` |
-| `arrangeShipping` | Everything above, `trackingId` |
+| After this step   | Fields available to later steps    |
+| ----------------- | ---------------------------------- |
+| `validateOrder`   | Original order fields, `validated` |
+| `reserveStock`    | Everything above, `reservationId`  |
+| `chargePayment`   | Everything above, `paymentId`      |
+| `arrangeShipping` | Everything above, `trackingId`     |
 
 Return the fields you produce instead of mutating the input. Prefer distinct names such as `paymentId` and `trackingId` so separate operations don’t accidentally overwrite one another’s data.
 
@@ -182,7 +191,9 @@ export function createDemoServices(failShipping = false) {
             events.push('reserve stock');
             return `reservation-${order.orderId}`;
         },
-        async release() { events.push('release stock'); },
+        async release() {
+            events.push('release stock');
+        },
         async charge(order) {
             paymentAttempts++;
             events.push(`charge attempt ${paymentAttempts}`);
@@ -192,19 +203,24 @@ export function createDemoServices(failShipping = false) {
             }
             return `payment-${order.orderId}`;
         },
-        async refund() { events.push('refund payment'); },
+        async refund() {
+            events.push('refund payment');
+        },
         async ship(order) {
             events.push('arrange shipping');
             if (failShipping) throw new Error('No courier available');
             return `tracking-${order.orderId}`;
-        }
+        },
     };
 
     return { services, events };
 }
 
 export const sampleOrder: Order = {
-    orderId: 'order-1001', sku: 'coffee-kit', quantity: 1, amountCents: 4500
+    orderId: 'order-1001',
+    sku: 'coffee-kit',
+    quantity: 1,
+    amountCents: 4500,
 };
 
 async function main() {
@@ -223,7 +239,7 @@ async function main() {
 }
 
 if (require.main === module) {
-    main().catch((error) => {
+    main().catch(error => {
         console.error(error);
         process.exitCode = 1;
     });
@@ -266,13 +282,14 @@ import { createDemoServices, sampleOrder } from './checkout-demo';
 test('refunds payment before releasing stock when shipping fails', async () => {
     const { services, events } = createDemoServices(true);
 
-    await assert.rejects(
-        createCheckout(services).run(sampleOrder, { pojo: true }),
-        /No courier available/
-    );
+    await assert.rejects(createCheckout(services).run(sampleOrder, { pojo: true }), /No courier available/);
     assert.deepEqual(events, [
-        'reserve stock', 'charge attempt 1', 'charge attempt 2', 'arrange shipping',
-        'refund payment', 'release stock'
+        'reserve stock',
+        'charge attempt 1',
+        'charge attempt 2',
+        'arrange shipping',
+        'refund payment',
+        'release stock',
     ]);
 });
 ```
@@ -298,7 +315,7 @@ const options = {
     pojo: true,
     namespace: 'shop-demo',
     idempotencyKey: `checkout:${sampleOrder.orderId}`,
-    idempotencyTtlMs: 60 * 60 * 1000
+    idempotencyTtlMs: 60 * 60 * 1000,
 };
 
 const first = await checkout.run(sampleOrder, options);
@@ -316,13 +333,13 @@ Workflow deduplication also cannot close the gap between “the payment provider
 
 Checkout is one example. Look for a business operation with several stages and explicit rules for failure or waiting.
 
-| Real-world problem | Where Siglo helps | Continue with |
-|---|---|---|
-| A travel booking reserves a flight, then fails to book a hotel | Attach cancellation actions to completed reservations and compensate in reverse order | [Travel booking example](../examples/src/workflow/usecases/usecase-11-distributed-saga-compensation.ts) |
-| An expense claim waits for a manager’s decision | Suspend at an event wait, persist the checkpoint, and resume when a verified approval arrives | [Durable workflows](/06-durable-workflows) |
-| A document import overloads an embedding service when every item runs at once | Use bounded `map` concurrency to limit active work | [Batch ingestion example](../examples/src/workflow/usecases/usecase-12-bounded-batch-mapping.ts) |
-| A Kafka message needs validation, customer enrichment, and an audit write | Reuse named steps inside a consumer, with retry and deduplication policies | [Kafka adapter](/adapters/kafka) |
-| A support assistant needs structured model output and an alternate provider on failure | Compose AI steps with output validation and fallback policies | [AI adapter](/adapters/ai) |
+| Real-world problem                                                                     | Where Siglo helps                                                                             | Continue with                                                                                           |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| A travel booking reserves a flight, then fails to book a hotel                         | Attach cancellation actions to completed reservations and compensate in reverse order         | [Travel booking example](../examples/src/workflow/usecases/usecase-11-distributed-saga-compensation.ts) |
+| An expense claim waits for a manager’s decision                                        | Suspend at an event wait, persist the checkpoint, and resume when a verified approval arrives | [Durable workflows](/06-durable-workflows)                                                              |
+| A document import overloads an embedding service when every item runs at once          | Use bounded `map` concurrency to limit active work                                            | [Batch ingestion example](../examples/src/workflow/usecases/usecase-12-bounded-batch-mapping.ts)        |
+| A Kafka message needs validation, customer enrichment, and an audit write              | Reuse named steps inside a consumer, with retry and deduplication policies                    | [Kafka adapter](/adapters/kafka)                                                                        |
+| A support assistant needs structured model output and an alternate provider on failure | Compose AI steps with output validation and fallback policies                                 | [AI adapter](/adapters/ai)                                                                              |
 
 For durable approvals, persistence and resumption must be configured explicitly. If a wait needs to expire while no worker is running it, configure a [scheduler](/adapters/scheduler) or an external dispatch mechanism. An in-memory demo does not survive a process restart.
 

@@ -40,7 +40,7 @@ export async function runSagasCharter(iterations: number = 25, seed: number = 20
         const testFlow = flow(...stepsList);
 
         try {
-            await testFlow.execute({}, { pojo: true });
+            await testFlow.run({}, { pojo: true });
             errors.push(`Iteration ${i}: Expected saga failure at step_${failAtStep}, but flow succeeded!`);
         } catch (err: any) {
             // Verify Oracle 2: Saga LIFO ordering

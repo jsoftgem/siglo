@@ -68,7 +68,7 @@ describe('StepExecutionHook & Runtime Hooks', () => {
         };
 
         const wf = flow(step);
-        const res = await wf.execute({ input: 21 }, { stepExecutionHook: hook });
+        const res = await wf.run({ input: 21 }, { stepExecutionHook: hook });
         expect(res.val).to.equal(42);
         expect(intercepted).to.deep.equal(['optStep']);
     });
@@ -94,7 +94,7 @@ describe('StepExecutionHook & Runtime Hooks', () => {
             return next();
         };
         const wf = flow(step);
-        await wf.execute({ $attempt: () => 2 }, { stepExecutionHook: hook });
+        await wf.run({ $attempt: () => 2 }, { stepExecutionHook: hook });
         expect(seenAttempt).to.equal(3);
     });
 

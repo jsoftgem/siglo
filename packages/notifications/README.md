@@ -2,7 +2,6 @@
 
 > Security migration: read [approval authorization, POST confirmation, durable recovery and delivery guarantees](../../docs/adapters/notification-hardening.md). GET is read-only; configure `authorize` or explicitly opt into `allowBearerApproval`.
 
-
 Enterprise multi-channel notifications, tamper-proof cryptographic approval tokens, and durable human-in-the-loop callback resumption for Siglo workflows.
 
 [![npm version](https://img.shields.io/npm/v/@siglo/notifications.svg)](https://www.npmjs.com/package/@siglo/notifications)
@@ -65,6 +64,7 @@ npm install @siglo/notifications @siglo/crypto @siglo/http @siglo/core
 ```
 
 Peer dependencies:
+
 - `@siglo/core`: `^1.0.0`
 - `@siglo/crypto`: `^1.0.0`
 - `@siglo/http`: `^1.0.0`
@@ -81,14 +81,14 @@ import { flow, waitForEvent, Step, useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 import { StaticKeyRing } from '@siglo/crypto';
 import {
-  registerNotificationTransport,
-  SlackTransport,
-  sendInteractiveApprovalStep,
-  createNotificationExpressMiddleware,
-  configureApprovalRevocationStore,
-  PostgresApprovalRevocationStore,
-  PostgresNotificationDispatchStore,
-  configureNotificationDispatchStore
+    registerNotificationTransport,
+    SlackTransport,
+    sendInteractiveApprovalStep,
+    createNotificationExpressMiddleware,
+    configureApprovalRevocationStore,
+    PostgresApprovalRevocationStore,
+    PostgresNotificationDispatchStore,
+    configureNotificationDispatchStore,
 } from '@siglo/notifications';
 import { Pool } from 'pg';
 
@@ -106,62 +106,64 @@ await dispatchStore.initialize();
 configureNotificationDispatchStore(dispatchStore);
 
 // 2. Register transports globally (or pass per-step)
-registerNotificationTransport(new SlackTransport({
-  apiKey: process.env.SLACK_BOT_TOKEN!
-}));
+registerNotificationTransport(
+    new SlackTransport({
+        apiKey: process.env.SLACK_BOT_TOKEN!,
+    }),
+);
 
 // 3. Define KeyRing for HMAC signing and key rotation
 const approvalKeyRing = new StaticKeyRing('primary', {
-  primary: process.env.APPROVAL_SECRET_CURRENT!,
-  previous: process.env.APPROVAL_SECRET_PREVIOUS!
+    primary: process.env.APPROVAL_SECRET_CURRENT!,
+    previous: process.env.APPROVAL_SECRET_PREVIOUS!,
 });
 
 // 4. Define the approval workflow
 export const deploymentWorkflow = flow(
-  // Step 1: Send Slack Block Kit card with signed Approve/Reject buttons
-  sendInteractiveApprovalStep('requestApproval', {
-    channel: 'slack',
-    recipient: (ctx: { leadDevSlackId: string }) => ({ slackUserId: ctx.leadDevSlackId }),
-    title: (ctx: { service: string; version: string }) => `Deploy ${ctx.service}@${ctx.version}?`,
-    description: (ctx: { deploymentId: string }) => `Deployment ID: ${ctx.deploymentId}`,
-    correlationKey: (ctx: { deploymentId: string }) => `deploy:${ctx.deploymentId}`,
-    timeout: '2h',
-    onApproveEvent: 'APPROVAL_RESOLVED',
-    onRejectEvent: 'APPROVAL_RESOLVED',
-    callbackBaseUrl: 'https://orchestrator.acme.com/api/siglo/callback',
-    signingSecret: approvalKeyRing,
-    autoCompensate: true // Updates Slack card to 'Cancelled' on failure or rollback
-  }),
+    // Step 1: Send Slack Block Kit card with signed Approve/Reject buttons
+    sendInteractiveApprovalStep('requestApproval', {
+        channel: 'slack',
+        recipient: (ctx: { leadDevSlackId: string }) => ({ slackUserId: ctx.leadDevSlackId }),
+        title: (ctx: { service: string; version: string }) => `Deploy ${ctx.service}@${ctx.version}?`,
+        description: (ctx: { deploymentId: string }) => `Deployment ID: ${ctx.deploymentId}`,
+        correlationKey: (ctx: { deploymentId: string }) => `deploy:${ctx.deploymentId}`,
+        timeout: '2h',
+        onApproveEvent: 'APPROVAL_RESOLVED',
+        onRejectEvent: 'APPROVAL_RESOLVED',
+        callbackBaseUrl: 'https://orchestrator.acme.com/api/siglo/callback',
+        signingSecret: approvalKeyRing,
+        autoCompensate: true, // Updates Slack card to 'Cancelled' on failure or rollback
+    }),
 
-  // Step 2: Suspends workflow into PostgreSQL durable checkpoint with a 2h timer
-  waitForEvent('APPROVAL_RESOLVED', {
-    correlationKey: (ctx: { deploymentId: string }) => `deploy:${ctx.deploymentId}`,
-    timeout: '2h'
-  }),
+    // Step 2: Suspends workflow into PostgreSQL durable checkpoint with a 2h timer
+    waitForEvent('APPROVAL_RESOLVED', {
+        correlationKey: (ctx: { deploymentId: string }) => `deploy:${ctx.deploymentId}`,
+        timeout: '2h',
+    }),
 
-  // Step 3: Guard on approved decision before executing side effects
-  new Step('verifyDecision', async (ctx: { approved?: boolean; event?: { type: string } }) => {
-    if (ctx.approved !== true || ctx.event?.type === 'timer:expired') {
-      throw new Error('Deployment approval was rejected or expired');
-    }
-    return { verified: true };
-  }),
+    // Step 3: Guard on approved decision before executing side effects
+    new Step('verifyDecision', async (ctx: { approved?: boolean; event?: { type: string } }) => {
+        if (ctx.approved !== true || ctx.event?.type === 'timer:expired') {
+            throw new Error('Deployment approval was rejected or expired');
+        }
+        return { verified: true };
+    }),
 
-  deployServiceStep
+    deployServiceStep,
 );
 
 // 5. Expose callback endpoint in Express
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.all(
-  '/api/siglo/callback',
-  createNotificationExpressMiddleware({
-    workflow: deploymentWorkflow,
-    signingSecret: approvalKeyRing,
-    authorize: authorizeApproval, // Application identity and CSRF check; see migration guide.
-    responseFormat: 'html',
-    allowedOrigins: ['https://orchestrator.acme.com', 'https://dashboard.acme.com']
-  })
+    '/api/siglo/callback',
+    createNotificationExpressMiddleware({
+        workflow: deploymentWorkflow,
+        signingSecret: approvalKeyRing,
+        authorize: authorizeApproval, // Application identity and CSRF check; see migration guide.
+        responseFormat: 'html',
+        allowedOrigins: ['https://orchestrator.acme.com', 'https://dashboard.acme.com'],
+    }),
 );
 app.listen(3000);
 ```
@@ -172,71 +174,91 @@ app.listen(3000);
 
 `@siglo/notifications` ships with built-in adapters that adhere to Siglo's AsyncLocalStorage (ASL) network egress perimeter and require zero third-party SDK dependencies (using native HTTPS with validated socket DNS resolution):
 
-| Transport | Channel | Allowed Hosts | Key Features |
-|---|---|---|---|
-| `SlackTransport` | `slack` | `slack.com` | Block Kit action buttons, message cancellation via `chat.update`, modal forms via `openModal` |
-| `ResendTransport` | `email` | `api.resend.com` | Responsive HTML email action templates |
-| `SendGridTransport` | `email` | `api.sendgrid.com` | HTML email dispatch with `x-message-id` tracking |
-| `PostmarkTransport` | `email` | `api.postmarkapp.com` | HTML + plain-text email with server token auth |
-| `SmtpTransport` | `email` | User-defined host | Injected SMTP client (`sendMail`) without bundled dependencies |
-| `DiscordTransport` | `discord` | `discord.com` | Webhook embeds with clickable action links |
-| `TwilioTransport` | `sms` | `api.twilio.com` | Basic SMS dispatch and two-way signed webhook parsing |
-| `PushWebhookTransport` | `push` | Webhook hostname | Provider-neutral JSON push payloads over HTTPS |
+| Transport              | Channel   | Allowed Hosts         | Key Features                                                                                  |
+| ---------------------- | --------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| `SlackTransport`       | `slack`   | `slack.com`           | Block Kit action buttons, message cancellation via `chat.update`, modal forms via `openModal` |
+| `ResendTransport`      | `email`   | `api.resend.com`      | Responsive HTML email action templates                                                        |
+| `SendGridTransport`    | `email`   | `api.sendgrid.com`    | HTML email dispatch with `x-message-id` tracking                                              |
+| `PostmarkTransport`    | `email`   | `api.postmarkapp.com` | HTML + plain-text email with server token auth                                                |
+| `SmtpTransport`        | `email`   | User-defined host     | Injected SMTP client (`sendMail`) without bundled dependencies                                |
+| `DiscordTransport`     | `discord` | `discord.com`         | Webhook embeds with clickable action links                                                    |
+| `TwilioTransport`      | `sms`     | `api.twilio.com`      | Basic SMS dispatch and two-way signed webhook parsing                                         |
+| `PushWebhookTransport` | `push`    | Webhook hostname      | Provider-neutral JSON push payloads over HTTPS                                                |
 
 ### Transport Configuration Examples
 
 ```typescript
 import {
-  SlackTransport, ResendTransport, SendGridTransport, PostmarkTransport,
-  DiscordTransport, TwilioTransport, SmtpTransport, PushWebhookTransport,
-  registerNotificationTransport
+    SlackTransport,
+    ResendTransport,
+    SendGridTransport,
+    PostmarkTransport,
+    DiscordTransport,
+    TwilioTransport,
+    SmtpTransport,
+    PushWebhookTransport,
+    registerNotificationTransport,
 } from '@siglo/notifications';
 
 // Slack
-registerNotificationTransport(new SlackTransport({
-  apiKey: process.env.SLACK_BOT_TOKEN!
-}));
+registerNotificationTransport(
+    new SlackTransport({
+        apiKey: process.env.SLACK_BOT_TOKEN!,
+    }),
+);
 
 // Resend Email
-registerNotificationTransport(new ResendTransport({
-  apiKey: process.env.RESEND_API_KEY!,
-  from: 'ops@acme.com'
-}));
+registerNotificationTransport(
+    new ResendTransport({
+        apiKey: process.env.RESEND_API_KEY!,
+        from: 'ops@acme.com',
+    }),
+);
 
 // SendGrid Email
-registerNotificationTransport(new SendGridTransport({
-  apiKey: process.env.SENDGRID_API_KEY!,
-  from: 'ops@acme.com'
-}));
+registerNotificationTransport(
+    new SendGridTransport({
+        apiKey: process.env.SENDGRID_API_KEY!,
+        from: 'ops@acme.com',
+    }),
+);
 
 // Postmark Email
-registerNotificationTransport(new PostmarkTransport({
-  apiKey: process.env.POSTMARK_SERVER_TOKEN!,
-  from: 'ops@acme.com'
-}));
+registerNotificationTransport(
+    new PostmarkTransport({
+        apiKey: process.env.POSTMARK_SERVER_TOKEN!,
+        from: 'ops@acme.com',
+    }),
+);
 
 // Discord
 registerNotificationTransport(new DiscordTransport());
 
 // Twilio SMS
-registerNotificationTransport(new TwilioTransport({
-  accountSid: process.env.TWILIO_ACCOUNT_SID!,
-  authToken: process.env.TWILIO_AUTH_TOKEN!,
-  from: '+15551234567'
-}));
+registerNotificationTransport(
+    new TwilioTransport({
+        accountSid: process.env.TWILIO_ACCOUNT_SID!,
+        authToken: process.env.TWILIO_AUTH_TOKEN!,
+        from: '+15551234567',
+    }),
+);
 
 // Generic SMTP (e.g. Nodemailer)
-registerNotificationTransport(new SmtpTransport({
-  host: 'smtp.mailgun.org',
-  from: 'no-reply@acme.com',
-  sendMail: async (mail) => nodemailerTransport.sendMail(mail)
-}));
+registerNotificationTransport(
+    new SmtpTransport({
+        host: 'smtp.mailgun.org',
+        from: 'no-reply@acme.com',
+        sendMail: async mail => nodemailerTransport.sendMail(mail),
+    }),
+);
 
 // Generic HTTPS Push Webhook
-registerNotificationTransport(new PushWebhookTransport({
-  url: 'https://push.acme.com/v1/notify',
-  headers: { 'X-Service-Token': process.env.PUSH_SERVICE_TOKEN! }
-}));
+registerNotificationTransport(
+    new PushWebhookTransport({
+        url: 'https://push.acme.com/v1/notify',
+        headers: { 'X-Service-Token': process.env.PUSH_SERVICE_TOKEN! },
+    }),
+);
 ```
 
 ---
@@ -251,10 +273,10 @@ Dispatches one-way alerts (email, chat, SMS, push) with automatic idempotency de
 import { sendNotificationStep } from '@siglo/notifications';
 
 const alertOps = sendNotificationStep('alertOps', {
-  channel: 'slack',
-  recipient: { slackChannelId: 'C_OPS_ALERTS' },
-  template: (ctx) => `High latency detected on ${ctx.serviceName}: ${ctx.p99}ms`,
-  deduplicationTtl: 3600 // Suppresses duplicate alerts within 1 hour
+    channel: 'slack',
+    recipient: { slackChannelId: 'C_OPS_ALERTS' },
+    template: ctx => `High latency detected on ${ctx.serviceName}: ${ctx.p99}ms`,
+    deduplicationTtl: 3600, // Suppresses duplicate alerts within 1 hour
 });
 ```
 
@@ -266,17 +288,17 @@ Generates signed action tokens, formats interactive cards/emails, registers comp
 import { sendInteractiveApprovalStep } from '@siglo/notifications';
 
 const approvalStep = sendInteractiveApprovalStep('legalApproval', {
-  channel: 'email',
-  recipient: (ctx) => ({ email: ctx.legalReviewerEmail }),
-  title: (ctx) => `Contract Review Required: ${ctx.contractTitle}`,
-  description: (ctx) => `Value: $${ctx.contractValue}`,
-  correlationKey: (ctx) => `contract:${ctx.contractId}`,
-  timeout: '72h',
-  onApproveEvent: 'CONTRACT_APPROVED',
-  onRejectEvent: 'CONTRACT_REJECTED',
-  callbackBaseUrl: 'https://api.acme.com/siglo/callback',
-  signingSecret: process.env.APPROVAL_SECRET!,
-  autoCompensate: true
+    channel: 'email',
+    recipient: ctx => ({ email: ctx.legalReviewerEmail }),
+    title: ctx => `Contract Review Required: ${ctx.contractTitle}`,
+    description: ctx => `Value: $${ctx.contractValue}`,
+    correlationKey: ctx => `contract:${ctx.contractId}`,
+    timeout: '72h',
+    onApproveEvent: 'CONTRACT_APPROVED',
+    onRejectEvent: 'CONTRACT_REJECTED',
+    callbackBaseUrl: 'https://api.acme.com/siglo/callback',
+    signingSecret: process.env.APPROVAL_SECRET!,
+    autoCompensate: true,
 });
 ```
 
@@ -289,6 +311,7 @@ Action tokens embed callback metadata in a compact URL-safe format:
 $$\text{Token} = \text{base64url}(\text{Payload}) \,\|\, \text{base64url}(\text{HMAC-SHA256}(\text{Payload}, \text{Secret}))$$
 
 ### Features:
+
 - **No Database Lookup on Verification**: Validates authenticity and expiration instantly before accessing storage.
 - **Constant-Time Verification**: Uses `@siglo/crypto`'s `timingSafeCompare` to defeat timing attacks.
 - **Replay handling**: Durable claims reject completed requests. `toleranceSeconds` checks future issuance only; nonces are not independently consumed.
@@ -299,13 +322,13 @@ import { StaticKeyRing } from '@siglo/crypto';
 import { signActionToken, verifyActionToken } from '@siglo/notifications';
 
 const keyRing = new StaticKeyRing('v2', {
-  v2: 'current-secret-key-2026',
-  v1: 'legacy-secret-key-2025'
+    v2: 'current-secret-key-2026',
+    v1: 'legacy-secret-key-2025',
 });
 
 // Verify token
 const payload = await verifyActionToken(tokenString, keyRing, {
-  toleranceSeconds: 60 // Allow 60s future clock skew
+    toleranceSeconds: 60, // Allow 60s future clock skew
 });
 ```
 
@@ -316,6 +339,7 @@ const payload = await verifyActionToken(tokenString, keyRing, {
 First-class route handlers are provided for `@siglo/express`, `@siglo/fastify`, and `@siglo/hono` with built-in security headers, CORS preflight handling, and response customization:
 
 ### Supported Security Headers
+
 - `Cache-Control: no-store`
 - `Referrer-Policy: no-referrer`
 - `X-Content-Type-Options: nosniff`
@@ -331,17 +355,17 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 
 app.all(
-  '/api/siglo/callback',
-  createNotificationExpressMiddleware({
-    workflow: orderFlow,
-    signingSecret: process.env.APPROVAL_SECRET!,
-    authorize: authorizeApproval, // Application identity and CSRF check; see migration guide.
-    responseFormat: 'html', // Renders accessible confirmation page
-    allowedOrigins: ['https://orchestrator.acme.com', 'https://dashboard.acme.com'],
-    onSuccessRedirect: 'https://dashboard.acme.com/approvals/success',
-    onExpiredRedirect: 'https://dashboard.acme.com/approvals/expired',
-    onErrorRedirect: 'https://dashboard.acme.com/approvals/error'
-  })
+    '/api/siglo/callback',
+    createNotificationExpressMiddleware({
+        workflow: orderFlow,
+        signingSecret: process.env.APPROVAL_SECRET!,
+        authorize: authorizeApproval, // Application identity and CSRF check; see migration guide.
+        responseFormat: 'html', // Renders accessible confirmation page
+        allowedOrigins: ['https://orchestrator.acme.com', 'https://dashboard.acme.com'],
+        onSuccessRedirect: 'https://dashboard.acme.com/approvals/success',
+        onExpiredRedirect: 'https://dashboard.acme.com/approvals/expired',
+        onErrorRedirect: 'https://dashboard.acme.com/approvals/error',
+    }),
 );
 ```
 
@@ -353,9 +377,9 @@ import { createNotificationFastifyHandler } from '@siglo/notifications';
 
 const fastify = Fastify();
 const handler = createNotificationFastifyHandler({
-  workflow: orderFlow,
-  signingSecret: process.env.APPROVAL_SECRET!,
-  authorize: authorizeApproval // Application authentication and CSRF check.
+    workflow: orderFlow,
+    signingSecret: process.env.APPROVAL_SECRET!,
+    authorize: authorizeApproval, // Application authentication and CSRF check.
 });
 fastify.route({ method: ['GET', 'POST'], url: '/api/siglo/callback', handler });
 ```
@@ -367,11 +391,14 @@ import { Hono } from 'hono';
 import { createNotificationHonoHandler } from '@siglo/notifications';
 
 const app = new Hono();
-app.all('/api/siglo/callback', createNotificationHonoHandler({
-  workflow: orderFlow,
-  signingSecret: process.env.APPROVAL_SECRET!,
-  authorize: authorizeApproval
-}));
+app.all(
+    '/api/siglo/callback',
+    createNotificationHonoHandler({
+        workflow: orderFlow,
+        signingSecret: process.env.APPROVAL_SECRET!,
+        authorize: authorizeApproval,
+    }),
+);
 ```
 
 ---
@@ -384,19 +411,19 @@ Parse and cryptographically verify inbound SMS approval webhooks (`APPROVE <ref>
 import { parseTwilioSmsReply } from '@siglo/notifications';
 
 app.post('/api/twilio/sms', express.urlencoded({ extended: false }), async (req, res) => {
-  const reply = parseTwilioSmsReply(req.body, {
-    publicUrl: 'https://api.acme.com/api/twilio/sms',
-    authToken: process.env.TWILIO_AUTH_TOKEN!,
-    signature: req.headers['x-twilio-signature'] as string
-  });
+    const reply = parseTwilioSmsReply(req.body, {
+        publicUrl: 'https://api.acme.com/api/twilio/sms',
+        authToken: process.env.TWILIO_AUTH_TOKEN!,
+        signature: req.headers['x-twilio-signature'] as string,
+    });
 
-  // reply: { approved: true, reference: 'deploy:123', from: '+15550001', messageId: 'SM...' }
-  // Validate a persisted, unpredictable challenge and expected sender first.
-  // Atomically consume the pending request and deduplicate MessageSid in your
-  // application approval service. See the security migration guide.
-  await approvalService.acceptVerifiedSmsReply(reply);
+    // reply: { approved: true, reference: 'deploy:123', from: '+15550001', messageId: 'SM...' }
+    // Validate a persisted, unpredictable challenge and expected sender first.
+    // Atomically consume the pending request and deduplicate MessageSid in your
+    // application approval service. See the security migration guide.
+    await approvalService.acceptVerifiedSmsReply(reply);
 
-  res.type('text/xml').send('<Response></Response>');
+    res.type('text/xml').send('<Response></Response>');
 });
 ```
 
@@ -405,6 +432,7 @@ app.post('/api/twilio/sms', express.urlencoded({ extended: false }), async (req,
 ## 9. Saga Compensation & Shared Revocations
 
 When a downstream step fails or a workflow times out, Siglo triggers Named Saga Compensation (`cancelNotification`):
+
 1. **Chat Channels (Slack)**: Calls `chat.update` to replace interactive buttons with an alert (e.g. `"Workflow Cancelled"`).
 2. **Email & SMS**: Records the `correlationKey` into the revocation store so any future clicks on existing email links return `409 Conflict`.
 
@@ -427,12 +455,9 @@ Standard recipient identifiers, credentials, and tokens are automatically redact
 ```typescript
 import { NotificationMonitor } from '@siglo/notifications';
 
-const monitor = new NotificationMonitor([
-  'outputSummary.customers.*.contact',
-  'order.shippingAddress.phone'
-]);
+const monitor = new NotificationMonitor(['outputSummary.customers.*.contact', 'order.shippingAddress.phone']);
 
-workflow.execute(input, { monitor });
+workflow.run(input, { monitor });
 ```
 
 ---
@@ -447,15 +472,15 @@ import { sendNotificationStep } from '@siglo/notifications';
 
 const mock = new MockNotificationTransport();
 const step = sendNotificationStep('notify', {
-  channel: 'email',
-  recipient: 'user@example.com',
-  template: 'Hello world',
-  transport: mock
+    channel: 'email',
+    recipient: 'user@example.com',
+    template: 'Hello world',
+    transport: mock,
 });
 
 await step.execute({});
 console.log(mock.messages.length); // 1
-console.log(mock.messages[0].to);   // 'user@example.com'
+console.log(mock.messages[0].to); // 'user@example.com'
 ```
 
 ### Running Test Suites

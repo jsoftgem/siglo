@@ -1,6 +1,6 @@
 ---
-title: "Testing & Deterministic Replay"
-description: "Zero-flake testing utilities, virtual clocks, step spies, mocks, assertions, and golden fixture replay tooling for Siglo workflows."
+title: 'Testing & Deterministic Replay'
+description: 'Zero-flake testing utilities, virtual clocks, step spies, mocks, assertions, and golden fixture replay tooling for Siglo workflows.'
 ---
 
 # @siglo/testing Adapter Guide
@@ -51,6 +51,7 @@ npm install --save-dev @siglo/testing
 ```
 
 Peer dependencies:
+
 - `@siglo/core`: `^1.0.0`
 
 ---
@@ -104,7 +105,7 @@ it('mocks payment step and verifies compensation rollback', async () => {
     const harness = createWorkflowHarness(checkoutFlow);
 
     // Mock payment step to throw a simulated decline
-    harness.mockStep('chargePayment', async (input) => {
+    harness.mockStep('chargePayment', async input => {
         throw new Error('Card declined: Insufficient funds');
     });
 
@@ -143,11 +144,7 @@ await clock.tick(1000);
 Record workflow executions in production, sanitize PII, and replay them in CI/CD to detect regressions or output discrepancies:
 
 ```typescript
-import { 
-    createWorkflowHarness, 
-    sanitizeExecutionRecord, 
-    replayExecution 
-} from '@siglo/testing';
+import { createWorkflowHarness, sanitizeExecutionRecord, replayExecution } from '@siglo/testing';
 
 it('replays a recorded execution and validates deterministic parity', async () => {
     const harness = createWorkflowHarness(orderPipeline);
@@ -172,6 +169,7 @@ it('replays a recorded execution and validates deterministic parity', async () =
 ## 7. API Reference
 
 ### `WorkflowHarness`
+
 - `run(input?, options?): Promise<any>`
 - `mockStep(stepName: string, implementation: Function): this`
 - `spyStep(stepName: string): StepSpy`
@@ -184,13 +182,14 @@ it('replays a recorded execution and validates deterministic parity', async () =
 > **Note on Harness Scope**: `WorkflowHarness.run()` instruments top-level workflow steps. It does not recursively replace nested branches or mapping children, and `injectEvent()` resumes the workflow definition directly.
 
 ### `InMemoryStorageFake`
+
 - `saveCheckpoint(cp): Promise<void>`
 - `getCheckpoint(stackId): Promise<any>`
 - `clear(): void`
 
 ### `FakeClock`
+
 - `now(): number`
 - `advanceTime(ms: number): number`
 - `tick(ms?: number): Promise<void>`
 - `reset(toTime?: number): void`
-

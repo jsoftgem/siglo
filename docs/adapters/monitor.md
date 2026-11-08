@@ -1,6 +1,6 @@
 ---
-title: "Live Monitoring & DevTools"
-description: "Real-time workflow telemetry, dynamic DAG topology visualization, latency waterfalls, SSE/WebSocket transports, and Prometheus metrics."
+title: 'Live Monitoring & DevTools'
+description: 'Real-time workflow telemetry, dynamic DAG topology visualization, latency waterfalls, SSE/WebSocket transports, and Prometheus metrics.'
 ---
 
 # @siglo/monitor Adapter & Live DevTools
@@ -16,6 +16,7 @@ npm install @siglo/monitor @siglo/core
 ```
 
 Optional developer CLI:
+
 ```bash
 npm install --save-dev @siglo/cli
 ```
@@ -41,21 +42,21 @@ flowchart TD
     Prom --> Grafana["Prometheus & Grafana"]
 ```
 
-| Component | Responsibility |
-|---|---|
-| `createMonitorServer` | Standalone HTTP server serving the React Web UI, SSE, WebSockets, REST APIs, and `/metrics`. Supports `auth`, `cors`, `maxPayloadBytes`, `allowRemoteResume`, and `reuseExisting: true`. |
-| `attachToMonitorServer` | Universal attachment hook for workflows. Auto-detects in-process server or connects remotely over HTTP (`POST /api/events`) with optional API key authentication. |
-| `createMonitorClient` | High-throughput buffered HTTP client with queue bounds, token authentication, and auto-flush for streaming events from external processes or worker pools. |
-| `getActiveMonitorServer` | Resolves the singleton in-process monitor server instance (by optional port). |
-| `getMonitorEmitter` | Resolves the `WorkflowEventEmitter` of the active in-process monitor server. |
-| `WorkflowExecutionStore` | In-memory store tracking active and completed workflow runs, step durations, and context diffs. |
-| `SSEBroadcaster` | Native HTTP Server-Sent Events broadcaster with automated heartbeats and tenant isolation. |
-| `WebSocketBroadcaster` | RFC 6455 bi-directional WebSocket server supporting client commands, authentication, and event resumption. |
-| `RedisMonitoringAdapter` | Multi-worker pub/sub event broadcaster for distributed workflows across clusters. |
-| `PrometheusExporter` | Exports workflow execution metrics in standard Prometheus exposition format (`/metrics`). |
-| `createExpressMonitorMiddleware` | Express middleware mounting dashboard and SSE stream under a route prefix. |
-| `fastifyMonitorPlugin` | Fastify plugin mounting DevTools and monitoring routes. |
-| `honoMonitorMiddleware` | Hono middleware mounting dashboard and API endpoints. |
+| Component                        | Responsibility                                                                                                                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createMonitorServer`            | Standalone HTTP server serving the React Web UI, SSE, WebSockets, REST APIs, and `/metrics`. Supports `auth`, `cors`, `maxPayloadBytes`, `allowRemoteResume`, and `reuseExisting: true`. |
+| `attachToMonitorServer`          | Universal attachment hook for workflows. Auto-detects in-process server or connects remotely over HTTP (`POST /api/events`) with optional API key authentication.                        |
+| `createMonitorClient`            | High-throughput buffered HTTP client with queue bounds, token authentication, and auto-flush for streaming events from external processes or worker pools.                               |
+| `getActiveMonitorServer`         | Resolves the singleton in-process monitor server instance (by optional port).                                                                                                            |
+| `getMonitorEmitter`              | Resolves the `WorkflowEventEmitter` of the active in-process monitor server.                                                                                                             |
+| `WorkflowExecutionStore`         | In-memory store tracking active and completed workflow runs, step durations, and context diffs.                                                                                          |
+| `SSEBroadcaster`                 | Native HTTP Server-Sent Events broadcaster with automated heartbeats and tenant isolation.                                                                                               |
+| `WebSocketBroadcaster`           | RFC 6455 bi-directional WebSocket server supporting client commands, authentication, and event resumption.                                                                               |
+| `RedisMonitoringAdapter`         | Multi-worker pub/sub event broadcaster for distributed workflows across clusters.                                                                                                        |
+| `PrometheusExporter`             | Exports workflow execution metrics in standard Prometheus exposition format (`/metrics`).                                                                                                |
+| `createExpressMonitorMiddleware` | Express middleware mounting dashboard and SSE stream under a route prefix.                                                                                                               |
+| `fastifyMonitorPlugin`           | Fastify plugin mounting DevTools and monitoring routes.                                                                                                                                  |
+| `honoMonitorMiddleware`          | Hono middleware mounting dashboard and API endpoints.                                                                                                                                    |
 
 ---
 
@@ -73,8 +74,7 @@ console.log(`Live DevTools: http://localhost:${monitor.port}`);
 const step1 = Step.create('validate', async () => ({ valid: true }));
 const step2 = Step.create('process', async () => ({ processed: true }));
 
-const pipeline = flow(step1, step2)
-    .monitor(monitor.emitter); // Attach monitor emitter
+const pipeline = flow(step1, step2).monitor(monitor.emitter); // Attach monitor emitter
 
 // 3. Execute
 await pipeline.run({ orderId: '123' });
@@ -92,11 +92,12 @@ Attach workflows to a monitor server already running in another terminal or remo
 import { Step, flow } from '@siglo/core';
 import { attachToMonitorServer } from '@siglo/monitor';
 
-const pipeline = flow(step1, step2)
-    .monitor(attachToMonitorServer('https://monitor.corp.internal:4000', {
-        apiKey: process.env.MONITOR_API_KEY
-    }));
-    // or local dev: .monitor(attachToMonitorServer(4000))
+const pipeline = flow(step1, step2).monitor(
+    attachToMonitorServer('https://monitor.corp.internal:4000', {
+        apiKey: process.env.MONITOR_API_KEY,
+    }),
+);
+// or local dev: .monitor(attachToMonitorServer(4000))
 
 await pipeline.run({ orderId: '123' });
 ```
@@ -114,12 +115,11 @@ import { Step, flow } from '@siglo/core';
 // In bootstrap file:
 await createMonitorServer({
     port: 4000,
-    reuseExisting: true // Safe to call multiple times without EADDRINUSE
+    reuseExisting: true, // Safe to call multiple times without EADDRINUSE
 });
 
 // In any service file:
-const pipeline = flow(step1, step2)
-    .monitor(attachToMonitorServer()); // Automatically connects to active server
+const pipeline = flow(step1, step2).monitor(attachToMonitorServer()); // Automatically connects to active server
 ```
 
 You can also access the server or emitter directly:
@@ -142,12 +142,12 @@ import { flow } from '@siglo/core';
 const client = createMonitorClient({
     url: 'https://monitor-internal:4000',
     apiKey: process.env.MONITOR_INGESTION_TOKEN,
-    batchSize: 50,          // Batch up to 50 events
-    flushIntervalMs: 100,   // Flush every 100ms
-    maxQueueSize: 2000,     // Bounded memory buffer
+    batchSize: 50, // Batch up to 50 events
+    flushIntervalMs: 100, // Flush every 100ms
+    maxQueueSize: 2000, // Bounded memory buffer
     redaction: {
-        redactKeys: ['password', 'secret', 'creditCard']
-    }
+        redactKeys: ['password', 'secret', 'creditCard'],
+    },
 });
 
 const pipeline = flow(step1, step2).monitor(client.monitor);
@@ -170,17 +170,17 @@ const monitor = await createMonitorServer({
     // 1. Scoped Authentication Tokens
     auth: {
         ingestionKey: 'worker-token-xyz', // Authorizes POST /api/events
-        adminKey: 'admin-token-abc'        // Authorizes /resume, /replay, /api/workflows
+        adminKey: 'admin-token-abc', // Authorizes /resume, /replay, /api/workflows
     },
     // 2. Disable Remote Resumption in Production
     allowRemoteResume: false, // 403 Forbidden on resume/replay
     // 3. Strict CORS Whitelisting
     cors: {
         origin: ['https://devtools.corp.internal', 'http://localhost:3000'],
-        credentials: true
+        credentials: true,
     },
     // 4. Ingestion Payload Size Cap
-    maxPayloadBytes: 1024 * 1024 // 1 MB limit (413 on breach)
+    maxPayloadBytes: 1024 * 1024, // 1 MB limit (413 on breach)
 });
 ```
 
@@ -191,6 +191,7 @@ const monitor = await createMonitorServer({
 Embed the live monitoring UI and endpoints directly into your existing HTTP application:
 
 ### Express
+
 ```typescript
 import express from 'express';
 import { createExpressMonitorMiddleware } from '@siglo/monitor';
@@ -207,6 +208,7 @@ app.listen(3000);
 ```
 
 ### Fastify
+
 ```typescript
 import Fastify from 'fastify';
 import { fastifyMonitorPlugin } from '@siglo/monitor';
@@ -217,6 +219,7 @@ fastify.listen({ port: 3000 });
 ```
 
 ### Hono
+
 ```typescript
 import { Hono } from 'hono';
 import { honoMonitorMiddleware } from '@siglo/monitor';
@@ -238,7 +241,7 @@ import { defaultWorkflowEventEmitter } from '@siglo/core';
 // In Worker: publishes events to Redis
 const workerAdapter = new RedisMonitoringAdapter({
     publisher: redisClient,
-    channel: 'siglo:monitor:events'
+    channel: 'siglo:monitor:events',
 });
 workerAdapter.attachToEmitter(defaultWorkflowEventEmitter);
 
@@ -246,7 +249,7 @@ workerAdapter.attachToEmitter(defaultWorkflowEventEmitter);
 const serverAdapter = new RedisMonitoringAdapter({
     subscriber: redisSubClient,
     channel: 'siglo:monitor:events',
-    emitter: monitorServer.emitter
+    emitter: monitorServer.emitter,
 });
 ```
 
@@ -255,6 +258,7 @@ const serverAdapter = new RedisMonitoringAdapter({
 ## 8. Prometheus & Grafana
 
 `@siglo/monitor` automatically exposes metrics at `GET /metrics`:
+
 - `siglo_active_flows`: Current active workflow gauge
 - `siglo_flow_executions_total{status="..."}`: Total workflow counter
 - `siglo_flow_duration_seconds`: Workflow execution duration summary
@@ -272,12 +276,13 @@ Automatic redaction masks credentials in event streams:
 `password`, `token`, `secret`, `apikey`, `authorization`, `cookie`, `creditcard`, `ssn`, `privkey`, `privatekey`
 
 Custom redaction hooks can be supplied:
+
 ```typescript
 createMonitorServer({
     redaction: {
         redactKeys: ['bankAccount'],
-        redactHook: (key, val) => (key === 'email' ? '***@***.com' : undefined)
-    }
+        redactHook: (key, val) => (key === 'email' ? '***@***.com' : undefined),
+    },
 });
 ```
 
@@ -285,13 +290,13 @@ createMonitorServer({
 
 ## 10. REST API Endpoints
 
-| Method | Route | Description | Auth Scope |
-|---|---|---|---|
-| `GET` | `/` | Serves the React DevTools Single Page Application (SPA) | Public |
-| `GET` | `/events` | Server-Sent Events (SSE) telemetry stream | `read` |
-| `POST` | `/api/events` | Telemetry event ingestion (accepts single event or array of events) | `ingest` |
-| `GET` | `/metrics` | Prometheus metrics exposition format | `read` |
-| `GET` | `/api/workflows` | Query list of recorded workflows (`?namespace=...&status=...`) | `read` |
-| `GET` | `/api/workflows/:stackId` | Fetch execution details, steps, and context diff | `read` |
-| `POST` | `/api/workflows/:stackId/resume` | Resume a suspended workflow with payload | `control` |
-| `POST` | `/api/workflows/:stackId/replay` | Replay execution with recorded context | `control` |
+| Method | Route                            | Description                                                         | Auth Scope |
+| ------ | -------------------------------- | ------------------------------------------------------------------- | ---------- |
+| `GET`  | `/`                              | Serves the React DevTools Single Page Application (SPA)             | Public     |
+| `GET`  | `/events`                        | Server-Sent Events (SSE) telemetry stream                           | `read`     |
+| `POST` | `/api/events`                    | Telemetry event ingestion (accepts single event or array of events) | `ingest`   |
+| `GET`  | `/metrics`                       | Prometheus metrics exposition format                                | `read`     |
+| `GET`  | `/api/workflows`                 | Query list of recorded workflows (`?namespace=...&status=...`)      | `read`     |
+| `GET`  | `/api/workflows/:stackId`        | Fetch execution details, steps, and context diff                    | `read`     |
+| `POST` | `/api/workflows/:stackId/resume` | Resume a suspended workflow with payload                            | `control`  |
+| `POST` | `/api/workflows/:stackId/replay` | Replay execution with recorded context                              | `control`  |

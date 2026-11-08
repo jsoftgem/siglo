@@ -37,7 +37,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
             const p = parallel(stepA, stepB);
             const start = Date.now();
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
             const elapsed = Date.now() - start;
 
             // Since they run concurrently in ~40ms, total elapsed should be well under 80ms (e.g. < 70ms)
@@ -81,7 +81,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
             const p = parallel([failingStep, slowStep]);
             try {
-                await flow(p).execute();
+                await flow(p).run();
                 expect.fail('Should have failed fast');
             } catch (err: any) {
                 expect(err.message).to.equal('Branch failed rapidly');
@@ -96,7 +96,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             });
 
             const p = allSettled([stepSuccess, stepFail]);
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
 
             expect(res.$branches).to.have.length(2);
             expect(res.$branches[0].status).to.equal('completed');
@@ -109,7 +109,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const step1 = Step.create('s1', () => ({ v1: 1 }));
             const step2 = Step.create('s2', () => ({ v2: 2 }));
 
-            const res = await flow(all([step1, step2])).execute({}, { pojo: true });
+            const res = await flow(all([step1, step2])).run({}, { pojo: true });
             expect(res.v1).to.equal(1);
             expect(res.v2).to.equal(2);
         });
@@ -138,7 +138,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             });
 
             const raceStep = race(fastStep, slowStep);
-            const res = await flow(raceStep).execute({}, { pojo: true });
+            const res = await flow(raceStep).run({}, { pojo: true });
             expect(res.winner).to.equal('fast');
             expect(slowAborted).to.be.true;
         });
@@ -155,7 +155,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             });
 
             try {
-                await flow(race([fastFailing, slowStep])).execute();
+                await flow(race([fastFailing, slowStep])).run();
                 expect.fail('Should have rejected');
             } catch (err: any) {
                 expect(err.message).to.equal('Fast failed');
@@ -172,7 +172,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
             // Deep merge
             const pDeep = parallel([s1, s2], { mergeStrategy: 'deep' });
-            const resDeep = await flow(pDeep).execute({}, { pojo: true });
+            const resDeep = await flow(pDeep).run({}, { pojo: true });
             expect(resDeep.config.host).to.equal('localhost');
             expect(resDeep.config.port).to.equal(8080);
             expect(resDeep.config.secure).to.equal(true);
@@ -184,7 +184,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
                     return acc;
                 },
             });
-            const resCustom = await flow(pCustom).execute({}, { pojo: true });
+            const resCustom = await flow(pCustom).run({}, { pojo: true });
             expect(resCustom.s1).to.be.an('object');
             expect(resCustom.s2).to.be.an('object');
         });
@@ -203,7 +203,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const pError = parallel([stepA, stepB], { mergeStrategy: 'error' });
 
             try {
-                await flow(pError).execute();
+                await flow(pError).run();
                 expect.fail('Should have thrown collision exception');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(FieldCollisionException);
@@ -238,12 +238,12 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 Step.create('fail', () => ({ passed: false })),
             );
 
-            const resPass = await flow(conditionTrue).execute({ score: 75 }, { pojo: true });
+            const resPass = await flow(conditionTrue).run({ score: 75 }, { pojo: true });
             expect(resPass.passed).to.be.true;
             expect(resPass.$branchSelected).to.equal('then');
             expect(resPass.$skippedBranches).to.deep.equal(['else']);
 
-            const resFail = await flow(conditionTrue).execute({ score: 30 }, { pojo: true });
+            const resFail = await flow(conditionTrue).run({ score: 30 }, { pojo: true });
             expect(resFail.passed).to.be.false;
             expect(resFail.$branchSelected).to.equal('else');
             expect(resFail.$skippedBranches).to.deep.equal(['then']);
@@ -255,7 +255,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 Step.create('addBonus', () => ({ bonus: 500 })),
             );
 
-            const res = await flow(conditionNoElse).execute({ base: 100, hasBonus: false }, { pojo: true });
+            const res = await flow(conditionNoElse).run({ base: 100, hasBonus: false }, { pojo: true });
             expect(res.bonus).to.be.undefined;
             expect(res.$skipped).to.be.true;
             expect(res.$skippedBranches).to.deep.equal(['then']);
@@ -272,25 +272,25 @@ describe('Combinators Unit and Concurrency Tests', () => {
             );
 
             // 1. Admin
-            const resAdmin = await flow(multiBranch).execute({ userType: 'admin' }, { pojo: true });
+            const resAdmin = await flow(multiBranch).run({ userType: 'admin' }, { pojo: true });
             expect(resAdmin.role).to.equal('administrator');
             expect(resAdmin.$branchSelected).to.equal('admin');
             expect(resAdmin.$skippedBranches).to.include('member');
 
             // 2. Member
-            const resMember = await flow(multiBranch).execute({ userType: 'member' }, { pojo: true });
+            const resMember = await flow(multiBranch).run({ userType: 'member' }, { pojo: true });
             expect(resMember.role).to.equal('member');
             expect(resMember.$branchSelected).to.equal('member');
 
             // 3. Unknown -> default
-            const resGuest = await flow(multiBranch).execute({ userType: 'unknown' }, { pojo: true });
+            const resGuest = await flow(multiBranch).run({ userType: 'unknown' }, { pojo: true });
             expect(resGuest.role).to.equal('guest');
 
             // 4. No default and unknown selector -> skipped
             const branchNoDefault = branch((ctx: any) => ctx.type, {
                 known: Step.create('k', () => ({ ok: true })),
             });
-            const resSkipped = await flow(branchNoDefault).execute({ type: 'other' }, { pojo: true });
+            const resSkipped = await flow(branchNoDefault).run({ type: 'other' }, { pojo: true });
             expect(resSkipped.$skipped).to.be.true;
         });
 
@@ -300,7 +300,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 declined: Step.create('dec', () => ({ approved: false })),
             });
 
-            const res = await flow(objBranch).execute({ status: 'approved' }, { pojo: true });
+            const res = await flow(objBranch).run({ status: 'approved' }, { pojo: true });
             expect(res.approved).to.be.true;
         });
     });
@@ -322,7 +322,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 { concurrency: 2, preserveOrder: true },
             );
 
-            const res = await flow(m).execute({}, { pojo: true });
+            const res = await flow(m).run({}, { pojo: true });
             expect(res.items).to.deep.equal([10, 20, 30, 40, 50]);
             expect(res.count).to.equal(5);
             expect(maxConcurrent).to.be.at.most(2);
@@ -341,7 +341,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 { concurrency: 2 },
             );
 
-            const res = await flow(m).execute({}, { pojo: true });
+            const res = await flow(m).run({}, { pojo: true });
             expect(res.items).to.deep.equal([101, 102, 103, 104]);
         });
 
@@ -359,7 +359,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             );
 
             try {
-                await flow(m).execute();
+                await flow(m).run();
                 expect.fail('Should have failed on item 2');
             } catch (err: any) {
                 expect(err.message).to.equal('Item 2 failed');
@@ -378,7 +378,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 { stopOnError: false },
             );
 
-            const res = await flow(m).execute({}, { pojo: true });
+            const res = await flow(m).run({}, { pojo: true });
             expect(res.count).to.equal(3);
             expect(res.items[0]).to.equal(2);
             expect(res.items[1].error.message).to.equal('Error on 2');
@@ -402,7 +402,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             }, 15);
 
             try {
-                await flow(m).execute({}, { signal: controller.signal });
+                await flow(m).run({}, { signal: controller.signal });
                 expect.fail('Should have cancelled');
             } catch (err: any) {
                 expect(err.isCancellation).to.be.true;
@@ -411,7 +411,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
 
         it('map handles non-iterable items by defaulting to empty array', async () => {
             const m = map(undefined as any, (x: any) => x);
-            const res = await flow(m).execute({}, { pojo: true });
+            const res = await flow(m).run({}, { pojo: true });
             expect(res.items).to.deep.equal([]);
             expect(res.count).to.equal(0);
         });
@@ -419,14 +419,14 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it('map supports Step instances and objects with run/execute as processItem', async () => {
             const stepItem = Step.create('procItem', ({ item }: any) => ({ doubled: item * 2 }));
             const m = map([10, 20], stepItem);
-            const res = await flow(m).execute({}, { pojo: true });
+            const res = await flow(m).run({}, { pojo: true });
             expect(res.items).to.deep.equal([{ doubled: 20 }, { doubled: 40 }]);
 
             const runObj = {
                 run: async (inp: any) => ({ fromRun: inp.item + 5 }),
             };
             const mRun = map([1], runObj);
-            const resRun = await flow(mRun).execute({}, { pojo: true });
+            const resRun = await flow(mRun).run({}, { pojo: true });
             expect(resRun.items[0]).to.deep.equal({ fromRun: 6 });
         });
     });
@@ -437,7 +437,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const s2 = Step.create('strBranch', () => 'hello');
 
             const p = parallel(s1, s2);
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
             expect(res.numBranch).to.equal(42);
             expect(res.strBranch).to.equal('hello');
         });
@@ -447,30 +447,30 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const s2 = Step.create('r2', () => ({ winner: 2 }));
             const r = race([s1, s2], { name: 'twoArgRace' });
             expect(r.name).to.equal('twoArgRace');
-            const res = await flow(r).execute({}, { pojo: true });
+            const res = await flow(r).run({}, { pojo: true });
             expect(res.winner).to.be.oneOf([1, 2]);
         });
 
         it('when and branch support raw function, run, start, and array targets', async () => {
             const fnTarget = (ctx: any) => ({ fnResult: ctx.v + 1 });
             const w1 = when(() => true, fnTarget);
-            const res1 = await flow(w1).execute({ v: 10 }, { pojo: true });
+            const res1 = await flow(w1).run({ v: 10 }, { pojo: true });
             expect(res1.fnResult).to.equal(11);
 
             const runTarget = { run: async (inp: any) => ({ runOk: true }) };
             const w2 = when(() => true, runTarget);
-            const res2 = await flow(w2).execute({}, { pojo: true });
+            const res2 = await flow(w2).run({}, { pojo: true });
             expect(res2.runOk).to.be.true;
 
             const startTarget = { start: async (inp: any) => ({ startOk: true }) };
             const w3 = when(() => true, startTarget);
-            const res3 = await flow(w3).execute({}, { pojo: true });
+            const res3 = await flow(w3).run({}, { pojo: true });
             expect(res3.startOk).to.be.true;
 
             const sub1 = Step.create('sub1', () => ({ s1: 1 }));
             const sub2 = Step.create('sub2', () => ({ s2: 2 }));
             const w4 = when(() => true, [sub1, sub2]);
-            const res4 = await flow(w4).execute({}, { pojo: true });
+            const res4 = await flow(w4).run({}, { pojo: true });
             expect(res4.s1).to.equal(1);
             expect(res4.s2).to.equal(2);
         });
@@ -479,11 +479,11 @@ describe('Combinators Unit and Concurrency Tests', () => {
                 () => true,
                 () => 99,
             );
-            const resPrim = await flow(wPrimitive).execute({}, { pojo: true });
+            const resPrim = await flow(wPrimitive).run({}, { pojo: true });
             expect(resPrim.value).to.equal(99);
 
             const bNull = branch(() => 'n', { n: () => null });
-            const resNull = await flow(bNull).execute({}, { pojo: true });
+            const resNull = await flow(bNull).run({}, { pojo: true });
             expect(resNull.value).to.be.null;
         });
 
@@ -493,7 +493,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const subflowBranch = [Step.create('sub', () => ({ fromSub: 3 }))];
 
             const p = parallel(runBranch, startBranch, subflowBranch);
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
             expect(res.fromRun).to.equal(1);
             expect(res.fromStart).to.equal(2);
             expect(res.fromSub).to.equal(3);
@@ -502,28 +502,28 @@ describe('Combinators Unit and Concurrency Tests', () => {
         it('map supports processItem with start and subflow array', async () => {
             const startItem = { start: async (inp: any) => ({ started: inp.item + 10 }) };
             const mStart = map([1], startItem);
-            const resStart = await flow(mStart).execute({}, { pojo: true });
+            const resStart = await flow(mStart).run({}, { pojo: true });
             expect(resStart.items[0]).to.deep.equal({ started: 11 });
 
             const flowItem = [Step.create('itemStep', (inp: any) => ({ inFlow: inp.item * 3 }))];
             const mFlow = map([2], flowItem);
-            const resFlow = await flow(mFlow).execute({}, { pojo: true });
+            const resFlow = await flow(mFlow).run({}, { pojo: true });
             expect(resFlow.items[0]).to.deep.equal({ inFlow: 6 });
         });
         it('parallel supports function branches and deep merge fallback with primitives', async () => {
             const pFunc = parallel([() => 42], { mergeStrategy: 'deep' });
-            const res = await flow(pFunc).execute({}, { pojo: true });
+            const res = await flow(pFunc).run({}, { pojo: true });
             expect(res.branch_0).to.equal(42);
         });
         it('map processes Step returning primitive and run returning null', async () => {
             const primStep = Step.create('primStep', ({ item }: any) => item * 5);
             const mPrim = map([2, 3], primStep);
-            const resPrim = await flow(mPrim).execute({}, { pojo: true });
+            const resPrim = await flow(mPrim).run({}, { pojo: true });
             expect(resPrim.items).to.deep.equal([10, 15]);
 
             const nullObj = { run: async () => null };
             const mNull = map([1], nullObj);
-            const resNull = await flow(mNull).execute({}, { pojo: true });
+            const resNull = await flow(mNull).run({}, { pojo: true });
             expect(resNull.items).to.deep.equal([null]);
         });
 
@@ -538,7 +538,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             });
 
             const p = parallel(slowBranch0, fastBranch1);
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
 
             // Definition order is 0 then 1, so branch1 overwrites branch0
             expect(res.count).to.equal(2);
@@ -552,7 +552,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const bB = Step.create('branchB', () => ({ items: [3, 4], val: 'B' }));
 
             const p = parallel([bA, bB], { mergeStrategy: 'namespace' });
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
             expect(res.branchA).to.deep.equal({ items: [1, 2], val: 'A' });
             expect(res.branchB).to.deep.equal({ items: [3, 4], val: 'B' });
         });
@@ -562,7 +562,7 @@ describe('Combinators Unit and Concurrency Tests', () => {
             const b2 = Step.create('b2', () => ({ data: { tags: ['network', 'audit'] } }));
 
             const p = parallel([b1, b2], { mergeStrategy: 'deep' });
-            const res = await flow(p).execute({}, { pojo: true });
+            const res = await flow(p).run({}, { pojo: true });
             expect(res.data.tags).to.deep.equal(['auth', 'security', 'network', 'audit']);
         });
     });

@@ -1,6 +1,6 @@
 ---
-title: "Retries, Timeouts, and Cancellation"
-description: "Fault tolerance patterns in Siglo: exponential backoff retries with jitter, step and workflow deadlines, AbortSignal cooperative cancellation, and automatic Saga rollbacks."
+title: 'Retries, Timeouts, and Cancellation'
+description: 'Fault tolerance patterns in Siglo: exponential backoff retries with jitter, step and workflow deadlines, AbortSignal cooperative cancellation, and automatic Saga rollbacks.'
 ---
 
 # Retries, Timeouts, and Cancellation
@@ -18,20 +18,19 @@ import { Step } from '@siglo/core';
 
 export const callPaymentGateway = Step.create('callGateway', async (param: any) => {
     return await api.chargeCustomer(param);
-})
-.onFail({
+}).onFail({
     maxRetries: 3,
     backoff: 'exponential', // 'fixed', 'linear', 'exponential', or custom fn
-    delay: 200,            // Base delay in ms
-    maxDelay: 5000,        // Cap maximum backoff delay
-    jitter: true,          // Add random jitter to prevent thundering herd
+    delay: 200, // Base delay in ms
+    maxDelay: 5000, // Cap maximum backoff delay
+    jitter: true, // Add random jitter to prevent thundering herd
     retryIf: (err, attempt) => {
         // Only retry on network errors or 5xx server codes
         return err.status >= 500 || err.code === 'ECONNRESET';
     },
     onRetry: (err, attempt, delayMs) => {
         console.warn(`Retry attempt #${attempt} scheduled after ${delayMs}ms due to: ${err.message}`);
-    }
+    },
 });
 ```
 
@@ -40,7 +39,9 @@ export const callPaymentGateway = Step.create('callGateway', async (param: any) 
 ## 2. Timeouts
 
 ### Step-Level Timeouts
+
 Enforce execution deadlines on individual steps:
+
 ```typescript
 const querySlowDatabase = Step.create('queryDb', async () => {
     return await db.heavyAnalytics();
@@ -51,7 +52,9 @@ const querySlowDatabase = Step.create('queryDb', async () => {
 > Step timeouts encompass the entire step lifecycle—including `Step.spec` validation, transformers, translators, `onBefore` plugins, the step action, and `onAfter` hooks. If any phase hangs or exceeds the deadline, the step aborts and rejects with `StepTimeoutException` tagged with its active execution phase.
 
 ### Workflow-Level Timeouts
+
 Enforce end-to-end deadlines across the entire workflow sequence:
+
 ```typescript
 import { flow } from '@siglo/core';
 
@@ -83,6 +86,7 @@ try {
 ```
 
 Steps can access the active abort signal via `param.signal` (native `AbortSignal`) or `param.$signal()` (callable compatibility accessor):
+
 ```typescript
 const downloadFile = Step.create('download', async (param: any) => {
     const signal = param.signal;
@@ -102,8 +106,7 @@ import { Step, flow } from '@siglo/core';
 const reserveHotel = Step.create('reserveHotel', async () => {
     const booking = await hotelApi.book();
     return { hotelBookingId: booking.id };
-})
-.compensate(async (ctx) => {
+}).compensate(async ctx => {
     // Automatic rollback if subsequent steps fail
     await hotelApi.cancel(ctx.hotelBookingId);
 });
@@ -111,8 +114,7 @@ const reserveHotel = Step.create('reserveHotel', async () => {
 const reserveFlight = Step.create('reserveFlight', async () => {
     const flight = await flightApi.book();
     return { flightBookingId: flight.id };
-})
-.compensate(async (ctx) => {
+}).compensate(async ctx => {
     await flightApi.cancel(ctx.flightBookingId);
 });
 
@@ -149,10 +151,9 @@ console.log(res.recovered); // true
 ```typescript
 import { Step, flow, CompensationException } from '@siglo/core';
 
-const step1 = Step.create('step1', () => ({ ok: true }))
-    .compensate(async () => {
-        throw new Error('Compensation network error');
-    });
+const step1 = Step.create('step1', () => ({ ok: true })).compensate(async () => {
+    throw new Error('Compensation network error');
+});
 
 const step2 = Step.create('step2', () => {
     throw new Error('Step 2 failed');

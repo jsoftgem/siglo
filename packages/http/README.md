@@ -24,8 +24,8 @@ import { flow } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 
 export const getUser = httpStep('getUser', {
-  url: 'https://api.example.com/users/123',
-  method: 'GET',
+    url: 'https://api.example.com/users/123',
+    method: 'GET',
 });
 
 const workflow = flow(getUser);

@@ -1,6 +1,6 @@
 ---
-title: "Storage and Adapters"
-description: "Pluggable persistence architecture for Siglo: PostgreSQL and Redis adapters, durable checkpoints, distributed locks, multi-tenant namespaces, and storage error modes."
+title: 'Storage and Adapters'
+description: 'Pluggable persistence architecture for Siglo: PostgreSQL and Redis adapters, durable checkpoints, distributed locks, multi-tenant namespaces, and storage error modes.'
 ---
 
 # Storage and Adapters
@@ -26,7 +26,11 @@ export interface StorageAdapter {
     // 3. Durable Wait Persistence & Workflow Locking
     saveWaitRecord?(record: any): Promise<void> | void;
     getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
-    claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
+    claimWaitRecord?(
+        correlationKey: string,
+        claimantId?: string,
+        options?: { allowExpired?: boolean; eventPayload?: any },
+    ): Promise<any>;
     completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
     withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
     cancelWaitRecord?(correlationKey: string): Promise<void>;
@@ -56,6 +60,7 @@ useStorage(adapter);
 ## 2. Production Ecosystem Adapters
 
 ### `@siglo/postgres`
+
 ACID-compliant state persistence, durable checkpoint storage, audit event log tables, and transactional idempotency locking.
 
 ```typescript
@@ -69,6 +74,7 @@ useStorage(storage);
 ```
 
 ### `@siglo/redis`
+
 Low-latency state caching, distributed TTL step caching, atomic idempotency claim sets, and distributed redlock mutexes.
 
 ```typescript
@@ -81,6 +87,7 @@ useStorage(storage);
 ```
 
 ### Event & Transport Adapters
+
 - `@siglo/express`: HTTP route handler adapter.
 - `@siglo/fastify`: High-performance Fastify route handler adapter.
 - `@siglo/hono`: Web Standards (`Request`/`Response`) adapter (requires Node runtime APIs such as `node:async_hooks` and `node:net` or polyfilled Node compatibility mode).
@@ -100,7 +107,7 @@ Every checkpoint, cache key, and event stream supports namespace scoping:
 await workflow.run(input, {
     namespace: 'tenant_acme_corp',
     checkpoint: true, // Persists intermediate step snapshots to storage adapter
-    durable: true     // Enables wait record persistence and suspension
+    durable: true, // Enables wait record persistence and suspension
 });
 ```
 
@@ -115,9 +122,9 @@ import { Step, flow, useStorage, StorageAdapter } from '@siglo/core';
 
 const customAuditAdapter: StorageAdapter = {
     name: 'console-audit',
-    onContextChange: (evt) => {
+    onContextChange: evt => {
         console.log(`[AUDIT] Step ${evt.stepId} changed field ${evt.field}`);
-    }
+    },
 };
 
 useStorage(customAuditAdapter);

@@ -27,7 +27,7 @@ export interface TelemetryConfig {
  */
 export function initTelemetry(config: TelemetryConfig = {}): Tracer {
     const serviceName = config.serviceName || process.env.OTEL_SERVICE_NAME || 'siglo-apm';
-    const serviceVersion = config.serviceVersion || '1.1.0';
+    const serviceVersion = config.serviceVersion || '1.2.0';
     const exportToOtlp =
         config.exportToOtlp ?? (process.env.NODE_ENV !== 'test' && process.env.OTEL_TRACES_EXPORTER !== 'none');
 

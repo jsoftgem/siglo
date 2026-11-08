@@ -1,6 +1,6 @@
 ---
-title: "Zero-Code APM Dashboards"
-description: "Explore OpenTelemetry traces in Jaeger and Prometheus metrics in pre-provisioned Grafana dashboards for distributed Kafka order routing workflows."
+title: 'Zero-Code APM Dashboards'
+description: 'Explore OpenTelemetry traces in Jaeger and Prometheus metrics in pre-provisioned Grafana dashboards for distributed Kafka order routing workflows.'
 ---
 
 # Zero-Code APM Dashboards
@@ -49,15 +49,15 @@ This single Compose file starts the dedicated **`siglo-zero-code-apm-dashboards`
 
 The APM project uses workers on **3400/3401**, its monitor on **4400**, Kafka on **39092**, PostgreSQL on **5436** (`apm_orders`), and Redis on **6383**. Its broker topics are `apm.orders` and `apm.orders.dead-letter`, with consumer group `apm-order-routing-v1` and tenant `apm-demo`. Grafana, Prometheus, Jaeger, and OTLP retain ports **3000, 9090, 16686, and 4317/4318**. Keep these ports available.
 
-| Tool | Address | Purpose |
-|---|---|---|
-| Grafana APM Overview | [localhost:3000/d/siglo-apm](http://localhost:3000/d/siglo-apm) | Workflow counters, scrape health, trace navigation |
-| Grafana Live Workflow Monitoring | [localhost:3000/d/siglo-live-monitoring](http://localhost:3000/d/siglo-live-monitoring) | Duration, throughput, active workflows, retries |
-| Jaeger | [localhost:16686](http://localhost:16686) | Producer-to-worker traces and step spans |
-| Prometheus targets | [localhost:9090/targets](http://localhost:9090/targets) | Check `siglo-monitor` is `UP` |
-| APM Siglo monitor | [127.0.0.1:4400](http://127.0.0.1:4400) | Routing graph, context, and workflow history |
-| Workflow metrics | [127.0.0.1:4400/metrics](http://127.0.0.1:4400/metrics) | Metrics aggregated from both workers |
-| Shared outcomes | [127.0.0.1:3400/results](http://127.0.0.1:3400/results) | Persisted actions and handling worker |
+| Tool                             | Address                                                                                 | Purpose                                            |
+| -------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Grafana APM Overview             | [localhost:3000/d/siglo-apm](http://localhost:3000/d/siglo-apm)                         | Workflow counters, scrape health, trace navigation |
+| Grafana Live Workflow Monitoring | [localhost:3000/d/siglo-live-monitoring](http://localhost:3000/d/siglo-live-monitoring) | Duration, throughput, active workflows, retries    |
+| Jaeger                           | [localhost:16686](http://localhost:16686)                                               | Producer-to-worker traces and step spans           |
+| Prometheus targets               | [localhost:9090/targets](http://localhost:9090/targets)                                 | Check `siglo-monitor` is `UP`                      |
+| APM Siglo monitor                | [127.0.0.1:4400](http://127.0.0.1:4400)                                                 | Routing graph, context, and workflow history       |
+| Workflow metrics                 | [127.0.0.1:4400/metrics](http://127.0.0.1:4400/metrics)                                 | Metrics aggregated from both workers               |
+| Shared outcomes                  | [127.0.0.1:3400/results](http://127.0.0.1:3400/results)                                 | Persisted actions and handling worker              |
 
 Sign in to Grafana with **`admin` / `admin`** and dismiss its password-change prompt or choose a local password. Open **Dashboards → Siglo APM** to find the provisioned dashboards.
 
@@ -111,14 +111,14 @@ Read `/results`, find the printed event ID, and compare `handledBy` with the ser
 
 Repeat the publisher command, changing its final argument:
 
-| Scenario | Selected actions | Trace and metrics interpretation |
-|---|---|---|
-| `standard` | Reserve, charge, ship | No `wrapGift` action span; successful workflow |
-| `gift` | Reserve, charge, wrap, ship | Optional gift step runs; successful workflow |
-| `review` | `queueReview`, then save | No payment or shipping; completes with `review-required` |
-| `cancel` | `recordCancellation`, then save | A different event branch; successful workflow |
-| `unsupported` | `rejectUnsupported` | Failed workflow with an exception; adapter publishes a dead letter |
-| `invalid` | None | JSON parsing fails before a workflow starts; adapter publishes a dead letter |
+| Scenario      | Selected actions                | Trace and metrics interpretation                                             |
+| ------------- | ------------------------------- | ---------------------------------------------------------------------------- |
+| `standard`    | Reserve, charge, ship           | No `wrapGift` action span; successful workflow                               |
+| `gift`        | Reserve, charge, wrap, ship     | Optional gift step runs; successful workflow                                 |
+| `review`      | `queueReview`, then save        | No payment or shipping; completes with `review-required`                     |
+| `cancel`      | `recordCancellation`, then save | A different event branch; successful workflow                                |
+| `unsupported` | `rejectUnsupported`             | Failed workflow with an exception; adapter publishes a dead letter           |
+| `invalid`     | None                            | JSON parsing fails before a workflow starts; adapter publishes a dead letter |
 
 For example:
 
@@ -224,14 +224,14 @@ Use fresh event IDs when repeating the tutorial. A completed event ID represents
 
 ## 7. Inspect the Instrumentation
 
-| File | What it connects |
-|---|---|
+| File                                                                                | What it connects                                                                                   |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | [telemetry.ts](../examples/zero-code-apm-dashboards/src/order-routing/telemetry.ts) | Optional Node OpenTelemetry provider, batch OTLP export, and consumer span around adapter handling |
-| [publish.ts](../examples/zero-code-apm-dashboards/src/order-routing/publish.ts) | Producer span, W3C header injection, printed trace ID, flush on CLI shutdown |
-| [worker.ts](../examples/zero-code-apm-dashboards/src/order-routing/worker.ts) | Per-replica telemetry, extracted Kafka headers, traced handler, SDK shutdown |
-| [workflow.ts](../examples/zero-code-apm-dashboards/src/order-routing/workflow.ts) | Workflow definition and automatic nested execution tracing via `instrumentWorkflow` |
-| [monitor.ts](../examples/zero-code-apm-dashboards/src/order-routing/monitor.ts) | This tutorial’s shared Redis monitor and `/metrics` endpoint |
-| [docker-compose.yml](../examples/zero-code-apm-dashboards/docker-compose.yml) | Dedicated Kafka, PostgreSQL, Redis, workers, monitor, and APM services |
+| [publish.ts](../examples/zero-code-apm-dashboards/src/order-routing/publish.ts)     | Producer span, W3C header injection, printed trace ID, flush on CLI shutdown                       |
+| [worker.ts](../examples/zero-code-apm-dashboards/src/order-routing/worker.ts)       | Per-replica telemetry, extracted Kafka headers, traced handler, SDK shutdown                       |
+| [workflow.ts](../examples/zero-code-apm-dashboards/src/order-routing/workflow.ts)   | Workflow definition and automatic nested execution tracing via `instrumentWorkflow`                |
+| [monitor.ts](../examples/zero-code-apm-dashboards/src/order-routing/monitor.ts)     | This tutorial’s shared Redis monitor and `/metrics` endpoint                                       |
+| [docker-compose.yml](../examples/zero-code-apm-dashboards/docker-compose.yml)       | Dedicated Kafka, PostgreSQL, Redis, workers, monitor, and APM services                             |
 
 The CLI initializes a provider before sending. `publishScenario` creates a producer span and injects its context into the Kafka headers. The worker extracts that context, starts a consumer span, and runs `createKafkaMessageHandler` inside it. `instrumentWorkflow` establishes execution hooks that automatically trace every executed step—including nested flows, `branch`, `when`, and concurrent operations—without requiring explicit child step instrumentation.
 
@@ -257,15 +257,15 @@ This tutorial’s integration smoke check verifies real Kafka delivery, persiste
 sh examples/zero-code-apm-dashboards/smoke.sh
 ```
 
-| Symptom | Check |
-|---|---|
-| No `traceId` in publisher output | Use this tutorial’s Compose file, rebuild its image, and confirm the OTLP endpoint is set inside the publishing process. |
-| Jaeger has only a producer span | Wait for worker batch export, check worker health/logs, and confirm the consumed event is fresh. |
-| Consumer span has no workflow child | Check whether the event was deduplicated or rejected before execution. |
-| Grafana shows no data | Check `http://127.0.0.1:4400/metrics` and the Prometheus `siglo-monitor` target; confirm this tutorial’s APM stack is running. |
-| Rate charts are empty | Publish fresh events over a minute or longer. A quiet example has no recent throughput. |
-| Data source connects but trace service search fails after an upgrade | Verify the Jaeger query API and Grafana data source versions are compatible. |
-| APM ports are occupied | Check for another process using an APM port, or adjust this tutorial’s host ports and browser links together. |
+| Symptom                                                              | Check                                                                                                                          |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| No `traceId` in publisher output                                     | Use this tutorial’s Compose file, rebuild its image, and confirm the OTLP endpoint is set inside the publishing process.       |
+| Jaeger has only a producer span                                      | Wait for worker batch export, check worker health/logs, and confirm the consumed event is fresh.                               |
+| Consumer span has no workflow child                                  | Check whether the event was deduplicated or rejected before execution.                                                         |
+| Grafana shows no data                                                | Check `http://127.0.0.1:4400/metrics` and the Prometheus `siglo-monitor` target; confirm this tutorial’s APM stack is running. |
+| Rate charts are empty                                                | Publish fresh events over a minute or longer. A quiet example has no recent throughput.                                        |
+| Data source connects but trace service search fails after an upgrade | Verify the Jaeger query API and Grafana data source versions are compatible.                                                   |
+| APM ports are occupied                                               | Check for another process using an APM port, or adjust this tutorial’s host ports and browser links together.                  |
 
 Inspect logs with this tutorial’s Compose file, replacing `up --build -d --wait` with `logs --tail=100 worker-a worker-b jaeger prometheus grafana`.
 

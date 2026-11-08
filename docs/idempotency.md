@@ -1,6 +1,6 @@
 ---
-title: "Idempotency and Deduplication"
-description: "Workflow-level and step-level idempotency guarantees, atomic claim lifecycle, wait-and-settle thundering herd defense, and error classification."
+title: 'Idempotency and Deduplication'
+description: 'Workflow-level and step-level idempotency guarantees, atomic claim lifecycle, wait-and-settle thundering herd defense, and error classification.'
 ---
 
 # Idempotency and Deduplication
@@ -15,18 +15,19 @@ The `IdempotencyStore` abstraction governs key claiming, caching, and completion
 
 ```typescript
 interface IdempotencyStore {
-  claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'>;
-  complete(key: string, result: unknown): Promise<void>;
-  fail(key: string, error: unknown): Promise<void>;
-  get?(key: string): Promise<unknown>;
-  getResult?(key: string): Promise<unknown>;
-  clear?(): void;
+    claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'>;
+    complete(key: string, result: unknown): Promise<void>;
+    fail(key: string, error: unknown): Promise<void>;
+    get?(key: string): Promise<unknown>;
+    getResult?(key: string): Promise<unknown>;
+    clear?(): void;
 }
 ```
 
 Both `get(key)` and `getResult(key)` are supported for reading completed results across store implementations (e.g. `RedisIdempotencyStore`, `PostgresIdempotencyStore`, `InMemoryIdempotencyStore`).
 
 ### Claim States
+
 - **`'claimed'`**: Key was successfully acquired. Execution may proceed.
 - **`'completed'`**: Key was previously executed to completion. The orchestrator returns the cached output immediately without re-executing steps.
 - **`'in-progress'`**: Another execution is currently running with the same key. The orchestrator throws `IdempotencyConflictException` (or waits if `settleTimeoutMs` is configured).
@@ -43,8 +44,8 @@ To prevent key collisions across namespaces or versions, keys are automatically 
 import { buildIdempotencyKey } from '@siglo/core';
 
 const key = buildIdempotencyKey('order-1234', {
-  namespace: 'tenant-a',
-  workflowVersion: '2.0.0'
+    namespace: 'tenant-a',
+    workflowVersion: '2.0.0',
 });
 // Yields: 'ff:idemp:tenant-a:2.0.0:order-1234'
 ```
@@ -61,23 +62,24 @@ import { flow, Step } from '@siglo/core';
 const checkoutFlow = flow(chargeCard, sendReceipt);
 
 // First invocation -> executes steps and caches output
-const res1 = await checkoutFlow.execute(orderPayload, {
-  idempotencyKey: 'req-checkout-9876',
-  namespace: 'tenant-acme',
-  idempotencyTtlMs: 3600000 // 1 hour TTL
+const res1 = await checkoutFlow.run(orderPayload, {
+    idempotencyKey: 'req-checkout-9876',
+    namespace: 'tenant-acme',
+    idempotencyTtlMs: 3600000, // 1 hour TTL
 });
 
 // Second invocation with same key -> returns cached result instantly without re-running chargeCard
-const res2 = await checkoutFlow.execute(orderPayload, {
-  idempotencyKey: 'req-checkout-9876',
-  namespace: 'tenant-acme'
+const res2 = await checkoutFlow.run(orderPayload, {
+    idempotencyKey: 'req-checkout-9876',
+    namespace: 'tenant-acme',
 });
 ```
 
 Dynamic keys can be specified as a context accessor:
+
 ```typescript
 {
-  idempotencyKey: (ctx) => `checkout:${ctx.orderId}`
+    idempotencyKey: ctx => `checkout:${ctx.orderId}`;
 }
 ```
 
@@ -94,11 +96,11 @@ import { Step } from '@siglo/core';
 
 const chargePayment = Step.create('chargePayment', async ({ invoiceId, amount }) => {
     return await paymentGateway.charge({ invoiceId, amount });
-  })
-  .idempotent((ctx) => `charge:${ctx.invoiceId}`, { ttlMs: 86400000 });
+}).idempotent(ctx => `charge:${ctx.invoiceId}`, { ttlMs: 86400000 });
 ```
 
 ### Atomic Commitment Rule
+
 A step's idempotency record transitions to `'completed'` atomically only after all post-execution hooks (`onAfter`) successfully pass. This prevents dirty cached reads by concurrent executions if post-processing fails.
 
 If a step action or hook fails, the idempotency claim is automatically released via `store.fail(key)`, allowing safe retries.
@@ -114,11 +116,10 @@ Configure **Wait-and-Settle** on idempotent steps:
 ```typescript
 export const chargeCardStep = Step.create('chargeCard', async (ctx: any) => {
     return await paymentGateway.charge({ amount: ctx.amount, customerId: ctx.customerId });
-})
-.idempotent((ctx) => `charge:${ctx.orderId}`, {
-    ttlMs: 86400000,          // 24-hour retention
-    settleTimeoutMs: 3000,    // Spin-wait up to 3000ms for in-flight request to settle
-    pollIntervalMs: 50        // Check state every 50ms
+}).idempotent(ctx => `charge:${ctx.orderId}`, {
+    ttlMs: 86400000, // 24-hour retention
+    settleTimeoutMs: 3000, // Spin-wait up to 3000ms for in-flight request to settle
+    pollIntervalMs: 50, // Check state every 50ms
 });
 ```
 

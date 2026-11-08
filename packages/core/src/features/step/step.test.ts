@@ -35,7 +35,7 @@ describe('Step unit test', () => {
         const connectEverything = Step.create('connectEverything', ({ sum }) => sum);
 
         flow(connectEverything, s0, s2, s3)
-            .execute({ sum: 1 })
+            .run({ sum: 1 })
             .then(value => {
                 expect(value).to.be.equal(7);
                 done();
@@ -150,7 +150,7 @@ describe('Step unit test', () => {
             expect(context.Sample1.something).to.be.equal('nice');
         });
         flow(c2, c3)
-            .execute({ main: 'lo' })
+            .run({ main: 'lo' })
             .then(() => {
                 done();
             })
@@ -488,7 +488,7 @@ describe('Step unit test', () => {
             return false;
         });
         flow(c13, c14)
-            .execute()
+            .run()
             .then(result => {
                 expect(ifIStarted).to.be.false;
                 done();
@@ -651,7 +651,7 @@ describe('Step unit test', () => {
         const step1 = Step.create((param: any) => ({ first: 'step1' }));
         const step2 = Step.create((param: any) => ({ second: param.first + '-step2' }));
         const pipeline = flow(step1, step2);
-        const res: any = await pipeline.execute();
+        const res: any = await pipeline.run();
         expect(res.second).to.equal('step1-step2');
     });
 
@@ -660,16 +660,16 @@ describe('Step unit test', () => {
         const step2 = Step.create((param: any) => ({ val: param.val + 5 }));
 
         const pipeline1 = flow(step1, step2);
-        const res1 = await pipeline1.execute();
+        const res1 = await pipeline1.run();
         expect(res1.val).to.equal(15);
 
         const pipeline2 = flow([step1, step2]);
-        const res2 = await pipeline2.start();
+        const res2 = await pipeline2.run();
         expect(res2.val).to.equal(15);
 
         const pStep1 = Step.create((param: any) => ({ val: 10 }));
         const pStep2 = Step.create((param: any) => ({ val: param.val + 5 }));
-        const res3 = await Step.flow(pStep1, pStep2).execute();
+        const res3 = await Step.flow(pStep1, pStep2).run();
         expect(res3.val).to.equal(15);
     });
 
@@ -1705,11 +1705,8 @@ describe('Step unit test', () => {
 
         it('supports pipe execution methods and default param', async () => {
             const p = flow(Step.create(() => ({ num: 10 })));
-            const r1 = await p.start();
-            expect(r1.num).to.equal(10);
-
-            const r2 = await p.execute();
-            expect(r2.num).to.equal(10);
+            expect((p as any).execute).to.be.undefined;
+            expect((p as any).start).to.be.undefined;
 
             const r3 = await p.run();
             expect(r3.num).to.equal(10);
@@ -1982,9 +1979,10 @@ describe('Step unit test', () => {
 
             const custom = {
                 run: () => {},
-                execute: () => {},
             };
             expect(isFlow(custom)).to.be.true;
+            expect(isFlow({ execute: () => {} })).to.be.false;
+            expect(isFlow({ start: () => {} })).to.be.false;
 
             const stepInstance = Step.create(() => ({}));
             expect(isFlow(stepInstance)).to.be.false;
@@ -2034,7 +2032,7 @@ describe('Step unit test', () => {
             const s2 = Step.create((param: any) => ({ part2: param.part1 + ' world' }));
             const myFlow = Step.flow(s1, s2);
 
-            const res = await myFlow.execute();
+            const res = await myFlow.run();
             expect(res.part2).to.equal('hello world');
         });
 

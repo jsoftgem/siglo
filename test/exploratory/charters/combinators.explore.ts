@@ -41,7 +41,7 @@ export async function runCombinatorsCharter(iterations: number = 20, seed: numbe
         const initialSnapshot = JSON.parse(JSON.stringify(initialContext));
 
         try {
-            await generated.workflow.execute(initialContext, { pojo: true });
+            await generated.workflow.run(initialContext, { pojo: true });
             InvariantEvaluator.assertContextImmutability(initialSnapshot, initialContext);
         } catch (err: any) {
             if (err.name === 'InvariantViolation') {

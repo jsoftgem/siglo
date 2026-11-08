@@ -202,7 +202,7 @@ describe('AES-256-GCM Envelope Encryption (encryptFieldsStep & decryptFieldsStep
                 }),
             );
 
-            const result = await workflow.execute({
+            const result = await workflow.run({
                 orderId: 'ord_999',
                 ssn: '123-45-6789',
             });

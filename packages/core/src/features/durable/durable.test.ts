@@ -43,11 +43,11 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
     describe('Durable Workflow Wait & Suspension', () => {
         it('non-durable execution passes through wait and waitForEvent without suspending', async () => {
             const stepWait = wait(10);
-            const resWait = await flow(stepWait).execute({}, { pojo: true });
+            const resWait = await flow(stepWait).run({}, { pojo: true });
             expect(resWait.waitedMs).to.equal(10);
 
             const stepEvent = waitForEvent('order.shipped', { correlationKey: 'ord-1' });
-            const resEvent = await flow(stepEvent).execute({}, { pojo: true });
+            const resEvent = await flow(stepEvent).run({}, { pojo: true });
             expect(resEvent.waited).to.be.true;
         });
 

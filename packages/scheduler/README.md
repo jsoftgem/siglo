@@ -44,7 +44,7 @@ const poller = new PostgresWaitPoller({
     client: pool,
     pollIntervalMs: 1000,
     batchSize: 50,
-    flowLookup: (workflowId, stackId) => myFlow
+    flowLookup: (workflowId, stackId) => myFlow,
 });
 
 // Ensure tables exist and start poller loop
@@ -67,7 +67,7 @@ import { myFlow } from './workflows';
 
 const handler = createSchedulerWebhookHandler({
     secretToken: process.env.SCHEDULER_SECRET_TOKEN,
-    flowLookup: () => myFlow
+    flowLookup: () => myFlow,
 });
 
 http.createServer(handler).listen(8080);

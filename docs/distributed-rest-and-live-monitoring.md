@@ -1,6 +1,6 @@
 ---
-title: "Run Checkout Across Two Servers with PostgreSQL and Redis"
-description: "Scale a Siglo checkout workflow across multiple API servers using PostgreSQL idempotency and Redis pub/sub live monitoring."
+title: 'Run Checkout Across Two Servers with PostgreSQL and Redis'
+description: 'Scale a Siglo checkout workflow across multiple API servers using PostgreSQL idempotency and Redis pub/sub live monitoring.'
 ---
 
 # Run Checkout Across Two Servers with PostgreSQL and Redis
@@ -50,12 +50,12 @@ flowchart LR
 
 Each API executes the whole checkout and waits before responding. The two processes share state through adapters; this example does not enqueue jobs or move individual steps between servers.
 
-| Responsibility | Implementation |
-|---|---|
-| Execution checkpoints and context audit | `PostgresStorageAdapter` from `@siglo/postgres` |
+| Responsibility                                            | Implementation                                    |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| Execution checkpoints and context audit                   | `PostgresStorageAdapter` from `@siglo/postgres`   |
 | Cross-instance duplicate-request claim and saved response | `PostgresIdempotencyStore` from `@siglo/postgres` |
-| Shared catalog lookup cache | `RedisStorageAdapter` from `@siglo/redis` |
-| Events from both APIs to the dashboard | `RedisMonitoringAdapter` from `@siglo/monitor` |
+| Shared catalog lookup cache                               | `RedisStorageAdapter` from `@siglo/redis`         |
+| Events from both APIs to the dashboard                    | `RedisMonitoringAdapter` from `@siglo/monitor`    |
 
 PostgreSQL owns execution persistence. Redis holds disposable lookup data and transports telemetry. Registering two storage adapters with `Step.useStorage` would replace the first one, so we compose their methods explicitly.
 
@@ -67,13 +67,13 @@ docker compose -f examples/distributed-checkout/docker-compose.yml up --build -d
 
 The first build installs the repository's locked dependencies and compiles the four packages used by the example. A one-shot `init-db` service creates the PostgreSQL tables before either API starts; this avoids concurrent schema initialization. The monitor subscribes before the APIs become available.
 
-| Service | Local address |
-|---|---|
-| API A | `http://127.0.0.1:3000` |
-| API B | `http://127.0.0.1:3001` |
-| Dashboard | `http://127.0.0.1:4000` |
+| Service    | Local address                                    |
+| ---------- | ------------------------------------------------ |
+| API A      | `http://127.0.0.1:3000`                          |
+| API B      | `http://127.0.0.1:3001`                          |
+| Dashboard  | `http://127.0.0.1:4000`                          |
 | PostgreSQL | `postgres://siglo:siglo@127.0.0.1:5433/checkout` |
-| Redis | `redis://127.0.0.1:6380` |
+| Redis      | `redis://127.0.0.1:6380`                         |
 
 These ports avoid the default database ports used by other repository examples. Stop the previous tutorial's API and monitor first if they still occupy ports 3000 or 4000. Alternatively, prefix the startup command with `API_A_PORT=3100 API_B_PORT=3101 MONITOR_HOST_PORT=4100` and adjust curl/browser URLs accordingly. The database credentials are local demo values, and all published ports bind to loopback.
 
@@ -101,7 +101,7 @@ const storage: StorageAdapter = {
     getCheckpoint: id => postgres.getCheckpoint(id),
     onContextChange: entry => postgres.onContextChange(entry),
     getCachedStep: key => cache.getCachedStep(key),
-    setCachedStep: (key, value, ttl) => cache.setCachedStep(key, value, ttl)
+    setCachedStep: (key, value, ttl) => cache.setCachedStep(key, value, ttl),
 };
 Step.useStorage(storage);
 ```
@@ -119,7 +119,7 @@ const loadCatalog = Step.create('loadCatalog', async (order: Order) => {
     return { catalogLabel: `Demo product: ${order.sku}` };
 }).cache({
     ttl: 300_000,
-    keySerializer: (_stepId, order: Order, ns) => `${ns}:catalog:v1:${order.sku}`
+    keySerializer: (_stepId, order: Order, ns) => `${ns}:catalog:v1:${order.sku}`,
 });
 
 const checkout = flow(loadCatalog, ...createCheckout(services).steps).monitor(emitter);
@@ -139,10 +139,10 @@ API A returns `201 Created`, `X-Instance-Id: api-a`, and `X-Workflow-Stack-Id`. 
 
 ```json
 {
-  "orderId": "distributed-1001",
-  "status": "confirmed",
-  "trackingId": "tracking-distributed-1001",
-  "stackId": "<execution UUID>"
+    "orderId": "distributed-1001",
+    "status": "confirmed",
+    "trackingId": "tracking-distributed-1001",
+    "stackId": "<execution UUID>"
 }
 ```
 
@@ -194,7 +194,8 @@ Each API publishes its workflow emitter over Redis:
 
 ```typescript
 new RedisMonitoringAdapter({
-    publisher: pubsubClient(infra.redis), channel
+    publisher: pubsubClient(infra.redis),
+    channel,
 }).attachToEmitter(emitter);
 ```
 

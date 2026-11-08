@@ -78,7 +78,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             expect(isPipeline(pipeline)).to.be.true;
             expect(isFlow(pipeline)).to.be.true;
 
-            const res = await pipeline.execute({ a: 5 }, { pojo: true });
+            const res = await pipeline.run({ a: 5 }, { pojo: true });
             expect(res.final).to.equal(30);
         });
 
@@ -250,7 +250,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             });
 
             try {
-                await flow(badStep).execute({}, { namespace: 'ns-1' });
+                await flow(badStep).run({}, { namespace: 'ns-1' });
                 expect.fail('Flow should have rejected');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(SigloError);
@@ -280,7 +280,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             });
 
             try {
-                await flow(stepWithRetryIf).execute();
+                await flow(stepWithRetryIf).run();
                 expect.fail('Should have failed after non-retryable 400');
             } catch (err: any) {
                 expect(attempts).to.equal(2);
@@ -299,7 +299,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             });
 
             try {
-                await flow(nonRetryableStep).execute();
+                await flow(nonRetryableStep).run();
                 expect.fail('Should not retry non-retryable error');
             } catch (err: any) {
                 expect(attempts).to.equal(1);
@@ -325,7 +325,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 },
             });
 
-            const res = await flow(retryStep).execute({}, { pojo: true });
+            const res = await flow(retryStep).run({}, { pojo: true });
             expect(res.success).to.be.true;
             expect(attempts).to.equal(3);
             // attempt 1: delay = 20 * 1 = 20, jitter = floor(20 * 0.5) = 10
@@ -351,7 +351,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 },
             });
 
-            const res = await flow(step).execute({}, { pojo: true });
+            const res = await flow(step).run({}, { pojo: true });
             expect(res.ok).to.be.true;
             expect(attempts).to.equal(2);
             expect(observedJitterDelay).to.equal(20); // (1 * 15) + 5
@@ -375,7 +375,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 backoff: 'fixed',
             });
 
-            await flow(step).execute({});
+            await flow(step).run({});
             expect(recordedAttempts).to.deep.equal([0, 1, 2]);
             expect(recordedDelays[1]).to.equal(10);
         });
@@ -387,7 +387,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 return { recovered: true, source: 'fallback' };
             });
 
-            const res: any = await flow(stepWithFallback).execute({}, { pojo: true });
+            const res: any = await flow(stepWithFallback).run({}, { pojo: true });
             expect(res.recovered).to.be.true;
             expect(res.source).to.equal('fallback');
 
@@ -398,7 +398,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 return { asyncRecovered: true };
             });
 
-            const resAsync: any = await flow(stepWithAsyncFallback).execute({}, { pojo: true });
+            const resAsync: any = await flow(stepWithAsyncFallback).run({}, { pojo: true });
             expect(resAsync.asyncRecovered).to.be.true;
         });
 
@@ -419,7 +419,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             }, 50);
 
             try {
-                await flow(step).execute({}, { signal: controller.signal });
+                await flow(step).run({}, { signal: controller.signal });
                 expect.fail('Should have been cancelled');
             } catch (err: any) {
                 expect(err.isCancellation).to.be.true;
@@ -450,9 +450,9 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 }).cache(1000);
 
                 const pipeline = flow(cachedStep);
-                const res1 = await pipeline.execute({ id: 100 }, { pojo: true });
+                const res1 = await pipeline.run({ id: 100 }, { pojo: true });
                 // Second execution passes internal fields like $attempt, signal, props
-                const res2 = await pipeline.execute({ id: 100, $attempt: 2, props: { foo: 'bar' } } as any, {
+                const res2 = await pipeline.run({ id: 100, $attempt: 2, props: { foo: 'bar' } } as any, {
                     pojo: true,
                 });
 
@@ -475,9 +475,9 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             const p = flow(stampedeStep);
             // Launch 3 concurrent executions simultaneously
             const [r1, r2, r3] = await Promise.all([
-                p.execute({ id: 'shared' }, { pojo: true }),
-                p.execute({ id: 'shared' }, { pojo: true }),
-                p.execute({ id: 'shared' }, { pojo: true }),
+                p.run({ id: 'shared' }, { pojo: true }),
+                p.run({ id: 'shared' }, { pojo: true }),
+                p.run({ id: 'shared' }, { pojo: true }),
             ]);
 
             expect(executions).to.equal(1);
@@ -495,7 +495,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             }).cache({ ttl: 2000, stampedeProtection: false });
 
             const p = flow(noStampedeStep);
-            await Promise.all([p.execute({ id: 'x' }, { pojo: true }), p.execute({ id: 'x' }, { pojo: true })]);
+            await Promise.all([p.run({ id: 'x' }, { pojo: true }), p.run({ id: 'x' }, { pojo: true })]);
 
             // Both started before cache was written
             expect(executions).to.equal(2);
@@ -513,7 +513,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
 
             const p = flow(customSerializerStep, customSerializerStep);
             // Different IDs but same category -> same cache key!
-            const res = await p.execute({ id: 1, category: 'books' }, { pojo: true });
+            const res = await p.run({ id: 1, category: 'books' }, { pojo: true });
 
             expect(executions).to.equal(1);
             expect(res.executions).to.equal(1);
@@ -539,8 +539,8 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             );
 
             const p = flow(cachedStep);
-            await p.execute({ x: 5 }, { namespace: 'ns-events' });
-            await p.execute({ x: 5 }, { namespace: 'ns-events' });
+            await p.run({ x: 5 }, { namespace: 'ns-events' });
+            await p.run({ x: 5 }, { namespace: 'ns-events' });
 
             expect(events.length).to.be.at.least(2);
             expect(events[0].type).to.equal('miss');
@@ -593,7 +593,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             // 1. Strict mode -> throws StorageAdapterException
             defaultStorageManager.setErrorMode('strict');
             try {
-                await flow(step).execute({ v: 10 });
+                await flow(step).run({ v: 10 });
                 expect.fail('Should have thrown in strict mode');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(StorageAdapterException);
@@ -602,12 +602,12 @@ describe('Product Clarity and Reliability Integration Suite', () => {
 
             // 2. Warn mode -> logs warning, continues execution
             defaultStorageManager.setErrorMode('warn');
-            const warnRes: any = await flow(step).execute({ v: 20 }, { pojo: true });
+            const warnRes: any = await flow(step).run({ v: 20 }, { pojo: true });
             expect(warnRes.value).to.equal(21);
 
             // 3. Best-effort mode -> suppresses, continues execution
             defaultStorageManager.setErrorMode('best-effort');
-            const bestRes: any = await flow(step).execute({ v: 30 }, { pojo: true });
+            const bestRes: any = await flow(step).run({ v: 30 }, { pojo: true });
             expect(bestRes.value).to.equal(31);
         });
 
@@ -625,7 +625,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 1000,
             );
 
-            const res1: any = await flow(syncStep).execute({ n: 4 }, { pojo: true });
+            const res1: any = await flow(syncStep).run({ n: 4 }, { pojo: true });
             expect(res1.value).to.equal(8);
 
             const rejectedPromiseAdapter: StorageAdapter = {
@@ -634,7 +634,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             defaultStorageManager.useStorage(rejectedPromiseAdapter);
 
-            const res2: any = await flow(syncStep).execute({ n: 5 }, { pojo: true });
+            const res2: any = await flow(syncStep).run({ n: 5 }, { pojo: true });
             expect(res2.value).to.equal(10);
         });
     });
@@ -772,7 +772,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                     throw new Error('before failed');
                 })
                 .onFail((_err: any) => ({ recovered: true }));
-            const resBefore: any = await flow(stepBeforeFail).execute({}, { pojo: true });
+            const resBefore: any = await flow(stepBeforeFail).run({}, { pojo: true });
             expect(resBefore.recovered).to.equal(true);
 
             // 2. OnFail retryFn with fallback
@@ -781,7 +781,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             }).onFail((_err: any, retry: any) => {
                 retry({ custom: 'val' });
             });
-            const resFallback: any = await flow(stepRetryFallback).execute();
+            const resFallback: any = await flow(stepRetryFallback).run();
             expect(resFallback.custom).to.equal('val');
 
             // 3. OnFail function throws synchronously
@@ -791,7 +791,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
                 throw new Error('sync throw in onFail');
             });
             try {
-                await flow(stepFailThrows).execute();
+                await flow(stepFailThrows).run();
                 expect.fail('Should have failed');
             } catch (err: any) {
                 expect(err.message).to.equal('sync throw in onFail');
@@ -806,7 +806,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             defaultStorageManager.useStorage(faultyAsyncAdapter);
             const asyncStep = Step.create('asyncCacheFail', async () => ({ ok: 1 })).cache(1000);
-            const rAsync = await flow(asyncStep).execute({}, { pojo: true });
+            const rAsync = await flow(asyncStep).run({}, { pojo: true });
             expect(rAsync.ok).to.equal(1);
 
             const faultySyncAdapter: StorageAdapter = {
@@ -817,7 +817,7 @@ describe('Product Clarity and Reliability Integration Suite', () => {
             };
             defaultStorageManager.useStorage(faultySyncAdapter);
             const syncStep = Step.create('syncCacheFail', () => ({ ok: 2 })).cache(1000);
-            const rSync = await flow(syncStep).execute({}, { pojo: true });
+            const rSync = await flow(syncStep).run({}, { pojo: true });
             expect(rSync.ok).to.equal(2);
             defaultStorageManager.useStorage(undefined as any);
 
@@ -1139,7 +1139,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const orderWorkflow = flow(validateOrder, prepareOrder, packGoods);
 
             try {
-                await orderWorkflow.execute({
+                await orderWorkflow.run({
                     orderId: 'ORD-1001',
                     amount: 500,
                     items: ['item-A', 'item-B'],
@@ -1184,7 +1184,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const travelSaga = flow(reserveFlight, reserveHotel, chargePayment);
 
             // 1. Successful forward execution
-            const successResult = await travelSaga.execute(
+            const successResult = await travelSaga.run(
                 {
                     bookingId: 'BK-501',
                     passenger: 'Ada Lovelace',
@@ -1200,7 +1200,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
             // 2. Failure triggering reverse LIFO compensation
             try {
-                await travelSaga.execute(
+                await travelSaga.run(
                     {
                         bookingId: 'BK-502',
                         passenger: 'Charles Babbage',
@@ -1229,7 +1229,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             try {
-                await failingCompSaga.execute({}, { pojo: true });
+                await failingCompSaga.run({}, { pojo: true });
                 expect.fail('Should have thrown CompensationException');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(CompensationException);
@@ -1264,7 +1264,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             const sagaFlow = flow(compensatableStep);
-            const execResult = await sagaFlow.execute({}, { pojo: true });
+            const execResult = await sagaFlow.run({}, { pojo: true });
             expect(execResult.reservationId).to.equal('RES-999');
             expect(capturedStackId).to.be.a('string');
 
@@ -1298,7 +1298,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             });
 
             const edgeRaceFlow = flow(race(usEastGateway, euCentralGateway));
-            const result: any = await edgeRaceFlow.execute({}, { pojo: true });
+            const result: any = await edgeRaceFlow.run({}, { pojo: true });
 
             expect(result.selectedEdge).to.equal('US_EAST');
             expect(result.latencyMs).to.equal(15);
@@ -1337,7 +1337,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 allSettled([logAnalytics, pushAudit]),
             );
 
-            const result: any = await multiCloudFlow.execute({ assetId: 'ASSET-101' }, { pojo: true });
+            const result: any = await multiCloudFlow.run({ assetId: 'ASSET-101' }, { pojo: true });
 
             // Deep merge combined replica receipts from all 3 branches
             expect(result.replicas.aws.status).to.equal('SYNCED');
@@ -1366,7 +1366,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const collidingParallel = flow(parallel(branchA, branchB, { mergeStrategy: 'error' }));
 
             try {
-                await collidingParallel.execute({}, { pojo: true });
+                await collidingParallel.run({}, { pojo: true });
                 expect.fail('Should have detected field collision');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(FieldCollisionException);
@@ -1424,7 +1424,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             // 1. Prime applicant with promo
-            const resPrimePromo: any = await dynamicLoanRouter.execute(
+            const resPrimePromo: any = await dynamicLoanRouter.run(
                 {
                     creditScore: 800,
                     hasPartnerPromo: true,
@@ -1436,7 +1436,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             expect(resPrimePromo.decision).to.equal('APPROVED_INSTANT');
 
             // 2. Prime applicant without promo
-            const resPrimeStandard: any = await dynamicLoanRouter.execute(
+            const resPrimeStandard: any = await dynamicLoanRouter.run(
                 {
                     creditScore: 780,
                     hasPartnerPromo: false,
@@ -1448,18 +1448,18 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             expect(resPrimeStandard.decision).to.equal('APPROVED_INSTANT');
 
             // 3. Near-prime applicant
-            const resNear: any = await dynamicLoanRouter.execute({ creditScore: 680 }, { pojo: true });
+            const resNear: any = await dynamicLoanRouter.run({ creditScore: 680 }, { pojo: true });
             expect(resNear.riskTier).to.equal('NEAR_PRIME');
             expect(resNear.decision).to.equal('APPROVED_WITH_CONDITIONS');
             expect(resNear.stipulationsRequired).to.be.true;
 
             // 4. Subprime applicant
-            const resSub: any = await dynamicLoanRouter.execute({ creditScore: 550 }, { pojo: true });
+            const resSub: any = await dynamicLoanRouter.run({ creditScore: 550 }, { pojo: true });
             expect(resSub.riskTier).to.equal('SUBPRIME');
             expect(resSub.decision).to.equal('DECLINED');
 
             // 5. Unknown tier falls back to defaultBranch (subprime)
-            const resUnknown: any = await dynamicLoanRouter.execute({ creditScore: 200 }, { pojo: true });
+            const resUnknown: any = await dynamicLoanRouter.run({ creditScore: 200 }, { pojo: true });
             expect(resUnknown.decision).to.equal('DECLINED');
         });
 
@@ -1472,12 +1472,12 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             // When condition is true
-            const resAudit: any = await optionalAudit.execute({ enableAudit: true }, { pojo: true });
+            const resAudit: any = await optionalAudit.run({ enableAudit: true }, { pojo: true });
             expect(resAudit.auditRecorded).to.be.true;
             expect(resAudit.$branchSelected).to.equal('then');
 
             // When condition is false
-            const resNoAudit: any = await optionalAudit.execute({ enableAudit: false }, { pojo: true });
+            const resNoAudit: any = await optionalAudit.run({ enableAudit: false }, { pojo: true });
             expect(resNoAudit.auditRecorded).to.be.undefined;
             expect(resNoAudit.$skipped).to.be.true;
             expect(resNoAudit.$skippedBranches).to.include('then');
@@ -1510,7 +1510,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 { concurrency: 3, preserveOrder: true },
             );
 
-            const result: any = await flow(batchMap).execute({}, { pojo: true });
+            const result: any = await flow(batchMap).run({}, { pojo: true });
 
             expect(result.items).to.have.length(8);
             expect(peakConcurrency).to.be.at.most(3);
@@ -1531,7 +1531,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
                 { concurrency: 2, stopOnError: false },
             );
 
-            const res: any = await flow(safeDivision).execute({}, { pojo: true });
+            const res: any = await flow(safeDivision).run({}, { pojo: true });
 
             expect(res.items).to.have.length(5);
             expect(res.items[0]).to.equal(10);
@@ -1550,7 +1550,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
             const streamMap = map(numberGenerator(), async (n: number) => n * 10, { concurrency: 2 });
 
-            const streamResult: any = await flow(streamMap).execute({}, { pojo: true });
+            const streamResult: any = await flow(streamMap).run({}, { pojo: true });
             expect(streamResult.items).to.deep.equal([10, 20, 30, 40, 50]);
 
             // Cancellation propagation
@@ -1567,7 +1567,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             setTimeout(() => controller.abort(), 20);
 
             try {
-                await flow(cancellableMap).execute({}, { signal: controller.signal });
+                await flow(cancellableMap).run({}, { signal: controller.signal });
                 expect.fail('Should have cancelled');
             } catch (err: any) {
                 expect(err.name).to.equal('CancellationException');
@@ -1586,7 +1586,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const orderFlow = flow(chargeStep);
 
             // 1. Initial request
-            const res1 = await orderFlow.execute(
+            const res1 = await orderFlow.run(
                 { amount: 150 },
                 {
                     pojo: true,
@@ -1597,7 +1597,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             expect(chargeCounter).to.equal(1);
 
             // 2. Duplicate network retry
-            const res2 = await orderFlow.execute(
+            const res2 = await orderFlow.run(
                 { amount: 150 },
                 {
                     pojo: true,
@@ -1633,7 +1633,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const settlementPipeline = flow(settleStep, issueReceipt);
 
             // 1. First execution
-            const firstResult = await settlementPipeline.execute(
+            const firstResult = await settlementPipeline.run(
                 {
                     transactionId: 'TX-BANK-8821',
                     amount: 50000,
@@ -1647,7 +1647,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             const originalJournal = firstResult.journalRef;
 
             // 2. Duplicate re-delivery
-            const secondResult = await settlementPipeline.execute(
+            const secondResult = await settlementPipeline.run(
                 {
                     transactionId: 'TX-BANK-8821',
                     amount: 50000,
@@ -1673,7 +1673,7 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             try {
-                await flow(protectedStep).execute({}, { pojo: true });
+                await flow(protectedStep).run({}, { pojo: true });
                 expect.fail('Should have rejected in-flight conflict');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(IdempotencyConflictException);
@@ -1695,14 +1695,14 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
 
             // 1. First attempt fails
             try {
-                await flakyFlow.execute({}, { idempotencyKey: 'flaky-charge-456' });
+                await flakyFlow.run({}, { idempotencyKey: 'flaky-charge-456' });
                 expect.fail('First attempt should have failed');
             } catch (err: any) {
                 expect(err.message).to.equal('Payment gateway timeout');
             }
 
             // 2. Retry succeeds because failed claim was released
-            const retryRes = await flakyFlow.execute(
+            const retryRes = await flakyFlow.run(
                 {},
                 {
                     pojo: true,
@@ -1775,12 +1775,12 @@ describe('Phase 2: Core Workflow Power Integration Suite', () => {
             );
 
             // Non-durable execution passes through wait
-            const nonDurableRes = await timerFlow.execute({}, { pojo: true });
+            const nonDurableRes = await timerFlow.run({}, { pojo: true });
             expect(nonDurableRes.step1Done).to.be.true;
             expect(nonDurableRes.step2Done).to.be.true;
 
             // Durable execution suspends at timer
-            const suspended: any = await timerFlow.execute({}, { durable: true, pojo: true });
+            const suspended: any = await timerFlow.run({}, { durable: true, pojo: true });
             expect(suspended.status).to.equal(Status.WAITING);
             expect(suspended.eventName).to.equal('timer');
             expect(suspended.correlationKey).to.be.a('string');

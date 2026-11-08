@@ -1,6 +1,6 @@
 ---
-title: "Accept Asymmetrically Signed Orders"
-description: "Authenticate partner order requests with @siglo/crypto and @siglo/express before publishing them to Kafka, with timestamp and nonce replay protection."
+title: 'Accept Asymmetrically Signed Orders'
+description: 'Authenticate partner order requests with @siglo/crypto and @siglo/express before publishing them to Kafka, with timestamp and nonce replay protection.'
 ---
 
 # Accept Asymmetrically Signed Orders
@@ -38,15 +38,15 @@ node --import tsx examples/src/signed-order-intake/client.ts gift
 
 The client prints `202` and a receipt containing `eventId`, `orderId`, and `status: "accepted"`. The server logs the same event ID with `status: "shipped"` and actions `reserveStock`, `chargePayment`, `wrapGift`, and `shipOrder` after Kafka delivers it. Acceptance means the broker acknowledged publication; consumer completion happens separately.
 
-| Resource | This example |
-|---|---|
-| API / health | `http://127.0.0.1:3400/orders` / `/health` |
-| Live monitor | `http://127.0.0.1:4500` |
-| Kafka broker | `127.0.0.1:39092` |
+| Resource                 | This example                                              |
+| ------------------------ | --------------------------------------------------------- |
+| API / health             | `http://127.0.0.1:3400/orders` / `/health`                |
+| Live monitor             | `http://127.0.0.1:4500`                                   |
+| Kafka broker             | `127.0.0.1:39092`                                         |
 | Compose project / volume | `siglo-signed-order-intake` / project-scoped `kafka-data` |
-| Topic | `signed-order-intake.orders` |
-| Consumer group | `signed-order-intake.routing-v1` |
-| Client / key ID | `shop-demo` / `shop-demo-key` |
+| Topic                    | `signed-order-intake.orders`                              |
+| Consumer group           | `signed-order-intake.routing-v1`                          |
+| Client / key ID          | `shop-demo` / `shop-demo-key`                             |
 
 The server binds to localhost. See the [example README](https://github.com/jsoftgem/siglo/blob/main/examples/signed-order-intake/README.md) for its dedicated configuration overrides and cleanup commands.
 
@@ -54,13 +54,13 @@ The server binds to localhost. See the [example README](https://github.com/jsoft
 
 The partner signs requests with its private key. The service authenticates each request through a registered public key before accepting an order:
 
-| Check | Implementation |
-|---|---|
-| Resolve the signing identity | `resolveClient` reads `keyid` and requires an active registered public key |
+| Check                                 | Implementation                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Resolve the signing identity          | `resolveClient` reads `keyid` and requires an active registered public key                          |
 | Require the signed request components | The protocol requires method, path, body digest, and the `created`, `keyid`, and `nonce` parameters |
-| Check freshness | Reject timestamps outside a ±300-second window |
-| Verify body integrity and sender | Compare the raw-body SHA-256 digest and verify the Ed25519 signature |
-| Prevent replay | Claim a client-scoped nonce after successful signature verification |
+| Check freshness                       | Reject timestamps outside a ±300-second window                                                      |
+| Verify body integrity and sender      | Compare the raw-body SHA-256 digest and verify the Ed25519 signature                                |
+| Prevent replay                        | Claim a client-scoped nonce after successful signature verification                                 |
 
 Public-key lookup establishes identity; an unsigned tenant header must not establish identity. The workflow derives the order's tenant from the registered client.
 
@@ -116,8 +116,7 @@ The integration in [workflow.ts](../examples/src/signed-order-intake/workflow.ts
 
 ```typescript
 const authenticate = verifyWebhookStep('verifyOrderSignature', {
-    provider: (request: SignedRequest) =>
-        createRequestProtocol(request, resolveClient(request, keys), nonces, now),
+    provider: (request: SignedRequest) => createRequestProtocol(request, resolveClient(request, keys), nonces, now),
     secret: (request: SignedRequest) => resolveClient(request, keys).publicKey,
     payload: (request: SignedRequest) => request.rawBody,
     signature: (request: SignedRequest) => request.headers,
@@ -136,7 +135,8 @@ A future-dated signature can remain acceptable for almost twice the clock window
 The route in [app.ts](../examples/src/signed-order-intake/app.ts) uses `express.raw` before `sigloExpressMiddleware`:
 
 ```typescript
-app.post('/orders',
+app.post(
+    '/orders',
     express.raw({ type: 'application/json', limit: '64kb', inflate: false }),
     sigloExpressMiddleware(createIntakeWorkflow(keys, nonces, publish), {
         durable: false,
@@ -162,11 +162,11 @@ The example publishes the same order shape used in the previous tutorial, with a
 
 ```json
 {
-  "eventId": "partner-event-1001",
-  "type": "order.placed",
-  "orderId": "order-1001",
-  "amountCents": 5000,
-  "giftWrap": true
+    "eventId": "partner-event-1001",
+    "type": "order.placed",
+    "orderId": "order-1001",
+    "amountCents": 5000,
+    "giftWrap": true
 }
 ```
 
@@ -206,14 +206,14 @@ The wiring in [monitoring.ts](../examples/src/signed-order-intake/monitoring.ts)
 
 Change the client's scenario argument:
 
-| Scenario | HTTP result | Consumer behavior |
-|---|---|---|
-| `standard` | 202 | Reserve, charge, ship |
-| `gift` | 202 | Reserve, charge, wrap, ship |
-| `review` | 202 | Review required; no fulfillment |
-| `tamper` | 401 | Changed body rejected; no publication |
-| `expired` | 401 | Stale timestamp rejected; no publication |
-| `replay` | 202, then 401 | Only the first request publishes |
+| Scenario   | HTTP result   | Consumer behavior                        |
+| ---------- | ------------- | ---------------------------------------- |
+| `standard` | 202           | Reserve, charge, ship                    |
+| `gift`     | 202           | Reserve, charge, wrap, ship              |
+| `review`   | 202           | Review required; no fulfillment          |
+| `tamper`   | 401           | Changed body rejected; no publication    |
+| `expired`  | 401           | Stale timestamp rejected; no publication |
+| `replay`   | 202, then 401 | Only the first request publishes         |
 
 ```bash
 sh examples/signed-order-intake/smoke.sh
@@ -232,17 +232,17 @@ The tests use fresh keys and an ephemeral HTTP port. They verify exact-body auth
 
 ## 8. Files and Cleanup
 
-| File | Purpose |
-|---|---|
-| [security.ts](../examples/src/signed-order-intake/security.ts) | Restricted signature profile, signing client helper, key lookup, verification, nonce store |
-| [workflow.ts](../examples/src/signed-order-intake/workflow.ts) | Crypto step, authenticated order validation, publication |
-| [app.ts](../examples/src/signed-order-intake/app.ts) | Raw-body route, Express adapter, safe responses |
-| [server.ts](../examples/src/signed-order-intake/server.ts) | Dedicated Kafka topic, producer, consumer, and dashboard startup |
-| [monitoring.ts](../examples/src/signed-order-intake/monitoring.ts) / [monitoring.test.ts](../examples/src/signed-order-intake/monitoring.test.ts) | Live monitor, redaction, and monitoring checks |
-| [routing.ts](../examples/src/signed-order-intake/routing.ts) / [routing.test.ts](../examples/src/signed-order-intake/routing.test.ts) | Independent routing flow and Kafka adapter checks |
-| [keys.ts](../examples/src/signed-order-intake/keys.ts) / [client.ts](../examples/src/signed-order-intake/client.ts) | Local key generation and signed request scenarios |
-| [security.test.ts](../examples/src/signed-order-intake/security.test.ts) | HTTP and replay-policy checks |
-| [docker-compose.yml](../examples/signed-order-intake/docker-compose.yml) | Independent Kafka broker and volume |
+| File                                                                                                                                              | Purpose                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [security.ts](../examples/src/signed-order-intake/security.ts)                                                                                    | Restricted signature profile, signing client helper, key lookup, verification, nonce store |
+| [workflow.ts](../examples/src/signed-order-intake/workflow.ts)                                                                                    | Crypto step, authenticated order validation, publication                                   |
+| [app.ts](../examples/src/signed-order-intake/app.ts)                                                                                              | Raw-body route, Express adapter, safe responses                                            |
+| [server.ts](../examples/src/signed-order-intake/server.ts)                                                                                        | Dedicated Kafka topic, producer, consumer, and dashboard startup                           |
+| [monitoring.ts](../examples/src/signed-order-intake/monitoring.ts) / [monitoring.test.ts](../examples/src/signed-order-intake/monitoring.test.ts) | Live monitor, redaction, and monitoring checks                                             |
+| [routing.ts](../examples/src/signed-order-intake/routing.ts) / [routing.test.ts](../examples/src/signed-order-intake/routing.test.ts)             | Independent routing flow and Kafka adapter checks                                          |
+| [keys.ts](../examples/src/signed-order-intake/keys.ts) / [client.ts](../examples/src/signed-order-intake/client.ts)                               | Local key generation and signed request scenarios                                          |
+| [security.test.ts](../examples/src/signed-order-intake/security.test.ts)                                                                          | HTTP and replay-policy checks                                                              |
+| [docker-compose.yml](../examples/signed-order-intake/docker-compose.yml)                                                                          | Independent Kafka broker and volume                                                        |
 
 Stop the server with Ctrl-C, then stop its broker:
 

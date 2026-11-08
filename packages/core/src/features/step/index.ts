@@ -347,8 +347,6 @@ export type OnFailAction =
     ((error: any, retry: (fallback?: any) => void, reject: (err?: any) => void) => any) | RetryConfig;
 
 export interface Flow<TInput = any, TOutput = any> {
-    execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
-    start: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     steps: Step<any, any, any>[];
     readonly isFlow?: boolean;
@@ -382,12 +380,7 @@ export function isFlow(item: any): item is Flow {
     if (item instanceof Step) {
         return false;
     }
-    return (
-        item.isFlow === true ||
-        ((isFunction(item.run) || isFunction(item.execute) || isFunction(item.start)) &&
-            !Array.isArray(item.specs) &&
-            !isFunction(item.onbefore))
-    );
+    return item.isFlow === true || (isFunction(item.run) && !Array.isArray(item.specs) && !isFunction(item.onbefore));
 }
 
 function sanitizeFlowData(data: any): any {
@@ -550,8 +543,6 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
     };
 
     const flowObj: Flow<TInput, TOutput> = {
-        execute: runFn,
-        start: runFn,
         run: runFn,
         steps: flatSteps,
         isFlow: true,
@@ -704,7 +695,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             const flowInstance = nameOrAction;
             this.action = async (param: any) => {
                 const cleanParam = sanitizeFlowData(param);
-                const execFn = (flowInstance.run || flowInstance.execute || flowInstance.start).bind(flowInstance);
+                const execFn = flowInstance.run.bind(flowInstance);
                 const raw = await execFn(cleanParam, { pojo: true });
                 return sanitizeFlowData(raw);
             };

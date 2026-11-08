@@ -1,6 +1,6 @@
 ---
-title: "Observability"
-description: "Telemetry, diagram exports, and real-time DevTools in Siglo: OpenTelemetry distributed tracing, Mermaid/DOT AST exports, and React live monitoring."
+title: 'Observability'
+description: 'Telemetry, diagram exports, and real-time DevTools in Siglo: OpenTelemetry distributed tracing, Mermaid/DOT AST exports, and React live monitoring.'
 ---
 
 # Observability
@@ -38,7 +38,9 @@ console.log(jsonAst);
 ```
 
 ### Visual Badges in Diagrams
+
 `toMermaid()` and `toDot()` automatically embed badges for execution policies:
+
 - ⏱️ `timeoutMs`: Execution deadline
 - 🔁 `retry(N)`: Retry count policy
 - ⏪ `saga`: Compensation rollback registered
@@ -67,7 +69,7 @@ const tracedWorkflow = instrumentWorkflow(myWorkflow, {
     serviceName: 'orders-service',
     allowNamespace: true,
     allowContextFields: ['orderId', 'userId'],
-    redactHook: (key, value) => (key === 'cardNumber' ? '***' : value)
+    redactHook: (key, value) => (key === 'cardNumber' ? '***' : value),
 });
 
 const result = await tracedWorkflow.run({ orderId: '123' });
@@ -108,7 +110,7 @@ const monitor = await createMonitorServer({ port: 4000 });
 // 2. Attach workflows
 const myFlow = flow(
     Step.create('stepA', async () => ({ a: 1 })),
-    Step.create('stepB', async () => ({ b: 2 }))
+    Step.create('stepB', async () => ({ b: 2 })),
 ).monitor(attachToMonitorServer(4000)); // or: .monitor(monitor.emitter)
 
 await myFlow.run({});
@@ -132,6 +134,7 @@ npm start --workspace=siglo-live-monitoring-sample
 ```
 
 This demo:
+
 - Launches the live monitoring DevTools server at `http://localhost:4000/`.
 - Simulates an e-commerce order fulfillment pipeline with transient errors, retry backoff (`onFail`), conditional step skips (`onBefore`), and credential masking.
 - Demonstrates durable workflow suspension (`waitForEvent('order.approved')`) and automated resumption.

@@ -147,7 +147,7 @@ function executeBranch(branch: any, input: any, signal?: AbortSignal): Promise<a
     if (branch && typeof branch.start === 'function') {
         return branch.start(isolatedInput, branchOptions);
     }
-    return flow(branch).execute(isolatedInput, branchOptions);
+    return flow(branch).run(isolatedInput, branchOptions);
 }
 
 export function parallel(...args: any[]): Step<any, any> {

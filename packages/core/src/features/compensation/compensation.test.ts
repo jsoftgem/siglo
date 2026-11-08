@@ -49,7 +49,7 @@ describe('Compensation and Sagas Unit Tests', () => {
         const orderWorkflow = flow(reserveStep, paymentStep, shipStep);
 
         try {
-            await orderWorkflow.execute({ item: 'laptop' });
+            await orderWorkflow.run({ item: 'laptop' });
             expect.fail('Workflow should have rejected');
         } catch (err: any) {
             expect(err.message).to.equal('Out of delivery slots');
@@ -76,7 +76,7 @@ describe('Compensation and Sagas Unit Tests', () => {
         });
 
         try {
-            await flow(flakyCompensationStep, failingDownstream).execute();
+            await flow(flakyCompensationStep, failingDownstream).run();
             expect.fail('Should have failed');
         } catch (err: any) {
             expect(err.message).to.equal('Downstream boom');
@@ -94,7 +94,7 @@ describe('Compensation and Sagas Unit Tests', () => {
         });
 
         try {
-            await flow(badCompStep, failingStep).execute();
+            await flow(badCompStep, failingStep).run();
             expect.fail('Should throw CompensationException');
         } catch (err: any) {
             expect(err).to.be.instanceOf(CompensationException);
@@ -141,7 +141,7 @@ describe('Compensation and Sagas Unit Tests', () => {
         });
 
         try {
-            await flow(mainStep, failStep).execute();
+            await flow(mainStep, failStep).run();
             expect.fail('Should fail');
         } catch {
             expect(stepCompRan).to.be.true;

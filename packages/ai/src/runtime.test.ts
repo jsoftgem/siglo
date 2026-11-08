@@ -398,6 +398,9 @@ describe('@siglo/ai runtime', () => {
                     throw new Error('bad telemetry');
                 },
             },
+            get $stackId(): string {
+                throw new Error('bad stack');
+            },
         });
     });
 

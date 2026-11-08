@@ -231,7 +231,7 @@ export async function runAiCharter(iterations: number = 15, seed: number = 1010)
             const toolWorkflow = flow(agentStep, failingStep);
 
             try {
-                await toolWorkflow.execute({}, { durable: false });
+                await toolWorkflow.run({}, { durable: false });
             } catch {
                 // Expected failure to trigger compensation
             }

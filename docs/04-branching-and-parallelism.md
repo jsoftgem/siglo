@@ -1,6 +1,6 @@
 ---
-title: "Branching and Parallelism"
-description: "High-performance workflow combinators for concurrent fan-out, racing, conditional routing, and bounded batch mapping in Siglo."
+title: 'Branching and Parallelism'
+description: 'High-performance workflow combinators for concurrent fan-out, racing, conditional routing, and bounded batch mapping in Siglo.'
 ---
 
 # Branching and Parallelism
@@ -20,22 +20,17 @@ const fetchCreditScore = Step.create('fetchCredit', async () => ({ creditScore: 
 const fetchBankHistory = Step.create('fetchHistory', async () => ({ hasDefaults: false }));
 const fetchIdentity = Step.create('fetchIdentity', async () => ({ idVerified: true }));
 
-export const verificationPipeline = flow(
-    parallel([
-        fetchCreditScore,
-        fetchBankHistory,
-        fetchIdentity
-    ])
-);
+export const verificationPipeline = flow(parallel([fetchCreditScore, fetchBankHistory, fetchIdentity]));
 ```
 
 ### Concurrency Modes & Merge Strategies
+
 Configure merge behavior using `ParallelOptions`:
 
 ```typescript
 parallel([branchA, branchB], {
     mode: 'fail-fast', // 'fail-fast', 'allSettled', or 'race'
-    mergeStrategy: 'shallow' // 'shallow', 'deep', 'namespace', or custom merge fn
+    mergeStrategy: 'shallow', // 'shallow', 'deep', 'namespace', or custom merge fn
 });
 ```
 
@@ -53,9 +48,7 @@ import { Step, flow, race } from '@siglo/core';
 const queryFastReplica = Step.create('queryFast', async () => ({ source: 'replica-1', price: 99.5 }));
 const queryPrimaryDb = Step.create('queryPrimary', async () => ({ source: 'primary', price: 99.5 }));
 
-export const pricingWorkflow = flow(
-    race([queryFastReplica, queryPrimaryDb])
-);
+export const pricingWorkflow = flow(race([queryFastReplica, queryPrimaryDb]));
 ```
 
 ---
@@ -65,6 +58,7 @@ export const pricingWorkflow = flow(
 Route execution based on runtime conditions:
 
 ### Boolean Routing with `when(predicate, thenStep, elseStep?)`
+
 Ideal for binary branching decisions:
 
 ```typescript
@@ -72,29 +66,34 @@ import { Step, flow, when } from '@siglo/core';
 
 export const approvalFlow = flow(
     when(
-        (param) => param.amount > 10000,
+        param => param.amount > 10000,
         Step.create('flagHighValue', () => ({ reviewRequired: true })),
-        Step.create('autoApprove', () => ({ reviewRequired: false }))
-    )
+        Step.create('autoApprove', () => ({ reviewRequired: false })),
+    ),
 );
 ```
 
 ### Multi-Way Routing with `branch(selectorFn, branchesMap, defaultBranch?)`
+
 Ideal for dictionary dispatch across named routes:
 
 ```typescript
 import { Step, flow, branch } from '@siglo/core';
 
 const handleUsCustomer = Step.create('usTax', async () => ({ taxRate: 0.08 }));
-const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.20 }));
-const handleGlobalCustomer = Step.create('globalTax', async () => ({ taxRate: 0.00 }));
+const handleEuCustomer = Step.create('euVat', async () => ({ taxRate: 0.2 }));
+const handleGlobalCustomer = Step.create('globalTax', async () => ({ taxRate: 0.0 }));
 
 export const checkoutRouting = flow(
-    branch((param) => param.country, {
-        US: handleUsCustomer,
-        DE: handleEuCustomer,
-        FR: handleEuCustomer
-    }, handleGlobalCustomer) // Fallback default
+    branch(
+        param => param.country,
+        {
+            US: handleUsCustomer,
+            DE: handleEuCustomer,
+            FR: handleEuCustomer,
+        },
+        handleGlobalCustomer,
+    ), // Fallback default
 );
 ```
 
@@ -113,10 +112,10 @@ const processItem = Step.create('processItem', async (ctx: { item: { sku: string
 });
 
 export const batchWorkflow = flow(
-    map((param) => param.orderItems, processItem, {
+    map(param => param.orderItems, processItem, {
         concurrency: 4, // Max 4 concurrent items
-        stopOnError: false // Continue processing remaining items on failure
-    })
+        stopOnError: false, // Continue processing remaining items on failure
+    }),
 );
 ```
 
@@ -151,8 +150,8 @@ const badStep = Step.create('bad', async () => {
 
 const tolerantFlow = flow(
     parallel([goodStep, badStep], {
-        mode: 'allSettled'
-    })
+        mode: 'allSettled',
+    }),
 );
 
 const result = await tolerantFlow.run({}, { pojo: true });
@@ -174,16 +173,20 @@ const decisionWf = flow(
     when(
         (p: { vip: boolean }) => p.vip === true,
         Step.create('vipStep', () => ({ discount: 50 })),
-        Step.create('standardStep', () => ({ discount: 10 }))
-    )
+        Step.create('standardStep', () => ({ discount: 10 })),
+    ),
 );
 
 // 2. Multi-way route dispatch with branch()
 const multiWf = flow(
-    branch((p: { region: string }) => p.region, {
-        US: Step.create('usTax', () => ({ tax: 0.08 })),
-        EU: Step.create('euVat', () => ({ tax: 0.20 }))
-    }, Step.create('defaultTax', () => ({ tax: 0.05 })))
+    branch(
+        (p: { region: string }) => p.region,
+        {
+            US: Step.create('usTax', () => ({ tax: 0.08 })),
+            EU: Step.create('euVat', () => ({ tax: 0.2 })),
+        },
+        Step.create('defaultTax', () => ({ tax: 0.05 })),
+    ),
 );
 
 describe('Branching Test Suite', () => {
@@ -209,7 +212,7 @@ describe('Branching Test Suite', () => {
         const harness = createWorkflowHarness(multiWf);
         const res = await harness.run({ region: 'EU' });
 
-        expect(res.tax).to.equal(0.20);
+        expect(res.tax).to.equal(0.2);
         expect(res.$branchSelected).to.equal('EU');
     });
 });

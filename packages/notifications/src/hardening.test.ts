@@ -28,7 +28,7 @@ describe('notification security regressions', () => {
                 return {};
             }),
         );
-        await workflow.execute({}, { durable: true });
+        await workflow.run({}, { durable: true });
         const record = defaultDurableManager.getWaiting(key)!;
         const token = await signActionToken(
             {

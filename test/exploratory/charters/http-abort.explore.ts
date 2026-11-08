@@ -60,7 +60,7 @@ export async function runHttpAbortCharter(iterations: number = 20, seed: number 
         }, abortDelay);
 
         try {
-            await testFlow.execute({}, { signal: controller.signal, pojo: true });
+            await testFlow.run({}, { signal: controller.signal, pojo: true });
             clearTimeout(abortTimer);
             errors.push(`Iteration ${i}: Expected workflow to be cancelled, but it completed successfully!`);
         } catch (err: any) {

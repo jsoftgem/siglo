@@ -80,7 +80,7 @@ describe('notification lifecycle completion', () => {
                 throw new Error('downstream failure');
             }),
         );
-        await assert.rejects(workflow.execute({}, { monitor }));
+        await assert.rejects(workflow.run({}, { monitor }));
         assert.equal(transport.cancellations.length, 1);
         assert.ok(events.some(e => e.type === 'approval:requested'));
         assert.ok(events.some(e => e.type === 'notification:dispatched'));

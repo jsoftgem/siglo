@@ -1,6 +1,6 @@
 ---
-title: "Orchestration & Combinators"
-description: "API reference for Siglo functional workflow combinators: flow, parallel, all, allSettled, race, when, branch, map, waitForEvent, wait, and AST graph utilities."
+title: 'Orchestration & Combinators'
+description: 'API reference for Siglo functional workflow combinators: flow, parallel, all, allSettled, race, when, branch, map, waitForEvent, wait, and AST graph utilities.'
 ---
 
 # API Reference: Orchestration & Combinators
@@ -12,31 +12,31 @@ The Orchestration & Combinators API in **Siglo** provides functional combinators
 ## Table of Contents
 
 - [Core Orchestration](#core-orchestration)
-  - [`flow(...steps)`](#flowsteps)
-  - [`isFlow(item)`](#isflowitem)
-  - [`toPOJO(context)`](#topojocontext)
+    - [`flow(...steps)`](#flowsteps)
+    - [`isFlow(item)`](#isflowitem)
+    - [`toPOJO(context)`](#topojocontext)
 - [Parallel Combinators](#parallel-combinators)
-  - [`parallel(steps, options?)`](#parallelsteps-options)
-  - [`all(steps, options?)`](#allsteps-options)
-  - [`allSettled(steps, options?)`](#allsettledsteps-options)
-  - [`race(...steps)`](#racesteps)
+    - [`parallel(steps, options?)`](#parallelsteps-options)
+    - [`all(steps, options?)`](#allsteps-options)
+    - [`allSettled(steps, options?)`](#allsettledsteps-options)
+    - [`race(...steps)`](#racesteps)
 - [Branching and Routing](#branching-and-routing)
-  - [`when(predicate, thenStep, elseStep?)`](#whenpredicate-thenstep-elsestep)
-  - [`branch(selectorOrBranches, branchesMap?, defaultBranch?)`](#branchselectororbranches-branchesmap-defaultbranch)
+    - [`when(predicate, thenStep, elseStep?)`](#whenpredicate-thenstep-elsestep)
+    - [`branch(selectorOrBranches, branchesMap?, defaultBranch?)`](#branchselectororbranches-branchesmap-defaultbranch)
 - [Dynamic Mapping](#dynamic-mapping)
-  - [`map(itemsOrAccessor, processItem, options?)`](#mapitemsoraccessor-processitem-options)
+    - [`map(itemsOrAccessor, processItem, options?)`](#mapitemsoraccessor-processitem-options)
 - [Durable Waits and Event Resumption](#durable-waits-and-event-resumption)
-  - [`waitForEvent(eventName, options)`](#waitforeventeventname-options)
-  - [`wait(durationOrMs)`](#waitdurationorms)
-  - [`resumeWorkflow(flow, key, payload?, options?)`](#resumeworkflowflow-key-payload-options)
+    - [`waitForEvent(eventName, options)`](#waitforeventeventname-options)
+    - [`wait(durationOrMs)`](#waitdurationorms)
+    - [`resumeWorkflow(flow, key, payload?, options?)`](#resumeworkflowflow-key-payload-options)
 - [Graph Inspection and Visualization](#graph-inspection-and-visualization)
-  - [`toGraph(item)`](#tographitem)
-  - [`inspectGraph(item)`](#inspectgraphitem)
-  - [`validateGraph(node)`](#validategraphnode)
-  - [`assertValidGraph(node)`](#assertvalidgraphnode)
-  - [`toMermaid(item, options?)`](#tomermaiditem-options)
-  - [`toDot(item, options?)`](#todotitem-options)
-  - [`toJSON(item)`](#tojsonitem)
+    - [`toGraph(item)`](#tographitem)
+    - [`inspectGraph(item)`](#inspectgraphitem)
+    - [`validateGraph(node)`](#validategraphnode)
+    - [`assertValidGraph(node)`](#assertvalidgraphnode)
+    - [`toMermaid(item, options?)`](#tomermaiditem-options)
+    - [`toDot(item, options?)`](#todotitem-options)
+    - [`toJSON(item)`](#tojsonitem)
 
 ---
 
@@ -51,18 +51,19 @@ Composes sequential execution units (`Step`, nested `Flow`, or combinator steps)
 ```typescript
 // 1 to 5+ steps with compile-time accumulated context inference
 export function flow<TIn, T1Out, N1 extends string>(
-    s1: Step<any, T1Out, N1>
+    s1: Step<any, T1Out, N1>,
 ): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
     s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>
-): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>>;
+    s2: Step<any, T2Out, N2>,
+): Flow<
+    TIn,
+    FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>
+>;
 
 // Generic overload for dynamic or arbitrary step arrays
-export function flow<TInput = any, TOutput = any>(
-    ...steps: FlowArg[]
-): Flow<TInput, TOutput>;
+export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TInput, TOutput>;
 ```
 
 #### Parameters
@@ -71,7 +72,7 @@ export function flow<TInput = any, TOutput = any>(
 
 #### Returns
 
-A `Flow<TInput, TOutput>` object exposing execution methods (`.run()`, `.execute()`), durable controls (`.resume()`, `.compensate()`), guardrails (`.networkPolicy()`), live monitoring (`.monitor()`, `.hook()`), and export utilities (`.toMermaid()`, `.toJSON()`).
+A `Flow<TInput, TOutput>` object exposing execution method (`.run()`), durable controls (`.resume()`, `.compensate()`), guardrails (`.networkPolicy()`), live monitoring (`.monitor()`, `.hook()`), and export utilities (`.toMermaid()`, `.toJSON()`).
 
 #### Context Accumulation & `$steps`
 
@@ -97,10 +98,10 @@ const sendAlert = Step.create('sendAlert', async (param: { name: string; canAppr
 export const authFlow = flow(fetchUser, checkPermissions, sendAlert);
 
 const result = await authFlow.run({ userId: 'u_100' });
-console.log(result.name);              // 'Alice'
-console.log(result.canApprove);         // true
-console.log(result.alerted);            // true
-console.log(result.$steps.fetchUser);   // { name: 'Alice', role: 'admin' }
+console.log(result.name); // 'Alice'
+console.log(result.canApprove); // true
+console.log(result.alerted); // true
+console.log(result.$steps.fetchUser); // { name: 'Alice', role: 'admin' }
 ```
 
 ---
@@ -159,24 +160,23 @@ Executes multiple steps, flows, or functions concurrently. By default, it operat
 #### Signature
 
 ```typescript
-export function parallel(
-    ...args: any[]
-): Step<any, any>;
+export function parallel(...args: any[]): Step<any, any>;
 
 export interface ParallelOptions {
     name?: string;
     mode?: 'fail-fast' | 'allSettled' | 'race';
-    mergeStrategy?: 'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
+    mergeStrategy?:
+        'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
 }
 ```
 
 #### Options
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | `'parallel'` | Identifying name for the combinator node in AST and telemetry. |
-| `mode` | `'fail-fast' \| 'allSettled' \| 'race'` | `'fail-fast'` | Execution mode governing failure and settle handling. |
-| `mergeStrategy` | `'shallow' \| 'deep' \| 'error' \| 'namespace' \| Function` | `'shallow'` | Strategy for merging branch outputs into accumulated context. |
+| Option          | Type                                                        | Default       | Description                                                    |
+| --------------- | ----------------------------------------------------------- | ------------- | -------------------------------------------------------------- |
+| `name`          | `string`                                                    | `'parallel'`  | Identifying name for the combinator node in AST and telemetry. |
+| `mode`          | `'fail-fast' \| 'allSettled' \| 'race'`                     | `'fail-fast'` | Execution mode governing failure and settle handling.          |
+| `mergeStrategy` | `'shallow' \| 'deep' \| 'error' \| 'namespace' \| Function` | `'shallow'`   | Strategy for merging branch outputs into accumulated context.  |
 
 #### Merge Strategies
 
@@ -201,12 +201,12 @@ const fetchInvoices = Step.create('invoices', async () => ({ invoices: ['inv_1']
 const prepareDashboard = flow(
     parallel([fetchOrders, fetchInvoices], {
         mergeStrategy: 'namespace',
-        name: 'fetchDashboardData'
-    })
+        name: 'fetchDashboardData',
+    }),
 );
 
 const result = await prepareDashboard.run();
-console.log(result.orders);   // { orders: [1, 2, 3] }
+console.log(result.orders); // { orders: [1, 2, 3] }
 console.log(result.invoices); // { invoices: ['inv_1'] }
 console.log(result.$branches.length); // 2
 ```
@@ -220,10 +220,7 @@ Convenience alias for `parallel(steps, { ...options, mode: 'fail-fast' })`.
 #### Signature
 
 ```typescript
-export function all(
-    branches: any[],
-    options?: ParallelOptions
-): Step<any, any>;
+export function all(branches: any[], options?: ParallelOptions): Step<any, any>;
 ```
 
 #### Example
@@ -246,10 +243,7 @@ Executes all branches concurrently without failing fast. Collects all results an
 #### Signature
 
 ```typescript
-export function allSettled(
-    branches: any[],
-    options?: ParallelOptions
-): Step<any, any>;
+export function allSettled(branches: any[], options?: ParallelOptions): Step<any, any>;
 ```
 
 #### Return Context Additions
@@ -268,12 +262,10 @@ const notifyPagerDuty = Step.create('pagerDuty', async () => {
     throw new Error('PagerDuty rate limited');
 });
 
-const alertSystem = flow(
-    allSettled([notifySlack, notifyPagerDuty])
-);
+const alertSystem = flow(allSettled([notifySlack, notifyPagerDuty]));
 
 const result = await alertSystem.run();
-console.log(result.slack.slackSent);         // true
+console.log(result.slack.slackSent); // true
 console.log(result.pagerDuty.error.message); // 'PagerDuty rate limited'
 console.log(result.$branches);
 ```
@@ -287,9 +279,7 @@ Executes multiple branches concurrently. Settles as soon as the **first** branch
 #### Signature
 
 ```typescript
-export function race(
-    ...args: any[]
-): Step<any, any>;
+export function race(...args: any[]): Step<any, any>;
 ```
 
 #### Example
@@ -322,22 +312,22 @@ Conditional branching combinator that evaluates a predicate function against the
 #### Signatures
 
 ```typescript
-export type BranchPredicate = (ctx: any, meta?: {
-    attempt?: number;
-    stackId?: string;
-    namespace?: string;
-}) => boolean | Promise<boolean>;
+export type BranchPredicate = (
+    ctx: any,
+    meta?: {
+        attempt?: number;
+        stackId?: string;
+        namespace?: string;
+    },
+) => boolean | Promise<boolean>;
 
-export function when(
-    predicate: BranchPredicate,
-    thenStep: any,
-    elseStep?: any
-): Step<any, any>;
+export function when(predicate: BranchPredicate, thenStep: any, elseStep?: any): Step<any, any>;
 ```
 
 #### Metadata
 
 The output context is enriched with:
+
 - `$branchSelected`: `'then'` | `'else'` | `undefined`
 - `$skippedBranches`: Array of branch route names that were bypassed.
 - `$skipped`: `true` if predicate evaluated to `false` and no `elseStep` was configured.
@@ -348,24 +338,18 @@ The output context is enriched with:
 import { Step, flow, when } from '@siglo/core';
 
 const applyDiscount = Step.create('applyDiscount', async (ctx: { total: number }) => ({
-    discount: ctx.total * 0.1
+    discount: ctx.total * 0.1,
 }));
 
 const noDiscount = Step.create('noDiscount', async () => ({
-    discount: 0
+    discount: 0,
 }));
 
-const checkoutFlow = flow(
-    when(
-        (ctx) => ctx.isVipMember === true,
-        applyDiscount,
-        noDiscount
-    )
-);
+const checkoutFlow = flow(when(ctx => ctx.isVipMember === true, applyDiscount, noDiscount));
 
 const output = await checkoutFlow.run({ total: 200, isVipMember: true });
-console.log(output.discount);        // 20
-console.log(output.$branchSelected);  // 'then'
+console.log(output.discount); // 20
+console.log(output.$branchSelected); // 'then'
 ```
 
 ---
@@ -377,22 +361,18 @@ Dynamic multi-path router that selects a branch from a map using a selector func
 #### Signatures
 
 ```typescript
-export type BranchSelector = (ctx: any, meta?: {
-    attempt?: number;
-    stackId?: string;
-    namespace?: string;
-}) => string | Promise<string>;
+export type BranchSelector = (
+    ctx: any,
+    meta?: {
+        attempt?: number;
+        stackId?: string;
+        namespace?: string;
+    },
+) => string | Promise<string>;
 
-export function branch(
-    selector: BranchSelector,
-    branches: Record<string, any>,
-    defaultBranch?: any
-): Step<any, any>;
+export function branch(selector: BranchSelector, branches: Record<string, any>, defaultBranch?: any): Step<any, any>;
 
-export function branch(
-    branchesMap: Record<string, any>,
-    defaultBranch?: any
-): Step<any, any>;
+export function branch(branchesMap: Record<string, any>, defaultBranch?: any): Step<any, any>;
 ```
 
 #### Example
@@ -406,17 +386,17 @@ const defaultFlow = Step.create('community', async () => ({ slaTier: 'Forums' })
 
 const supportRouter = flow(
     branch(
-        (ctx) => ctx.planType,
+        ctx => ctx.planType,
         {
             enterprise: enterpriseFlow,
-            standard: standardFlow
+            standard: standardFlow,
         },
-        defaultFlow // fallback
-    )
+        defaultFlow, // fallback
+    ),
 );
 
 const result = await supportRouter.run({ planType: 'enterprise' });
-console.log(result.slaTier);         // '24/7 Phone'
+console.log(result.slaTier); // '24/7 Phone'
 console.log(result.$branchSelected); // 'enterprise'
 ```
 
@@ -439,16 +419,12 @@ export type MapItemAccessor =
 
 export interface MapOptions {
     name?: string;
-    concurrency?: number;     // Default: 10 (minimum: 1)
-    stopOnError?: boolean;    // Default: true (fails fast and aborts workers)
-    preserveOrder?: boolean;  // Default: true (results array matches input order)
+    concurrency?: number; // Default: 10 (minimum: 1)
+    stopOnError?: boolean; // Default: true (fails fast and aborts workers)
+    preserveOrder?: boolean; // Default: true (results array matches input order)
 }
 
-export function map(
-    itemsOrAccessor: MapItemAccessor,
-    processItem: any,
-    options?: MapOptions
-): Step<any, any>;
+export function map(itemsOrAccessor: MapItemAccessor, processItem: any, options?: MapOptions): Step<any, any>;
 ```
 
 #### Process Item Context
@@ -458,6 +434,7 @@ Inside `processItem`, the step parameter receives `{ item, index, total, ...meta
 #### Output
 
 The map step outputs:
+
 - `items`: Array of processed results.
 - `count`: Total count of items.
 - `errors`: Array of caught errors (when `stopOnError: false`).
@@ -472,19 +449,19 @@ const processOrder = Step.create('processOrder', async (ctx: { item: { id: strin
 });
 
 const batchFlow = flow(
-    map((ctx) => ctx.pendingOrders, processOrder, {
+    map(ctx => ctx.pendingOrders, processOrder, {
         concurrency: 3,
         preserveOrder: true,
-        stopOnError: true
-    })
+        stopOnError: true,
+    }),
 );
 
 const result = await batchFlow.run({
     pendingOrders: [
         { id: 'ord_1', amount: 50 },
         { id: 'ord_2', amount: 120 },
-        { id: 'ord_3', amount: 75 }
-    ]
+        { id: 'ord_3', amount: 75 },
+    ],
 });
 
 console.log(result.count); // 3
@@ -504,14 +481,11 @@ Suspends workflow execution in durable mode until an external event is delivered
 ```typescript
 export interface WaitForEventOptions {
     correlationKey: string | ((ctx: any) => string);
-    timeout?: string | number;   // e.g. '24h', '30m', 60000
+    timeout?: string | number; // e.g. '24h', '30m', 60000
     timeoutMs?: number;
 }
 
-export function waitForEvent(
-    eventName: string,
-    options: WaitForEventOptions
-): Step<any, any>;
+export function waitForEvent(eventName: string, options: WaitForEventOptions): Step<any, any>;
 ```
 
 #### Semantics
@@ -528,12 +502,12 @@ import { Step, flow, waitForEvent } from '@siglo/core';
 export const approvalWorkflow = flow(
     Step.create('createTicket', async (ctx: { ticketId: string }) => ({ status: 'pending' })),
     waitForEvent('managerApproval', {
-        correlationKey: (ctx) => ctx.ticketId,
-        timeout: '48h'
+        correlationKey: ctx => ctx.ticketId,
+        timeout: '48h',
     }),
     Step.create('grantAccess', async (ctx: { approved: boolean; approver: string }) => ({
-        granted: ctx.approved
-    }))
+        granted: ctx.approved,
+    })),
 );
 
 // Starts workflow and suspends at waitForEvent
@@ -549,9 +523,7 @@ Pauses workflow execution for a duration string (e.g. `'5m'`, `'2h'`, `'1d'`) or
 #### Signature
 
 ```typescript
-export function wait(
-    durationOrMs: number | string
-): Step<any, any>;
+export function wait(durationOrMs: number | string): Step<any, any>;
 ```
 
 #### Example
@@ -562,7 +534,7 @@ import { Step, flow, wait } from '@siglo/core';
 const delayedWorkflow = flow(
     Step.create('init', async () => ({ step: 1 })),
     wait('10m'), // In durable mode: suspends checkpoint. In memory: awaits timeout.
-    Step.create('finalize', async () => ({ step: 2 }))
+    Step.create('finalize', async () => ({ step: 2 })),
 );
 ```
 
@@ -584,7 +556,7 @@ export function resumeWorkflow(
     flowInstance: Flow<any, any>,
     correlationKeyOrStackId: string,
     eventPayload: any = {},
-    options?: ResumeOptions
+    options?: ResumeOptions,
 ): Promise<any>;
 ```
 
@@ -595,11 +567,7 @@ import { resumeWorkflow } from '@siglo/core';
 import { approvalWorkflow } from './approval.workflow';
 
 // Resumes the workflow where it left off, passing event payload
-const finalResult = await resumeWorkflow(
-    approvalWorkflow,
-    'ticket_42',
-    { approved: true, approver: 'Alice' }
-);
+const finalResult = await resumeWorkflow(approvalWorkflow, 'ticket_42', { approved: true, approver: 'Alice' });
 
 console.log(finalResult.granted); // true
 ```

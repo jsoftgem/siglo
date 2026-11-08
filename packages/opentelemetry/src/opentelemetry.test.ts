@@ -309,7 +309,7 @@ describe('@siglo/opentelemetry Integration Suite', () => {
             expect(stepNames4).to.not.include('reserveStock');
         });
 
-        it('supports run, execute, and start entry points consistently without duplicate workflow spans', async () => {
+        it('supports run entry point without duplicate workflow spans', async () => {
             const step = Step.create('testStep', async () => ({ ok: true }));
             const wf = flow(step);
             const instrumented = instrumentWorkflow(wf, {
@@ -317,23 +317,32 @@ describe('@siglo/opentelemetry Integration Suite', () => {
                 workflowName: 'EntryPointsTest',
             });
 
+            // run
+            await instrumented.run({});
+            const wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
+            expect(wfSpans).to.have.lengthOf(1);
+        });
+
+        it('supports custom targets with execute and start entry points', async () => {
+            const customTarget = {
+                execute: async () => ({ ok: true }),
+                start: async () => ({ ok: true }),
+            };
+            const instrumented = instrumentWorkflow(customTarget as any, {
+                tracer: mockTracer as unknown as Tracer,
+                workflowName: 'CustomEntryPointsTest',
+            });
+
             // execute
             await instrumented.execute({});
-            let wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
+            let wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:CustomEntryPointsTest');
             expect(wfSpans).to.have.lengthOf(1);
 
             mockTracer.spans.length = 0;
 
             // start
             await instrumented.start({});
-            wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
-            expect(wfSpans).to.have.lengthOf(1);
-
-            mockTracer.spans.length = 0;
-
-            // run
-            await instrumented.run({});
-            wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:EntryPointsTest');
+            wfSpans = mockTracer.spans.filter(s => s.name === 'workflow:CustomEntryPointsTest');
             expect(wfSpans).to.have.lengthOf(1);
         });
 

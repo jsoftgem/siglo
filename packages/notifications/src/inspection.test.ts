@@ -154,7 +154,7 @@ describe('correlated approval callback inspection', () => {
                 }),
             );
             try {
-                await workflow.execute({}, { durable: true, monitor });
+                await workflow.run({}, { durable: true, monitor });
             } catch (error: any) {
                 if (!/suspend/i.test(error.message)) throw error;
             }

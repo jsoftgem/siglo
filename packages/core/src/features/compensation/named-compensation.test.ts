@@ -111,7 +111,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
             const workflow = flow(step1, step2);
             try {
-                await workflow.execute({ sku: 'WIDGET-1', qty: 2, orderId: 'ORD-100' });
+                await workflow.run({ sku: 'WIDGET-1', qty: 2, orderId: 'ORD-100' });
                 expect.fail('Workflow should fail');
             } catch (err: any) {
                 expect(err.message).to.equal('Payment declined');
@@ -134,7 +134,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             });
 
             try {
-                await flow(step1, step2).execute();
+                await flow(step1, step2).run();
                 expect.fail('Expected crash');
             } catch (err: any) {
                 expect(err.message).to.equal('Crash');
@@ -155,7 +155,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             });
 
             try {
-                await flow(step1, step2).execute();
+                await flow(step1, step2).run();
                 expect.fail('Expected failure');
             } catch {
                 expect(ran).to.be.true;
@@ -172,7 +172,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             });
 
             try {
-                await flow(step1, step2).execute();
+                await flow(step1, step2).run();
                 expect.fail('Workflow should fail');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(CompensationException);

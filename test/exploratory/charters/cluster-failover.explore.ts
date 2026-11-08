@@ -238,7 +238,7 @@ export async function runClusterFailoverCharter(iterations: number = 15, seed: n
             const sagaFlow = flow(stepA, stepB, stepC);
 
             try {
-                await sagaFlow.execute({}, { durable: false });
+                await sagaFlow.run({}, { durable: false });
             } catch {
                 // Expected failure to trigger compensation
             }

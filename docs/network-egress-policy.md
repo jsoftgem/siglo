@@ -1,6 +1,6 @@
 ---
-title: "Network Egress Policy & Guardrails"
-description: "In-process zero-trust network perimeter enforcement via AsyncLocalStorage (ASL) across fetch, Node HTTP, and raw TCP sockets in Siglo."
+title: 'Network Egress Policy & Guardrails'
+description: 'In-process zero-trust network perimeter enforcement via AsyncLocalStorage (ASL) across fetch, Node HTTP, and raw TCP sockets in Siglo.'
 ---
 
 # Network Egress Policy & Guardrails via AsyncLocalStorage (ASL)
@@ -16,9 +16,9 @@ In workflow orchestration systems, governing external network egress and side-ef
 1. **Policy Activation & Default Deny**: Unconfigured workflows have no egress enforcement (unrestricted). When a network policy is declared on a flow or step, enforcement activates and defaults to denying external outbound network access unless explicitly authorized by step-level or flow-level allowlists.
 2. **Flow Supersedes Step (Outer Envelope Narrowing)**: The Flow defines the outer security perimeter. A Step can only **narrow** permissions within what the Flow permits; it cannot unilaterally expand or bypass the Flow allowlist.
 3. **Multi-Layer Egress Interception**: Outbound requests are governed across three distinct runtime layers:
-   - Native `globalThis.fetch` (Fetch API, Undici)
-   - `node:http` and `node:https` (`request` and `get`, Axios, Got, legacy clients)
-   - `node:net.Socket.prototype.connect` (Raw TCP/TLS connections)
+    - Native `globalThis.fetch` (Fetch API, Undici)
+    - `node:http` and `node:https` (`request` and `get`, Axios, Got, legacy clients)
+    - `node:net.Socket.prototype.connect` (Raw TCP/TLS connections)
 4. **Localhost & Loopback Configuration**: When network policy is active, `allowLocalhost` defaults to `false`. When enabled (`allowLocalhost: true`), loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC (`allowUnixSockets`) are permitted, preserving local database pools, test mock servers, and container-local sidecars.
 5. **Zero Concurrency Cross-Talk**: Handled via `AsyncLocalStorage`. When steps execute concurrently in `parallel`, `allSettled`, or `map`, each step runs in its own isolated ASL context. Background host operations (e.g. server health checks, connection pool pings) remain unaffected.
 
@@ -27,9 +27,11 @@ In workflow orchestration systems, governing external network egress and side-ef
 ## 2. Architecture & Runtime Context Propagation
 
 ### 2.1 The Concurrency Challenge in Node.js
+
 Because Node.js runs asynchronous tasks concurrently on a single event loop, global state or process-wide patching causes severe race conditions between concurrent workflows or parallel branches.
 
 ### 2.2 AsyncLocalStorage Context Isolation
+
 When a step begins in `StartChain`, Siglo resolves the effective policy between the step's declaration and the flow's perimeter, then executes the entire step lifecycle (including `Step.spec` validation, transformers, translators, schema checks, lifecycle hooks, and the step action) inside `networkPolicyStorage.run(policy, ...)`. All downstream asynchronous operations, child promises, and third-party libraries automatically inherit the active policy store.
 
 ```mermaid
@@ -65,6 +67,7 @@ flowchart TD
 Steps can declare network permissions using intuitive chainable methods on the `Step` builder.
 
 ### 3.1 `step.allowNetwork(hosts)`
+
 Permits outbound requests matching specified host patterns during this step's execution:
 
 ```typescript
@@ -74,14 +77,15 @@ import { Step } from '@siglo/core';
 const chargeCustomer = Step.create('charge', async ({ amount }) => {
     const res = await fetch('https://api.stripe.com/v1/charges', {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer sk_test_...' },
-        body: JSON.stringify({ amount })
+        headers: { Authorization: 'Bearer sk_test_...' },
+        body: JSON.stringify({ amount }),
     });
     return await res.json();
 }).allowNetwork(['api.stripe.com', '*.stripe.network']);
 ```
 
 ### 3.2 `step.denyNetwork()`
+
 Strictly disallows all external network calls from the step. Ideal for pure business logic, cryptographic hashing, or sensitive data transformations:
 
 ```typescript
@@ -92,6 +96,7 @@ const calculateDiscounts = Step.create('discount', ({ cart }) => {
 ```
 
 ### 3.3 `step.networkPolicy(policy)`
+
 Configures complete, fine-grained network settings including localhost exemptions:
 
 ```typescript
@@ -100,7 +105,7 @@ const syncProfile = Step.create('sync', async ({ userId }) => {
 }).networkPolicy({
     allowedHosts: ['api.github.com'],
     defaultPolicy: 'deny',
-    allowLocalhost: false // Defaults to false when policy is active
+    allowLocalhost: false, // Defaults to false when policy is active
 });
 ```
 
@@ -111,6 +116,7 @@ const syncProfile = Step.create('sync', async ({ userId }) => {
 The `Flow` defines the outer security perimeter governing all enclosed steps.
 
 ### 4.1 `flow(...).networkPolicy(policy)`
+
 Establishes the allowable perimeter for the entire workflow:
 
 ```typescript
@@ -131,13 +137,14 @@ export const onboardingFlow = flow(fetchUser, chargeCard)
 ```
 
 ### 4.2 Per-Execution Run Overrides
+
 Override or further restrict network policies dynamically for a specific workflow execution:
 
 ```typescript
 await onboardingFlow.run(payload, {
     networkPolicy: {
-        allowedHosts: ['api.stripe.com'] // Disallows api.github.com for this specific run
-    }
+        allowedHosts: ['api.stripe.com'], // Disallows api.github.com for this specific run
+    },
 });
 ```
 
@@ -147,13 +154,13 @@ await onboardingFlow.run(payload, {
 
 When both Flow-level and Step-level policies are declared, the Flow sets the boundary:
 
-| Flow Policy | Step Policy | Resolved Effective Policy | Behavior |
-| :--- | :--- | :--- | :--- |
-| `['api.stripe.com']` | `['api.stripe.com']` | `['api.stripe.com']` | Permitted |
-| `['api.stripe.com']` | `['api.github.com']` | `[]` (Blocked) | **Blocked**: Step cannot unilaterally expand beyond Flow allowlist. |
-| `['*.stripe.com']` | `['api.stripe.com']` | `['api.stripe.com']` | Permitted: Step narrows down from wildcard. |
-| `['api.stripe.com']` | `.denyNetwork()` | `[]` (Blocked) | **Blocked**: Step can always narrow to deny all calls. |
-| `allowLocalhost: false` | `allowLocalhost: true` | `allowLocalhost: false` | **Blocked**: Step cannot bypass Flow's localhost restriction. |
+| Flow Policy             | Step Policy            | Resolved Effective Policy | Behavior                                                            |
+| :---------------------- | :--------------------- | :------------------------ | :------------------------------------------------------------------ |
+| `['api.stripe.com']`    | `['api.stripe.com']`   | `['api.stripe.com']`      | Permitted                                                           |
+| `['api.stripe.com']`    | `['api.github.com']`   | `[]` (Blocked)            | **Blocked**: Step cannot unilaterally expand beyond Flow allowlist. |
+| `['*.stripe.com']`      | `['api.stripe.com']`   | `['api.stripe.com']`      | Permitted: Step narrows down from wildcard.                         |
+| `['api.stripe.com']`    | `.denyNetwork()`       | `[]` (Blocked)            | **Blocked**: Step can always narrow to deny all calls.              |
+| `allowLocalhost: false` | `allowLocalhost: true` | `allowLocalhost: false`   | **Blocked**: Step cannot bypass Flow's localhost restriction.       |
 
 ---
 
@@ -161,14 +168,14 @@ When both Flow-level and Step-level policies are declared, the Flow sets the bou
 
 Outbound network destinations are matched against configured patterns using standard rules:
 
-| Rule Type | Pattern Example | Matches | Does NOT Match |
-| :--- | :--- | :--- | :--- |
-| **Localhost Exemption** | `allowLocalhost: true` | `localhost`, `127.0.0.1`, `::1`, `0.0.0.0`, Unix socket paths | Public IPs, external domains |
-| **Exact Host** | `'api.stripe.com'` | `api.stripe.com`, `api.stripe.com:443` | `stripe.com`, `dev.api.stripe.com` |
-| **Wildcard Subdomain** | `'*.stripe.com'` | `api.stripe.com`, `hooks.stripe.com` | `stripe.com`, `evil-stripe.com` |
-| **Universal Wildcard** | `'*'` | Any external host | Empty host strings |
-| **Port Specification** | `'api.internal:8080'` | `api.internal:8080` | `api.internal:3000`, `api.internal` |
-| **RegExp** | `/^api\\.service\\.(internal|local)$/` | `api.service.internal` | `api.service.com` |
+| Rule Type               | Pattern Example              | Matches                                                       | Does NOT Match                      |
+| :---------------------- | :--------------------------- | :------------------------------------------------------------ | :---------------------------------- |
+| **Localhost Exemption** | `allowLocalhost: true`       | `localhost`, `127.0.0.1`, `::1`, `0.0.0.0`, Unix socket paths | Public IPs, external domains        |
+| **Exact Host**          | `'api.stripe.com'`           | `api.stripe.com`, `api.stripe.com:443`                        | `stripe.com`, `dev.api.stripe.com`  |
+| **Wildcard Subdomain**  | `'*.stripe.com'`             | `api.stripe.com`, `hooks.stripe.com`                          | `stripe.com`, `evil-stripe.com`     |
+| **Universal Wildcard**  | `'*'`                        | Any external host                                             | Empty host strings                  |
+| **Port Specification**  | `'api.internal:8080'`        | `api.internal:8080`                                           | `api.internal:3000`, `api.internal` |
+| **RegExp**              | `/^api\\.service\\.(internal | local)$/`                                                     | `api.service.internal`              | `api.service.com` |
 
 ---
 
@@ -177,20 +184,20 @@ Outbound network destinations are matched against configured patterns using stan
 Siglo activates interceptors lazily upon first workflow execution or via `ensureNetworkInterceptorsInstalled()`:
 
 1. **Native `globalThis.fetch` Interceptor**:
-   - Inspects target input (string, `URL`, or `Request` object).
-   - Resolves target host and checks the active ASL store.
-   - Throws `NetworkPolicyViolationException` synchronously before any socket is created.
-   - Sets an internal validated socket flag so underlying Node HTTP socket pools avoid duplicate verification overhead.
+    - Inspects target input (string, `URL`, or `Request` object).
+    - Resolves target host and checks the active ASL store.
+    - Throws `NetworkPolicyViolationException` synchronously before any socket is created.
+    - Sets an internal validated socket flag so underlying Node HTTP socket pools avoid duplicate verification overhead.
 
 2. **`node:http` and `node:https` Interceptor**:
-   - Intercepts `http.request`, `http.get`, `https.request`, and `https.get`.
-   - Protects libraries relying on Node's native HTTP client (e.g. Axios, Got, Node core).
-   - If blocked, emits an `'error'` event with `NetworkPolicyViolationException` on the client request stream.
+    - Intercepts `http.request`, `http.get`, `https.request`, and `https.get`.
+    - Protects libraries relying on Node's native HTTP client (e.g. Axios, Got, Node core).
+    - If blocked, emits an `'error'` event with `NetworkPolicyViolationException` on the client request stream.
 
 3. **`node:net.Socket.prototype.connect` Interceptor**:
-   - Deepest safety net preventing raw TCP/TLS connections to unauthorized endpoints.
-   - Automatically bypasses local Unix domain socket paths and sockets already validated by higher-level HTTP interceptors.
-   - Destroys unauthorized sockets immediately with `NetworkPolicyViolationException`.
+    - Deepest safety net preventing raw TCP/TLS connections to unauthorized endpoints.
+    - Automatically bypasses local Unix domain socket paths and sockets already validated by higher-level HTTP interceptors.
+    - Destroys unauthorized sockets immediately with `NetworkPolicyViolationException`.
 
 ---
 
@@ -207,7 +214,9 @@ export class NetworkPolicyViolationException extends SigloError {
 ```
 
 ### Non-Retryable Classification
+
 Security and policy violations are intentionally tagged with:
+
 - `phase: 'action'` (or `phase: 'validation'` when triggered during `Step.spec` validation, transforms, or translations; `phase: 'before'` / `phase: 'after'` in hooks)
 - `retryable: false`
 
@@ -232,10 +241,8 @@ const callSendGrid = Step.create('sendgrid', async () => {
 
 // Even though both run concurrently on the single event loop,
 // callStripe cannot access sendgrid.com, and callSendGrid cannot access stripe.com!
-const concurrentFlow = flow(
-    parallel([callStripe, callSendGrid])
-).networkPolicy({
-    allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
+const concurrentFlow = flow(parallel([callStripe, callSendGrid])).networkPolicy({
+    allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
 });
 ```
 

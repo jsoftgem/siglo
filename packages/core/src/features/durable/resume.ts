@@ -201,7 +201,7 @@ export async function resumeWorkflow(
         }
         // Durable suspension is returned as a descriptor by the runner. Both completion
         // and suspension are handoffs; failures leave the accepted event recoverable.
-        const result = await resumedFlow.execute(cleanInput, effectiveOptions);
+        const result = await resumedFlow.run(cleanInput, effectiveOptions);
         await adapter?.completeWaitRecord?.(correlationKey, claimantId);
         return result;
     };

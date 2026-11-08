@@ -81,16 +81,16 @@ Existing lifecycle events also cover tool execution.
 
 Integrating Large Language Models (LLMs) and generative AI into enterprise workflow orchestrations introduces non-deterministic outputs, transient rate limits (`429`), latency spikes, and severe security challenges. When developers call LLM SDKs directly within workflow steps, workflows suffer from systemic failure modes:
 
-| Ad-Hoc LLM Anti-Pattern | Operational Risk in Distributed Workflows | How `@siglo/ai` Solves It |
-|---|---|---|
-| **Unregulated Network Egress** | AI SDK calls bypass the workflow network perimeter, risking SSRF, data leakage, or unauthorized API access. | Enforces Siglo's AsyncLocalStorage (ASL) network egress policy (`allowNetwork`). Statically asserts provider hosts (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`) in the `BEFORE` phase. |
-| **Runtime Data Corruption** | Unstructured or malformed JSON responses crash downstream steps without clear type guarantees. | Native JSON Schema structured output APIs backed by Standard Schema V1 (`~standard` with Zod, Valibot, ArkType), inferring typed outputs directly into the workflow context. |
-| **Fragile One-Shot Failures** | Minor JSON syntax or enum hallucinations fail the entire workflow. | Automatic **Self-Healing Prompt Repair Loop**: captures validation diagnostics and feeds them into an ephemeral correction turn before failing. |
-| **Provider Rate Limiting (`429`) & Outages** | Sudden traffic spikes or provider outages crash critical business pipelines. | **Model Fallback Cascades**: automatically routes requests through fallback providers (e.g., Claude 3.5 Sonnet &rarr; GPT-4o &rarr; Gemini 2.0 Flash) on `429`, `5xx`, or timeout. |
-| **Dangling TCP Sockets on Timeout** | Standard AI client calls hang indefinitely during heavy generation or streaming when a workflow timeout triggers. | First-class `AbortSignal` binding: Siglo step timeouts and flow cancellation cooperatively abort the provider request and close underlying sockets. |
-| **Redundant Token Expense on Retries** | Upstream step failures or idempotent retries re-execute expensive LLM prompts repeatedly. | Integrates with Siglo's deterministic step caching (`step.cache()`) and prompt input hashing, returning cached outputs without touching the network. |
-| **Telemetry & Cost Black Holes** | No visibility into token consumption, latency, or dollar cost inside APM tools. | Injects OpenTelemetry GenAI Semantic Convention attributes (`gen_ai.*`), emits live DevTools events, and records metrics in `$steps.<name>.aiMetrics`. |
-| **Isolated Execution (No Tool Access)** | LLMs cannot interact with workflow state or invoke internal business steps. | **Agentic Step Calling**: exposes existing Siglo steps directly as typed tools to the model within a managed execution loop. |
+| Ad-Hoc LLM Anti-Pattern                      | Operational Risk in Distributed Workflows                                                                         | How `@siglo/ai` Solves It                                                                                                                                                                                              |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Unregulated Network Egress**               | AI SDK calls bypass the workflow network perimeter, risking SSRF, data leakage, or unauthorized API access.       | Enforces Siglo's AsyncLocalStorage (ASL) network egress policy (`allowNetwork`). Statically asserts provider hosts (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`) in the `BEFORE` phase. |
+| **Runtime Data Corruption**                  | Unstructured or malformed JSON responses crash downstream steps without clear type guarantees.                    | Native JSON Schema structured output APIs backed by Standard Schema V1 (`~standard` with Zod, Valibot, ArkType), inferring typed outputs directly into the workflow context.                                           |
+| **Fragile One-Shot Failures**                | Minor JSON syntax or enum hallucinations fail the entire workflow.                                                | Automatic **Self-Healing Prompt Repair Loop**: captures validation diagnostics and feeds them into an ephemeral correction turn before failing.                                                                        |
+| **Provider Rate Limiting (`429`) & Outages** | Sudden traffic spikes or provider outages crash critical business pipelines.                                      | **Model Fallback Cascades**: automatically routes requests through fallback providers (e.g., Claude 3.5 Sonnet &rarr; GPT-4o &rarr; Gemini 2.0 Flash) on `429`, `5xx`, or timeout.                                     |
+| **Dangling TCP Sockets on Timeout**          | Standard AI client calls hang indefinitely during heavy generation or streaming when a workflow timeout triggers. | First-class `AbortSignal` binding: Siglo step timeouts and flow cancellation cooperatively abort the provider request and close underlying sockets.                                                                    |
+| **Redundant Token Expense on Retries**       | Upstream step failures or idempotent retries re-execute expensive LLM prompts repeatedly.                         | Integrates with Siglo's deterministic step caching (`step.cache()`) and prompt input hashing, returning cached outputs without touching the network.                                                                   |
+| **Telemetry & Cost Black Holes**             | No visibility into token consumption, latency, or dollar cost inside APM tools.                                   | Injects OpenTelemetry GenAI Semantic Convention attributes (`gen_ai.*`), emits live DevTools events, and records metrics in `$steps.<name>.aiMetrics`.                                                                 |
+| **Isolated Execution (No Tool Access)**      | LLMs cannot interact with workflow state or invoke internal business steps.                                       | **Agentic Step Calling**: exposes existing Siglo steps directly as typed tools to the model within a managed execution loop.                                                                                           |
 
 ---
 
@@ -140,45 +140,51 @@ Siglo executes steps through a formal 5-phase lifecycle: `BEFORE` &rarr; `VALIDA
 ## 3. Core Features & Capabilities
 
 ### 1. Modern Multi-Provider Abstraction
-* **Anthropic**: Messages API with native Tool Use and JSON output (`claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-7-sonnet`).
-* **OpenAI**: Chat Completions & Structured Outputs (`gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini`).
-* **Google Gemini**: Gemini API with Response Schema (`gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash`).
-* **Local & Self-Hosted**: Generic OpenAI-compatible client for Ollama, vLLM, and LocalAI (with explicit localhost/private IP policy verification).
+
+- **Anthropic**: Messages API with native Tool Use and JSON output (`claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-7-sonnet`).
+- **OpenAI**: Chat Completions & Structured Outputs (`gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini`).
+- **Google Gemini**: Gemini API with Response Schema (`gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash`).
+- **Local & Self-Hosted**: Generic OpenAI-compatible client for Ollama, vLLM, and LocalAI (with explicit localhost/private IP policy verification).
 
 ### 2. Native Structured Outputs & Standard Schema V1
-* Prioritizes **Native Provider Schema Enforcement** (OpenAI `response_format: { type: 'json_schema' }`, Gemini `responseJsonSchema`, Anthropic tool constraints).
-* Uses the **Standard Schema V1 (`~standard`)** specification supported across Zod, Valibot, and ArkType.
-* Inferred TypeScript types flow directly into accumulated context without manual type assertions.
+
+- Prioritizes **Native Provider Schema Enforcement** (OpenAI `response_format: { type: 'json_schema' }`, Gemini `responseJsonSchema`, Anthropic tool constraints).
+- Uses the **Standard Schema V1 (`~standard`)** specification supported across Zod, Valibot, and ArkType.
+- Inferred TypeScript types flow directly into accumulated context without manual type assertions.
 
 ### 3. Self-Healing Prompt Repair Algorithm
-* If a model fails schema parsing or emits malformed output, `@siglo/ai` intercepts the error and executes an automated repair turn:
-  ```
-  System: You previously emitted invalid JSON that failed the required schema.
-  Errors: [ { path: 'riskLevel', message: 'Expected LOW | MEDIUM | HIGH, received UNKNOWN' } ]
-  Invalid Payload: { ... }
-  Instruction: Output ONLY valid JSON fixing the schema violations.
-  ```
-* Bounded by `maxRepairAttempts` (default: 2) to prevent infinite loops and runaway costs.
+
+- If a model fails schema parsing or emits malformed output, `@siglo/ai` intercepts the error and executes an automated repair turn:
+    ```
+    System: You previously emitted invalid JSON that failed the required schema.
+    Errors: [ { path: 'riskLevel', message: 'Expected LOW | MEDIUM | HIGH, received UNKNOWN' } ]
+    Invalid Payload: { ... }
+    Instruction: Output ONLY valid JSON fixing the schema violations.
+    ```
+- Bounded by `maxRepairAttempts` (default: 2) to prevent infinite loops and runaway costs.
 
 ### 4. Model Fallback Cascades
-* Declares resilient fallback lists: `fallbackModels: [{ provider: 'openai', model: 'gpt-4o' }, { provider: 'gemini', model: 'gemini-2.0-flash' }]`.
-* If the primary model hits a `429 Too Many Requests`, `503 Service Unavailable`, or timeout, `@siglo/ai` switches immediately to the secondary provider, preserving workflow momentum.
+
+- Declares resilient fallback lists: `fallbackModels: [{ provider: 'openai', model: 'gpt-4o' }, { provider: 'gemini', model: 'gemini-2.0-flash' }]`.
+- If the primary model hits a `429 Too Many Requests`, `503 Service Unavailable`, or timeout, `@siglo/ai` switches immediately to the secondary provider, preserving workflow momentum.
 
 ### 5. Step-as-Tool Agentic Execution
-* Allows developers to wrap standard Siglo steps in typed tool descriptors into the AI step:
-  ```typescript
-  aiStep('researchAgent', {
-    model: { provider: 'openai', model: 'gpt-4o' },
-    prompt: 'Research the supplied topic.',
-    tools: [searchDatabaseTool, fetchWeatherTool], // defineAiTool descriptors
-    maxToolTurns: 5
-  })
-  ```
-* Tool calls execute within Siglo's step lifecycle, respecting timeouts, ASL network policies, and saga compensations.
+
+- Allows developers to wrap standard Siglo steps in typed tool descriptors into the AI step:
+    ```typescript
+    aiStep('researchAgent', {
+        model: { provider: 'openai', model: 'gpt-4o' },
+        prompt: 'Research the supplied topic.',
+        tools: [searchDatabaseTool, fetchWeatherTool], // defineAiTool descriptors
+        maxToolTurns: 5,
+    });
+    ```
+- Tool calls execute within Siglo's step lifecycle, respecting timeouts, ASL network policies, and saga compensations.
 
 ### 6. Observability & Token Cost Accounting
-* Conforms to **OpenTelemetry GenAI Semantic Conventions** (`gen_ai.provider.name`, legacy `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`).
-* Estimates baseline cost from a versioned token pricing snapshot and per-model overrides, recording metrics in `$steps.<name>.aiMetrics`.
+
+- Conforms to **OpenTelemetry GenAI Semantic Conventions** (`gen_ai.provider.name`, legacy `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`).
+- Estimates baseline cost from a versioned token pricing snapshot and per-model overrides, recording metrics in `$steps.<name>.aiMetrics`.
 
 ---
 
@@ -196,12 +202,11 @@ import type { StandardSchemaV1 } from '@siglo/http';
 
 // An example configuration contract; no provider call is made by this object.
 const options: AiStepOptions = {
-  model: { provider: 'anthropic', model: 'your-claude-model', requestTimeoutMs: 15_000 },
-  fallbackModels: [{ provider: 'openai', model: 'your-openai-model', requestTimeoutMs: 10_000 }],
-  prompt: 'Summarize the supplied document.'
+    model: { provider: 'anthropic', model: 'your-claude-model', requestTimeoutMs: 15_000 },
+    fallbackModels: [{ provider: 'openai', model: 'your-openai-model', requestTimeoutMs: 10_000 }],
+    prompt: 'Summarize the supplied document.',
 };
-type StructuredResult<S extends StandardSchemaV1> =
-  AiStepResult<StandardSchemaV1.InferOutput<S>>;
+type StructuredResult<S extends StandardSchemaV1> = AiStepResult<StandardSchemaV1.InferOutput<S>>;
 ```
 
 ---
@@ -217,49 +222,50 @@ import { z } from 'zod';
 
 // Standard Schema definition
 const RiskAssessmentSchema = z.object({
-  riskLevel: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  confidenceScore: z.number().min(0).max(1),
-  flaggedItems: z.array(z.string()),
-  recommendedAction: z.enum(['APPROVE', 'MANUAL_REVIEW', 'DECLINE']),
-  reasoning: z.string()
+    riskLevel: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+    confidenceScore: z.number().min(0).max(1),
+    flaggedItems: z.array(z.string()),
+    recommendedAction: z.enum(['APPROVE', 'MANUAL_REVIEW', 'DECLINE']),
+    reasoning: z.string(),
 });
 
 interface LoanApplicationContext {
-  applicantId: string;
-  applicantName: string;
-  creditScore: number;
-  loanAmount: number;
-  debtToIncomeRatio: number;
+    applicantId: string;
+    applicantName: string;
+    creditScore: number;
+    loanAmount: number;
+    debtToIncomeRatio: number;
 }
 
 export const assessLoanApplication = aiStep('assessLoan', {
-  model: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
-  fallbackModels: [
-    { provider: 'openai', model: 'gpt-4o' },
-    { provider: 'gemini', model: 'gemini-2.0-flash' }
-  ],
-  temperature: 0.1,
-  schema: RiskAssessmentSchema,
-  jsonSchema: z.toJSONSchema(RiskAssessmentSchema), // Zod 4; explicit conversion
-  maxRepairAttempts: 2,
-  prompt: (ctx: LoanApplicationContext) => [
-    {
-      role: 'system',
-      content: 'You are an expert underwriter. Analyze financial applications strictly against standard credit risk guidelines.'
-    },
-    {
-      role: 'user',
-      content: `Applicant: ${ctx.applicantName} (ID: ${ctx.applicantId})\nCredit Score: ${ctx.creditScore}\nRequested: $${ctx.loanAmount}\nDTI: ${ctx.debtToIncomeRatio}%`
-    }
-  ]
+    model: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+    fallbackModels: [
+        { provider: 'openai', model: 'gpt-4o' },
+        { provider: 'gemini', model: 'gemini-2.0-flash' },
+    ],
+    temperature: 0.1,
+    schema: RiskAssessmentSchema,
+    jsonSchema: z.toJSONSchema(RiskAssessmentSchema), // Zod 4; explicit conversion
+    maxRepairAttempts: 2,
+    prompt: (ctx: LoanApplicationContext) => [
+        {
+            role: 'system',
+            content:
+                'You are an expert underwriter. Analyze financial applications strictly against standard credit risk guidelines.',
+        },
+        {
+            role: 'user',
+            content: `Applicant: ${ctx.applicantName} (ID: ${ctx.applicantId})\nCredit Score: ${ctx.creditScore}\nRequested: $${ctx.loanAmount}\nDTI: ${ctx.debtToIncomeRatio}%`,
+        },
+    ],
 });
 
 // Composed into a durable workflow:
 export const loanPipeline = flow(
-  fetchCreditReportStep,
-  assessLoanApplication,
-  // TypeScript guarantees ctx.data.riskLevel and ctx.data.recommendedAction are available!
-  dispatchDecisionStep
+    fetchCreditReportStep,
+    assessLoanApplication,
+    // TypeScript guarantees ctx.data.riskLevel and ctx.data.recommendedAction are available!
+    dispatchDecisionStep,
 );
 ```
 
@@ -273,26 +279,34 @@ import { queryDatabaseStep, calculateMortgageStep } from './steps';
 const querySchema = z.object({ customerId: z.string() });
 const mortgageSchema = z.object({ principal: z.number(), annualRate: z.number(), months: z.number() });
 const queryDatabaseTool = defineAiTool({
-  name: 'queryDatabase', description: 'Look up a customer portfolio',
-  step: queryDatabaseStep, inputSchema: querySchema, jsonSchema: z.toJSONSchema(querySchema),
-  mapInput: (args) => args
+    name: 'queryDatabase',
+    description: 'Look up a customer portfolio',
+    step: queryDatabaseStep,
+    inputSchema: querySchema,
+    jsonSchema: z.toJSONSchema(querySchema),
+    mapInput: args => args,
 });
 const calculateMortgageTool = defineAiTool({
-  name: 'calculateMortgage', description: 'Calculate mortgage payments',
-  step: calculateMortgageStep, inputSchema: mortgageSchema, jsonSchema: z.toJSONSchema(mortgageSchema),
-  mapInput: (args) => args
+    name: 'calculateMortgage',
+    description: 'Calculate mortgage payments',
+    step: calculateMortgageStep,
+    inputSchema: mortgageSchema,
+    jsonSchema: z.toJSONSchema(mortgageSchema),
+    mapInput: args => args,
 });
 const advisorySchema = z.object({
-  summary: z.string(), estimatedMonthlyPayment: z.number(), suggestedProducts: z.array(z.string())
+    summary: z.string(),
+    estimatedMonthlyPayment: z.number(),
+    suggestedProducts: z.array(z.string()),
 });
 
 export const agenticAdvisoryStep = aiStep('financialAdvisor', {
-  model: { provider: 'openai', model: 'gpt-4o' },
-  prompt: 'Provide personalized mortgage advice based on client portfolio.',
-  tools: [queryDatabaseTool, calculateMortgageTool],
-  maxToolTurns: 4,
-  schema: advisorySchema,
-  jsonSchema: z.toJSONSchema(advisorySchema)
+    model: { provider: 'openai', model: 'gpt-4o' },
+    prompt: 'Provide personalized mortgage advice based on client portfolio.',
+    tools: [queryDatabaseTool, calculateMortgageTool],
+    maxToolTurns: 4,
+    schema: advisorySchema,
+    jsonSchema: z.toJSONSchema(advisorySchema),
 });
 ```
 
@@ -301,17 +315,17 @@ export const agenticAdvisoryStep = aiStep('financialAdvisor', {
 ## 6. Testing Strategy & Zero-Network Verification
 
 1. **Deterministic Offline Replay (`MockAiProvider`)**:
-   * Uses `@siglo/ai/testing`'s `MockAiProvider` to record and replay exact model responses without making external API calls.
-   * Completely integrated with `@siglo/testing`'s `WorkflowHarness`.
+    - Uses `@siglo/ai/testing`'s `MockAiProvider` to record and replay exact model responses without making external API calls.
+    - Completely integrated with `@siglo/testing`'s `WorkflowHarness`.
 2. **Schema Repair Simulation**:
-   * Configures `MockAiProvider` to emit malformed JSON on attempt 1 and compliant JSON on attempt 2.
-   * Asserts that `repairAttempts === 1` and that final step output satisfies the schema.
+    - Configures `MockAiProvider` to emit malformed JSON on attempt 1 and compliant JSON on attempt 2.
+    - Asserts that `repairAttempts === 1` and that final step output satisfies the schema.
 3. **Fallback Cascade Verification**:
-   * Simulates a `429 Rate Limit` on the primary model (Anthropic).
-   * Asserts seamless failover to the secondary model (OpenAI) with `fallbackCount === 1`.
+    - Simulates a `429 Rate Limit` on the primary model (Anthropic).
+    - Asserts seamless failover to the secondary model (OpenAI) with `fallbackCount === 1`.
 4. **ASL Network Perimeter Egress Assertion**:
-   * Asserts that custom base URLs (e.g. `http://malicious-host.com/v1`) are blocked by `NetworkPolicyViolationException` in the `BEFORE` phase.
-   * Asserts localhost protection (`allowLocalhost: false`) prevents SSRF against internal services.
+    - Asserts that custom base URLs (e.g. `http://malicious-host.com/v1`) are blocked by `NetworkPolicyViolationException` in the `BEFORE` phase.
+    - Asserts localhost protection (`allowLocalhost: false`) prevents SSRF against internal services.
 
 ---
 
@@ -319,10 +333,10 @@ export const agenticAdvisoryStep = aiStep('financialAdvisor', {
 
 - [x] Monorepo package directory setup and prerequisite helpers: `packages/ai`.
 - [x] Provider adapters:
-  - [x] Anthropic (Messages API, Claude 3.5/3.7 Sonnet).
-  - [x] OpenAI (Chat Completions & native JSON Schema Structured Outputs).
-  - [x] Google Gemini (Generate Content API with responseJsonSchema).
-  - [x] Generic OpenAI-compatible adapter (Ollama, vLLM).
+    - [x] Anthropic (Messages API, Claude 3.5/3.7 Sonnet).
+    - [x] OpenAI (Chat Completions & native JSON Schema Structured Outputs).
+    - [x] Google Gemini (Generate Content API with responseJsonSchema).
+    - [x] Generic OpenAI-compatible adapter (Ollama, vLLM).
 - [x] Standard Schema V1 (`~standard`) output extractor with full TypeScript inference.
 - [x] Self-healing repair loop algorithm with error prompt synthesis.
 - [x] Model fallback cascade engine (`429`, `5xx`, and timeout failover).
@@ -331,7 +345,6 @@ export const agenticAdvisoryStep = aiStep('financialAdvisor', {
 - [x] OpenTelemetry GenAI Semantic Convention telemetry & token pricing module.
 - [x] Integration with `@siglo/core`'s `step.cache()` and ASL network policies.
 - [x] Deterministic mock provider in `@siglo/ai/testing` (100% lines/statements/functions; zero external network egress in AI tests).
-
 
 ## 8. Initial release boundaries
 

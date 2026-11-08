@@ -1,6 +1,6 @@
 ---
-title: "Notification Hardening & Recovery"
-description: "Production security, two-phase approval confirmation, authorization callbacks, durable recovery, and network egress defenses for @siglo/notifications."
+title: 'Notification Hardening & Recovery'
+description: 'Production security, two-phase approval confirmation, authorization callbacks, durable recovery, and network egress defenses for @siglo/notifications.'
 ---
 
 # Notification Approval Security & Recovery
@@ -54,26 +54,29 @@ const app = express();
 // Required: URL-encoded body parser for HTML form submissions
 app.use(express.urlencoded({ extended: false }));
 
-app.all('/approval', createNotificationExpressMiddleware({
-  workflow,
-  signingSecret: process.env.SIGLO_SIGNING_SECRET!,
-  responseFormat: 'html',
-  allowedOrigins: ['https://orchestrator.example.com'],
-  authorize: async (payload, req) => {
-    // 1. Authenticate request via session or SSO cookie
-    const user = req.user;
-    if (!user) return false;
+app.all(
+    '/approval',
+    createNotificationExpressMiddleware({
+        workflow,
+        signingSecret: process.env.SIGLO_SIGNING_SECRET!,
+        responseFormat: 'html',
+        allowedOrigins: ['https://orchestrator.example.com'],
+        authorize: async (payload, req) => {
+            // 1. Authenticate request via session or SSO cookie
+            const user = req.user;
+            if (!user) return false;
 
-    // 2. Validate pending request against application database
-    const pending = await approvals.findByCorrelationKey(payload.correlationKey);
-    if (!pending || pending.stackId !== payload.stackId) return false;
+            // 2. Validate pending request against application database
+            const pending = await approvals.findByCorrelationKey(payload.correlationKey);
+            if (!pending || pending.stackId !== payload.stackId) return false;
 
-    // 3. Verify user is authorized approver & validate CSRF
-    const isApprover = pending.approverId === user.id || user.roles.includes('admin');
-    const csrfValid = await csrf.isValid(req);
-    return isApprover && csrfValid;
-  }
-}));
+            // 3. Verify user is authorized approver & validate CSRF
+            const isApprover = pending.approverId === user.id || user.roles.includes('admin');
+            const csrfValid = await csrf.isValid(req);
+            return isApprover && csrfValid;
+        },
+    }),
+);
 ```
 
 > [!IMPORTANT]
@@ -93,15 +96,15 @@ import { Pool } from 'pg';
 import { useStorage } from '@siglo/core';
 import { PostgresStorageAdapter } from '@siglo/postgres';
 import {
-  PostgresApprovalRevocationStore,
-  configureApprovalRevocationStore,
-  PostgresNotificationDispatchStore,
-  configureNotificationDispatchStore
+    PostgresApprovalRevocationStore,
+    configureApprovalRevocationStore,
+    PostgresNotificationDispatchStore,
+    configureNotificationDispatchStore,
 } from '@siglo/notifications';
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20
+    connectionString: process.env.DATABASE_URL,
+    max: 20,
 });
 
 // 1. Primary Durable Storage Adapter
@@ -131,18 +134,22 @@ configureNotificationDispatchStore(dispatches);
 ## 3. Durable Acceptance, Concurrency & Cancellation
 
 ### Lock Partitioning
+
 - **Approval callbacks and token revocations** coordinate via a per-correlation-key PostgreSQL session advisory lock (`withApprovalLock`).
 - **Continuation step execution and compensation sagas** coordinate via a per-stack PostgreSQL advisory lock (`withWorkflowLock`).
 
 These are session advisory locks, not time-based leases with expiration hazards. Conflicting callers receive an immediate conflict error (`409 Conflict`) and should retry with exponential backoff.
 
 ### Atomic State Transitions
+
 1. **Claim Phase**: An incoming approval atomically transitions the wait record from `WAITING` &rarr; `RESUMING` and persists the accepted event into `resume_payload`.
 2. **Commit Phase**: The transition from `RESUMING` &rarr; `RESUMED` only commits after continuation steps and execution checkpoints settle.
 3. **Worker Crash Recovery**: If a worker crashes midway through executing continuation steps, the record remains in `RESUMING` state with the original `resume_payload` intact. The `@siglo/scheduler` poller detects the record and re-executes the resumption safely after acquiring the stack lock.
 
 ### Saga Cancellation
+
 When a parent workflow fails or is cancelled:
+
 - Compensation marks pending durable waits and execution checkpoints as `CANCELLED` before invoking LIFO rollback handlers.
 - `cancelNotification` revokes the approval token in `PostgresApprovalRevocationStore` before updating external channels (e.g. updating a Slack message to "Workflow Cancelled").
 - Once cancelled, subsequent approval clicks are rejected with HTTP 409 even if late network packets arrive.
@@ -162,6 +169,7 @@ When a parent workflow fails or is cancelled:
 ## 5. Network Egress Security Perimeter
 
 Built-in transports enforce Siglo's AsyncLocalStorage (ASL) network egress perimeter:
+
 - **Strict DNS Preflight**: The socket's DNS lookup resolves and validates target IP addresses before establishing TCP/TLS connections. Private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopback (`127.0.0.0/8`), link-local/cloud metadata (`169.254.169.254`), and multicast ranges are rejected immediately.
 - **TLS Certificate Verification & SNI**: Standard SNI and certificate authority chains are enforced; insecure HTTP and unverified TLS are denied.
 - **Redirect Denial**: HTTP redirects (`301`, `302`, `307`) are rejected to prevent open-redirect SSRF bypasses.

@@ -328,7 +328,7 @@ describe('Webhook Verification Step (verifyWebhookStep)', () => {
                 }),
             );
 
-            const result = await pipeline.execute({
+            const result = await pipeline.run({
                 rawBody,
                 headers: { 'stripe-signature': `t=${now},v1=${sig}` },
             });

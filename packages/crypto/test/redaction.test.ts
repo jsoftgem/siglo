@@ -86,7 +86,7 @@ describe('Context Redaction & Masking (maskFieldsStep)', () => {
             }),
         );
 
-        const result = await pipeline.execute({
+        const result = await pipeline.run({
             account: 'acc_555',
             ssn: '987-65-4321',
         });

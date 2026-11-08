@@ -30,7 +30,7 @@ export async function runIdempotencyCharter(iterations: number = 20, seed: numbe
         const promises: Promise<any>[] = [];
 
         for (let j = 0; j < stampedeSize; j++) {
-            promises.push(paymentFlow.execute({ idempotencyKey: key, callerId: j }, { pojo: true }));
+            promises.push(paymentFlow.run({ idempotencyKey: key, callerId: j }, { pojo: true }));
         }
 
         const results = await Promise.allSettled(promises);
@@ -48,7 +48,7 @@ export async function runIdempotencyCharter(iterations: number = 20, seed: numbe
         // 3. Test TTL expiration
         await new Promise(r => setTimeout(r, ttlMs + 15));
         try {
-            await paymentFlow.execute({ idempotencyKey: key }, { pojo: true });
+            await paymentFlow.run({ idempotencyKey: key }, { pojo: true });
             if (actualExecutionCount !== 2) {
                 errors.push(
                     `Iteration ${i}: TTL expiration failure! Expected actualExecutionCount to be 2 after TTL expiry, but got ${actualExecutionCount}.`,

@@ -480,7 +480,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             });
 
             try {
-                await workflow.execute({ field: 'data' });
+                await workflow.run({ field: 'data' });
                 expect.fail('Should have failed flow-level network egress check in spec');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(NetworkPolicyViolationException);

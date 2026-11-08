@@ -1,6 +1,6 @@
 ---
-title: "Scheduler & Durable Resumption"
-description: "Background timer polling, PostgreSQL advisory session locking, and cloud webhook dispatchers for resuming durable Siglo workflows."
+title: 'Scheduler & Durable Resumption'
+description: 'Background timer polling, PostgreSQL advisory session locking, and cloud webhook dispatchers for resuming durable Siglo workflows.'
 ---
 
 # @siglo/scheduler Adapter Guide
@@ -52,6 +52,7 @@ npm install --save-dev @types/pg
 ```
 
 Peer dependencies:
+
 - `@siglo/core`: `^1.0.0`
 - `@siglo/postgres`: `^1.0.0` (for `PostgresWaitPoller`)
 - `pg`: `^8.0.0` (or compatible PostgreSQL client with a `.query()` method)
@@ -85,7 +86,7 @@ CREATE TABLE IF NOT EXISTS siglo_wait_records (
 );
 
 -- Crucial composite index for high-throughput polling
-CREATE INDEX IF NOT EXISTS idx_siglo_wait_records_due 
+CREATE INDEX IF NOT EXISTS idx_siglo_wait_records_due
     ON siglo_wait_records(status, expires_at);
 ```
 
@@ -123,15 +124,15 @@ const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
 // 1. Maintain a registry of known workflow definitions
 const workflowRegistry = new Map<string, any>([
     ['order-processing', orderProcessingFlow],
-    ['onboarding', onboardingFlow]
+    ['onboarding', onboardingFlow],
 ]);
 
 // 2. Initialize the poller daemon
 const poller = new PostgresWaitPoller({
     client: pgPool,
     waitRecordsTable: 'siglo_wait_records',
-    pollIntervalMs: 1000,   // Poll every 1 second
-    batchSize: 50,          // Claim up to 50 due records per batch
+    pollIntervalMs: 1000, // Poll every 1 second
+    batchSize: 50, // Claim up to 50 due records per batch
     workerId: `worker-${process.env.HOSTNAME || process.pid}`,
     flowLookup: (workflowId, stackId) => {
         // Resolve workflow by ID, or fallback based on stack prefix
@@ -146,7 +147,7 @@ const poller = new PostgresWaitPoller({
     },
     onFailed: async (record, error) => {
         console.error(`[Scheduler] Failed to resume stack ${record.stackId}:`, error.message);
-    }
+    },
 });
 
 // 3. Ensure tables exist and start polling
@@ -175,7 +176,7 @@ import { myFlow } from './flow';
 const poller = new MemoryWaitPoller({
     pollIntervalMs: 500,
     flowLookup: () => myFlow,
-    onResumed: (rec) => console.log('In-memory timer elapsed:', rec.correlationKey)
+    onResumed: rec => console.log('In-memory timer elapsed:', rec.correlationKey),
 });
 
 poller.start();
@@ -207,7 +208,7 @@ const webhookHandler = createSchedulerWebhookHandler({
     flowLookup: (workflowId, stackId) => orderFlow,
     onResumed: async (stackId, result) => {
         console.log(`Cloud dispatcher resumed workflow ${stackId}`);
-    }
+    },
 });
 
 const server = http.createServer(webhookHandler);
@@ -222,25 +223,25 @@ The dispatcher expects a `POST` request with JSON body:
 
 ```json
 {
-  "stackId": "stack-order-12345",
-  "workflowId": "order-processing",
-  "payload": {
-    "type": "timer:expired",
-    "timestamp": 1730598000000
-  }
+    "stackId": "stack-order-12345",
+    "workflowId": "order-processing",
+    "payload": {
+        "type": "timer:expired",
+        "timestamp": 1730598000000
+    }
 }
 ```
 
 #### HTTP Response Codes
 
-| Status Code | Description |
-|---|---|
-| `200 OK` | Workflow was located, claimed, and resumed successfully. Returns `{"ok": true, "stackId": "..."}`. |
-| `400 Bad Request` | Missing required `stackId` or invalid JSON body. |
-| `401 Unauthorized` | Missing or invalid authentication token. |
-| `404 Not Found` | `flowLookup` returned `undefined` for the provided workflow or stack identifier. |
-| `405 Method Not Allowed` | Incoming request method is not `POST`. |
-| `500 Internal Server Error` | Workflow step execution threw an unhandled error during resumption. |
+| Status Code                 | Description                                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `200 OK`                    | Workflow was located, claimed, and resumed successfully. Returns `{"ok": true, "stackId": "..."}`. |
+| `400 Bad Request`           | Missing required `stackId` or invalid JSON body.                                                   |
+| `401 Unauthorized`          | Missing or invalid authentication token.                                                           |
+| `404 Not Found`             | `flowLookup` returned `undefined` for the provided workflow or stack identifier.                   |
+| `405 Method Not Allowed`    | Incoming request method is not `POST`.                                                             |
+| `500 Internal Server Error` | Workflow step execution threw an unhandled error during resumption.                                |
 
 ---
 
@@ -260,6 +261,7 @@ The dispatcher expects a `POST` request with JSON body:
 ## 8. API Reference
 
 ### `PostgresWaitPoller`
+
 - `constructor(options: PostgresPollerOptions)`
 - `ensureTable(): Promise<void>`
 - `pollOnce(): Promise<PollerReport>`
@@ -268,6 +270,7 @@ The dispatcher expects a `POST` request with JSON body:
 - `isRunning(): boolean`
 
 ### `MemoryWaitPoller`
+
 - `constructor(options: MemoryPollerOptions)`
 - `pollOnce(): Promise<PollerReport>`
 - `start(): void`
@@ -275,4 +278,5 @@ The dispatcher expects a `POST` request with JSON body:
 - `isRunning(): boolean`
 
 ### `createSchedulerWebhookHandler`
+
 - `createSchedulerWebhookHandler(options: CloudSchedulerWebhookOptions): WebhookHandler`

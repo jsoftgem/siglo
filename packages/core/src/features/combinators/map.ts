@@ -69,7 +69,7 @@ function executeItem(
     } else if (processItem && isFunction(processItem.start)) {
         p = processItem.start(input, branchOptions);
     } else {
-        p = flow(processItem).execute(input, branchOptions);
+        p = flow(processItem).run(input, branchOptions);
     }
     return p.then(cleanStepOutput);
 }

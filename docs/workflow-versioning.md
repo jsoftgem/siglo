@@ -1,6 +1,6 @@
 ---
-title: "Workflow Versioning and State Migrations"
-description: "Semantic version tagging on flows, compatibility validation during resumption, state migration functions, and deployment best practices in Siglo."
+title: 'Workflow Versioning and State Migrations'
+description: 'Semantic version tagging on flows, compatibility validation during resumption, state migration functions, and deployment best practices in Siglo.'
 ---
 
 # Workflow Versioning and State Migrations
@@ -19,9 +19,9 @@ Assign semantic version identifiers to flows using `.version()` or execution opt
 import { flow, Step, waitForEvent } from '@siglo/core';
 
 const invoiceWorkflow = flow(
-  generateInvoice,
-  waitForEvent('invoice.paid', { correlationKey: (ctx) => ctx.invoiceId }),
-  sendReceipt
+    generateInvoice,
+    waitForEvent('invoice.paid', { correlationKey: ctx => ctx.invoiceId }),
+    sendReceipt,
 ).version('2.1.0');
 ```
 
@@ -40,11 +40,11 @@ When resuming a workflow, `resumeWorkflow` compares the target workflow version 
 import { WorkflowVersionMismatchException } from '@siglo/core';
 
 try {
-  await v2Workflow.resume('invoice:inv-123', eventData);
+    await v2Workflow.resume('invoice:inv-123', eventData);
 } catch (err) {
-  if (err instanceof WorkflowVersionMismatchException) {
-    console.error(`Expected version ${err.expectedVersion}, but found checkpoint version ${err.actualVersion}`);
-  }
+    if (err instanceof WorkflowVersionMismatchException) {
+        console.error(`Expected version ${err.expectedVersion}, but found checkpoint version ${err.actualVersion}`);
+    }
 }
 ```
 
@@ -55,43 +55,47 @@ try {
 To upgrade suspended workflows across code versions, supply migration mappings to `flow.resume()` or `resumeWorkflow()`:
 
 ### A. Version Transition Map (`migrations: Record<string, MigrationFn>`)
+
 Target specific version jumps using the `'<actualVersion>-><expectedVersion>'` key syntax:
 
 ```typescript
 const result = await v2Workflow.resume('invoice:inv-123', eventData, {
-  targetVersion: '2.0.0',
-  migrations: {
-    // Migration function signature: (actualVersion, expectedVersion, oldState)
-    '1.0.0->2.0.0': (actualVersion, expectedVersion, oldState) => {
-      return {
-        ...oldState,
-        customer: {
-          id: oldState.customerId,
-          name: oldState.customerName
-        }
-      };
-    }
-  }
+    targetVersion: '2.0.0',
+    migrations: {
+        // Migration function signature: (actualVersion, expectedVersion, oldState)
+        '1.0.0->2.0.0': (actualVersion, expectedVersion, oldState) => {
+            return {
+                ...oldState,
+                customer: {
+                    id: oldState.customerId,
+                    name: oldState.customerName,
+                },
+            };
+        },
+    },
 });
 ```
 
 ### B. Unified Migration Function
+
 Alternatively, provide a single function that handles multiple version transitions programmatically:
 
 ```typescript
 const result = await v2Workflow.resume('invoice:inv-123', eventData, {
-  targetVersion: '2.0.0',
-  migrations: (actualVersion, expectedVersion, state) => {
-    if (actualVersion === '1.0.0' && expectedVersion === '2.0.0') {
-      return { ...state, schemaVersion: 2, email: state.userEmail };
-    }
-    return state;
-  }
+    targetVersion: '2.0.0',
+    migrations: (actualVersion, expectedVersion, state) => {
+        if (actualVersion === '1.0.0' && expectedVersion === '2.0.0') {
+            return { ...state, schemaVersion: 2, email: state.userEmail };
+        }
+        return state;
+    },
 });
 ```
 
 ### Checkpoint Storage Effect
+
 When a migration function successfully transforms state during resumption:
+
 1. The transformed context replaces the legacy snapshot.
 2. The storage checkpoint `revision` counter is monotonically incremented.
 3. The checkpoint's recorded `version` is updated to the `targetVersion`.
@@ -109,9 +113,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 test('migrates v1.0.0 state to v2.0.0 customer profile', () => {
-  const v1State = { customerId: 'c_1', customerName: 'Alice' };
-  const v2State = migrations['1.0.0->2.0.0']('1.0.0', '2.0.0', v1State);
+    const v1State = { customerId: 'c_1', customerName: 'Alice' };
+    const v2State = migrations['1.0.0->2.0.0']('1.0.0', '2.0.0', v1State);
 
-  assert.deepEqual(v2State.customer, { id: 'c_1', name: 'Alice' });
+    assert.deepEqual(v2State.customer, { id: 'c_1', name: 'Alice' });
 });
 ```

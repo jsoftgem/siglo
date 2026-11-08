@@ -1,6 +1,6 @@
 ---
-title: "Production Operations"
-description: "Runbook and operational best practices for Siglo in mission-critical environments: zero-daemon topologies, PostgreSQL OCC, distributed locking, and graceful container shutdown."
+title: 'Production Operations'
+description: 'Runbook and operational best practices for Siglo in mission-critical environments: zero-daemon topologies, PostgreSQL OCC, distributed locking, and graceful container shutdown.'
 ---
 
 # Production Operations
@@ -15,12 +15,14 @@ This runbook covers operational best practices, capacity planning, distributed c
 ## 1. Zero-Daemon Architecture vs Worker Clusters
 
 `Siglo` does not mandate external central orchestration servers or daemons (like Temporal or Camunda). It operates as an embedded in-process execution engine that runs within your existing:
+
 - Node.js API servers (Express, Fastify, Hono, NestJS)
 - Background queue workers (BullMQ, AWS SQS)
 - Stream consumers (Apache Kafka, RabbitMQ)
 - Serverless / Edge functions (AWS Lambda, Google Cloud Run, Cloudflare Workers with Node.js compatibility enabled)
 
 ### When to Run In-Process vs Dedicated Workers
+
 - **Synchronous Low-Latency APIs (< 5s)**: Execute workflows directly inside your HTTP route handlers using `@siglo/fastify` or `@siglo/express`.
 - **Long-Running & Background Workflows (> 5s)**: Ingest requests into a queue (BullMQ or SQS) and execute workflows within dedicated worker container pools.
 
@@ -49,10 +51,9 @@ const pgStore = new PostgresIdempotencyStore({ client: pgPool });
 
 export const idempotentBillingStep = Step.create('billCustomer', async (param: { invoiceId: string }) => {
     return await stripe.invoices.pay(param.invoiceId);
-})
-.idempotent((ctx) => ctx.invoiceId, {
+}).idempotent(ctx => ctx.invoiceId, {
     store: pgStore,
-    ttlMs: 86400000 // 24 hours
+    ttlMs: 86400000, // 24 hours
 });
 ```
 
@@ -61,6 +62,7 @@ export const idempotentBillingStep = Step.create('billCustomer', async (param: {
 ## 4. Connection Pooling and Resource Limits
 
 When running workflows with parallel fan-out (`parallel([...])`) or batch mapping (`map(...)`):
+
 - **Database Pools**: Set `max` pool connections to `(concurrency * workerInstances) + buffer`.
 - **Bounded Concurrency**: Always specify `{ concurrency: N }` on `map()` steps to avoid exhausting memory or database sockets.
 - **Node.js Memory**: Set `--max-old-space-size=2048` or higher if batching large datasets in memory.
@@ -115,10 +117,14 @@ import { RedisLock } from '@siglo/redis';
 const lock = new RedisLock(redisClient);
 
 try {
-    await lock.withLock('lock:order:1001', async () => {
-        // Critical section: single-flight execution
-        await processOrder('1001');
-    }, { ttlMs: 5000, maxRetries: 3 });
+    await lock.withLock(
+        'lock:order:1001',
+        async () => {
+            // Critical section: single-flight execution
+            await processOrder('1001');
+        },
+        { ttlMs: 5000, maxRetries: 3 },
+    );
 } catch (err: any) {
     console.error('Could not acquire distributed lock:', err.message);
 }
@@ -133,9 +139,7 @@ import { expect } from 'chai';
 import { createWorkflowHarness, InMemoryStorageFake } from '@siglo/testing';
 import { Step, flow } from '@siglo/core';
 
-const auditWorkflow = flow(
-    Step.create('audit', () => ({ ok: true }))
-);
+const auditWorkflow = flow(Step.create('audit', () => ({ ok: true })));
 
 describe('Production Readiness Smoke Test', () => {
     it('executes cleanly with mock storage and returns status', async () => {

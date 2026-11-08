@@ -72,7 +72,7 @@ function executeBranchTarget(target: any, input: any, signal?: AbortSignal): Pro
     if (target && isFunction(target.start)) {
         return target.start(isolatedInput, branchOptions);
     }
-    return flow(target).execute(isolatedInput, branchOptions);
+    return flow(target).run(isolatedInput, branchOptions);
 }
 
 export function when(predicate: BranchPredicate, thenStep: any, elseStep?: any): Step<any, any> {

@@ -66,7 +66,8 @@ Notification factories require an explicit transport. For example:
 import { SlackTransport, ResendTransport } from '@siglo/notifications';
 const slack = new SlackTransport({ apiKey: process.env.SLACK_TOKEN! });
 const email = new ResendTransport({
-  apiKey: process.env.RESEND_API_KEY!, from: 'workflow@example.com',
+    apiKey: process.env.RESEND_API_KEY!,
+    from: 'workflow@example.com',
 });
 ```
 

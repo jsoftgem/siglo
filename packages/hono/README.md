@@ -28,12 +28,14 @@ npm install @siglo/core @siglo/hono hono
 ```
 
 Peer dependency matrix:
+
 - `Siglo`: `*` (v1.0.0+)
 - `hono`: `^3.0.0 || ^4.0.0`
 
 > [!IMPORTANT]
 > **Edge Runtime Compatibility (`nodejs_compat`)**:
 > `@siglo/core` relies on `node:async_hooks` (for context propagation and `networkPolicy` AsyncLocalStorage perimeter tracking) and `node:net` (for socket egress checks). When deploying to edge environments like Cloudflare Workers, ensure Node.js compatibility is enabled in `wrangler.toml`:
+>
 > ```toml
 > compatibility_flags = [ "nodejs_compat" ]
 > ```
@@ -49,7 +51,7 @@ Creates a Hono route handler or middleware `(c: Context, next?: Next) => Promise
 ```typescript
 function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloHonoMiddlewareOptions<TReq, TInput, TOutput>
+    options?: SigloHonoMiddlewareOptions<TReq, TInput, TOutput>,
 ): (c: any, next?: () => Promise<void>) => Promise<any>;
 ```
 
@@ -57,17 +59,17 @@ function sigloMiddleware<TInput = any, TOutput = any, TReq = any>(
 
 ## 4. Configuration Options (`SigloHonoMiddlewareOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `input` | `(c: Context) => Promise<TInput> \| TInput` | `await c.req.json()` or `c.req.query()` | Custom parameter extraction from Hono context. |
-| `output` | `(result: TOutput, c: Context) => Promise<any> \| any` | `c.json(result)` | Custom responder formatting the HTTP response body and status code. |
-| `timeout` | `number` | `undefined` | SLA execution timeout in milliseconds. |
-| `durable` | `boolean \| ((c: TReq) => boolean)` | `undefined` | Enables durable suspension, either for every request or through a request-specific resolver. |
-| `namespace` | `string \| ((c: Context) => string \| undefined)` | `undefined` | Namespace identifier or extractor function for tenant partitioning. |
-| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
-| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
-| `onError` | `(err: any, c: Context) => Promise<any> \| any` | Default JSON error response | Custom exception handler. If omitted, maps status codes and returns sanitized `{ error: message }`. |
-| `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name for correlation tracking. |
+| Option                 | Type                                                   | Default                                 | Description                                                                                                                              |
+| :--------------------- | :----------------------------------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `input`                | `(c: Context) => Promise<TInput> \| TInput`            | `await c.req.json()` or `c.req.query()` | Custom parameter extraction from Hono context.                                                                                           |
+| `output`               | `(result: TOutput, c: Context) => Promise<any> \| any` | `c.json(result)`                        | Custom responder formatting the HTTP response body and status code.                                                                      |
+| `timeout`              | `number`                                               | `undefined`                             | SLA execution timeout in milliseconds.                                                                                                   |
+| `durable`              | `boolean \| ((c: TReq) => boolean)`                    | `undefined`                             | Enables durable suspension, either for every request or through a request-specific resolver.                                             |
+| `namespace`            | `string \| ((c: Context) => string \| undefined)`      | `undefined`                             | Namespace identifier or extractor function for tenant partitioning.                                                                      |
+| `allowHeaderNamespace` | `boolean`                                              | `false`                                 | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted.    |
+| `exposeErrorDetails`   | `boolean`                                              | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError`              | `(err: any, c: Context) => Promise<any> \| any`        | Default JSON error response             | Custom exception handler. If omitted, maps status codes and returns sanitized `{ error: message }`.                                      |
+| `correlationIdHeader`  | `string`                                               | `'x-correlation-id'`                    | Header name for correlation tracking.                                                                                                    |
 
 Without a custom `output` callback, a workflow result with `status: 'waiting'` returns **202 Accepted** with the suspension descriptor as JSON. Completed workflows use the normal **200 OK** response. Suspension is a successful result and does not invoke `onError`. A custom `output` callback controls both the response body and status.
 
@@ -80,7 +82,7 @@ In modern edge runtimes (Cloudflare Workers, Bun, Deno), clients closing the con
 `@siglo/hono` passes this signal directly to `ExecutionOptions.signal`. Within workflow steps, access the cancellation signal via `param.$signal?.()`:
 
 ```typescript
-const fetchExchangeRates = Step.create(async (param) => {
+const fetchExchangeRates = Step.create(async param => {
     const signal = param.$signal?.(); // Combined step timeout & request abort signal
     const response = await fetch('https://api.fx.internal/rates', { signal });
     return await response.json();
@@ -105,7 +107,7 @@ const geoLookup = Step.create('geoLookup', async (param: any) => {
 });
 
 const rateCalculation = Step.create('rateCalculation', async (param: any) => {
-    return { taxRate: param.country === 'US' ? 0.08 : 0.20 };
+    return { taxRate: param.country === 'US' ? 0.08 : 0.2 };
 });
 
 const edgeFlow = flow(geoLookup, rateCalculation);
@@ -113,7 +115,7 @@ const edgeFlow = flow(geoLookup, rateCalculation);
 app.post(
     '/api/calculate-tax',
     sigloMiddleware(edgeFlow, {
-        input: async (c) => {
+        input: async c => {
             const body = await c.req.json();
             return {
                 ...body,
@@ -121,7 +123,7 @@ app.post(
             };
         },
         output: (result, c) => c.json({ result }, 200),
-    })
+    }),
 );
 
 export default app;
@@ -143,13 +145,13 @@ const echoWorkflow = flow(
     Step.create('echo', async (input: any) => ({
         echoed: input,
         timestamp: Date.now(),
-    }))
+    })),
 );
 
 app.post('/api/echo', sigloMiddleware(echoWorkflow));
 
 // For Node.js:
-serve(app, (info) => {
+serve(app, info => {
     console.log(`Hono server listening on http://localhost:${info.port}`);
 });
 ```
@@ -173,17 +175,17 @@ app.post(
             }
             return c.json({ error: err.message }, 500);
         },
-    })
+    }),
 );
 ```
 
 Default HTTP status mappings:
+
 - `StepTimeoutException` / `FlowTimeoutException`: `504 Gateway Timeout`
 - `ValidationException` / `SpecFailedException`: `400 Bad Request`
 - `IdempotencyConflictException`: `409 Conflict`
 - `CancellationException` / `AbortError`: `499 Client Closed Request`
 - Unhandled `Error`: `500 Internal Server Error` (sanitized in production)
-
 
 ---
 
@@ -201,17 +203,20 @@ const app = new Hono();
 const approvalWorkflow = flow(
     waitForEvent('order.approved', {
         correlationKey: (input: { orderId: string }) => `order:${input.orderId}`,
-        timeout: '24h'
+        timeout: '24h',
     }),
-    Step.create('confirmOrder', () => ({ status: 'confirmed' }))
+    Step.create('confirmOrder', () => ({ status: 'confirmed' })),
 );
 
 // POST JSON: { "orderId": "order-5001" }
 // Returns 202 with status: 'waiting'; no output callback is required.
-app.post('/api/orders', sigloMiddleware(approvalWorkflow, {
-    durable: true,
-    namespace: 'orders'
-}));
+app.post(
+    '/api/orders',
+    sigloMiddleware(approvalWorkflow, {
+        durable: true,
+        namespace: 'orders',
+    }),
+);
 
 // In a separate approval webhook handler, resume the existing execution:
 // await resumeWorkflow(approvalWorkflow, 'order:order-5001', { approved: true });
@@ -221,11 +226,11 @@ The waiting JSON includes `status`, `stackId`, `stepId`, `correlationKey`, `even
 
 For request-specific control, replace `durable: true` with `durable: (c) => c.req.header('x-durable') === 'true'`. Headers, query parameters, and JSON fields do not automatically enable durable mode in this adapter. Explicit `durable: false` disables suspension; wait nodes then use their non-durable behavior.
 
-| Workflow outcome | Default HTTP response |
-| :--- | :--- |
-| Suspended at `waitForEvent()` or `wait()` | `202 Accepted` with the waiting descriptor |
-| Completed | `200 OK` with the clean workflow result |
-| Failed | Existing error-to-status mapping, or custom `onError` |
+| Workflow outcome                          | Default HTTP response                                 |
+| :---------------------------------------- | :---------------------------------------------------- |
+| Suspended at `waitForEvent()` or `wait()` | `202 Accepted` with the waiting descriptor            |
+| Completed                                 | `200 OK` with the clean workflow result               |
+| Failed                                    | Existing error-to-status mapping, or custom `onError` |
 
 A custom `output` callback takes full control of the response body and status, including for waiting results. If you supply one, handle `result.status === 'waiting'` explicitly when you want to preserve the `202` response.
 

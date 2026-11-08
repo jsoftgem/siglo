@@ -1,6 +1,6 @@
 ---
-title: "Storage & Persistence Utilities"
-description: "API reference for Siglo storage adapters and persistence utilities: useStorage, getStorageAdapter, checkpoints, OCC, serialization, and cleanExpiredCheckpoints."
+title: 'Storage & Persistence Utilities'
+description: 'API reference for Siglo storage adapters and persistence utilities: useStorage, getStorageAdapter, checkpoints, OCC, serialization, and cleanExpiredCheckpoints.'
 ---
 
 # API Reference: Storage & Persistence Utilities
@@ -13,18 +13,18 @@ The Storage & Persistence API in **Siglo** provides durable checkpointing, execu
 
 - [The `StorageAdapter` Interface](#the-storageadapter-interface)
 - [Adapter Management](#adapter-management)
-  - [`useStorage(adapter)`](#usestorageadapter)
-  - [`getStorageAdapter()`](#getstorageadapter)
-  - [`setErrorMode(mode)`](#seterrormodemode)
-  - [`getErrorMode()`](#geterrormode)
+    - [`useStorage(adapter)`](#usestorageadapter)
+    - [`getStorageAdapter()`](#getstorageadapter)
+    - [`setErrorMode(mode)`](#seterrormodemode)
+    - [`getErrorMode()`](#geterrormode)
 - [Checkpointing and Resumption](#checkpointing-and-resumption)
-  - [`checkpoint(stackId, options?)`](#checkpointstackid-options)
-  - [`getCheckpoint(stackId)`](#getcheckpointstackid)
-  - [`restoreCheckpoint(data, options?)`](#restorecheckpointdata-options)
-  - [`cleanExpiredCheckpoints()`](#cleanexpiredcheckpoints)
+    - [`checkpoint(stackId, options?)`](#checkpointstackid-options)
+    - [`getCheckpoint(stackId)`](#getcheckpointstackid)
+    - [`restoreCheckpoint(data, options?)`](#restorecheckpointdata-options)
+    - [`cleanExpiredCheckpoints()`](#cleanexpiredcheckpoints)
 - [Serialization and Hydration](#serialization-and-hydration)
-  - [`serializeState(stackId?)`](#serializestatestackid)
-  - [`hydrateState(serialized, options?)`](#hydratestateserialized-options)
+    - [`serializeState(stackId?)`](#serializestatestackid)
+    - [`hydrateState(serialized, options?)`](#hydratestateserialized-options)
 - [Checkpoint Schema v2.0.0](#checkpoint-schema-v200)
 - [Optimistic Concurrency Control (OCC)](#optimistic-concurrency-control-occ)
 - [Namespace Scoping and Partitioning](#namespace-scoping-and-partitioning)
@@ -50,7 +50,11 @@ export interface StorageAdapter {
     // 3. Durable Wait Persistence
     saveWaitRecord?(record: any): Promise<void> | void;
     getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
-    claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
+    claimWaitRecord?(
+        correlationKey: string,
+        claimantId?: string,
+        options?: { allowExpired?: boolean; eventPayload?: any },
+    ): Promise<any>;
     completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
     withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
     cancelWaitRecord?(correlationKey: string): Promise<void>;
@@ -88,7 +92,7 @@ import { Pool } from 'pg';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const postgresAdapter = new PostgresStorageAdapter({
-    client: pool
+    client: pool,
 });
 
 useStorage(postgresAdapter);
@@ -122,7 +126,7 @@ export function setErrorMode(mode: StorageErrorMode): void;
 
 #### Modes
 
-1. `'best-effort'` *(default)*: Catches storage errors silently; execution continues without interrupting the running workflow.
+1. `'best-effort'` _(default)_: Catches storage errors silently; execution continues without interrupting the running workflow.
 2. `'warn'`: Logs warnings to `console.warn` when a storage operation fails, but allows workflow execution to continue.
 3. `'strict'`: Rejects unhandled storage promises and throws `StorageAdapterException` when `StorageManager.saveCheckpoint` is awaited. Note that inline `checkpoint()` calls capture snapshots synchronously and attach background rejection handlers; distinguish synchronous snapshot capture from awaited checkpoint persistence before assuming fail-closed execution.
 
@@ -169,10 +173,7 @@ export interface CheckpointOptions {
     expectedRevision?: number; // For OCC validation
 }
 
-export function checkpoint(
-    stackId: string,
-    options?: CheckpointOptions
-): SerializedExecutionStack;
+export function checkpoint(stackId: string, options?: CheckpointOptions): SerializedExecutionStack;
 ```
 
 #### Throws
@@ -189,9 +190,7 @@ Retrieves the serialized checkpoint snapshot for a given execution stack ID from
 #### Signature
 
 ```typescript
-export function getCheckpoint(
-    stackId: string
-): Promise<SerializedExecutionStack | undefined>;
+export function getCheckpoint(stackId: string): Promise<SerializedExecutionStack | undefined>;
 ```
 
 #### Example
@@ -216,7 +215,7 @@ Restores an execution stack and all step contexts into active memory from a seri
 ```typescript
 export function restoreCheckpoint(
     checkpointData: SerializedExecutionStack,
-    options?: { expectedNamespace?: string; expectedWorkflowId?: string }
+    options?: { expectedNamespace?: string; expectedWorkflowId?: string },
 ): string;
 ```
 
@@ -243,10 +242,13 @@ export function cleanExpiredCheckpoints(): number;
 import { cleanExpiredCheckpoints } from '@siglo/core';
 
 // Scheduled cron job running every hour
-setInterval(() => {
-    const pruned = cleanExpiredCheckpoints();
-    console.log(`Pruned ${pruned} expired checkpoints.`);
-}, 60 * 60 * 1000);
+setInterval(
+    () => {
+        const pruned = cleanExpiredCheckpoints();
+        console.log(`Pruned ${pruned} expired checkpoints.`);
+    },
+    60 * 60 * 1000,
+);
 ```
 
 ---
@@ -277,7 +279,7 @@ Restores complete workflow storage state from a serialized JSON string.
 ```typescript
 export function hydrateState(
     serialized: string | SerializedStorageState | SerializedExecutionStack,
-    options?: { expectedNamespace?: string }
+    options?: { expectedNamespace?: string },
 ): string | undefined;
 ```
 
@@ -289,26 +291,26 @@ Checkpoints are serialized using standard Schema v2.0.0:
 
 ```json
 {
-  "version": 2,
-  "schemaVersion": "2.0.0",
-  "stackId": "c8b417ee-5079-451e-8488-ea6bf2d556be",
-  "workflowId": "order-fulfillment",
-  "namespace": "tenant_enterprise_01",
-  "type": "execution",
-  "status": "waiting",
-  "revision": 3,
-  "chains": ["createOrder", "waitForEvent:paymentReceived", "shipItems"],
-  "contexts": {
-    "createOrder": {
-      "orderId": "ord_999",
-      "amount": 250
+    "version": 2,
+    "schemaVersion": "2.0.0",
+    "stackId": "c8b417ee-5079-451e-8488-ea6bf2d556be",
+    "workflowId": "order-fulfillment",
+    "namespace": "tenant_enterprise_01",
+    "type": "execution",
+    "status": "waiting",
+    "revision": 3,
+    "chains": ["createOrder", "waitForEvent:paymentReceived", "shipItems"],
+    "contexts": {
+        "createOrder": {
+            "orderId": "ord_999",
+            "amount": 250
+        }
+    },
+    "timestamp": 1729900000000,
+    "expiresAt": 1730072800000,
+    "metadata": {
+        "initiator": "api_gateway"
     }
-  },
-  "timestamp": 1729900000000,
-  "expiresAt": 1730072800000,
-  "metadata": {
-    "initiator": "api_gateway"
-  }
 }
 ```
 
@@ -327,6 +329,7 @@ Siglo uses optimistic concurrency control to prevent multiple distributed worker
 ## Namespace Scoping and Partitioning
 
 `namespace` provides key partitioning and scoping metadata across storage adapters:
+
 - Scopes cache keys, checkpoints, and wait records to prevent key collisions across tenants.
 - `restoreCheckpoint` checks the supplied expected namespace against the stored checkpoint namespace when both are explicitly provided.
 - **Important**: Namespace scoping is logical key partitioning, not an enforced authenticated tenant boundary. Application-level authorization and explicit validation are required to prevent unauthorized resumption or cross-tenant access.

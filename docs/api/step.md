@@ -1,6 +1,6 @@
 ---
-title: "Step Methods"
-description: "API reference for the Step execution unit in Siglo: instantiation, schema validation, lifecycle hooks, retries, sagas, idempotency, caching, dependency injection, and network guardrails."
+title: 'Step Methods'
+description: 'API reference for the Step execution unit in Siglo: instantiation, schema validation, lifecycle hooks, retries, sagas, idempotency, caching, dependency injection, and network guardrails.'
 ---
 
 # API Reference: Step Methods (`Step`)
@@ -13,35 +13,35 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
 
 - [The 5-Phase Step Lifecycle](#the-5-phase-step-lifecycle)
 - [Instantiating Steps](#instantiating-steps)
-  - [`Step.create(name?, action)`](#stepcreatename-action)
+    - [`Step.create(name?, action)`](#stepcreatename-action)
 - [Validation and Contracts](#validation-and-contracts)
-  - [`step.schema(schema)`](#stepschemaschema)
-  - [`step.spec(field, options)`](#stepspecfield-options)
-  - [`step.strict()`](#stepstrict)
+    - [`step.schema(schema)`](#stepschemaschema)
+    - [`step.spec(field, options)`](#stepspecfield-options)
+    - [`step.strict()`](#stepstrict)
 - [Lifecycle Hooks](#lifecycle-hooks)
-  - [`step.onBefore(hook)`](#steponbeforehook)
-  - [`step.onSkip(hook)`](#steponskiphook)
-  - [`step.onAfter(hook)`](#steponafterhook)
+    - [`step.onBefore(hook)`](#steponbeforehook)
+    - [`step.onSkip(hook)`](#steponskiphook)
+    - [`step.onAfter(hook)`](#steponafterhook)
 - [Fault Tolerance and Resilience](#fault-tolerance-and-resilience)
-  - [`step.timeout(ms)`](#steptimeoutms)
-  - [`step.onFail(config)`](#steponfailconfig)
-  - [`step.compensate(handler, options?)`](#stepcompensatehandler-options)
+    - [`step.timeout(ms)`](#steptimeoutms)
+    - [`step.onFail(config)`](#steponfailconfig)
+    - [`step.compensate(handler, options?)`](#stepcompensatehandler-options)
 - [Optimization and Deduplication](#optimization-and-deduplication)
-  - [`step.idempotent(keyOrFn?, options?)`](#stepidempotentkeyorfn-options)
-  - [`step.cache(msOrOptions)`](#stepcachemsoroptions)
+    - [`step.idempotent(keyOrFn?, options?)`](#stepidempotentkeyorfn-options)
+    - [`step.cache(msOrOptions)`](#stepcachemsoroptions)
 - [Dependency Injection](#dependency-injection)
-  - [`step.withDependencies(deps)`](#stepwithdependenciesdeps)
-  - [`step.requireDependency(key)`](#steprequiredependencykey)
+    - [`step.withDependencies(deps)`](#stepwithdependenciesdeps)
+    - [`step.requireDependency(key)`](#steprequiredependencykey)
 - [Context Transformation](#context-transformation)
-  - [`step.reduce(field)`](#stepreducefield)
+    - [`step.reduce(field)`](#stepreducefield)
 - [Network Egress Guardrails](#network-egress-guardrails)
-  - [`step.allowNetwork(hosts)`](#stepallownetworkhosts)
-  - [`step.allowUnixSockets(sockets)`](#stepallowunixsocketssockets)
-  - [`step.denyNetwork()`](#stepdenynetwork)
-  - [`step.networkPolicy(policy)`](#stepnetworkpolicypolicy)
+    - [`step.allowNetwork(hosts)`](#stepallownetworkhosts)
+    - [`step.allowUnixSockets(sockets)`](#stepallowunixsocketssockets)
+    - [`step.denyNetwork()`](#stepdenynetwork)
+    - [`step.networkPolicy(policy)`](#stepnetworkpolicypolicy)
 - [Execution and Inspection](#execution-and-inspection)
-  - [`step.run and step.execute`](#steprun-and-stepexecute)
-  - [`step.toGraph`, `step.inspect`, `step.toMermaid`](#graph-and-export-methods)
+    - [`step.run and step.execute`](#steprun-and-stepexecute)
+    - [`step.toGraph`, `step.inspect`, `step.toMermaid`](#graph-and-export-methods)
 - [Static Methods and Configuration](#static-methods-and-configuration)
 
 ---
@@ -91,18 +91,16 @@ Instantiates a typed `Step` execution unit with input and output contracts.
 export type StepAction<TInput = any, TOutput = any> = (
     parameter: TInput,
     current?: any,
-    index?: number
+    index?: number,
 ) => TOutput | Promise<TOutput>;
 
 export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static create<TName extends string, TIn = any, TOut = any>(
         name: TName,
-        action?: StepAction<TIn, TOut>
+        action?: StepAction<TIn, TOut>,
     ): Step<TIn, TOut, TName>;
 
-    static create<TIn = any, TOut = any>(
-        action: StepAction<TIn, TOut> | Flow<TIn, TOut>
-    ): Step<TIn, TOut, string>;
+    static create<TIn = any, TOut = any>(action: StepAction<TIn, TOut> | Flow<TIn, TOut>): Step<TIn, TOut, string>;
 }
 ```
 
@@ -148,13 +146,12 @@ import { z } from 'zod';
 const OrderInputSchema = z.object({
     orderId: z.string().min(1),
     amount: z.number().positive(),
-    currency: z.enum(['USD', 'EUR', 'GBP'])
+    currency: z.enum(['USD', 'EUR', 'GBP']),
 });
 
 export const processPayment = Step.create('processPayment', async (param: z.infer<typeof OrderInputSchema>) => {
     return { paymentCaptured: true };
-})
-.schema(OrderInputSchema);
+}).schema(OrderInputSchema);
 ```
 
 If validation fails, a `ValidationException` is thrown before the step action executes, containing detailed issue descriptions in `err.errors`.
@@ -187,16 +184,18 @@ step.spec(field: string, options: SpecData): Step<TInput, TOutput, TName>;
 const sanitizeInput = Step.create('sanitizeInput', async (param: any) => {
     return { cleanEmail: param.userEmail };
 })
-.spec('email', {
-    require: true,
-    requireMessage: 'Customer email is mandatory.',
-    validate: async (v: string) => v.includes('@'),
-    transform: async (v: string) => v.trim().toLowerCase(),
-    translate: async (param: any, value: string) => { param.userEmail = value; }
-})
-.spec('newsletterOptIn', {
-    default: false
-});
+    .spec('email', {
+        require: true,
+        requireMessage: 'Customer email is mandatory.',
+        validate: async (v: string) => v.includes('@'),
+        transform: async (v: string) => v.trim().toLowerCase(),
+        translate: async (param: any, value: string) => {
+            param.userEmail = value;
+        },
+    })
+    .spec('newsletterOptIn', {
+        default: false,
+    });
 ```
 
 ---
@@ -218,8 +217,8 @@ const strictStep = Step.create('createAccount', async (param: any) => {
     // Only declared spec fields ('username') are present in param; extra keys are filtered
     return { created: param.username, hasExtra: 'extraField' in param };
 })
-.spec('username', { require: true })
-.strict();
+    .spec('username', { require: true })
+    .strict();
 
 const result = await strictStep.run({ username: 'alice', extraField: 'filtered out' } as any);
 console.log(result.hasExtra); // false
@@ -246,8 +245,9 @@ step.onBefore(hook: OnBeforeAction<TInput>): Step<TInput, TOutput, TName>;
 #### Example
 
 ```typescript
-const sendInvoice = Step.create('sendInvoice', async (param: { amount: number }) => ({ invoiceSent: true }))
-    .onBefore((param) => param.amount > 0); // Skip if amount is 0
+const sendInvoice = Step.create('sendInvoice', async (param: { amount: number }) => ({ invoiceSent: true })).onBefore(
+    param => param.amount > 0,
+); // Skip if amount is 0
 ```
 
 ---
@@ -271,7 +271,7 @@ step.onSkip(hook: OnSkipAction<TInput>): Step<TInput, TOutput, TName>;
 ```typescript
 const chargeSubscription = Step.create('charge', async () => ({ charged: true }))
     .onBefore((param: { isTrial: boolean }) => !param.isTrial)
-    .onSkip((param) => ({ charged: false, trialSkipped: true }));
+    .onSkip(param => ({ charged: false, trialSkipped: true }));
 ```
 
 ---
@@ -294,11 +294,12 @@ step.onAfter(hook: OnAfterAction<TOutput, TInput>): Step<TInput, TOutput, TName>
 #### Example
 
 ```typescript
-const calculateTax = Step.create('calcTax', async (param: { subtotal: number }) => ({ tax: param.subtotal * 0.08 }))
-    .onAfter((output, param) => ({
-        ...output,
-        totalWithTax: param.subtotal + output.tax
-    }));
+const calculateTax = Step.create('calcTax', async (param: { subtotal: number }) => ({
+    tax: param.subtotal * 0.08,
+})).onAfter((output, param) => ({
+    ...output,
+    totalWithTax: param.subtotal + output.tax,
+}));
 ```
 
 ---
@@ -323,8 +324,7 @@ import { Step, StepTimeoutException } from '@siglo/core';
 const callExternalVendor = Step.create('vendorApi', async () => {
     const res = await fetch('https://api.vendor.com/data');
     return res.json();
-})
-.timeout(2000); // 2-second timeout
+}).timeout(2000); // 2-second timeout
 ```
 
 ---
@@ -360,15 +360,14 @@ step.onFail(config: RetryConfig | OnFailCallback): Step<TInput, TOutput, TName>;
 ```typescript
 const resilientFetch = Step.create('fetchData', async () => {
     return await externalService.call();
-})
-.onFail({
+}).onFail({
     maxRetries: 3,
     delay: 500,
     backoff: 'exponential',
     jitter: true,
     maxDelay: 5000,
-    retryIf: (err) => err.status >= 500, // Only retry 5xx server errors
-    onRetry: (err, attempt) => console.warn(`Retry attempt ${attempt} due to ${err.message}`)
+    retryIf: err => err.status >= 500, // Only retry 5xx server errors
+    onRetry: (err, attempt) => console.warn(`Retry attempt ${attempt} due to ${err.message}`),
 });
 ```
 
@@ -379,8 +378,7 @@ To provide a graceful fallback return value when errors occur, use the callback 
 ```typescript
 const resilientFetchWithFallback = Step.create('fetchData', async () => {
     return await externalService.call();
-})
-.onFail((err, retry, reject) => {
+}).onFail((err, retry, reject) => {
     if (err.status >= 500) {
         retry({ fallbackData: true }); // Resolves step with fallback data
     } else {
@@ -416,11 +414,13 @@ step.compensate(
 const bookFlight = Step.create('bookFlight', async (ctx: { flightNo: string }) => {
     const booking = await airlineApi.reserve(ctx.flightNo);
     return { flightReservationId: booking.id };
-})
-.compensate(async (ctx) => {
-    // Automatically called if payment or hotel booking fails downstream
-    await airlineApi.cancelReservation(ctx.flightReservationId);
-}, { maxRetries: 3, delay: 1000 });
+}).compensate(
+    async ctx => {
+        // Automatically called if payment or hotel booking fails downstream
+        await airlineApi.cancelReservation(ctx.flightReservationId);
+    },
+    { maxRetries: 3, delay: 1000 },
+);
 ```
 
 ---
@@ -452,8 +452,7 @@ step.idempotent(
 ```typescript
 const chargeCard = Step.create('chargeCard', async (ctx: { idempotencyToken: string; amount: number }) => {
     return await stripe.charges.create({ amount: ctx.amount });
-})
-.idempotent((ctx) => ctx.idempotencyToken, { ttlMs: 86400000 }); // 24-hour TTL
+}).idempotent(ctx => ctx.idempotencyToken, { ttlMs: 86400000 }); // 24-hour TTL
 ```
 
 ---
@@ -481,8 +480,7 @@ step.cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, T
 ```typescript
 const getExchangeRates = Step.create('rates', async () => {
     return await fetchRates();
-})
-.cache({ ttl: 60000 }); // Cache for 60 seconds
+}).cache({ ttl: 60000 }); // Cache for 60 seconds
 ```
 
 ---
@@ -522,8 +520,7 @@ const saveUser = Step.create('saveUser', async (param: { name: string }) => {
     const db = saveUser.requireDependency<DatabaseClient>('db');
     await db.query(`INSERT INTO users (name) VALUES ('${param.name}')`);
     return { saved: true };
-})
-.withDependencies({ db: myDbClient });
+}).withDependencies({ db: myDbClient });
 ```
 
 ---
@@ -543,8 +540,7 @@ step.reduce(field: string): Step<TInput, TOutput, TName>;
 #### Example
 
 ```typescript
-const countItems = Step.create('count', async () => 42)
-    .reduce('itemCount');
+const countItems = Step.create('count', async () => 42).reduce('itemCount');
 
 // Output context: { itemCount: 42 } rather than { value: 42 }
 ```
@@ -558,6 +554,7 @@ Steps can declare granular network egress permissions enforced via Node's `Async
 ### Lifecycle Hook Governance
 
 The network policy boundary wraps the **entire step execution lifecycle** via `AsyncLocalStorage`:
+
 - **`onBefore` & `onSkip`**: Pre-execution guards and fallback computations are governed by the step's allowlist (violations tagged with `phase: 'before'`).
 - **`action` & `reduce`**: The core step execution runs within the policy context (violations tagged with `phase: 'action'`).
 - **`onAfter`**: Context enrichment and post-processing cannot bypass step network restrictions (violations tagged with `phase: 'after'`).
@@ -585,7 +582,7 @@ step.allowNetwork(hosts: (string | RegExp)[] | string | RegExp): this;
 
 ```typescript
 const chargeStep = Step.create('charge', async ({ amount }) => {
-    return await fetch('https://api.stripe.com/v1/charges', { /* ... */ });
+    return await fetch('https://api.stripe.com/v1/charges', {/* ... */});
 }).allowNetwork(['api.stripe.com', '*.stripe.network']);
 ```
 
@@ -645,21 +642,22 @@ step.networkPolicy(policy: NetworkPolicyConfig): this;
 #### Parameters
 
 - `policy`: `NetworkPolicyConfig`
-  - `allowedHosts`: `(string | RegExp)[]` *(optional)* &mdash; Allowed target host patterns.
-  - `defaultPolicy`: `'allow' | 'deny'` *(optional, default: `'deny'`)* &mdash; Default fallback rule.
-  - `allowLocalhost`: `boolean` *(optional, default: `true`)* &mdash; Loopback exemption.
-  - `allowUnixSockets`: `string[]` *(optional)* &mdash; Allowed Unix domain socket paths.
+    - `allowedHosts`: `(string | RegExp)[]` _(optional)_ &mdash; Allowed target host patterns.
+    - `defaultPolicy`: `'allow' | 'deny'` _(optional, default: `'deny'`)_ &mdash; Default fallback rule.
+    - `allowLocalhost`: `boolean` _(optional, default: `true`)_ &mdash; Loopback exemption.
+    - `allowUnixSockets`: `string[]` _(optional)_ &mdash; Allowed Unix domain socket paths.
 
 #### Example
 
 ```typescript
-const syncStep = Step.create('sync', async () => { /* ... */ })
-    .networkPolicy({
-        allowedHosts: ['api.github.com'],
-        defaultPolicy: 'deny',
-        allowLocalhost: true,
-        allowUnixSockets: ['/var/run/docker.sock']
-    });
+const syncStep = Step.create('sync', async () => {
+    /* ... */
+}).networkPolicy({
+    allowedHosts: ['api.github.com'],
+    defaultPolicy: 'deny',
+    allowLocalhost: true,
+    allowUnixSockets: ['/var/run/docker.sock'],
+});
 ```
 
 ---

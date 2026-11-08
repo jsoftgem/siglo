@@ -1,6 +1,6 @@
 ---
-title: "Durable Workflows"
-description: "Long-running and suspendable workflows in Siglo: asynchronous event suspension with waitForEvent, durable timer sleeps, event-driven resumption, and schema migrations."
+title: 'Durable Workflows'
+description: 'Long-running and suspendable workflows in Siglo: asynchronous event suspension with waitForEvent, durable timer sleeps, event-driven resumption, and schema migrations.'
 ---
 
 # Durable Workflows
@@ -19,13 +19,13 @@ import { Step, flow, waitForEvent } from '@siglo/core';
 export const expenseApprovalWorkflow = flow(
     Step.create('submitExpense', async (param: { amount: number; expenseId: string }) => ({
         submittedAt: Date.now(),
-        status: 'PENDING_APPROVAL'
+        status: 'PENDING_APPROVAL',
     })),
 
     // Suspends until manager approval webhook arrives
     waitForEvent('managerApproval', {
-        correlationKey: (param) => param.expenseId,
-        timeout: '7d' // Auto-expire after 7 days
+        correlationKey: param => param.expenseId,
+        timeout: '7d', // Auto-expire after 7 days
     }),
 
     Step.create('payout', async (param: { approved: boolean; approverId: string }) => {
@@ -33,14 +33,15 @@ export const expenseApprovalWorkflow = flow(
             return { payoutStatus: 'REJECTED' };
         }
         return { payoutStatus: 'PROCESSED', approvedBy: param.approverId };
-    })
+    }),
 );
 ```
 
 When run with `{ durable: true }`, the workflow halts at `waitForEvent` and returns a suspension descriptor:
+
 ```typescript
 const pending = await expenseApprovalWorkflow.run({ expenseId: 'exp_100', amount: 500 }, { durable: true });
-console.log(pending.status);         // 'waiting'
+console.log(pending.status); // 'waiting'
 console.log(pending.correlationKey); // 'exp_100'
 ```
 
@@ -56,7 +57,7 @@ import { Step, flow, wait } from '@siglo/core';
 export const delayedNotificationWorkflow = flow(
     Step.create('sendWelcome', () => ({ sent: true })),
     wait('24h'), // Suspends execution for 24 hours
-    Step.create('sendFollowUp', () => ({ followUpSent: true }))
+    Step.create('sendFollowUp', () => ({ followUpSent: true })),
 );
 ```
 
@@ -77,7 +78,7 @@ app.post('/api/webhooks/approval', async (req, res) => {
     const finalResult = await resumeWorkflow(
         expenseApprovalWorkflow,
         expenseId, // correlationKey matching the wait node
-        { approved, approverId } // Event payload merged into context
+        { approved, approverId }, // Event payload merged into context
     );
 
     res.json({ success: true, finalResult });
@@ -101,9 +102,9 @@ await resumeWorkflow(updatedWorkflow, correlationKey, eventPayload, {
         '1.0.0->2.0.0': (fromVersion: string, toVersion: string, oldState: any) => ({
             ...oldState,
             schemaVersion: 2,
-            userEmail: oldState.email // Field rename migration
-        })
-    }
+            userEmail: oldState.email, // Field rename migration
+        }),
+    },
 });
 ```
 
@@ -116,8 +117,8 @@ import { Step, flow, waitForEvent, resumeWorkflow } from '@siglo/core';
 
 const wf = flow(
     Step.create('step1', () => ({ orderId: 'ord_123' })),
-    waitForEvent('paymentReceived', { correlationKey: (p) => p.orderId }),
-    Step.create('step2', (p: any) => ({ completed: true, amount: p.amount }))
+    waitForEvent('paymentReceived', { correlationKey: p => p.orderId }),
+    Step.create('step2', (p: any) => ({ completed: true, amount: p.amount })),
 );
 
 // 1. Initial run suspends
@@ -127,7 +128,7 @@ console.log(suspended.status); // 'waiting'
 // 2. Webhook arrives and resumes
 const finalResult = await resumeWorkflow(wf, 'ord_123', { amount: 150 });
 console.log(finalResult.completed); // true
-console.log(finalResult.amount);    // 150
+console.log(finalResult.amount); // 150
 ```
 
 ---
@@ -137,9 +138,7 @@ console.log(finalResult.amount);    // 150
 ```typescript
 import { Step, flow, waitForEvent, resumeWorkflow, DuplicateEventException } from '@siglo/core';
 
-const wf = flow(
-    waitForEvent('approval', { correlationKey: 'app-99', timeout: '1h' })
-);
+const wf = flow(waitForEvent('approval', { correlationKey: 'app-99', timeout: '1h' }));
 
 await wf.run({}, { durable: true, stackId: 'stack-99' });
 
@@ -167,8 +166,8 @@ import { Step, flow, waitForEvent } from '@siglo/core';
 
 const durableWf = flow(
     Step.create('start', () => ({ ticketId: 't-1' })),
-    waitForEvent('userReply', { correlationKey: (p) => p.ticketId }),
-    Step.create('finish', (p: any) => ({ resolvedWith: p.message }))
+    waitForEvent('userReply', { correlationKey: p => p.ticketId }),
+    Step.create('finish', (p: any) => ({ resolvedWith: p.message })),
 );
 
 describe('Durable Workflows Suite', () => {
@@ -179,7 +178,7 @@ describe('Durable Workflows Suite', () => {
         expect(initial.status).to.equal('waiting');
 
         const finalResult = await harness.injectEvent('userReply', 't-1', {
-            message: 'Problem solved'
+            message: 'Problem solved',
         });
 
         expect(finalResult.resolvedWith).to.equal('Problem solved');

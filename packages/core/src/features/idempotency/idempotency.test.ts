@@ -110,7 +110,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         const p = flow(step);
 
         // First execution
-        const res1 = await p.execute(
+        const res1 = await p.run(
             { amount: 100 },
             {
                 pojo: true,
@@ -123,7 +123,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(executions).to.equal(1);
 
         // Second execution with same key -> should return cached result without running step!
-        const res2 = await p.execute(
+        const res2 = await p.run(
             { amount: 100 },
             {
                 pojo: true,
@@ -145,11 +145,11 @@ describe('Idempotency Unit and Workflow Tests', () => {
         const p = flow(slowStep);
 
         // First call starts
-        const p1 = p.execute({}, { idempotencyKey: 'concurrent-key' });
+        const p1 = p.run({}, { idempotencyKey: 'concurrent-key' });
 
         // Second call immediately with same key while first is in-progress
         try {
-            await p.execute({}, { idempotencyKey: 'concurrent-key' });
+            await p.run({}, { idempotencyKey: 'concurrent-key' });
             expect.fail('Should have thrown IdempotencyConflictException');
         } catch (err: any) {
             expect(err).to.be.instanceOf(IdempotencyConflictException);
@@ -168,10 +168,10 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
         const p = flow(idempotentStep);
 
-        const r1 = await p.execute({ invoiceId: 'inv-99' }, { pojo: true });
+        const r1 = await p.run({ invoiceId: 'inv-99' }, { pojo: true });
         expect(r1.stepExecutions).to.equal(1);
 
-        const r2 = await p.execute({ invoiceId: 'inv-99' }, { pojo: true });
+        const r2 = await p.run({ invoiceId: 'inv-99' }, { pojo: true });
         expect(r2.stepExecutions).to.equal(1);
         expect(stepExecutions).to.equal(1);
     });
@@ -187,14 +187,14 @@ describe('Idempotency Unit and Workflow Tests', () => {
         const p = flow(failingStep);
 
         try {
-            await p.execute({}, { idempotencyKey: 'retryable-claim' });
+            await p.run({}, { idempotencyKey: 'retryable-claim' });
             expect.fail('Should fail on first try');
         } catch (err: any) {
             expect(err.message).to.equal('First try failed');
         }
 
         // Retry should be able to claim and succeed
-        const res = await p.execute({}, { pojo: true, idempotencyKey: 'retryable-claim' });
+        const res = await p.run({}, { pojo: true, idempotencyKey: 'retryable-claim' });
         expect(res.success).to.be.true;
         expect(res.attempts).to.equal(2);
     });
@@ -215,7 +215,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             throw new Error('Sync fail in idempotent step');
         }).idempotent('sync-fail-k');
         try {
-            await flow(syncFailStep).execute();
+            await flow(syncFailStep).run();
             expect.fail('Should fail');
         } catch (err: any) {
             expect(err.message).to.equal('Sync fail in idempotent step');
@@ -225,14 +225,14 @@ describe('Idempotency Unit and Workflow Tests', () => {
             throw new Error('Async fail in idempotent step');
         }).idempotent('async-fail-k');
         try {
-            await flow(asyncFailStep).execute();
+            await flow(asyncFailStep).run();
             expect.fail('Should fail');
         } catch (err: any) {
             expect(err.message).to.equal('Async fail in idempotent step');
         }
 
         const stepFn = Step.create('stepFn', () => ({ ok: true, fnProp: () => {} }));
-        const resFn = await flow(stepFn).execute(
+        const resFn = await flow(stepFn).run(
             { orderId: 'ord-fn-1' },
             {
                 pojo: true,
@@ -249,7 +249,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
                 throw new Error('OnAfter failed in idempotent step');
             });
         try {
-            await flow(afterFailStep).execute();
+            await flow(afterFailStep).run();
             expect.fail('Should fail');
         } catch (err: any) {
             expect(err.message).to.equal('OnAfter failed in idempotent step');
@@ -261,7 +261,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             .idempotent('reduce-fail-k')
             .reduce('items');
         try {
-            await flow(reduceFailStep).execute({ items: [1, 2] });
+            await flow(reduceFailStep).run({ items: [1, 2] });
             expect.fail('Should fail');
         } catch (err: any) {
             expect(err.message).to.equal('Reducer action failed in idempotent step');
@@ -273,9 +273,9 @@ describe('Idempotency Unit and Workflow Tests', () => {
             await new Promise(r => setTimeout(r, 60));
             return { done: true };
         }).idempotent('concurrent-step-key');
-        const p1 = flow(slowStep).execute();
+        const p1 = flow(slowStep).run();
         try {
-            await flow(slowStep).execute();
+            await flow(slowStep).run();
             expect.fail('Should fail with conflict');
         } catch (err: any) {
             expect(err).to.be.instanceOf(IdempotencyConflictException);
@@ -292,7 +292,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             store: throwingStore,
         });
         try {
-            await flow(errorStoreStep).execute();
+            await flow(errorStoreStep).run();
             expect.fail('Should fail');
         } catch (err: any) {
             expect(err.message).to.equal('Store failure');
@@ -334,7 +334,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         });
         const p = flow(slowStep);
 
-        const exec1 = p.execute(
+        const exec1 = p.run(
             {},
             {
                 idempotencyKey: 'settle-wf-key',
@@ -347,7 +347,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         await new Promise(r => setTimeout(r, 10));
 
         // Concurrent execution waits and settles
-        const res2 = await p.execute(
+        const res2 = await p.run(
             {},
             {
                 idempotencyKey: 'settle-wf-key',
@@ -379,7 +379,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         const p = flow(flakyStep);
 
         const exec1 = p
-            .execute(
+            .run(
                 {},
                 {
                     idempotencyKey: 'flaky-settle-key',
@@ -391,7 +391,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         await new Promise(r => setTimeout(r, 10));
 
         // Second caller waits, sees first caller clear key, re-claims and succeeds!
-        const res2 = await p.execute(
+        const res2 = await p.run(
             {},
             {
                 idempotencyKey: 'flaky-settle-key',
@@ -420,7 +420,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         const p = flow(declineStep);
 
         try {
-            await p.execute(
+            await p.run(
                 {},
                 {
                     idempotencyKey: 'card-declined-key',
@@ -435,7 +435,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(executions).to.equal(1);
 
         // Retry returns the cached decline record without re-executing
-        const retryRes = await p.execute(
+        const retryRes = await p.run(
             {},
             {
                 idempotencyKey: 'card-declined-key',
@@ -464,9 +464,9 @@ describe('Idempotency Unit and Workflow Tests', () => {
         });
 
         const f = flow(slowStep);
-        const p1 = f.execute({}, { pojo: true });
+        const p1 = f.run({}, { pojo: true });
         await new Promise(r => setTimeout(r, 10));
-        const p2 = await f.execute({}, { pojo: true });
+        const p2 = await f.run({}, { pojo: true });
         const res1 = await p1;
 
         expect(stepCalls).to.equal(1);
@@ -481,7 +481,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         }).idempotent('perm-step-k', { store });
 
         try {
-            await flow(permStep).execute();
+            await flow(permStep).run();
             expect.fail('Should throw');
         } catch (err: any) {
             expect(err.message).to.equal('InvalidAccount');
@@ -517,7 +517,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         });
 
         const f = flow(slowStep);
-        const p1 = f.execute(
+        const p1 = f.run(
             {},
             {
                 idempotencyKey: 'fallback-settle-key',
@@ -528,7 +528,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
 
         await new Promise(r => setTimeout(r, 10));
 
-        const res2 = await f.execute(
+        const res2 = await f.run(
             {},
             {
                 idempotencyKey: 'fallback-settle-key',
@@ -554,9 +554,9 @@ describe('Idempotency Unit and Workflow Tests', () => {
         });
 
         const stepFlow = flow(stepWithFallback);
-        const sp1 = stepFlow.execute({}, { pojo: true });
+        const sp1 = stepFlow.run({}, { pojo: true });
         await new Promise(r => setTimeout(r, 10));
-        const sp2 = await stepFlow.execute({}, { pojo: true });
+        const sp2 = await stepFlow.run({}, { pojo: true });
         const sres1 = await sp1;
         expect(sres1.valFallback).to.equal(888);
         expect(sp2.valFallback).to.equal(888);
@@ -579,9 +579,9 @@ describe('Idempotency Unit and Workflow Tests', () => {
         });
 
         const f = flow(flakyStep);
-        const p1 = f.execute().catch(err => err);
+        const p1 = f.run().catch(err => err);
         await new Promise(r => setTimeout(r, 10));
-        const p2 = await f.execute({}, { pojo: true });
+        const p2 = await f.run({}, { pojo: true });
         await p1;
         expect(calls).to.equal(2);
         expect(p2.recoveredStep).to.be.true;
@@ -598,7 +598,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             .reduce('items');
 
         try {
-            await flow(reducePermStep).execute({ items: [1, 2] });
+            await flow(reducePermStep).run({ items: [1, 2] });
             expect.fail('Should throw');
         } catch (err: any) {
             expect(err.message).to.equal('PermanentReducerDecline');
@@ -617,7 +617,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         }).idempotent('perm-step-k', { store });
 
         try {
-            await flow(failingStep).execute();
+            await flow(failingStep).run();
             expect.fail('Should throw');
         } catch (err: any) {
             expect(err.message).to.equal('CardDeclinedPermanently');
@@ -638,7 +638,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
             .idempotent('after-perm-step-k', { store });
 
         try {
-            await flow(afterFailStep).execute();
+            await flow(afterFailStep).run();
             expect.fail('Should throw');
         } catch (err: any) {
             expect(err.message).to.equal('AfterHookPermanentDecline');
@@ -670,12 +670,12 @@ describe('Idempotency Unit and Workflow Tests', () => {
             .idempotent('reduce-success-k', { store })
             .reduce('items');
 
-        const res1: any = await flow(reduceSuccessStep).execute({ items: [1, 2] });
+        const res1: any = await flow(reduceSuccessStep).run({ items: [1, 2] });
         expect(res1.value).to.equal(3);
         expect(callCount).to.equal(2);
 
         // Re-executing with same idempotency key should hit cached result
-        const res2: any = await flow(reduceSuccessStep).execute({ items: [1, 2] });
+        const res2: any = await flow(reduceSuccessStep).run({ items: [1, 2] });
         expect(res2.value).to.equal(3);
         expect(callCount).to.equal(2);
     });

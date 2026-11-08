@@ -27,6 +27,7 @@ npm install @siglo/core @siglo/opentelemetry @opentelemetry/api
 ```
 
 Recommended OpenTelemetry SDK packages for Node.js:
+
 ```bash
 npm install --save-dev @opentelemetry/sdk-node @opentelemetry/sdk-trace-node @opentelemetry/exporter-trace-otlp-grpc
 ```
@@ -37,18 +38,18 @@ npm install --save-dev @opentelemetry/sdk-node @opentelemetry/sdk-trace-node @op
 
 `SemanticAttributes` defines standardized OpenTelemetry attribute keys:
 
-| Attribute Constant | String Key | Type | Description |
-| :--- | :--- | :--- | :--- |
-| `WORKFLOW_NAME` | `siglo.workflow.name` | `string` | Canonical name of the executing workflow. |
-| `WORKFLOW_VERSION` | `siglo.workflow.version` | `string` | Semantic version string of the workflow. |
-| `WORKFLOW_ID` | `siglo.workflow.id` | `string` | Unique workflow identifier. |
-| `STACK_ID` | `siglo.stack.id` | `string` | Unique stack execution identifier. |
-| `STEP_NAME` | `siglo.step.name` | `string` | Name or debug label of the active step. |
-| `STEP_ID` | `siglo.step.id` | `string` | Internal node identifier in the workflow graph AST. |
-| `STEP_ATTEMPT` | `siglo.step.attempt` | `number` | 1-based attempt count (incremented on retries). |
-| `NAMESPACE` | `siglo.namespace` | `string` | Tenant namespace partition (requires `allowNamespace: true`). |
-| `CACHE_HIT` | `siglo.cache.hit` | `boolean` | `true` if step result was served from cache. |
-| `TIMEOUT` | `siglo.timeout` | `number` | Configured timeout in milliseconds. |
+| Attribute Constant | String Key               | Type      | Description                                                   |
+| :----------------- | :----------------------- | :-------- | :------------------------------------------------------------ |
+| `WORKFLOW_NAME`    | `siglo.workflow.name`    | `string`  | Canonical name of the executing workflow.                     |
+| `WORKFLOW_VERSION` | `siglo.workflow.version` | `string`  | Semantic version string of the workflow.                      |
+| `WORKFLOW_ID`      | `siglo.workflow.id`      | `string`  | Unique workflow identifier.                                   |
+| `STACK_ID`         | `siglo.stack.id`         | `string`  | Unique stack execution identifier.                            |
+| `STEP_NAME`        | `siglo.step.name`        | `string`  | Name or debug label of the active step.                       |
+| `STEP_ID`          | `siglo.step.id`          | `string`  | Internal node identifier in the workflow graph AST.           |
+| `STEP_ATTEMPT`     | `siglo.step.attempt`     | `number`  | 1-based attempt count (incremented on retries).               |
+| `NAMESPACE`        | `siglo.namespace`        | `string`  | Tenant namespace partition (requires `allowNamespace: true`). |
+| `CACHE_HIT`        | `siglo.cache.hit`        | `boolean` | `true` if step result was served from cache.                  |
+| `TIMEOUT`          | `siglo.timeout`          | `number`  | Configured timeout in milliseconds.                           |
 
 ---
 
@@ -61,11 +62,12 @@ Instruments a `Flow` instance with a root span, sets execution attributes, and a
 ```typescript
 function instrumentWorkflow<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloTelemetryOptions
+    options?: SigloTelemetryOptions,
 ): Flow<TInput, TOutput>;
 ```
 
 #### Options (`SigloTelemetryOptions`):
+
 - `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@siglo/opentelemetry', '1.0.4')`.
 - `serviceName` (`string`): Tracer service name identifier.
 - `workflowName` (`string`): Override workflow span label.
@@ -83,7 +85,7 @@ Wraps an individual `Step` with a child span covering step execution, attempt co
 ```typescript
 function instrumentStep<TInput = any, TOutput = any>(
     step: Step<TInput, TOutput>,
-    options?: SigloTelemetryOptions
+    options?: SigloTelemetryOptions,
 ): Step<TInput, TOutput>;
 ```
 
@@ -98,6 +100,7 @@ function createTelemetryStorageAdapter(options?: SigloTelemetryOptions): Storage
 ```
 
 #### Security & PII Protection:
+
 By default, **no context fields are streamed to OpenTelemetry spans**. Only fields explicitly declared in `allowContextFields` are emitted as `siglo.context.<field>`, and all values pass through `redactHook` if configured.
 
 ---
@@ -117,11 +120,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { trace } from '@opentelemetry/api';
 import { Step, flow } from '@siglo/core';
-import {
-    instrumentWorkflow,
-    createTelemetryStorageAdapter,
-    getTraceHeaders
-} from '@siglo/opentelemetry';
+import { instrumentWorkflow, createTelemetryStorageAdapter, getTraceHeaders } from '@siglo/opentelemetry';
 
 // 1. Initialize OpenTelemetry SDK
 const sdk = new NodeSDK({
@@ -155,8 +154,7 @@ const chargePayment = Step.create('chargePayment', async (param: any) => {
         throw new Error('Temporary payment gateway blip');
     }
     return { paymentStatus: 'CHARGED', cardLast4: '4242' };
-})
-    .onFail({ maxRetries: 2, delay: 100 });
+}).onFail({ maxRetries: 2, delay: 100 });
 
 const orderWorkflow = flow(validateOrder, chargePayment);
 
@@ -169,10 +167,7 @@ const monitoredWorkflow = instrumentWorkflow(orderWorkflow, {
 });
 
 // 5. Run Monitored Workflow
-const result = await monitoredWorkflow.run(
-    { orderId: 'ORD-7718', totalAmount: 89.5 },
-    { namespace: 'tenant-emea' }
-);
+const result = await monitoredWorkflow.run({ orderId: 'ORD-7718', totalAmount: 89.5 }, { namespace: 'tenant-emea' });
 
 console.log('Workflow finished with Stack ID:', result.$stackId());
 console.log('Outgoing W3C Headers for downstreams:', getTraceHeaders());

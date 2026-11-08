@@ -1,6 +1,6 @@
 ---
-title: "Error Hierarchy & Exceptions"
-description: "API reference for the SigloError exception model: timeouts, cancellations, schema validation, sagas, network policy violations, and error normalization."
+title: 'Error Hierarchy & Exceptions'
+description: 'API reference for the SigloError exception model: timeouts, cancellations, schema validation, sagas, network policy violations, and error normalization.'
 ---
 
 # API Reference: Error Hierarchy & Exceptions (`SigloError`)
@@ -14,32 +14,32 @@ description: "API reference for the SigloError exception model: timeouts, cancel
 - [Exception Hierarchy Diagram](#exception-hierarchy-diagram)
 - [Base Error: `SigloError`](#base-error-sigloerror)
 - [Timeout and Cancellation Exceptions](#timeout-and-cancellation-exceptions)
-  - [`StepTimeoutException`](#steptimeoutexception)
-  - [`FlowTimeoutException`](#flowtimeoutexception)
-  - [`CancellationException`](#cancellationexception)
+    - [`StepTimeoutException`](#steptimeoutexception)
+    - [`FlowTimeoutException`](#flowtimeoutexception)
+    - [`CancellationException`](#cancellationexception)
 - [Validation and Contract Exceptions](#validation-and-contract-exceptions)
-  - [`ValidationException`](#validationexception)
-  - [`GraphValidationException`](#graphvalidationexception)
+    - [`ValidationException`](#validationexception)
+    - [`GraphValidationException`](#graphvalidationexception)
 - [Concurrency and Sagas Exceptions](#concurrency-and-sagas-exceptions)
-  - [`CompensationException`](#compensationexception)
-  - [`UnresolvableCompensationException`](#unresolvablecompensationexception)
-  - [`FieldCollisionException`](#fieldcollisionexception)
-  - [`IdempotencyConflictException`](#idempotencyconflictexception)
+    - [`CompensationException`](#compensationexception)
+    - [`UnresolvableCompensationException`](#unresolvablecompensationexception)
+    - [`FieldCollisionException`](#fieldcollisionexception)
+    - [`IdempotencyConflictException`](#idempotencyconflictexception)
 - [Network Guardrail Exceptions](#network-guardrail-exceptions)
-  - [`NetworkPolicyViolationException`](#networkpolicyviolationexception)
+    - [`NetworkPolicyViolationException`](#networkpolicyviolationexception)
 - [Durable and Event Exceptions](#durable-and-event-exceptions)
-  - [`WorkflowSuspendedException`](#workflowsuspendedexception)
-  - [`WorkflowVersionMismatchException`](#workflowversionmismatchexception)
-  - [`DuplicateEventException`](#duplicateeventexception)
-  - [`ExpiredWaitException`](#expiredwaitexception)
-  - [`WorkflowAlreadyResumedException`](#workflowalreadyresumedexception)
+    - [`WorkflowSuspendedException`](#workflowsuspendedexception)
+    - [`WorkflowVersionMismatchException`](#workflowversionmismatchexception)
+    - [`DuplicateEventException`](#duplicateeventexception)
+    - [`ExpiredWaitException`](#expiredwaitexception)
+    - [`WorkflowAlreadyResumedException`](#workflowalreadyresumedexception)
 - [Storage Exceptions](#storage-exceptions)
-  - [`StorageAdapterException`](#storageadapterexception)
-  - [`CheckpointConflictException`](#checkpointconflictexception)
-  - [`NamespaceMismatchException`](#namespacemismatchexception)
-  - [`CheckpointVersionException`](#checkpointversionexception)
+    - [`StorageAdapterException`](#storageadapterexception)
+    - [`CheckpointConflictException`](#checkpointconflictexception)
+    - [`NamespaceMismatchException`](#namespacemismatchexception)
+    - [`CheckpointVersionException`](#checkpointversionexception)
 - [Error Normalization](#error-normalization)
-  - [`normalizeError(error, metadata?)`](#normalizeerrorerror-metadata)
+    - [`normalizeError(error, metadata?)`](#normalizeerrorerror-metadata)
 - [Handling Errors in Workflows](#handling-errors-in-workflows)
 
 ---
@@ -430,10 +430,7 @@ Normalizes any thrown value (standard `Error`, string, object, or primitive) int
 #### Signature
 
 ```typescript
-export function normalizeError(
-    error: any,
-    metadata?: ExecutionErrorMetadata
-): SigloError;
+export function normalizeError(error: any, metadata?: ExecutionErrorMetadata): SigloError;
 ```
 
 #### Example
@@ -446,11 +443,11 @@ try {
 } catch (rawErr) {
     const err: SigloError = normalizeError(rawErr, {
         stepName: 'fetchExternal',
-        phase: 'action'
+        phase: 'action',
     });
 
-    console.log(err.message);   // 'Connection reset'
-    console.log(err.stepName);  // 'fetchExternal'
+    console.log(err.message); // 'Connection reset'
+    console.log(err.stepName); // 'fetchExternal'
     console.log(err.retryable); // true
 }
 ```
@@ -465,7 +462,7 @@ import {
     ValidationException,
     CompensationException,
     NetworkPolicyViolationException,
-    SigloError
+    SigloError,
 } from '@siglo/core';
 
 try {

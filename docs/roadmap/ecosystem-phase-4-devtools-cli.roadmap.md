@@ -11,15 +11,15 @@
 
 Phase 4 bridges Siglo's ecosystem packages (`@siglo/http`, `@siglo/crypto`, `@siglo/ai`, `@siglo/notifications`) with developer tooling (`@siglo/cli`, `@siglo/monitor`, and web dashboard). Rather than inventing isolated abstractions, Phase 4 builds directly upon existing core primitives (`AsyncLocalStorage`, `Step`, `emitMonitoringEvent`, and standard schema validation).
 
-| Ecosystem Area | Baseline Implementation | Phase 4 Architecture & Deliverables |
-|---|---|---|
-| **CLI Generator** | `packages/cli/src/bin.ts` had basic `generate step <name>` for generic steps. | Extended with discriminated `--type={http,crypto,notification,ai}` options, input validation, collision guards, and offline companion test generation. |
-| **HTTP Telemetry** | `httpStep` asserted network policy via ASL bridge; metadata was attached to step outputs. | Added non-intrusive `EcosystemInspection` telemetry, attempt timings, Retry-After parsing, backoff diagnostics, origin-only cURL exports, and opt-in body/header capture. |
-| **Crypto Diagnostics** | `verifyWebhookStep` validated signatures, raw payloads, and replay windows. | Added safe categorical verification diagnostics (`verified`, `invalid-payload`, `payload-too-large`, `timestamp-rejected`, `replay-detected`, etc.) without capturing raw payloads, secrets, or signatures. |
-| **Notifications & Approvals** | `sendNotificationStep` and `sendInteractiveApprovalStep` dispatched messages; callback tokens used HMAC-SHA256. | Added delivery status, UTC expiration tracking, sandboxed HTML previews with strict CSP, signed telemetry identity in action tokens, and correlated callback resolution telemetry. |
-| **AI Completions** | `aiStep` executed models, repair loops, tool turns, and emitted `ai:complete`. | Reused `ai:complete` for zero-duplicate accounting; added per-attempt inference timelines, token consumption, fallback tracking, and opt-in prompt/completion capture. |
-| **Testing Doubles** | `createWorkflowHarness` with isolated package mocks (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`). | Preserved package-owned test doubles; established canonical integration cookbook; verified serial execution and isolation under global fetch mocks. |
-| **Monitor Server & UI** | Server stored step records; UI rendered generic node cards with basic status. | Unified `EcosystemInspection` schema across ingestion, store, WebSocket transport, and web UI (`StepDetailCard`, `EcosystemInspector`, `InspectionContent`). |
+| Ecosystem Area                | Baseline Implementation                                                                                                      | Phase 4 Architecture & Deliverables                                                                                                                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CLI Generator**             | `packages/cli/src/bin.ts` had basic `generate step <name>` for generic steps.                                                | Extended with discriminated `--type={http,crypto,notification,ai}` options, input validation, collision guards, and offline companion test generation.                                                      |
+| **HTTP Telemetry**            | `httpStep` asserted network policy via ASL bridge; metadata was attached to step outputs.                                    | Added non-intrusive `EcosystemInspection` telemetry, attempt timings, Retry-After parsing, backoff diagnostics, origin-only cURL exports, and opt-in body/header capture.                                   |
+| **Crypto Diagnostics**        | `verifyWebhookStep` validated signatures, raw payloads, and replay windows.                                                  | Added safe categorical verification diagnostics (`verified`, `invalid-payload`, `payload-too-large`, `timestamp-rejected`, `replay-detected`, etc.) without capturing raw payloads, secrets, or signatures. |
+| **Notifications & Approvals** | `sendNotificationStep` and `sendInteractiveApprovalStep` dispatched messages; callback tokens used HMAC-SHA256.              | Added delivery status, UTC expiration tracking, sandboxed HTML previews with strict CSP, signed telemetry identity in action tokens, and correlated callback resolution telemetry.                          |
+| **AI Completions**            | `aiStep` executed models, repair loops, tool turns, and emitted `ai:complete`.                                               | Reused `ai:complete` for zero-duplicate accounting; added per-attempt inference timelines, token consumption, fallback tracking, and opt-in prompt/completion capture.                                      |
+| **Testing Doubles**           | `createWorkflowHarness` with isolated package mocks (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`). | Preserved package-owned test doubles; established canonical integration cookbook; verified serial execution and isolation under global fetch mocks.                                                         |
+| **Monitor Server & UI**       | Server stored step records; UI rendered generic node cards with basic status.                                                | Unified `EcosystemInspection` schema across ingestion, store, WebSocket transport, and web UI (`StepDetailCard`, `EcosystemInspector`, `InspectionContent`).                                                |
 
 ---
 
@@ -108,21 +108,21 @@ The web dashboard (`packages/monitor/ui`) provides dedicated inspector panels re
 ### Panel Specifications
 
 - **HTTP Panel**:
-  - Displays method, origin-only URL, status, duration, request attempt count, trace ID, and network egress policy.
-  - Distinguishes between `retryAfterMs` (parsed from header) and `retryDelayMs` (actual sleep duration).
-  - Identifies retry delay source (`'retry-after'` header vs exponential `'backoff'`).
-  - Copy cURL button produces strictly origin-only commands (`curl --request POST --url 'https://api.stripe.com'`), omitting paths, query parameters, headers, and bodies.
+    - Displays method, origin-only URL, status, duration, request attempt count, trace ID, and network egress policy.
+    - Distinguishes between `retryAfterMs` (parsed from header) and `retryDelayMs` (actual sleep duration).
+    - Identifies retry delay source (`'retry-after'` header vs exponential `'backoff'`).
+    - Copy cURL button produces strictly origin-only commands (`curl --request POST --url 'https://api.stripe.com'`), omitting paths, query parameters, headers, and bodies.
 - **Crypto Webhook Panel**:
-  - Displays protocol provider, payload byte size, verification category, and timestamp/replay check outcomes.
-  - Excludes raw signatures, webhook secrets, payloads, and internal stack traces.
+    - Displays protocol provider, payload byte size, verification category, and timestamp/replay check outcomes.
+    - Excludes raw signatures, webhook secrets, payloads, and internal stack traces.
 - **AI Completion Panel**:
-  - Displays provider, model ID, prompt tokens, completion tokens, total tokens, latency, repair counts, and fallback transitions.
-  - Renders unknown costs explicitly as `"Unavailable"` rather than zero.
-  - Provides expandable prompt and raw output timelines when capture is enabled.
+    - Displays provider, model ID, prompt tokens, completion tokens, total tokens, latency, repair counts, and fallback transitions.
+    - Renders unknown costs explicitly as `"Unavailable"` rather than zero.
+    - Provides expandable prompt and raw output timelines when capture is enabled.
 - **Notification & Approval Panel**:
-  - Displays channel, message ID, masked recipient (e.g., `u***`), approval status (`requested`, `approved`, `rejected`, etc.), and UTC expiration timestamp.
-  - Sandboxed Email Preview: Rendered inside an `<iframe>` with empty sandbox (`sandbox=""`) and restrictive CSP (`default-src 'none'; base-uri 'none'; form-action 'none'`). Active HTML tags, scripts, images, links, styles, and attributes are stripped or escaped.
-  - Slack messages rendered as safely escaped plaintext.
+    - Displays channel, message ID, masked recipient (e.g., `u***`), approval status (`requested`, `approved`, `rejected`, etc.), and UTC expiration timestamp.
+    - Sandboxed Email Preview: Rendered inside an `<iframe>` with empty sandbox (`sandbox=""`) and restrictive CSP (`default-src 'none'; base-uri 'none'; form-action 'none'`). Active HTML tags, scripts, images, links, styles, and attributes are stripped or escaped.
+    - Slack messages rendered as safely escaped plaintext.
 
 ---
 
@@ -139,21 +139,21 @@ import { MockAiProvider } from '@siglo/ai/testing';
 import { MockNotificationTransport } from '@siglo/notifications/testing';
 
 test('Ecosystem pipeline executes offline with synthetic doubles', async () => {
-  const http = createMockHttpServer();
-  try {
-    http.get('https://api.example.com').intercept({ path: '/orders', method: 'POST' }).reply(200, { ok: true });
-    const ai = new MockAiProvider([{ text: '{"approved":true}', promptTokens: 10, completionTokens: 5 }]);
-    const notifications = new MockNotificationTransport('slack');
+    const http = createMockHttpServer();
+    try {
+        http.get('https://api.example.com').intercept({ path: '/orders', method: 'POST' }).reply(200, { ok: true });
+        const ai = new MockAiProvider([{ text: '{"approved":true}', promptTokens: 10, completionTokens: 5 }]);
+        const notifications = new MockNotificationTransport('slack');
 
-    const harness = createWorkflowHarness(createMyWorkflow({ http, ai, notifications }));
-    const result = await harness.run({ orderId: '123' });
+        const harness = createWorkflowHarness(createMyWorkflow({ http, ai, notifications }));
+        const result = await harness.run({ orderId: '123' });
 
-    assert.equal(result.status, 'COMPLETED');
-    http.assertDone();
-    ai.assertDone();
-  } finally {
-    http.close(); // Clean up global fetch mock
-  }
+        assert.equal(result.status, 'COMPLETED');
+        http.assertDone();
+        ai.assertDone();
+    } finally {
+        http.close(); // Clean up global fetch mock
+    }
 });
 ```
 
@@ -169,27 +169,27 @@ test('Ecosystem pipeline executes offline with synthetic doubles', async () => {
 
 ### Deliverable Status Overview
 
-| Item | Status | Key Artifacts | Test Suite & Validation |
-|---|---|---|---|
-| **4A — Scripted CLI Templates** | **Completed** | `packages/cli/src/bin.ts`<br>`packages/cli/src/step-templates.ts`<br>`packages/cli/ECOSYSTEM.md` | `packages/cli/src/step-templates.test.ts`<br>Validates options, collisions, hostile input, and executes 19 generated offline tests. |
-| **4B — Safe Telemetry Plumbing** | **Completed** | `packages/core/src/features/events/capture.ts`<br>`packages/core/src/features/events/inspection.ts`<br>`packages/core/src/features/events/redaction.ts`<br>`packages/core/src/features/events/emitter.ts` | `packages/core/src/features/events/capture.test.ts`<br>`packages/core/src/features/events/inspection.test.ts`<br>Validates Unicode bounds, redaction, and error isolation. |
-| **4C — Web Inspectors** | **Completed** | `packages/monitor/ui/src/components/workflows/Dag/EcosystemInspector.tsx`<br>`packages/monitor/ui/src/components/workflows/Dag/InspectionContent.tsx`<br>`packages/monitor/ui/src/components/workflows/Dag/curl.ts`<br>`packages/monitor/src/ui/dashboard.ts` | `packages/monitor/src/inspector-ui.test.ts`<br>`packages/monitor/src/websocket-inspection.test.ts`<br>Tests iframe CSP, escaped Slack text, origin-only cURL, and live updates. |
-| **4D — Offline Integration & Cookbook** | **Completed** | `packages/monitor/src/ecosystem.integration.test.ts`<br>`packages/monitor/src/content.integration.test.ts`<br>`packages/monitor/src/wait-state.ts` | `packages/monitor/src/ecosystem.integration.test.ts`<br>Executes HTTP → AI → Notification pipeline, webhook rejection, and durable approval resume. |
-| **4E — Optional Conveniences** | **Evaluated & Deferred** | N/A | **Decisions Documented Below**: Unified testing re-exports, interactive prompts, and terminal UI deferred. |
+| Item                                    | Status                   | Key Artifacts                                                                                                                                                                                                                                                 | Test Suite & Validation                                                                                                                                                         |
+| --------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **4A — Scripted CLI Templates**         | **Completed**            | `packages/cli/src/bin.ts`<br>`packages/cli/src/step-templates.ts`<br>`packages/cli/ECOSYSTEM.md`                                                                                                                                                              | `packages/cli/src/step-templates.test.ts`<br>Validates options, collisions, hostile input, and executes 19 generated offline tests.                                             |
+| **4B — Safe Telemetry Plumbing**        | **Completed**            | `packages/core/src/features/events/capture.ts`<br>`packages/core/src/features/events/inspection.ts`<br>`packages/core/src/features/events/redaction.ts`<br>`packages/core/src/features/events/emitter.ts`                                                     | `packages/core/src/features/events/capture.test.ts`<br>`packages/core/src/features/events/inspection.test.ts`<br>Validates Unicode bounds, redaction, and error isolation.      |
+| **4C — Web Inspectors**                 | **Completed**            | `packages/monitor/ui/src/components/workflows/Dag/EcosystemInspector.tsx`<br>`packages/monitor/ui/src/components/workflows/Dag/InspectionContent.tsx`<br>`packages/monitor/ui/src/components/workflows/Dag/curl.ts`<br>`packages/monitor/src/ui/dashboard.ts` | `packages/monitor/src/inspector-ui.test.ts`<br>`packages/monitor/src/websocket-inspection.test.ts`<br>Tests iframe CSP, escaped Slack text, origin-only cURL, and live updates. |
+| **4D — Offline Integration & Cookbook** | **Completed**            | `packages/monitor/src/ecosystem.integration.test.ts`<br>`packages/monitor/src/content.integration.test.ts`<br>`packages/monitor/src/wait-state.ts`                                                                                                            | `packages/monitor/src/ecosystem.integration.test.ts`<br>Executes HTTP → AI → Notification pipeline, webhook rejection, and durable approval resume.                             |
+| **4E — Optional Conveniences**          | **Evaluated & Deferred** | N/A                                                                                                                                                                                                                                                           | **Decisions Documented Below**: Unified testing re-exports, interactive prompts, and terminal UI deferred.                                                                      |
 
 ---
 
 ## 7. Architectural Decisions for 4E (Conveniences Evaluated)
 
 1. **Package-Owned Testing Subpaths Retained (No Unified Re-export)**:
-   - *Evaluation*: Considered re-exporting all mock utilities (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`) from `@siglo/testing`.
-   - *Decision*: Rejected. `@siglo/testing` currently depends only on `@siglo/core`. Adding ecosystem dependencies to `@siglo/testing` would force every consumer of the test harness to install HTTP, AI, Crypto, and Notification dependencies regardless of whether they are used. Package-owned subpaths (`@siglo/http/testing`, `@siglo/ai/testing`, `@siglo/notifications/testing`) remain clean and idiomatic.
+    - _Evaluation_: Considered re-exporting all mock utilities (`createMockHttpServer`, `MockAiProvider`, `MockNotificationTransport`) from `@siglo/testing`.
+    - _Decision_: Rejected. `@siglo/testing` currently depends only on `@siglo/core`. Adding ecosystem dependencies to `@siglo/testing` would force every consumer of the test harness to install HTTP, AI, Crypto, and Notification dependencies regardless of whether they are used. Package-owned subpaths (`@siglo/http/testing`, `@siglo/ai/testing`, `@siglo/notifications/testing`) remain clean and idiomatic.
 2. **Scripted CLI Maintained (Interactive Prompting Deferred)**:
-   - *Evaluation*: Considered introducing an interactive Inquirer-style CLI prompt for step generation.
-   - *Decision*: Deferred. Scripted generation using `--key=value` flags is essential for reproducible developer workflows, npm scripts, and automated agents. Interactive wizard prompts will be handled as an optional enhancement in a later release.
+    - _Evaluation_: Considered introducing an interactive Inquirer-style CLI prompt for step generation.
+    - _Decision_: Deferred. Scripted generation using `--key=value` flags is essential for reproducible developer workflows, npm scripts, and automated agents. Interactive wizard prompts will be handled as an optional enhancement in a later release.
 3. **Terminal Inspector Deferred**:
-   - *Evaluation*: Considered building an in-terminal curses/blessed dashboard for live workflow inspection.
-   - *Decision*: Deferred. The web monitor dashboard (`packages/monitor/ui`) provides superior support for graph DAG layouts, rich JSON formatting, copy actions, and sandboxed iframe previews. Terminal-based devtools are tracked separately under Phase 5/6 IDE plugins and CLI extensions.
+    - _Evaluation_: Considered building an in-terminal curses/blessed dashboard for live workflow inspection.
+    - _Decision_: Deferred. The web monitor dashboard (`packages/monitor/ui`) provides superior support for graph DAG layouts, rich JSON formatting, copy actions, and sandboxed iframe previews. Terminal-based devtools are tracked separately under Phase 5/6 IDE plugins and CLI extensions.
 
 ---
 

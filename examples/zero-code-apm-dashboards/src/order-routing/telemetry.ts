@@ -31,7 +31,7 @@ export function startTelemetry(serviceName: string) {
         return undefined;
     }
     const provider = new NodeTracerProvider({
-        resource: resourceFromAttributes({ 'service.name': serviceName, 'service.version': '1.1.0' }),
+        resource: resourceFromAttributes({ 'service.name': serviceName, 'service.version': '1.2.0' }),
         spanProcessors: [new BatchSpanProcessor(isolateTelemetryExporter(new OTLPTraceExporter()))],
     });
     provider.register();

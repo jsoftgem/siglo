@@ -140,7 +140,7 @@ export async function runNotificationsCharter(iterations: number = 15, seed: num
 
             // Execute up to suspension
             try {
-                await approvalFlow.execute({}, { durable: true });
+                await approvalFlow.run({}, { durable: true });
             } catch (suspendErr: any) {
                 if (!/suspend/i.test(suspendErr.message)) {
                     errors.push(`Iteration ${i}: Unexpected approval suspension error: ${suspendErr.message}`);

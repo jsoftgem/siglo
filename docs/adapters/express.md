@@ -1,6 +1,6 @@
 ---
-title: "Express Adapter"
-description: "Express middleware adapter for executing Siglo workflows with correlation propagation, cancellation, and semantic status code mapping."
+title: 'Express Adapter'
+description: 'Express middleware adapter for executing Siglo workflows with correlation propagation, cancellation, and semantic status code mapping.'
 ---
 
 # @siglo/express Adapter Guide
@@ -36,6 +36,7 @@ npm install --save-dev @types/express
 ```
 
 Peer dependency matrix:
+
 - `Siglo`: `*` (v1.0.0+)
 - `express`: `^4.18.0 || ^5.0.0`
 
@@ -54,7 +55,7 @@ Returns a standard Express middleware function `(req, res, next) => Promise<any>
 ```typescript
 function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options?: SigloExpressOptions<TReq, TInput, TOutput>
+    options?: SigloExpressOptions<TReq, TInput, TOutput>,
 ): (req: any, res: any, next: (err?: any) => void) => Promise<any>;
 ```
 
@@ -62,17 +63,17 @@ function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
 
 ## 4. Configuration Options (`SigloExpressOptions`)
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `input` | `(req: TReq) => Promise<TInput> \| TInput` | `req.body \|\| req.query` | Custom mapping function from `Request` to workflow input parameters. |
-| `output` | `(result: TOutput, res: Response) => Promise<any> \| any` | `res.json(result)` | Custom responder to set custom status codes, headers, or response shapes. |
-| `timeout` | `number` | `undefined` | Execution timeout in milliseconds. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded. |
-| `durable` | `boolean \| ((req: TReq) => boolean)` | `undefined` | Enables durable suspension, either for every request or through a request-specific resolver. |
-| `namespace` | `string \| ((req: TReq) => string \| undefined)` | `undefined` | Namespace string or extractor function for tenant data partitioning. |
-| `allowHeaderNamespace` | `boolean` | `false` | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted. |
-| `exposeErrorDetails` | `boolean` | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
-| `onError` | `(err: any, req: TReq, res: any, next: NextFunction) => any` | Default JSON handler | Custom error responder. If omitted, maps status codes and returns sanitized `{ error: message }`. |
-| `correlationIdHeader` | `string` | `'x-correlation-id'` | Header name to inspect for incoming correlation IDs. |
+| Option                 | Type                                                         | Default                                 | Description                                                                                                                              |
+| :--------------------- | :----------------------------------------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `input`                | `(req: TReq) => Promise<TInput> \| TInput`                   | `req.body \|\| req.query`               | Custom mapping function from `Request` to workflow input parameters.                                                                     |
+| `output`               | `(result: TOutput, res: Response) => Promise<any> \| any`    | `res.json(result)`                      | Custom responder to set custom status codes, headers, or response shapes.                                                                |
+| `timeout`              | `number`                                                     | `undefined`                             | Execution timeout in milliseconds. Throws `StepTimeoutException` / `FlowTimeoutException` if exceeded.                                   |
+| `durable`              | `boolean \| ((req: TReq) => boolean)`                        | `undefined`                             | Enables durable suspension, either for every request or through a request-specific resolver.                                             |
+| `namespace`            | `string \| ((req: TReq) => string \| undefined)`             | `undefined`                             | Namespace string or extractor function for tenant data partitioning.                                                                     |
+| `allowHeaderNamespace` | `boolean`                                                    | `false`                                 | When true, permits extracting tenant namespace from incoming `x-namespace` headers. Keep disabled when client requests are untrusted.    |
+| `exposeErrorDetails`   | `boolean`                                                    | `process.env.NODE_ENV !== 'production'` | Controls whether 500 error messages expose internal details. In production, a generic `'Internal workflow execution error'` is returned. |
+| `onError`              | `(err: any, req: TReq, res: any, next: NextFunction) => any` | Default JSON handler                    | Custom error responder. If omitted, maps status codes and returns sanitized `{ error: message }`.                                        |
+| `correlationIdHeader`  | `string`                                                     | `'x-correlation-id'`                    | Header name to inspect for incoming correlation IDs.                                                                                     |
 
 Without a custom `output` callback, a workflow result with `status: 'waiting'` returns **202 Accepted** with the suspension descriptor as JSON. Completed workflows use the normal **200 OK** response. Suspension is a successful result and does not invoke `onError`. A custom `output` callback controls both the response body and status.
 
@@ -93,13 +94,13 @@ The middleware automatically enriches HTTP headers:
 
 When an unhandled exception is thrown inside a workflow, the adapter's `getErrorStatusCode(err)` inspects the error hierarchy and sets appropriate HTTP status codes:
 
-| Error Name / Type | HTTP Status Code | Description |
-| :--- | :--- | :--- |
-| `StepTimeoutException` / `FlowTimeoutException` | `504 Gateway Timeout` | Step or workflow timeout SLA was exceeded. |
-| `ValidationException` / `SpecFailedException` | `400 Bad Request` | Input schema, parameter, or contract validation failed. |
-| `IdempotencyConflictException` | `409 Conflict` | Concurrent claim detected on an in-progress idempotency key. |
-| `CancellationException` / `AbortError` | `499 Client Closed Request` | Client terminated connection or request was cancelled. |
-| `CompensationException` / Generic `Error` | `500 Internal Server Error` | Unexpected runtime error or failed saga compensation. |
+| Error Name / Type                               | HTTP Status Code            | Description                                                  |
+| :---------------------------------------------- | :-------------------------- | :----------------------------------------------------------- |
+| `StepTimeoutException` / `FlowTimeoutException` | `504 Gateway Timeout`       | Step or workflow timeout SLA was exceeded.                   |
+| `ValidationException` / `SpecFailedException`   | `400 Bad Request`           | Input schema, parameter, or contract validation failed.      |
+| `IdempotencyConflictException`                  | `409 Conflict`              | Concurrent claim detected on an in-progress idempotency key. |
+| `CancellationException` / `AbortError`          | `499 Client Closed Request` | Client terminated connection or request was cancelled.       |
+| `CompensationException` / Generic `Error`       | `500 Internal Server Error` | Unexpected runtime error or failed saga compensation.        |
 
 ---
 
@@ -110,7 +111,7 @@ When a client closes an HTTP connection early (e.g. user closes browser or upstr
 `@siglo/express` passes this abort signal directly to the workflow engine (`ExecutionOptions.signal`). Steps inside your workflow can listen to this signal via `param.$signal?.()`:
 
 ```typescript
-const fetchExternalInventory = Step.create(async (param) => {
+const fetchExternalInventory = Step.create(async param => {
     const signal = param.$signal?.(); // AbortSignal combined from HTTP request & step timeout
     const res = await fetch('https://inventory.internal/check', { signal });
     return await res.json();
@@ -186,14 +187,13 @@ app.post(
             }
             return res.status(500).json({ error: 'Internal order failure', detail: err.message });
         },
-    })
+    }),
 );
 
 app.listen(3000, () => {
     console.log('Checkout service running on http://localhost:3000');
 });
 ```
-
 
 ---
 
@@ -212,17 +212,20 @@ app.use(express.json());
 const approvalWorkflow = flow(
     waitForEvent('order.approved', {
         correlationKey: (input: { orderId: string }) => `order:${input.orderId}`,
-        timeout: '24h'
+        timeout: '24h',
     }),
-    Step.create('confirmOrder', () => ({ status: 'confirmed' }))
+    Step.create('confirmOrder', () => ({ status: 'confirmed' })),
 );
 
 // POST JSON: { "orderId": "order-5001" }
 // Returns 202 with status: 'waiting'; no output callback is required.
-app.post('/api/orders', sigloExpressMiddleware(approvalWorkflow, {
-    durable: true,
-    namespace: 'orders'
-}));
+app.post(
+    '/api/orders',
+    sigloExpressMiddleware(approvalWorkflow, {
+        durable: true,
+        namespace: 'orders',
+    }),
+);
 
 // In a separate approval webhook handler, resume the existing execution:
 // await resumeWorkflow(approvalWorkflow, 'order:order-5001', { approved: true });
@@ -232,11 +235,11 @@ The waiting JSON includes `status`, `stackId`, `stepId`, `correlationKey`, `even
 
 For request-specific control, replace `durable: true` with `durable: (req) => req.headers['x-durable'] === 'true'`. Explicit `durable: false` disables suspension; wait nodes then use their non-durable behavior.
 
-| Workflow outcome | Default HTTP response |
-| :--- | :--- |
-| Suspended at `waitForEvent()` or `wait()` | `202 Accepted` with the waiting descriptor |
-| Completed | `200 OK` with the clean workflow result |
-| Failed | Existing error-to-status mapping, or custom `onError` |
+| Workflow outcome                          | Default HTTP response                                 |
+| :---------------------------------------- | :---------------------------------------------------- |
+| Suspended at `waitForEvent()` or `wait()` | `202 Accepted` with the waiting descriptor            |
+| Completed                                 | `200 OK` with the clean workflow result               |
+| Failed                                    | Existing error-to-status mapping, or custom `onError` |
 
 A custom `output` callback takes full control of the response body and status, including for waiting results. If you supply one, handle `result.status === 'waiting'` explicitly when you want to preserve the `202` response.
 

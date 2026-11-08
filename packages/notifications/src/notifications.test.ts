@@ -119,7 +119,7 @@ describe('notifications', () => {
             }),
         );
         try {
-            await workflow.execute({}, { durable: true });
+            await workflow.run({}, { durable: true });
         } catch (e: any) {
             if (!/suspend/i.test(e.message)) throw e;
         }

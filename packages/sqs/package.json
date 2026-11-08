@@ -1,6 +1,6 @@
 {
   "name": "@siglo/sqs",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AWS SQS batch consumer adapter for Siglo TypeScript workflows with Lambda partial batch failure handling.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

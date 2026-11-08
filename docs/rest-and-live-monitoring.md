@@ -1,6 +1,6 @@
 ---
-title: "Serve a REST Endpoint and Watch It Run Live"
-description: "Expose a Siglo checkout workflow through an Express REST endpoint, stream execution events, and inspect step retries and compensations in the live monitor."
+title: 'Serve a REST Endpoint and Watch It Run Live'
+description: 'Expose a Siglo checkout workflow through an Express REST endpoint, stream execution events, and inspect step retries and compensations in the live monitor.'
 ---
 
 # Serve a REST Endpoint and Watch It Run Live
@@ -65,17 +65,25 @@ import { createDemoServices } from './checkout-demo';
 function isOrder(value: unknown): value is Order {
     if (!value || typeof value !== 'object') return false;
     const order = value as Partial<Order>;
-    return typeof order.orderId === 'string' && order.orderId.trim().length > 0
-        && typeof order.sku === 'string' && order.sku.trim().length > 0
-        && typeof order.quantity === 'number' && Number.isInteger(order.quantity) && order.quantity > 0
-        && typeof order.amountCents === 'number' && Number.isSafeInteger(order.amountCents) && order.amountCents > 0;
+    return (
+        typeof order.orderId === 'string' &&
+        order.orderId.trim().length > 0 &&
+        typeof order.sku === 'string' &&
+        order.sku.trim().length > 0 &&
+        typeof order.quantity === 'number' &&
+        Number.isInteger(order.quantity) &&
+        order.quantity > 0 &&
+        typeof order.amountCents === 'number' &&
+        Number.isSafeInteger(order.amountCents) &&
+        order.amountCents > 0
+    );
 }
 
 export async function startCheckoutServer(port = 3000, monitorPort = 4000) {
     const monitor = await createMonitorServer({
         port: monitorPort,
         host: '127.0.0.1',
-        allowRemoteResume: false
+        allowRemoteResume: false,
     });
     const app = express();
     app.use(express.json({ limit: '16kb' }));
@@ -97,11 +105,12 @@ export async function startCheckoutServer(port = 3000, monitorPort = 4000) {
             durable: false,
             timeout: 5000,
             exposeErrorDetails: false,
-            output: (result, response) => response.status(201).json({
-                orderId: input.orderId,
-                status: 'confirmed',
-                trackingId: result.trackingId
-            })
+            output: (result, response) =>
+                response.status(201).json({
+                    orderId: input.orderId,
+                    status: 'confirmed',
+                    trackingId: result.trackingId,
+                }),
         });
         await handler(req, res, next);
         console.log(`${orderId}: ${events.join(' -> ')}`);
@@ -119,24 +128,28 @@ export async function startCheckoutServer(port = 3000, monitorPort = 4000) {
         monitor,
         async close() {
             await new Promise<void>((resolve, reject) => {
-                server.close(error => error ? reject(error) : resolve());
+                server.close(error => (error ? reject(error) : resolve()));
             });
             await monitor.close();
-        }
+        },
     };
 }
 
 if (require.main === module) {
-    startCheckoutServer().then(({ close }) => {
-        console.log('Checkout API: http://127.0.0.1:3000/api/checkouts');
-        console.log('Live monitor: http://127.0.0.1:4000');
-        const shutdown = () => { close().catch(console.error); };
-        process.once('SIGINT', shutdown);
-        process.once('SIGTERM', shutdown);
-    }).catch(error => {
-        console.error(error);
-        process.exitCode = 1;
-    });
+    startCheckoutServer()
+        .then(({ close }) => {
+            console.log('Checkout API: http://127.0.0.1:3000/api/checkouts');
+            console.log('Live monitor: http://127.0.0.1:4000');
+            const shutdown = () => {
+                close().catch(console.error);
+            };
+            process.once('SIGINT', shutdown);
+            process.once('SIGTERM', shutdown);
+        })
+        .catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+        });
 }
 ```
 
@@ -173,9 +186,9 @@ The response has status `201 Created`, echoes `X-Correlation-Id`, and includes a
 
 ```json
 {
-  "orderId": "order-1001",
-  "status": "confirmed",
-  "trackingId": "tracking-order-1001"
+    "orderId": "order-1001",
+    "status": "confirmed",
+    "trackingId": "tracking-order-1001"
 }
 ```
 
@@ -191,12 +204,12 @@ The HTTP request waits for the workflow to complete; this endpoint doesn’t enq
 
 Select the new execution in the dashboard. Use its stack ID from the response header to identify the exact run. If it hasn’t appeared, click **Refresh workflows** in the top-right corner.
 
-| Question | What to inspect |
-|---|---|
-| Did every business operation complete? | The run status and named workflow steps |
-| Why did payment take another attempt? | The `chargePayment` step and `step:retry` event |
-| Which operation used the time? | The step durations and waterfall |
-| What data reached shipping? | Context fields such as `reservationId` and `paymentId` |
+| Question                               | What to inspect                                        |
+| -------------------------------------- | ------------------------------------------------------ |
+| Did every business operation complete? | The run status and named workflow steps                |
+| Why did payment take another attempt?  | The `chargePayment` step and `step:retry` event        |
+| Which operation used the time?         | The step durations and waterfall                       |
+| What data reached shipping?            | Context fields such as `reservationId` and `paymentId` |
 
 The demo is fast, so you may see the completed run rather than watching each transition as it happens. Its recorded events still show the retry.
 
