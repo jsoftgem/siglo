@@ -19,7 +19,7 @@ export async function resumeWorkflow(
     flowInstance: Flow<any, any>,
     correlationKeyOrStackId: string,
     eventPayload: any = {},
-    options?: ResumeOptions
+    options?: ResumeOptions,
 ): Promise<any> {
     let isByStack = defaultDurableManager.getWaitingByStack(correlationKeyOrStackId);
     let correlationKey = isByStack ? isByStack.correlationKey : correlationKeyOrStackId;
@@ -31,7 +31,7 @@ export async function resumeWorkflow(
         if (adapter && typeof (adapter as any).getWaitRecord === 'function') {
             try {
                 fallbackRecord = await (adapter as any).getWaitRecord(correlationKeyOrStackId);
-            /* c8 ignore next 3 */
+                /* c8 ignore next 3 */
             } catch {
                 // ignore
             }
@@ -42,7 +42,7 @@ export async function resumeWorkflow(
                 if (cp?.metadata?.waitRecord) {
                     fallbackRecord = cp.metadata.waitRecord;
                 }
-            /* c8 ignore next 3 */
+                /* c8 ignore next 3 */
             } catch {
                 // ignore
             }
@@ -56,19 +56,32 @@ export async function resumeWorkflow(
 
     const isTimerExpired = eventPayload?.event?.type === 'timer:expired' || options?.allowExpired === true;
     const adapter = defaultStorageManager.getAdapter();
-    const storedRecord = adapter?.getWaitRecord ? await adapter.getWaitRecord(correlationKey) : defaultDurableManager.getWaiting(correlationKey);
+    const storedRecord = adapter?.getWaitRecord
+        ? await adapter.getWaitRecord(correlationKey)
+        : defaultDurableManager.getWaiting(correlationKey);
     const execute = async () => {
         let waitRecord: any;
         const claimantId = options?.stackId || `resume-${Date.now()}-${Math.random()}`;
-        const checkpoint = storedRecord ? (adapter?.getCheckpoint ? await adapter.getCheckpoint(storedRecord.stackId) : await defaultStorageManager.getCheckpoint(storedRecord.stackId)) : undefined;
+        const checkpoint = storedRecord
+            ? adapter?.getCheckpoint
+                ? await adapter.getCheckpoint(storedRecord.stackId)
+                : await defaultStorageManager.getCheckpoint(storedRecord.stackId)
+            : undefined;
         if (checkpoint?.status === 'cancelled') throw new WorkflowAlreadyResumedException(correlationKey);
 
-
         if (adapter && typeof (adapter as any).claimWaitRecord === 'function') {
-            waitRecord = await (adapter as any).claimWaitRecord(correlationKey, claimantId, { allowExpired: isTimerExpired, eventPayload });
+            waitRecord = await (adapter as any).claimWaitRecord(correlationKey, claimantId, {
+                allowExpired: isTimerExpired,
+                eventPayload,
+            });
             if (!waitRecord) throw new WorkflowAlreadyResumedException(correlationKey);
             // Storage owns expiry validation and claim state. Never suppress validation errors.
-            if (!isTimerExpired && !waitRecord.resumePayload && waitRecord.expiresAt !== undefined && waitRecord.expiresAt <= Date.now()) {
+            if (
+                !isTimerExpired &&
+                !waitRecord.resumePayload &&
+                waitRecord.expiresAt !== undefined &&
+                waitRecord.expiresAt <= Date.now()
+            ) {
                 throw new ExpiredWaitException(correlationKey, waitRecord.expiresAt, waitRecord.eventName);
             }
         } else {
@@ -80,13 +93,16 @@ export async function resumeWorkflow(
                 if (saveRes && typeof saveRes.catch === 'function') {
                     saveRes.catch(() => {});
                 }
-            /* c8 ignore next 3 */
+                /* c8 ignore next 3 */
             } catch {
                 // ignore
             }
         }
 
-        const effectiveMonitor = options?.monitor || (flowInstance as any)?.monitorEmitter || defaultStorageManager.getStack(waitRecord.stackId)?.monitor;
+        const effectiveMonitor =
+            options?.monitor ||
+            (flowInstance as any)?.monitorEmitter ||
+            defaultStorageManager.getStack(waitRecord.stackId)?.monitor;
         const effectiveNamespace = options?.namespace || waitRecord.namespace;
         const targetVersion = options?.targetVersion ?? (flowInstance as any)?.workflowVersion ?? waitRecord.version;
 
@@ -97,26 +113,29 @@ export async function resumeWorkflow(
             monitor: effectiveMonitor,
             workflowVersion: targetVersion,
             isResume: true,
-            durable: options?.durable ?? true
+            durable: options?.durable ?? true,
         };
 
         emitMonitoringEvent(effectiveOptions, {
             type: 'flow:resumed',
-            resumeReason: (waitRecord.resumePayload ?? eventPayload)?.event?.type === 'timer:expired' ? 'timer-expired' : 'event',
+            resumeReason:
+                (waitRecord.resumePayload ?? eventPayload)?.event?.type === 'timer:expired' ? 'timer-expired' : 'event',
             stackId: waitRecord.stackId,
             stepId: waitRecord.stepId,
             correlationKey: waitRecord.correlationKey,
             eventName: waitRecord.eventName,
             timestamp: Date.now(),
-            namespace: effectiveNamespace
+            namespace: effectiveNamespace,
         });
 
-        const cp = checkpoint ?? await defaultStorageManager.getCheckpoint(waitRecord.stackId);
+        const cp = checkpoint ?? (await defaultStorageManager.getCheckpoint(waitRecord.stackId));
         const recordedVersion = waitRecord.version ?? (cp as any)?.workflowVersion;
 
         let restoredState: any = cp?.metadata?.accumulatedContext
             ? safeClone(cp.metadata.accumulatedContext)
-            : (cp?.contexts ? Object.assign({}, ...Object.values(cp.contexts)) : {});
+            : cp?.contexts
+              ? Object.assign({}, ...Object.values(cp.contexts))
+              : {};
 
         const stepsData = cp?.metadata?.steps;
         let stepsAccessor: any;
@@ -149,7 +168,12 @@ export async function resumeWorkflow(
         } else {
             const waitStepIdx = steps.findIndex((s: any) => {
                 const node = s?.workflowNode;
-                return node?.type === 'wait' || s?.name === waitRecord.stepId || s?.name === 'wait' || s?.name === 'waitForEvent';
+                return (
+                    node?.type === 'wait' ||
+                    s?.name === waitRecord.stepId ||
+                    s?.name === 'wait' ||
+                    s?.name === 'waitForEvent'
+                );
             });
             if (waitStepIdx !== -1) {
                 remainingSteps = steps.slice(waitStepIdx + 1);
@@ -165,7 +189,7 @@ export async function resumeWorkflow(
                 durationMs: Date.now() - (waitRecord.createdAt || Date.now()),
                 status: 'COMPLETED',
                 timestamp: Date.now(),
-                namespace: effectiveNamespace
+                namespace: effectiveNamespace,
             });
             await adapter?.completeWaitRecord?.(correlationKey, claimantId);
             return cleanInput;
@@ -183,5 +207,7 @@ export async function resumeWorkflow(
     };
     return adapter?.withWorkflowLock && storedRecord
         ? adapter.withWorkflowLock(storedRecord.stackId, execute)
-        : storedRecord ? withLocalWorkflowLock(storedRecord.stackId, execute) : execute();
+        : storedRecord
+          ? withLocalWorkflowLock(storedRecord.stackId, execute)
+          : execute();
 }

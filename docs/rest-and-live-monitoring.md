@@ -7,7 +7,7 @@ description: "Expose a Siglo checkout workflow through an Express REST endpoint,
 
 A customer reports that checkout failed. Your API log shows a `500`, but it doesn’t tell you whether stock was reserved, payment was retried, or shipping caused the failure.
 
-In this tutorial, we’ll expose the checkout from [Getting Started](01-getting-started.md) through an Express REST endpoint and attach Siglo’s live monitor. We’ll send real HTTP requests, inspect the named steps, and compare a successful checkout with a failed one.
+In this tutorial, we’ll expose the checkout from [Getting Started](/01-getting-started) through an Express REST endpoint and attach Siglo’s live monitor. We’ll send real HTTP requests, inspect the named steps, and compare a successful checkout with a failed one.
 
 The demo runs locally with fake inventory, payment, and shipping services. The API listens on port **3000**, and the monitoring dashboard listens on **4000**. Both run in the same Node.js process and share an event emitter.
 
@@ -36,7 +36,7 @@ npm install express @siglo/express @siglo/monitor
 npm install --save-dev @types/express
 ```
 
-This assumes the Node.js and TypeScript setup from [Getting Started](01-getting-started.md). The server code below uses that tutorial’s CommonJS setup.
+This assumes the Node.js and TypeScript setup from [Getting Started](/01-getting-started). The server code below uses that tutorial’s CommonJS setup.
 
 **Running from this repository?** The complete example is already in [`examples/src/getting-started`](../examples/src/getting-started). With repository dependencies installed, run these commands from the repository root:
 
@@ -47,7 +47,7 @@ npm run build --workspace=@siglo/monitor
 node --import tsx examples/src/getting-started/checkout-server.ts
 ```
 
-The monitor serves its packaged dashboard. If you are developing the dashboard itself, [build its UI assets](live-monitoring.md#developing--building-the-ui) before rebuilding the monitor package.
+The monitor serves its packaged dashboard. If you are developing the dashboard itself, [build its UI assets](/live-monitoring#developing--building-the-ui) before rebuilding the monitor package.
 
 ## 3. Connect the Endpoint to the Monitor
 
@@ -185,7 +185,7 @@ The fake gateway rejects the first payment attempt before accepting a charge, th
 order-1001: reserve stock -> charge attempt 1 -> charge attempt 2 -> arrange shipping
 ```
 
-The HTTP request waits for the workflow to complete; this endpoint doesn’t enqueue a background job. The adapter’s five-second timeout bounds workflow execution. Real service clients should also support cancellation and their own request deadlines; see [Timeouts and Cancellation](05-retries-timeouts-and-cancellation.md).
+The HTTP request waits for the workflow to complete; this endpoint doesn’t enqueue a background job. The adapter’s five-second timeout bounds workflow execution. Real service clients should also support cancellation and their own request deadlines; see [Timeouts and Cancellation](/05-retries-timeouts-and-cancellation).
 
 ## 5. Inspect the Execution
 
@@ -244,7 +244,7 @@ Now send another request. You’ll receive events such as `flow:start`, `step:st
 curl http://127.0.0.1:4000/metrics
 ```
 
-The output includes `siglo_flow_executions_total` and `siglo_step_retries_total`. These counters belong to this monitor instance and reset when it restarts. For scraping and dashboards, continue with [Prometheus and Grafana](live-monitoring.md#11-production-telemetry-prometheus--grafana).
+The output includes `siglo_flow_executions_total` and `siglo_step_retries_total`. These counters belong to this monitor instance and reset when it restarts. For scraping and dashboards, continue with [Prometheus and Grafana](/live-monitoring#11-production-telemetry-prometheus--grafana).
 
 ## 6. Trigger a Shipping Failure
 
@@ -272,7 +272,7 @@ Refresh the dashboard if needed, select the `FAILED` execution, and click `arran
 
 ![Siglo live monitor showing a failed checkout with arrangeShipping selected and the No courier available error](assets/rest-and-live-monitoring/checkout-shipping-failure.png)
 
-Refunding payment and releasing stock doesn’t turn the checkout into a successful order. The workflow remains failed because delivery was never arranged. See [Compensation and Sagas](compensation-and-sagas.md) for handling failed compensation operations as well.
+Refunding payment and releasing stock doesn’t turn the checkout into a successful order. The workflow remains failed because delivery was never arranged. See [Compensation and Sagas](/compensation-and-sagas) for handling failed compensation operations as well.
 
 Try changing `quantity` to `0`: that request returns `400` at the HTTP boundary and doesn’t add a workflow run.
 
@@ -290,12 +290,12 @@ It checks the response body and stack header, recorded retry, failed-run status,
 
 For a production endpoint, replace the fake clients, remove the failure flag, derive prices from trusted order records, and authenticate callers before running the workflow. Select a namespace from trusted application identity when serving multiple tenants.
 
-This endpoint executes each accepted request as a new workflow run. The correlation header helps trace a request; it doesn’t deduplicate it. Add workflow idempotency and provider-side payment keys using [the checkout idempotency walkthrough](01-getting-started.md#6-handle-a-duplicate-checkout-request). For custom execution options beyond the Express adapter’s interface, call `checkout.run(input, options)` from your route and map the response explicitly.
+This endpoint executes each accepted request as a new workflow run. The correlation header helps trace a request; it doesn’t deduplicate it. Add workflow idempotency and provider-side payment keys using [the checkout idempotency walkthrough](/01-getting-started#6-handle-a-duplicate-checkout-request). For custom execution options beyond the Express adapter’s interface, call `checkout.run(input, options)` from your route and map the response explicitly.
 
-The monitor binds to loopback here, keeps execution history in memory, and disables interactive resume/replay with `allowRemoteResume: false`. Before making it remotely accessible, configure authentication and telemetry redaction using the [monitor deployment guide](live-monitoring.md#12-security-authentication--production-hardening). Business-field allowlisting reduces accidental data collection, but real provider results also need review for sensitive fields.
+The monitor binds to loopback here, keeps execution history in memory, and disables interactive resume/replay with `allowRemoteResume: false`. Before making it remotely accessible, configure authentication and telemetry redaction using the [monitor deployment guide](/live-monitoring#12-security-authentication--production-hardening). Business-field allowlisting reduces accidental data collection, but real provider results also need review for sensitive fields.
 
-To observe workers in another process, attach a [remote monitor client](live-monitoring.md#scenario-c-high-throughput-buffered-client) instead of sharing an in-process emitter. For long-running work that should outlive an HTTP request, use a [queue worker](adapters/bullmq.md) or a [durable workflow](06-durable-workflows.md) with persistent storage and a defined status/resumption API.
+To observe workers in another process, attach a [remote monitor client](/live-monitoring#scenario-c-high-throughput-buffered-client) instead of sharing an in-process emitter. For long-running work that should outlive an HTTP request, use a [queue worker](/adapters/bullmq) or a [durable workflow](/06-durable-workflows) with persistent storage and a defined status/resumption API.
 
 Press `Ctrl+C` in the server terminal to close the API and monitor together.
 
-Continue with [Run Checkout Across Two Servers with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md) for shared checkpoints, cross-instance request deduplication, Redis caching, and a separate live monitor, with a complete Docker Compose setup.
+Continue with [Run Checkout Across Two Servers with PostgreSQL and Redis](/distributed-rest-and-live-monitoring) for shared checkpoints, cross-instance request deduplication, Redis caching, and a separate live monitor, with a complete Docker Compose setup.

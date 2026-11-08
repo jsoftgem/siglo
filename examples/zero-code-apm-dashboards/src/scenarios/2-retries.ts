@@ -31,29 +31,23 @@ export async function runRetriesScenario(options: { silent?: boolean; emitter?: 
         return {
             chargeId: `CHG-${param.orderId}-SUCCESS`,
             status: 'CAPTURED',
-            totalAttempts: attempts
+            totalAttempts: attempts,
         };
-    })
-        .onFail({ maxRetries: 3, delay: 50 })
-        ;
+    }).onFail({ maxRetries: 3, delay: 50 });
 
     const notifyReceipt = Step.create('notifyReceipt', async (param: any) => {
         await sleep(15);
         return { receiptSent: true, chargeId: param.chargeId };
     });
 
-    const paymentWorkflow = flow(
-        preparePayment,
-        chargeCreditCard,
-        notifyReceipt
-    );
+    const paymentWorkflow = flow(preparePayment, chargeCreditCard, notifyReceipt);
 
     if (options.emitter) paymentWorkflow.monitor(options.emitter);
 
     const monitoredFlow = instrumentWorkflow(paymentWorkflow, {
         tracer,
         workflowName: 'ResilientPaymentWorkflow',
-        workflowVersion: '2.1.0'
+        workflowVersion: '2.1.0',
     });
 
     const rawResult = await monitoredFlow.run({ orderId: 'ORD-2002', amount: 250.0 });

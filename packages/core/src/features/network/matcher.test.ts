@@ -5,7 +5,7 @@ import {
     isUnixSocketAllowed,
     parseHostAndPort,
     matchesPattern,
-    isHostAllowed
+    isHostAllowed,
 } from './matcher';
 import { EffectiveNetworkPolicy } from './types';
 
@@ -169,7 +169,7 @@ describe('Network Policy Matcher Tests', () => {
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                allowUnixSockets: ['/var/socket.sock']
+                allowUnixSockets: ['/var/socket.sock'],
             };
             expect(isHostAllowed('http://localhost:3000', 'localhost', policy, 3000)).to.be.true;
             expect(isHostAllowed('http://127.0.0.1:8080', '127.0.0.1', policy, 8080)).to.be.true;
@@ -181,7 +181,7 @@ describe('Network Policy Matcher Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com'],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
             expect(isHostAllowed('http://localhost:3000', 'localhost', policy, 3000)).to.be.false;
         });
@@ -191,7 +191,7 @@ describe('Network Policy Matcher Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['localhost'],
-                allowLocalhost: false
+                allowLocalhost: false,
             };
             expect(isHostAllowed('http://localhost:3000', 'localhost', policy)).to.be.true;
         });
@@ -201,7 +201,7 @@ describe('Network Policy Matcher Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com', '*.github.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
             };
             expect(isHostAllowed('https://api.stripe.com/v1', 'api.stripe.com', policy)).to.be.true;
             expect(isHostAllowed('https://api.github.com/users', 'api.github.com', policy)).to.be.true;
@@ -213,7 +213,7 @@ describe('Network Policy Matcher Tests', () => {
                 enabled: true,
                 defaultPolicy: 'allow',
                 allowedHosts: [],
-                allowLocalhost: true
+                allowLocalhost: true,
             };
             expect(isHostAllowed('https://anywhere.org', 'anywhere.org', policy)).to.be.true;
         });
@@ -223,13 +223,13 @@ describe('Network Policy Matcher Tests', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
             };
             const stepPolicy: EffectiveNetworkPolicy = {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
             };
             const compositePolicy: EffectiveNetworkPolicy = {
                 enabled: true,
@@ -237,7 +237,7 @@ describe('Network Policy Matcher Tests', () => {
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
                 flowPolicy,
-                stepPolicy
+                stepPolicy,
             };
 
             // Allowed by both

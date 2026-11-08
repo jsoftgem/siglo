@@ -8,7 +8,7 @@ import {
     useStorage,
     Step,
     defaultCompensationManager,
-    Status
+    Status,
 } from '@siglo/core';
 import { RedisLock, RedisClientInterface } from '@siglo/redis';
 import { InMemoryStorageFake } from '@siglo/testing';
@@ -66,10 +66,7 @@ class SimulatedClusterRedisClient implements RedisClientInterface {
     }
 }
 
-export async function runClusterFailoverCharter(
-    iterations: number = 15,
-    seed: number = 1212
-): Promise<CharterResult> {
+export async function runClusterFailoverCharter(iterations: number = 15, seed: number = 1212): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -86,7 +83,7 @@ export async function runClusterFailoverCharter(
             const fakeStorage = new InMemoryStorageFake();
             const chaosProxy = new ChaosStorageProxy(fakeStorage, {
                 conflictRate: 0.0,
-                maxLatencyMs: 2
+                maxLatencyMs: 2,
             });
             useStorage(chaosProxy);
 
@@ -95,11 +92,11 @@ export async function runClusterFailoverCharter(
 
             const s1 = Step.create('prepStep', async () => ({ prepared: true }));
             const waitStep = waitForEvent('cluster_event', {
-                correlationKey: () => correlationKey
+                correlationKey: () => correlationKey,
             });
             const s2 = Step.create('finalizeStep', async (ctx: any) => ({
                 workerNode: ctx.nodeId,
-                finishedAt: Date.now()
+                finishedAt: Date.now(),
             }));
 
             const clusterWorkflow = flow(s1, waitStep, s2);
@@ -113,7 +110,7 @@ export async function runClusterFailoverCharter(
                 continuationStepIndex: 2,
                 version: '1.0.0',
                 status: Status.WAITING,
-                createdAt: Date.now()
+                createdAt: Date.now(),
             });
 
             await defaultStorageManager.saveCheckpoint({
@@ -124,7 +121,7 @@ export async function runClusterFailoverCharter(
                 status: Status.WAITING,
                 currentStepId: 'waitForEvent:cluster_event',
                 completedSteps: ['prepStep'],
-                timestamp: Date.now()
+                timestamp: Date.now(),
             } as any);
 
             // Simulate Node-Beta (healthy standby) winning the resumption first
@@ -132,7 +129,7 @@ export async function runClusterFailoverCharter(
                 clusterWorkflow,
                 correlationKey,
                 { nodeId: 'node-beta', approved: true },
-                { pojo: true }
+                { pojo: true },
             );
 
             if (!winnerResult || winnerResult.workerNode !== 'node-beta') {
@@ -146,7 +143,7 @@ export async function runClusterFailoverCharter(
                     clusterWorkflow,
                     correlationKey,
                     { nodeId: 'node-alpha-stale', approved: true },
-                    { pojo: true }
+                    { pojo: true },
                 );
             } catch (staleErr: any) {
                 if (
@@ -161,7 +158,7 @@ export async function runClusterFailoverCharter(
             // Assert Oracle 3: Stale split-brain node MUST be rejected
             if (!staleRejected) {
                 errors.push(
-                    `Iteration ${i} [Oracle 3]: Split-brain violation! Partitioned Node-Alpha was allowed to re-execute already completed resume!`
+                    `Iteration ${i} [Oracle 3]: Split-brain violation! Partitioned Node-Alpha was allowed to re-execute already completed resume!`,
                 );
             }
 
@@ -171,7 +168,7 @@ export async function runClusterFailoverCharter(
             const redisClient = new SimulatedClusterRedisClient();
             const lockManager = new RedisLock(redisClient, {
                 keyPrefix: 'cluster:lock:',
-                strictAtomicity: true
+                strictAtomicity: true,
             });
 
             const lockKey = `job_sync_${i}`;
@@ -201,7 +198,7 @@ export async function runClusterFailoverCharter(
             const illegitimateRelease = await lockManager.release(lockKey, node1Lease.token);
             if (illegitimateRelease) {
                 errors.push(
-                    `Iteration ${i} [Oracle 3]: Distributed lock theft! Stale Node 1 was able to release Node 2's active lock.`
+                    `Iteration ${i} [Oracle 3]: Distributed lock theft! Stale Node 1 was able to release Node 2's active lock.`,
                 );
             }
 
@@ -285,7 +282,6 @@ export async function runClusterFailoverCharter(
             } catch (invErr: any) {
                 errors.push(`Iteration ${i} [Oracle 5]: ${invErr.message}`);
             }
-
         } catch (charterErr: any) {
             errors.push(`Iteration ${i} Unhandled Exception: ${charterErr.message}`);
         }
@@ -297,6 +293,6 @@ export async function runClusterFailoverCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

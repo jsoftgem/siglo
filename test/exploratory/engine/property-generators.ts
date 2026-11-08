@@ -86,7 +86,7 @@ export class RandomSource {
             '🚀🌟🔥',
             '{"json":"nested"}',
             '<script>alert(1)</script>',
-            'a'.repeat(256)
+            'a'.repeat(256),
         ];
         return this.pick(edgeCases);
     }
@@ -126,7 +126,7 @@ export class RandomSource {
         return {
             __proto__: { canary: 'polluted_' + this.string(4) },
             constructor: { prototype: { canary: 'polluted_ctor' } },
-            validKey: 'safeValue_' + this.string(4)
+            validKey: 'safeValue_' + this.string(4),
         };
     }
 }

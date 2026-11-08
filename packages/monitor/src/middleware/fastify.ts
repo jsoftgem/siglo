@@ -13,7 +13,7 @@ export function fastifyMonitorPlugin(fastify: any, options: FastifyMonitorOption
     const emitter = options.emitter || new WorkflowEventEmitter();
     const sse = new SSEBroadcaster();
 
-    emitter.on('*', (event) => {
+    emitter.on('*', event => {
         store.addEvent(event);
         sse.broadcast(event);
     });

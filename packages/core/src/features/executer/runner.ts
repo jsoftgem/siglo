@@ -9,7 +9,7 @@ import {
     IS_DURABLE,
     VALUE,
     STEPS,
-    HISTORY
+    HISTORY,
 } from '../../shared';
 import { toPOJO } from '../context';
 import { FlowTimeoutException, normalizeError, IdempotencyConflictException } from './exceptions';
@@ -52,7 +52,7 @@ export class Runner {
         logInfo: any,
         logError: any,
         executeAfter: any,
-        executeBefore: any
+        executeBefore: any,
     ) {
         this.getChain = getChain;
         this.generateUUID = generateUUID;
@@ -78,7 +78,10 @@ export class Runner {
             const stackId = rawOptions?.stackId || this.createExecutionStack(namespace, rawOptions?.monitor);
             const flowStartTime = Date.now();
             if (!isSubStack) {
-                this.logInfo('Runner', `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`);
+                this.logInfo(
+                    'Runner',
+                    `Started sequence stack#${stackId}${namespace ? ` for namespace#${namespace}` : ''}`,
+                );
             }
 
             const timeoutMs: number | undefined = rawOptions?.timeout ?? rawOptions?.timeoutMs;
@@ -89,18 +92,14 @@ export class Runner {
             if (timeoutMs && timeoutMs > 0) {
                 flowController = new AbortController();
                 flowTimer = setTimeout(() => {
-                    const err = new FlowTimeoutException(
-                        stackId,
-                        timeoutMs,
-                        completedSteps
-                    );
+                    const err = new FlowTimeoutException(stackId, timeoutMs, completedSteps);
                     flowController!.abort(err);
                 }, timeoutMs);
             }
 
             const { signal: effectiveSignal, cleanup: cleanupSignals } = combineAbortSignals([
                 rawOptions?.signal,
-                flowController?.signal
+                flowController?.signal,
             ]);
 
             const clearFlowTimer = () => {
@@ -119,7 +118,7 @@ export class Runner {
                 const normalized = normalizeError(reason, {
                     stackId,
                     namespace,
-                    workflowId: rawOptions?.workflowId
+                    workflowId: rawOptions?.workflowId,
                 });
                 (normalized as any).stackId = stackId;
                 if (!rawOptions?.isResume) {
@@ -127,10 +126,11 @@ export class Runner {
                         type: 'flow:start',
                         stackId,
                         flowName: rawOptions?.workflowId,
-                        version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
+                        version:
+                            rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
                         ast: rawOptions?.ast,
                         timestamp: flowStartTime,
-                        namespace
+                        namespace,
                     });
                 }
                 emitMonitoringEvent(rawOptions, {
@@ -139,10 +139,10 @@ export class Runner {
                     error: {
                         message: normalized.message,
                         stack: normalized.stack,
-                        code: (normalized as any).code
+                        code: (normalized as any).code,
                     },
                     timestamp: Date.now(),
-                    namespace
+                    namespace,
                 });
                 emitMonitoringEvent(rawOptions, {
                     type: 'flow:complete',
@@ -151,10 +151,10 @@ export class Runner {
                     status: 'FAILED',
                     error: {
                         message: normalized.message,
-                        stack: normalized.stack
+                        stack: normalized.stack,
                     },
                     timestamp: Date.now(),
-                    namespace
+                    namespace,
                 });
                 return Promise.reject(normalized);
             }
@@ -169,10 +169,16 @@ export class Runner {
                 durable: rawOptions?.durable,
                 onStepComplete: () => {
                     completedSteps++;
-                }
+                },
             });
 
-            const newParam = this.Util.convertToContextStructure(param, this.Context, this.generateUUID, stackId, namespace);
+            const newParam = this.Util.convertToContextStructure(
+                param,
+                this.Context,
+                this.generateUUID,
+                stackId,
+                namespace,
+            );
             this.addChainToStack(stackId, newParam.$stepId());
             if (param?.[STEPS] || (param as any)?.$steps) {
                 const stepsFn = param[STEPS] || (param as any).$steps;
@@ -204,12 +210,13 @@ export class Runner {
             let idempotencyKeyScoped: string | undefined;
 
             if (rawOptions?.idempotencyKey) {
-                const rawKey = typeof rawOptions.idempotencyKey === 'function'
-                    ? rawOptions.idempotencyKey(toPOJO(param))
-                    : rawOptions.idempotencyKey;
+                const rawKey =
+                    typeof rawOptions.idempotencyKey === 'function'
+                        ? rawOptions.idempotencyKey(toPOJO(param))
+                        : rawOptions.idempotencyKey;
                 idempotencyKeyScoped = buildIdempotencyKey(rawKey, {
                     namespace: namespace,
-                    workflowVersion: rawOptions?.workflowVersion
+                    workflowVersion: rawOptions?.workflowVersion,
                 });
             }
 
@@ -224,7 +231,7 @@ export class Runner {
                 this.logInfo,
                 this.logError,
                 this.executeAfter,
-                this.executeBefore
+                this.executeBefore,
             );
 
             const runFlowExecution = async () => {
@@ -237,7 +244,9 @@ export class Runner {
                     if (claim === Status.IN_PROGRESS && settleTimeoutMs && settleTimeoutMs > 0) {
                         const deadline = Date.now() + settleTimeoutMs;
                         while (Date.now() < deadline) {
-                            await new Promise(res => setTimeout(res, Math.min(pollIntervalMs, Math.max(1, deadline - Date.now()))));
+                            await new Promise(res =>
+                                setTimeout(res, Math.min(pollIntervalMs, Math.max(1, deadline - Date.now()))),
+                            );
 
                             if (typeof idempotencyStore.getRecord === 'function') {
                                 const rec = await idempotencyStore.getRecord(idempotencyKeyScoped);
@@ -246,7 +255,10 @@ export class Runner {
                                     break;
                                 }
                                 if (!rec) {
-                                    claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+                                    claim = await idempotencyStore.claim(
+                                        idempotencyKeyScoped,
+                                        rawOptions?.idempotencyTtlMs,
+                                    );
                                     if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
                                         break;
                                     }
@@ -266,13 +278,14 @@ export class Runner {
                         if (!isSubStack) {
                             this.deleteStack(stackId);
                         }
-                        const stored = typeof idempotencyStore.get === 'function'
-                            ? await idempotencyStore.get(idempotencyKeyScoped)
-                            /* c8 ignore start */
-                            : typeof (idempotencyStore as any).getResult === 'function'
-                                ? await (idempotencyStore as any).getResult(idempotencyKeyScoped)
-                                : undefined;
-                            /* c8 ignore stop */
+                        const stored =
+                            typeof idempotencyStore.get === 'function'
+                                ? await idempotencyStore.get(idempotencyKeyScoped)
+                                : /* c8 ignore start */
+                                  typeof (idempotencyStore as any).getResult === 'function'
+                                  ? await (idempotencyStore as any).getResult(idempotencyKeyScoped)
+                                  : undefined;
+                        /* c8 ignore stop */
                         const rawStored = toPOJO(stored);
                         /* c8 ignore next 3 */
                         if (!rawStored || typeof rawStored !== 'object' || Array.isArray(rawStored)) {
@@ -287,7 +300,7 @@ export class Runner {
                         }
                         throw new IdempotencyConflictException(idempotencyKeyScoped, {
                             stackId,
-                            namespace
+                            namespace,
                         });
                     }
                 }
@@ -295,23 +308,24 @@ export class Runner {
                 if (!rawOptions?.isResume) {
                     emitMonitoringEvent(rawOptions, {
                         type: 'flow:start',
-                    stackId,
-                    flowName: rawOptions?.workflowId,
-                    version: rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
-                    ast: rawOptions?.ast,
-                    timestamp: flowStartTime,
-                        namespace
+                        stackId,
+                        flowName: rawOptions?.workflowId,
+                        version:
+                            rawOptions?.workflowVersion !== undefined ? String(rawOptions.workflowVersion) : undefined,
+                        ast: rawOptions?.ast,
+                        timestamp: flowStartTime,
+                        namespace,
                     });
                 }
 
-                const executionPromise = (chains instanceof Array)
-                    ? new this.ArrayChain(
-                        this.getChain,
-                        this.generateUUID,
-                        this.Context,
-                        singleChain
-                    ).start(newParam, chains, effectiveOptions)
-                    : singleChain.start(newParam, chains, effectiveOptions);
+                const executionPromise =
+                    chains instanceof Array
+                        ? new this.ArrayChain(this.getChain, this.generateUUID, this.Context, singleChain).start(
+                              newParam,
+                              chains,
+                              effectiveOptions,
+                          )
+                        : singleChain.start(newParam, chains, effectiveOptions);
 
                 try {
                     const result = await executionPromise;
@@ -328,7 +342,7 @@ export class Runner {
                             expiresAt: result.expiresAt,
                             correlationKey: result.correlationKey,
                             timestamp: Date.now(),
-                            namespace
+                            namespace,
                         });
                         return result;
                     }
@@ -338,7 +352,7 @@ export class Runner {
                     if (!isSubStack && (adapter?.saveCheckpoint || rawOptions?.checkpoint)) {
                         try {
                             defaultStorageManager.checkpoint(stackId, { status: Status.COMPLETED });
-                        /* c8 ignore next 3 */
+                            /* c8 ignore next 3 */
                         } catch {
                             // ignore
                         }
@@ -356,7 +370,7 @@ export class Runner {
                     if (idempotencyKeyScoped) {
                         try {
                             await idempotencyStore.complete(idempotencyKeyScoped, finalResult);
-                        /* c8 ignore next 3 */
+                            /* c8 ignore next 3 */
                         } catch {
                             // ignore
                         }
@@ -368,7 +382,7 @@ export class Runner {
                         durationMs: Math.max(0, Date.now() - flowStartTime),
                         status: 'COMPLETED',
                         timestamp: Date.now(),
-                        namespace
+                        namespace,
                     });
 
                     return finalResult;
@@ -382,12 +396,12 @@ export class Runner {
                                 await idempotencyStore.complete(idempotencyKeyScoped, {
                                     error: error.message,
                                     isPermanentError: true,
-                                    name: error.name
+                                    name: error.name,
                                 });
                             } else {
                                 await idempotencyStore.fail(idempotencyKeyScoped, error);
                             }
-                        /* c8 ignore next 3 */
+                            /* c8 ignore next 3 */
                         } catch {
                             // ignore
                         }
@@ -422,7 +436,7 @@ export class Runner {
                         namespace,
                         workflowId: rawOptions?.workflowId,
                         stepName: (effectiveError as any)?.func || (effectiveError as any)?.stepName,
-                        phase: (effectiveError as any)?.phase || 'action'
+                        phase: (effectiveError as any)?.phase || 'action',
                     });
                     (normalized as any).stackId = stackId;
 
@@ -432,10 +446,10 @@ export class Runner {
                         error: {
                             message: normalized.message,
                             stack: normalized.stack,
-                            code: (normalized as any).code
+                            code: (normalized as any).code,
                         },
                         timestamp: Date.now(),
-                        namespace
+                        namespace,
                     });
 
                     emitMonitoringEvent(rawOptions, {
@@ -445,10 +459,10 @@ export class Runner {
                         status: 'FAILED',
                         error: {
                             message: normalized.message,
-                            stack: normalized.stack
+                            stack: normalized.stack,
                         },
                         timestamp: Date.now(),
-                        namespace
+                        namespace,
                     });
 
                     // Keep the observation policy reachable until terminal telemetry
@@ -466,7 +480,7 @@ export class Runner {
         }
         return undefined;
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export const propertyToContext = (context: any, chainReturn: any): void => {

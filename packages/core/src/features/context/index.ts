@@ -39,8 +39,7 @@ export default class Context {
     }
 
     addSpec(fieldSpec: any): void {
-        new Validators(this.$stepId, getChainContext.bind(this))
-            .addSpec(fieldSpec, this.set.bind(this));
+        new Validators(this.$stepId, getChainContext.bind(this)).addSpec(fieldSpec, this.set.bind(this));
     }
 
     getData(): Record<string, any> {
@@ -66,7 +65,7 @@ export default class Context {
         }
         return context;
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export { Context, toPOJO };

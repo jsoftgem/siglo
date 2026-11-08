@@ -4,25 +4,23 @@ import Spec from '../spec';
 import { FunctionAsValueException, InvalidJSONValueException } from './set';
 
 describe('context.unit.test', () => {
-
     it('should create new context', () => {
         const context = new Context('0001');
         expect(context).to.be.not.undefined;
         expect(context.$stepId).to.equal('0001');
     });
 
+    it('supports stackId in constructor, static createContext, and setStackId', () => {
+        const ctx1 = new Context('chain_1', 'stack_1');
+        expect(ctx1.$stackId).to.equal('stack_1');
 
-    it("supports stackId in constructor, static createContext, and setStackId", () => {
-        const ctx1 = new Context("chain_1", "stack_1");
-        expect(ctx1.$stackId).to.equal("stack_1");
+        ctx1.setStackId('stack_updated');
+        expect(ctx1.$stackId).to.equal('stack_updated');
+        expect(ctx1.getData().$stackId()).to.equal('stack_updated');
 
-        ctx1.setStackId("stack_updated");
-        expect(ctx1.$stackId).to.equal("stack_updated");
-        expect(ctx1.getData().$stackId()).to.equal("stack_updated");
-
-        const ctx2 = Context.createContext("chain_2", "stack_2");
-        expect(ctx2.$stackId).to.equal("stack_2");
-        expect(ctx2.getData().$stackId()).to.equal("stack_2");
+        const ctx2 = Context.createContext('chain_2', 'stack_2');
+        expect(ctx2.$stackId).to.equal('stack_2');
+        expect(ctx2.getData().$stackId()).to.equal('stack_2');
     });
 
     it('should create context via static method', () => {
@@ -123,26 +121,38 @@ describe('context.unit.test', () => {
         const spec = new Spec('field_1');
         spec.default('hello');
         spec.require(true, 'field 1 is required');
-        spec.transform((_currentValue) => new Promise((resolve) => {
-            resolve('transformedValue');
-        }));
-        spec.translate((currentValue, ctx) => new Promise((resolve) => {
-            ctx.set('translatedField', currentValue);
-            resolve(undefined);
-        }));
-        spec.validate((_currentValue) => new Promise((resolve) => {
-            resolve(undefined);
-        }));
+        spec.transform(
+            _currentValue =>
+                new Promise(resolve => {
+                    resolve('transformedValue');
+                }),
+        );
+        spec.translate(
+            (currentValue, ctx) =>
+                new Promise(resolve => {
+                    ctx.set('translatedField', currentValue);
+                    resolve(undefined);
+                }),
+        );
+        spec.validate(
+            _currentValue =>
+                new Promise(resolve => {
+                    resolve(undefined);
+                }),
+        );
         context.addSpec(spec);
 
-        context.runSpecs().then(() => {
-            const { translatedField, field_1 } = context.getData();
-            expect(translatedField).to.not.be.undefined;
-            expect(translatedField()).to.be.equal('hello');
-            expect(field_1()).to.be.equal('transformedValue');
-            done();
-        }).catch(error => {
-            done(error);
-        });
+        context
+            .runSpecs()
+            .then(() => {
+                const { translatedField, field_1 } = context.getData();
+                expect(translatedField).to.not.be.undefined;
+                expect(translatedField()).to.be.equal('hello');
+                expect(field_1()).to.be.equal('transformedValue');
+                done();
+            })
+            .catch(error => {
+                done(error);
+            });
     });
 });

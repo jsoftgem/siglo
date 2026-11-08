@@ -32,7 +32,11 @@ export interface StorageAdapter {
     // 3. Durable Wait Persistence
     saveWaitRecord?(record: any): Promise<void> | void;
     getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
-    claimWaitRecord?(correlationKey: string, claimantId?: string, options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any>;
+    claimWaitRecord?(
+        correlationKey: string,
+        claimantId?: string,
+        options?: { allowExpired?: boolean; eventPayload?: any },
+    ): Promise<any>;
     completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
     withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
     cancelWaitRecord?(correlationKey: string): Promise<void>;

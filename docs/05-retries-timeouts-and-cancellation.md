@@ -212,7 +212,7 @@ describe('Retry Fault Tolerance Suite', () => {
 
 ## API Reference Links
 
-- [Core Concepts Guide](./02-core-concepts.md)
-- [Sequential Workflows](./03-sequential-workflows.md)
-- [Durable Workflows](./06-durable-workflows.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Core Concepts Guide](/02-core-concepts)
+- [Sequential Workflows](/03-sequential-workflows)
+- [Durable Workflows](/06-durable-workflows)
+- [Testing & Replay Reference](/09-testing-and-replay)

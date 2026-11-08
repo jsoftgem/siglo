@@ -7,7 +7,13 @@ export interface RedactionOptions {
 }
 
 const DEFAULT_REDACT_KEYS = [
-    'rawBody', 'rawPayload', 'signature', 'signatureHeader', 'headers', 'cUrl', 'callbackBaseUrl',
+    'rawBody',
+    'rawPayload',
+    'signature',
+    'signatureHeader',
+    'headers',
+    'cUrl',
+    'callbackBaseUrl',
     'password',
     'token',
     'secret',
@@ -27,7 +33,7 @@ const DEFAULT_REDACT_KEYS = [
     'approvalTokens',
     'approveUrl',
     'rejectUrl',
-    'signingSecret'
+    'signingSecret',
 ];
 
 export function redactValue(val: any, options: RedactionOptions = {}, visited = new WeakSet<object>()): any {
@@ -36,7 +42,7 @@ export function redactValue(val: any, options: RedactionOptions = {}, visited = 
     }
     if (visited.has(val)) return '[Circular]';
     visited.add(val);
-    const redactKeys = ([...DEFAULT_REDACT_KEYS, ...(options.redactKeys || [])]).map(k => k.toLowerCase());
+    const redactKeys = [...DEFAULT_REDACT_KEYS, ...(options.redactKeys || [])].map(k => k.toLowerCase());
     if (Array.isArray(val)) {
         const clean = val.map(item => redactValue(item, options, visited));
         visited.delete(val);
@@ -67,7 +73,10 @@ export function redactEvent(event: WorkflowExecutionEvent, options: RedactionOpt
     if (!event) return event;
     const copy: any = { ...event };
     const scope = stepInspectionStorage.getStore();
-    if ((scope?.ecosystemKind && copy.stackId === scope.stackId && copy.stepId === scope.stepId) || hasEcosystemContent(copy.stackId)) {
+    if (
+        (scope?.ecosystemKind && copy.stackId === scope.stackId && copy.stepId === scope.stepId) ||
+        hasEcosystemContent(copy.stackId)
+    ) {
         if (copy.type === 'step:complete') copy.outputSummary = '[Content not captured]';
         if (copy.type === 'context:change') copy.value = '[Content not captured]';
         if (copy.error) copy.error = { message: 'Ecosystem step failed; see safe diagnostics' };
@@ -75,12 +84,21 @@ export function redactEvent(event: WorkflowExecutionEvent, options: RedactionOpt
 
     if ('inspection' in copy) copy.inspection = sanitizeInspection(copy.inspection);
     if (copy.type === 'step:inspection') {
-        const allowed = new Set(['type', 'stackId', 'stepId', 'stepName', 'attempt', 'timestamp', 'namespace', 'inspection']);
+        const allowed = new Set([
+            'type',
+            'stackId',
+            'stepId',
+            'stepName',
+            'attempt',
+            'timestamp',
+            'namespace',
+            'inspection',
+        ]);
         for (const key of Object.keys(copy)) if (!allowed.has(key)) delete copy[key];
     }
 
     if (copy.type === 'context:change') {
-        const redactKeys = ([...DEFAULT_REDACT_KEYS, ...(options.redactKeys || [])]).map(k => k.toLowerCase());
+        const redactKeys = [...DEFAULT_REDACT_KEYS, ...(options.redactKeys || [])].map(k => k.toLowerCase());
         if (options.redactHook) {
             const hooked = options.redactHook(copy.field, copy.value);
             if (hooked !== undefined) {

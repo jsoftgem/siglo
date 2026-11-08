@@ -5,10 +5,7 @@ import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { RandomSource } from '../engine/property-generators';
 import { CharterResult } from './combinators.explore';
 
-export async function runQueuesBatchCharter(
-    iterations: number = 20,
-    seed: number = 5005
-): Promise<CharterResult> {
+export async function runQueuesBatchCharter(iterations: number = 20, seed: number = 5005): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -37,8 +34,8 @@ export async function runQueuesBatchCharter(
                 body: JSON.stringify({
                     id: messageId,
                     shouldFail,
-                    payload: rng.string(8)
-                })
+                    payload: rng.string(8),
+                }),
             });
         }
 
@@ -49,11 +46,11 @@ export async function runQueuesBatchCharter(
                     throw new Error(`Poison message: ${body.id}`);
                 }
                 return { processed: true, id: body?.id };
-            })
+            }),
         );
 
         const handler = createSqsBatchHandler(batchWorkflow, {
-            input: record => ({ body: record.body })
+            input: record => ({ body: record.body }),
         });
 
         const response = await handler({ Records: records });
@@ -69,7 +66,7 @@ export async function runQueuesBatchCharter(
             // Verify that reported failures match expected poison messages
             if (nackedIds.length !== expectedFailedIds.length) {
                 errors.push(
-                    `Iteration ${i}: Failure count mismatch! Expected ${expectedFailedIds.length}, got ${nackedIds.length}`
+                    `Iteration ${i}: Failure count mismatch! Expected ${expectedFailedIds.length}, got ${nackedIds.length}`,
                 );
             }
         } catch (invErr: any) {
@@ -83,6 +80,6 @@ export async function runQueuesBatchCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

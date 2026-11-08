@@ -1,22 +1,26 @@
 import { expect } from 'chai';
 import * as http from 'http';
 import { Step, flow, defaultDurableManager, clearStorage, useStorage } from '@siglo/core';
-import {
-    PostgresWaitPoller,
-    MemoryWaitPoller,
-    createSchedulerWebhookHandler
-} from './index';
+import { PostgresWaitPoller, MemoryWaitPoller, createSchedulerWebhookHandler } from './index';
 
 function postgresPoller(options: any): PostgresWaitPoller {
-    if (options?.client) useStorage({
-        name: 'test-durable',
-        getWaitRecord: async (key: string) => defaultDurableManager.getWaiting(key) ?? defaultDurableManager.getWaitingByStack(key),
-        withWorkflowLock: async (_: string, action: any) => action(),
-        claimWaitRecord: async (key: string, _: string, opts: any) => ({ ...defaultDurableManager.resumeWait(key, opts.allowExpired), resumePayload: opts.eventPayload }),
-        completeWaitRecord: async (key: string, worker: string) => {
-            await options.client.query(`UPDATE siglo_wait_records SET status = 'RESUMED' WHERE correlation_key = $2`, [worker, key]);
-        }
-    });
+    if (options?.client)
+        useStorage({
+            name: 'test-durable',
+            getWaitRecord: async (key: string) =>
+                defaultDurableManager.getWaiting(key) ?? defaultDurableManager.getWaitingByStack(key),
+            withWorkflowLock: async (_: string, action: any) => action(),
+            claimWaitRecord: async (key: string, _: string, opts: any) => ({
+                ...defaultDurableManager.resumeWait(key, opts.allowExpired),
+                resumePayload: opts.eventPayload,
+            }),
+            completeWaitRecord: async (key: string, worker: string) => {
+                await options.client.query(
+                    `UPDATE siglo_wait_records SET status = 'RESUMED' WHERE correlation_key = $2`,
+                    [worker, key],
+                );
+            },
+        });
     return new PostgresWaitPoller(options);
 }
 
@@ -34,16 +38,28 @@ describe('@siglo/scheduler Suite', () => {
     describe('PostgresWaitPoller', () => {
         it('throws an error if client is missing or identifier contains SQL injection', () => {
             expect(() => postgresPoller(null as any)).to.throw('PostgresWaitPoller requires a valid PostgreSQL client');
-            expect(() => postgresPoller({ client: {} as any, waitRecordsTable: 'bad table; DROP TABLE--' }))
-                .to.throw('Identifier contains forbidden characters');
+            expect(() => postgresPoller({ client: {} as any, waitRecordsTable: 'bad table; DROP TABLE--' })).to.throw(
+                'Identifier contains forbidden characters',
+            );
         });
 
         it('fails closed without a durable storage adapter', async () => {
             useStorage(undefined as any);
             let queried = false;
-            const poller = new PostgresWaitPoller({ client: { query: async () => { queried = true; return { rows: [], rowCount: 0 }; } } });
-            try { await poller.pollOnce(); expect.fail('Expected missing storage failure'); }
-            catch (error: any) { expect(error.message).to.include('storage adapter with workflow locks'); }
+            const poller = new PostgresWaitPoller({
+                client: {
+                    query: async () => {
+                        queried = true;
+                        return { rows: [], rowCount: 0 };
+                    },
+                },
+            });
+            try {
+                await poller.pollOnce();
+                expect.fail('Expected missing storage failure');
+            } catch (error: any) {
+                expect(error.message).to.include('storage adapter with workflow locks');
+            }
             expect(queried).to.equal(false);
         });
 
@@ -53,12 +69,12 @@ describe('@siglo/scheduler Suite', () => {
                 query: async (sql: string) => {
                     executedQuery = sql;
                     return { rows: [], rowCount: 0 };
-                }
+                },
             };
 
             const poller = postgresPoller({
                 client: mockClient,
-                waitRecordsTable: 'test_wait_records'
+                waitRecordsTable: 'test_wait_records',
             });
 
             await poller.ensureTable();
@@ -77,8 +93,8 @@ describe('@siglo/scheduler Suite', () => {
                     status: 'WAITING',
                     expires_at: past,
                     data: JSON.stringify({ amount: 100 }),
-                    continuation_step_index: 1
-                }
+                    continuation_step_index: 1,
+                },
             ];
 
             const executedQueries: Array<{ sql: string; params?: any[] }> = [];
@@ -89,7 +105,7 @@ describe('@siglo/scheduler Suite', () => {
                         return { rows: mockRows, rowCount: mockRows.length };
                     }
                     return { rows: [], rowCount: 1 };
-                }
+                },
             };
 
             let resumedRecord: any = null;
@@ -99,16 +115,16 @@ describe('@siglo/scheduler Suite', () => {
                 Step.create('resumeStep', async (input: any) => {
                     flowExecuted = true;
                     return { resumed: true, input };
-                })
+                }),
             );
 
             const poller = postgresPoller({
                 client: mockClient,
                 waitRecordsTable: 'siglo_wait_records',
                 flowLookup: (wfId, stackId) => (stackId === 'stack-due-1' ? dummyFlow : undefined),
-                onResumed: (rec) => {
+                onResumed: rec => {
                     resumedRecord = rec;
-                }
+                },
             });
 
             const report = await poller.pollOnce();
@@ -131,8 +147,8 @@ describe('@siglo/scheduler Suite', () => {
                     correlation_key: 'corr-fail-1',
                     stack_id: 'stack-fail-1',
                     status: 'WAITING',
-                    expires_at: past
-                }
+                    expires_at: past,
+                },
             ];
 
             const executedQueries: Array<{ sql: string; params?: any[] }> = [];
@@ -143,7 +159,7 @@ describe('@siglo/scheduler Suite', () => {
                         return { rows: mockRows, rowCount: 1 };
                     }
                     return { rows: [], rowCount: 1 };
-                }
+                },
             };
 
             let failedRec: any = null;
@@ -152,7 +168,7 @@ describe('@siglo/scheduler Suite', () => {
             const failingFlow = flow(
                 Step.create('failStep', async () => {
                     throw new Error('Database locked');
-                })
+                }),
             );
 
             const poller = postgresPoller({
@@ -161,7 +177,7 @@ describe('@siglo/scheduler Suite', () => {
                 onFailed: (rec, err) => {
                     failedRec = rec;
                     failedErr = err;
-                }
+                },
             });
 
             const report = await poller.pollOnce();
@@ -177,12 +193,12 @@ describe('@siglo/scheduler Suite', () => {
 
         it('starts and stops background polling loop', async () => {
             const mockClient = {
-                query: async () => ({ rows: [], rowCount: 0 })
+                query: async () => ({ rows: [], rowCount: 0 }),
             };
 
             const poller = postgresPoller({
                 client: mockClient,
-                pollIntervalMs: 20
+                pollIntervalMs: 20,
             });
 
             expect(poller.isRunning()).to.be.false;
@@ -204,13 +220,13 @@ describe('@siglo/scheduler Suite', () => {
                 correlationKey: 'mem-wait-1',
                 stackId: 'mem-stack-1',
                 continuationStepIndex: 0,
-                expiresAt: now - 1000 // expired
+                expiresAt: now - 1000, // expired
             });
 
             const poller = new MemoryWaitPoller({
                 onResumed: () => {
                     resumed = true;
-                }
+                },
             });
 
             const report = await poller.pollOnce();
@@ -242,16 +258,14 @@ describe('@siglo/scheduler Suite', () => {
 
         it('dispatches incoming cloud webhook calls and resumes workflow', async () => {
             let resumedStack = '';
-            const testFlow = flow(
-                Step.create('step1', async () => ({ status: 'DONE' }))
-            );
+            const testFlow = flow(Step.create('step1', async () => ({ status: 'DONE' })));
 
             const handler = createSchedulerWebhookHandler({
                 secretToken: 'cloud-secret-token',
                 flowLookup: (wfId, stackId) => (stackId === 'cloud-stk-1' ? testFlow : undefined),
-                onResumed: (id) => {
+                onResumed: id => {
                     resumedStack = id;
-                }
+                },
             });
 
             server = http.createServer(handler);
@@ -270,7 +284,7 @@ describe('@siglo/scheduler Suite', () => {
             const unauthRes = await fetch(`http://127.0.0.1:${port}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stackId: 'cloud-stk-1' })
+                body: JSON.stringify({ stackId: 'cloud-stk-1' }),
             });
             expect(unauthRes.status).to.equal(401);
 
@@ -279,9 +293,9 @@ describe('@siglo/scheduler Suite', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer cloud-secret-token'
+                    Authorization: 'Bearer cloud-secret-token',
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({}),
             });
             expect(badBodyRes.status).to.equal(400);
 
@@ -290,9 +304,9 @@ describe('@siglo/scheduler Suite', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer cloud-secret-token'
+                    Authorization: 'Bearer cloud-secret-token',
                 },
-                body: JSON.stringify({ stackId: 'unknown-stack' })
+                body: JSON.stringify({ stackId: 'unknown-stack' }),
             });
             expect(notFoundRes.status).to.equal(404);
 
@@ -301,12 +315,12 @@ describe('@siglo/scheduler Suite', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Siglo-Token': 'cloud-secret-token'
+                    'X-Siglo-Token': 'cloud-secret-token',
                 },
-                body: JSON.stringify({ stackId: 'cloud-stk-1' })
+                body: JSON.stringify({ stackId: 'cloud-stk-1' }),
             });
             expect(successRes.status).to.equal(200);
-            const resJson = await successRes.json() as any;
+            const resJson = (await successRes.json()) as any;
             expect(resJson.ok).to.be.true;
             expect(resumedStack).to.equal('cloud-stk-1');
         });

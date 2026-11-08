@@ -6,7 +6,7 @@ import {
     InMemoryStorageFake,
     sanitizeExecutionRecord,
     replayExecution,
-    ExecutionRecord
+    ExecutionRecord,
 } from './index';
 
 describe('@siglo/testing: Deterministic Test Utilities', () => {
@@ -74,8 +74,12 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
             harness.assertStepExecuted('fetchData', 1);
             harness.assertStepExecuted('processData');
 
-            expect(() => harness.assertStepExecuted('nonExistent')).to.throw("Expected step 'nonExistent' to be executed");
-            expect(() => harness.assertStepExecuted('fetchData', 2)).to.throw("Expected step 'fetchData' to be executed 2 time(s), but was executed 1 time(s).");
+            expect(() => harness.assertStepExecuted('nonExistent')).to.throw(
+                "Expected step 'nonExistent' to be executed",
+            );
+            expect(() => harness.assertStepExecuted('fetchData', 2)).to.throw(
+                "Expected step 'fetchData' to be executed 2 time(s), but was executed 1 time(s).",
+            );
         });
 
         it('should mock steps with custom implementations', async () => {
@@ -129,13 +133,18 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
 
             harness.assertStepFailed('broken', 'Fatal validation crash');
             harness.assertStepFailed('broken', /validation/);
-            expect(() => harness.assertStepFailed('broken', 'other error')).to.throw("did not match expected pattern");
-            expect(() => harness.assertStepFailed('nonExistentStep')).to.throw("Expected step 'nonExistentStep' to fail");
+            expect(() => harness.assertStepFailed('broken', 'other error')).to.throw('did not match expected pattern');
+            expect(() => harness.assertStepFailed('nonExistentStep')).to.throw(
+                "Expected step 'nonExistentStep' to fail",
+            );
         });
 
         it('should inject events into durable workflows', async () => {
             const stepBefore = Step.create('init', () => ({ orderId: 'ord-123' }));
-            const durableWait = waitForEvent('waitForApproval', { correlationKey: (p: any) => p.$stackId, timeout: '1h' });
+            const durableWait = waitForEvent('waitForApproval', {
+                correlationKey: (p: any) => p.$stackId,
+                timeout: '1h',
+            });
             const stepAfter = Step.create('finalize', (p: any) => ({ approvedBy: p.approvedBy }));
 
             const wf = flow(stepBefore, durableWait, stepAfter);
@@ -162,21 +171,21 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
                     apiKey: 'sk-12345678',
                     nested: {
                         creditCard: '4111-1111-1111-1111',
-                        customSecret: 'my-custom-value'
-                    }
+                        customSecret: 'my-custom-value',
+                    },
                 },
                 output: {
                     status: 'success',
-                    token: 'jwt.token.here'
+                    token: 'jwt.token.here',
                 },
                 trace: [
                     {
                         stepName: 'auth',
                         phase: 'start',
                         timestamp: 1000,
-                        input: { token: 'jwt.token.here' }
-                    }
-                ]
+                        input: { token: 'jwt.token.here' },
+                    },
+                ],
             };
 
             const sanitized = sanitizeExecutionRecord(rawRecord, { excludeKeys: ['customSecret'] });
@@ -210,7 +219,7 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
                 input: {},
                 output: { val: 42 },
                 trace: [],
-                recordedAt: new Date().toISOString()
+                recordedAt: new Date().toISOString(),
             };
 
             const replay = await replayExecution(fakeRecord, wf);
@@ -227,13 +236,13 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
                 input: {},
                 output: { data: 'mock_value', formatted: 'MOCK_VALUE' },
                 trace: [],
-                recordedAt: new Date().toISOString()
+                recordedAt: new Date().toISOString(),
             };
 
             const replay = await replayExecution(fakeRecord, wf, {
                 substituteFixtures: {
-                    externalApi: { data: 'mock_value' }
-                }
+                    externalApi: { data: 'mock_value' },
+                },
             });
 
             expect(replay.matched).to.be.true;

@@ -5,7 +5,7 @@ import {
     defaultCompensationManager,
     CompensationException,
     clearStorage,
-    defaultStorageManager
+    defaultStorageManager,
 } from '../../index';
 
 describe('Compensation and Sagas Unit Tests', () => {
@@ -25,28 +25,26 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         // Step 1: Reserve Inventory
         const reserveStep = Step.create('reserveInventory', ({ item }: any) => {
-                executionOrder.push('reserveInventory');
-                return { item, reserved: true };
-            })
-            .compensate(async (output: any, input: any) => {
-                compensationOrder.push(`release:${output.item}`);
-                expect(input.item).to.equal('laptop');
-            });
+            executionOrder.push('reserveInventory');
+            return { item, reserved: true };
+        }).compensate(async (output: any, input: any) => {
+            compensationOrder.push(`release:${output.item}`);
+            expect(input.item).to.equal('laptop');
+        });
 
         // Step 2: Authorize Payment
         const paymentStep = Step.create('authorizePayment', () => {
-                executionOrder.push('authorizePayment');
-                return { chargeId: 'ch_123', paid: true };
-            })
-            .compensate(async (output: any) => {
-                compensationOrder.push(`refund:${output.chargeId}`);
-            });
+            executionOrder.push('authorizePayment');
+            return { chargeId: 'ch_123', paid: true };
+        }).compensate(async (output: any) => {
+            compensationOrder.push(`refund:${output.chargeId}`);
+        });
 
         // Step 3: Ship Goods (Fails!)
         const shipStep = Step.create('shipGoods', () => {
-                executionOrder.push('shipGoods');
-                throw new Error('Out of delivery slots');
-            });
+            executionOrder.push('shipGoods');
+            throw new Error('Out of delivery slots');
+        });
 
         const orderWorkflow = flow(reserveStep, paymentStep, shipStep);
 
@@ -65,11 +63,13 @@ describe('Compensation and Sagas Unit Tests', () => {
     it('supports compensation retry policy when compensation handler transiently fails', async () => {
         let compAttempts = 0;
 
-        const flakyCompensationStep = Step.create('flakyService', () => ({ data: 'ok' }))
-            .compensate(async () => {
+        const flakyCompensationStep = Step.create('flakyService', () => ({ data: 'ok' })).compensate(
+            async () => {
                 compAttempts++;
                 if (compAttempts < 2) throw new Error('Transient DB timeout');
-            }, { maxRetries: 2, delay: 10 });
+            },
+            { maxRetries: 2, delay: 10 },
+        );
 
         const failingDownstream = Step.create('failStep', () => {
             throw new Error('Downstream boom');
@@ -85,10 +85,9 @@ describe('Compensation and Sagas Unit Tests', () => {
     });
 
     it('throws CompensationException when a compensation fails and exhausts retries', async () => {
-        const badCompStep = Step.create('stepWithFailingCompensation', () => ({ ready: true }))
-            .compensate(() => {
-                throw new Error('Compensation network dropped');
-            });
+        const badCompStep = Step.create('stepWithFailingCompensation', () => ({ ready: true })).compensate(() => {
+            throw new Error('Compensation network dropped');
+        });
 
         const failingStep = Step.create('failingStep', () => {
             throw new Error('Primary error');
@@ -103,7 +102,9 @@ describe('Compensation and Sagas Unit Tests', () => {
             expect((err as CompensationException).originalError).to.be.instanceOf(Error);
             expect(((err as CompensationException).originalError as Error).message).to.equal('Primary error');
             expect((err as CompensationException).compensationErrors).to.have.length(1);
-            expect((err as CompensationException).compensationErrors[0].stepName).to.equal('stepWithFailingCompensation');
+            expect((err as CompensationException).compensationErrors[0].stepName).to.equal(
+                'stepWithFailingCompensation',
+            );
         }
     });
 
@@ -118,7 +119,7 @@ describe('Compensation and Sagas Unit Tests', () => {
             input: {},
             handler: async () => {
                 compensated = true;
-            }
+            },
         });
 
         const f = flow(Step.create('dummy'));
@@ -133,8 +134,7 @@ describe('Compensation and Sagas Unit Tests', () => {
             stepCompRan = true;
         });
 
-        const mainStep = Step.create('main', () => ({ val: 1 }))
-            .compensate(compStep);
+        const mainStep = Step.create('main', () => ({ val: 1 })).compensate(compStep);
 
         const failStep = Step.create('fail', () => {
             throw new Error('Error');
@@ -148,36 +148,36 @@ describe('Compensation and Sagas Unit Tests', () => {
         }
     });
 
-    it("handles already-completed records and retryIf abort in compensation manager", async () => {
-        const stackId = "test-manager-edge";
+    it('handles already-completed records and retryIf abort in compensation manager', async () => {
+        const stackId = 'test-manager-edge';
         defaultCompensationManager.registerCompensation(stackId, {
-            stepId: "comp-1",
-            stepName: "alreadyCompleted",
+            stepId: 'comp-1',
+            stepName: 'alreadyCompleted',
             output: {},
             input: {},
             handler: () => {},
-            status: "completed"
+            status: 'completed',
         });
 
         let attempts = 0;
         defaultCompensationManager.registerCompensation(stackId, {
-            stepId: "comp-2",
-            stepName: "retryIfStep",
+            stepId: 'comp-2',
+            stepName: 'retryIfStep',
             output: {},
             input: {},
             options: {
                 maxRetries: 3,
-                retryIf: () => false
+                retryIf: () => false,
             },
             handler: () => {
                 attempts++;
-                throw new Error("Fatal non-retryable");
-            }
+                throw new Error('Fatal non-retryable');
+            },
         });
 
         try {
             await defaultCompensationManager.runCompensations(stackId);
-            expect.fail("Should fail");
+            expect.fail('Should fail');
         } catch (err: any) {
             expect(err).to.be.instanceOf(CompensationException);
             expect(attempts).to.equal(1);
@@ -190,14 +190,14 @@ describe('Compensation and Sagas Unit Tests', () => {
             stepName: 'step1',
             output: {},
             input: {},
-            handler: () => {}
+            handler: () => {},
         });
         defaultCompensationManager.registerCompensation('stack-clear-2', {
             stepId: 's2',
             stepName: 'step2',
             output: {},
             input: {},
-            handler: () => {}
+            handler: () => {},
         });
 
         expect(defaultCompensationManager.getCompensations('stack-clear-1')).to.have.length(1);
@@ -212,10 +212,9 @@ describe('Compensation and Sagas Unit Tests', () => {
     it('hydrates compensations from checkpoint metadata when in-memory registry is cleared', async () => {
         let compensated = false;
 
-        const step1 = Step.create('bookHotel', () => ({ bookingId: 'hotel-123' }))
-            .compensate(async () => {
-                compensated = true;
-            });
+        const step1 = Step.create('bookHotel', () => ({ bookingId: 'hotel-123' })).compensate(async () => {
+            compensated = true;
+        });
         const waitStep = Step.create('waitConfirm', () => {
             const err: any = new Error('Suspended');
             err.name = 'WorkflowSuspendedException';

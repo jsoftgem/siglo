@@ -489,8 +489,8 @@ try {
 
 ## Related Topic Guides
 
-- [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [Error Model and Hierarchy](../error-model.md)
-- [Compensation and Sagas Contract](../compensation-and-sagas.md)
-- [Network Egress Policy](../network-egress-policy.md)
+- [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [06. Durable Workflows](/06-durable-workflows)
+- [Error Model and Hierarchy](/error-model)
+- [Compensation and Sagas Contract](/compensation-and-sagas)
+- [Network Egress Policy](/network-egress-policy)

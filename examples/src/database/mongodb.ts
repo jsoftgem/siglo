@@ -1,7 +1,10 @@
 export interface IMongoCollection<T = any> {
     findOne(query: Partial<T>): Promise<T | null>;
     insertOne(doc: T): Promise<{ insertedId: string }>;
-    updateOne(query: Partial<T>, update: { $set?: Partial<T> }): Promise<{ matchedCount: number; modifiedCount: number }>;
+    updateOne(
+        query: Partial<T>,
+        update: { $set?: Partial<T> },
+    ): Promise<{ matchedCount: number; modifiedCount: number }>;
     find(query?: Partial<T>): Promise<T[]>;
     deleteMany(query: Partial<T>): Promise<{ deletedCount: number }>;
 }
@@ -29,7 +32,10 @@ export class InMemoryMongoCollection<T extends Record<string, any>> implements I
         return { insertedId: cloned._id };
     }
 
-    async updateOne(query: Partial<T>, update: { $set?: Partial<T> }): Promise<{ matchedCount: number; modifiedCount: number }> {
+    async updateOne(
+        query: Partial<T>,
+        update: { $set?: Partial<T> },
+    ): Promise<{ matchedCount: number; modifiedCount: number }> {
         const index = this.documents.findIndex(doc => this.matches(doc, query));
         if (index === -1) {
             return { matchedCount: 0, modifiedCount: 0 };
@@ -98,7 +104,10 @@ export class LiveMongoCollection<T extends Record<string, any>> implements IMong
         return { insertedId: String(res.insertedId) };
     }
 
-    async updateOne(query: Partial<T>, update: { $set?: Partial<T> }): Promise<{ matchedCount: number; modifiedCount: number }> {
+    async updateOne(
+        query: Partial<T>,
+        update: { $set?: Partial<T> },
+    ): Promise<{ matchedCount: number; modifiedCount: number }> {
         const res = await this.col.updateOne(query, update);
         return { matchedCount: res.matchedCount, modifiedCount: res.modifiedCount };
     }

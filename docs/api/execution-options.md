@@ -367,10 +367,10 @@ async function handleOrderWebhook(request: any) {
 
 ## Related Topic Guides
 
-- [02. Core Concepts](../02-core-concepts.md)
-- [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [07. Storage and Adapters](../07-storage-and-adapters.md)
-- [Idempotency Contract](../idempotency.md)
-- [Network Egress Policy](../network-egress-policy.md)
-- [Storage and Checkpoint Contract](../storage-contract.md)
+- [02. Core Concepts](/02-core-concepts)
+- [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [06. Durable Workflows](/06-durable-workflows)
+- [07. Storage and Adapters](/07-storage-and-adapters)
+- [Idempotency Contract](/idempotency)
+- [Network Egress Policy](/network-egress-policy)
+- [Storage and Checkpoint Contract](/storage-contract)

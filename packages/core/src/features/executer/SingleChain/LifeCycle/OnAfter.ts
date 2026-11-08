@@ -9,7 +9,7 @@ export default class OnAfter {
         context: any,
         propertyToContext: (context: any, chainReturn: any) => void,
         next: () => void,
-        reject: (reason?: any) => void
+        reject: (reason?: any) => void,
     ) {
         if (isFunction(chain.onafter)) {
             try {
@@ -17,14 +17,16 @@ export default class OnAfter {
                 const actionOutput = toPOJO(output);
                 const result = chain.onafter(actionOutput, actionParam);
                 if (result instanceof Promise) {
-                    result.then((enrichProps: any) => {
-                        if (enrichProps !== undefined && propertyToContext) {
-                            propertyToContext(context, enrichProps);
-                        }
-                        next();
-                    }).catch((err: any) => {
-                        reject(err);
-                    });
+                    result
+                        .then((enrichProps: any) => {
+                            if (enrichProps !== undefined && propertyToContext) {
+                                propertyToContext(context, enrichProps);
+                            }
+                            next();
+                        })
+                        .catch((err: any) => {
+                            reject(err);
+                        });
                 } else {
                     if (result !== undefined && propertyToContext) {
                         propertyToContext(context, result);
@@ -38,5 +40,5 @@ export default class OnAfter {
             next();
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

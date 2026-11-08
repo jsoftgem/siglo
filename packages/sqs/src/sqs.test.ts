@@ -130,8 +130,8 @@ describe('@siglo/sqs Adapter Suite', () => {
 
         // 1. Custom input & function namespace
         const handler1 = createSqsBatchHandler(flow(step), {
-            input: (record) => ({ value: `custom_${record.messageId}` }),
-            namespace: (record) => `ns_${record.receiptHandle}`,
+            input: record => ({ value: `custom_${record.messageId}` }),
+            namespace: record => `ns_${record.receiptHandle}`,
         });
         const res1 = await handler1({
             Records: [{ messageId: 'm1', receiptHandle: 'rh1', body: 'ignored' }],

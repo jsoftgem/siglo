@@ -53,9 +53,10 @@ export class RedisStorageAdapter implements StorageAdapter {
         }
         try {
             const key = this.contextKey(entry.stackId, entry.stepId, entry.namespace);
-            const serialized = typeof entry.value === 'object' && entry.value !== null
-                ? JSON.stringify(entry.value)
-                : String(entry.value ?? '');
+            const serialized =
+                typeof entry.value === 'object' && entry.value !== null
+                    ? JSON.stringify(entry.value)
+                    : String(entry.value ?? '');
 
             await this.client.hset(key, entry.field, serialized);
             if (this.client.pexpire) {
@@ -151,7 +152,8 @@ export class RedisStorageAdapter implements StorageAdapter {
         }
         const fullKey = this.cacheKey(key);
         const effectiveTtl = ttlMs || this.cacheTtlMs;
-        const serialized = typeof value === 'object' && value !== null ? JSON.stringify(value) : JSON.stringify({ value });
+        const serialized =
+            typeof value === 'object' && value !== null ? JSON.stringify(value) : JSON.stringify({ value });
         await this.client.set(fullKey, serialized, 'PX', effectiveTtl);
     }
 }

@@ -192,7 +192,7 @@ describe('Core Concepts Test', () => {
 
 ## API Reference Links
 
-- [Sequential Workflows](./03-sequential-workflows.md)
-- [Branching and Parallelism](./04-branching-and-parallelism.md)
-- [Storage and Adapters](./07-storage-and-adapters.md)
-- [TypeScript Reference](./10-typescript-reference.md)
+- [Sequential Workflows](/03-sequential-workflows)
+- [Branching and Parallelism](/04-branching-and-parallelism)
+- [Storage and Adapters](/07-storage-and-adapters)
+- [TypeScript Reference](/10-typescript-reference)

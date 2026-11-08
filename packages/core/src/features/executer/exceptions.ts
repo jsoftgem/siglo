@@ -58,7 +58,7 @@ export class SigloError extends Error {
             serializedCause = {
                 name: this.cause.name,
                 message: this.cause.message,
-                stack: this.cause.stack
+                stack: this.cause.stack,
             };
         } else if (this.cause !== undefined) {
             try {
@@ -90,29 +90,37 @@ export class SigloError extends Error {
             isCancellation: this.isCancellation,
             cause: serializedCause,
             stateSnapshot: serializedSnapshot,
-            stack: this.stack
+            stack: this.stack,
         };
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class OptimisticLockException extends SigloError {
     readonly currentVersion?: number;
     readonly expectedVersion?: number;
 
-    constructor(stackId: string, currentVersion?: number, expectedVersion?: number, metadata: ExecutionErrorMetadata = {}) {
-        super(`Optimistic lock conflict on stack '${stackId}': expected version ${expectedVersion}, but found version ${currentVersion}.`, {
-            ...metadata,
-            stackId,
-            phase: 'checkpoint',
-            retryable: true
-        });
+    constructor(
+        stackId: string,
+        currentVersion?: number,
+        expectedVersion?: number,
+        metadata: ExecutionErrorMetadata = {},
+    ) {
+        super(
+            `Optimistic lock conflict on stack '${stackId}': expected version ${expectedVersion}, but found version ${currentVersion}.`,
+            {
+                ...metadata,
+                stackId,
+                phase: 'checkpoint',
+                retryable: true,
+            },
+        );
         this.name = 'OptimisticLockException';
         this.currentVersion = currentVersion;
         this.expectedVersion = expectedVersion;
         Object.setPrototypeOf(this, OptimisticLockException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class WorkflowAlreadyResumedException extends SigloError {
@@ -122,34 +130,39 @@ export class WorkflowAlreadyResumedException extends SigloError {
         super(`Workflow with correlationKey '${correlationKey}' has already been resumed.`, {
             ...metadata,
             phase: 'action',
-            retryable: false
+            retryable: false,
         });
         this.name = 'WorkflowAlreadyResumedException';
         this.correlationKey = correlationKey;
         Object.setPrototypeOf(this, WorkflowAlreadyResumedException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class StepTimeoutException extends SigloError {
     readonly timeoutMs: number;
     readonly elapsedMs?: number;
 
-    constructor(stepName: string, timeoutMs: number, metadataOrElapsed: ExecutionErrorMetadata | number = {}, elapsedMs?: number) {
+    constructor(
+        stepName: string,
+        timeoutMs: number,
+        metadataOrElapsed: ExecutionErrorMetadata | number = {},
+        elapsedMs?: number,
+    ) {
         const metadata = typeof metadataOrElapsed === 'number' ? {} : metadataOrElapsed;
         const effElapsed = typeof metadataOrElapsed === 'number' ? metadataOrElapsed : elapsedMs;
-        super(`Step '${stepName}' timed out after ${timeoutMs}ms${effElapsed ? ` (elapsed: ${effElapsed}ms)` : ""}.`, {
+        super(`Step '${stepName}' timed out after ${timeoutMs}ms${effElapsed ? ` (elapsed: ${effElapsed}ms)` : ''}.`, {
             ...metadata,
             stepName,
             phase: 'action',
-            retryable: true
+            retryable: true,
         });
         this.name = 'StepTimeoutException';
         this.timeoutMs = timeoutMs;
         this.elapsedMs = effElapsed;
         Object.setPrototypeOf(this, StepTimeoutException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class FlowTimeoutException extends SigloError {
@@ -161,7 +174,7 @@ export class FlowTimeoutException extends SigloError {
         super(`Flow timed out after ${timeoutMs}ms on stack '${stackId}' (completed steps: ${completedSteps}).`, {
             ...metadata,
             stackId: metadata.stackId || stackId,
-            retryable: false
+            retryable: false,
         });
         this.name = 'FlowTimeoutException';
         this.stackId = stackId;
@@ -169,19 +182,19 @@ export class FlowTimeoutException extends SigloError {
         this.completedSteps = completedSteps;
         Object.setPrototypeOf(this, FlowTimeoutException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class CancellationException extends SigloError {
     constructor(message: string = 'This operation was aborted', metadata: ExecutionErrorMetadata = {}) {
         super(message, {
             ...metadata,
-            retryable: false
+            retryable: false,
         });
         this.name = 'CancellationException';
         Object.setPrototypeOf(this, CancellationException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export interface ValidationErrorDetail {
@@ -199,7 +212,7 @@ export class ValidationException extends SigloError {
         super(`Validation failed: ${errorDetails}`, {
             ...metadata,
             phase: 'validation',
-            retryable: false
+            retryable: false,
         });
         this.name = 'ValidationException';
         this.errors = errors;
@@ -207,7 +220,7 @@ export class ValidationException extends SigloError {
         (this as any).error = errors;
         Object.setPrototypeOf(this, ValidationException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class StorageAdapterException extends SigloError {
@@ -220,14 +233,14 @@ export class StorageAdapterException extends SigloError {
             ...metadata,
             cause,
             phase: 'checkpoint',
-            retryable: false
+            retryable: false,
         });
         this.name = 'StorageAdapterException';
         this.operation = operation;
         this.adapterName = adapterName;
         Object.setPrototypeOf(this, StorageAdapterException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class CheckpointConflictException extends SigloError {
@@ -242,19 +255,27 @@ export class CheckpointConflictException extends SigloError {
         return this.attemptedRevision;
     }
 
-    constructor(stackId: string, currentRevision: number, attemptedRevision: number, metadata: ExecutionErrorMetadata = {}) {
-        super(`Checkpoint conflict for stack '${stackId}': revision ${attemptedRevision} is not greater than current revision ${currentRevision}.`, {
-            ...metadata,
-            stackId,
-            phase: 'checkpoint',
-            retryable: false
-        });
+    constructor(
+        stackId: string,
+        currentRevision: number,
+        attemptedRevision: number,
+        metadata: ExecutionErrorMetadata = {},
+    ) {
+        super(
+            `Checkpoint conflict for stack '${stackId}': revision ${attemptedRevision} is not greater than current revision ${currentRevision}.`,
+            {
+                ...metadata,
+                stackId,
+                phase: 'checkpoint',
+                retryable: false,
+            },
+        );
         this.name = 'CheckpointConflictException';
         this.currentRevision = currentRevision;
         this.attemptedRevision = attemptedRevision;
         Object.setPrototypeOf(this, CheckpointConflictException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class NamespaceMismatchException extends SigloError {
@@ -262,18 +283,21 @@ export class NamespaceMismatchException extends SigloError {
     readonly actualNamespace?: string;
 
     constructor(expectedNamespace: string, actualNamespace?: string, metadata: ExecutionErrorMetadata = {}) {
-        super(`Namespace mismatch: checkpoint namespace '${actualNamespace}' does not match expected namespace '${expectedNamespace}'.`, {
-            ...metadata,
-            namespace: actualNamespace,
-            phase: 'checkpoint',
-            retryable: false
-        });
+        super(
+            `Namespace mismatch: checkpoint namespace '${actualNamespace}' does not match expected namespace '${expectedNamespace}'.`,
+            {
+                ...metadata,
+                namespace: actualNamespace,
+                phase: 'checkpoint',
+                retryable: false,
+            },
+        );
         this.name = 'NamespaceMismatchException';
         this.expectedNamespace = expectedNamespace;
         this.actualNamespace = actualNamespace;
         Object.setPrototypeOf(this, NamespaceMismatchException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class CheckpointVersionException extends SigloError {
@@ -283,13 +307,13 @@ export class CheckpointVersionException extends SigloError {
         super(`Invalid or unsupported checkpoint version '${version}'.`, {
             ...metadata,
             phase: 'checkpoint',
-            retryable: false
+            retryable: false,
         });
         this.name = 'CheckpointVersionException';
         this.version = version;
         Object.setPrototypeOf(this, CheckpointVersionException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export interface CollisionDetail {
@@ -302,17 +326,19 @@ export class FieldCollisionException extends SigloError {
     readonly collisions: CollisionDetail[];
 
     constructor(collisions: CollisionDetail[], metadata: ExecutionErrorMetadata = {}) {
-        const details = collisions.map(c => `Field '${c.field}' written by branches [${c.branchNames.join(', ')}] with differing values`).join('; ');
+        const details = collisions
+            .map(c => `Field '${c.field}' written by branches [${c.branchNames.join(', ')}] with differing values`)
+            .join('; ');
         super(`Field collision detected during merge: ${details}`, {
             ...metadata,
             phase: 'action',
-            retryable: false
+            retryable: false,
         });
         this.name = 'FieldCollisionException';
         this.collisions = collisions;
         Object.setPrototypeOf(this, FieldCollisionException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class IdempotencyConflictException extends SigloError {
@@ -322,13 +348,13 @@ export class IdempotencyConflictException extends SigloError {
         super(`Execution rejected: Idempotency key '${idempotencyKey}' is already in-progress.`, {
             ...metadata,
             phase: 'action',
-            retryable: false
+            retryable: false,
         });
         this.name = 'IdempotencyConflictException';
         this.idempotencyKey = idempotencyKey;
         Object.setPrototypeOf(this, IdempotencyConflictException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export interface CompensationErrorDetail {
@@ -348,13 +374,13 @@ export class CompensationException extends SigloError {
             compensationErrors: CompensationErrorDetail[];
             completedCompensations: string[];
         },
-        metadata: ExecutionErrorMetadata = {}
+        metadata: ExecutionErrorMetadata = {},
     ) {
         super(message, {
             ...metadata,
             cause: details.originalError,
             phase: 'action',
-            retryable: false
+            retryable: false,
         });
         this.name = 'CompensationException';
         this.originalError = details.originalError;
@@ -362,7 +388,7 @@ export class CompensationException extends SigloError {
         this.completedCompensations = details.completedCompensations;
         Object.setPrototypeOf(this, CompensationException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class WorkflowSuspendedException extends SigloError {
@@ -372,16 +398,20 @@ export class WorkflowSuspendedException extends SigloError {
     readonly expiresAt?: number;
     readonly status: typeof Status.WAITING;
 
-    constructor(message: string, details: {
-        correlationKey?: string;
-        eventName?: string;
-        continuationNodeId?: string;
-        expiresAt?: number;
-    } = {}, metadata: ExecutionErrorMetadata = {}) {
+    constructor(
+        message: string,
+        details: {
+            correlationKey?: string;
+            eventName?: string;
+            continuationNodeId?: string;
+            expiresAt?: number;
+        } = {},
+        metadata: ExecutionErrorMetadata = {},
+    ) {
         super(message, {
             ...metadata,
             phase: 'action',
-            retryable: false
+            retryable: false,
         });
         this.name = 'WorkflowSuspendedException';
         this.correlationKey = details.correlationKey;
@@ -391,7 +421,7 @@ export class WorkflowSuspendedException extends SigloError {
         this.status = Status.WAITING;
         Object.setPrototypeOf(this, WorkflowSuspendedException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class DuplicateEventException extends SigloError {
@@ -399,17 +429,20 @@ export class DuplicateEventException extends SigloError {
     readonly eventName?: string;
 
     constructor(correlationKey: string, eventName?: string, metadata: ExecutionErrorMetadata = {}) {
-        super(`Duplicate or invalid event: workflow with correlationKey '${correlationKey}'${eventName ? ` for event '${eventName}'` : ''} is not waiting or has already been resumed.`, {
-            ...metadata,
-            phase: 'action',
-            retryable: false
-        });
+        super(
+            `Duplicate or invalid event: workflow with correlationKey '${correlationKey}'${eventName ? ` for event '${eventName}'` : ''} is not waiting or has already been resumed.`,
+            {
+                ...metadata,
+                phase: 'action',
+                retryable: false,
+            },
+        );
         this.name = 'DuplicateEventException';
         this.correlationKey = correlationKey;
         this.eventName = eventName;
         Object.setPrototypeOf(this, DuplicateEventException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class ExpiredWaitException extends SigloError {
@@ -418,18 +451,21 @@ export class ExpiredWaitException extends SigloError {
     readonly expiredAt: number;
 
     constructor(correlationKey: string, expiredAt: number, eventName?: string, metadata: ExecutionErrorMetadata = {}) {
-        super(`Wait expired: event wait for correlationKey '${correlationKey}'${eventName ? ` (event: ${eventName})` : ''} expired at ${new Date(expiredAt).toISOString()}.`, {
-            ...metadata,
-            phase: 'action',
-            retryable: false
-        });
+        super(
+            `Wait expired: event wait for correlationKey '${correlationKey}'${eventName ? ` (event: ${eventName})` : ''} expired at ${new Date(expiredAt).toISOString()}.`,
+            {
+                ...metadata,
+                phase: 'action',
+                retryable: false,
+            },
+        );
         this.name = 'ExpiredWaitException';
         this.correlationKey = correlationKey;
         this.eventName = eventName;
         this.expiredAt = expiredAt;
         Object.setPrototypeOf(this, ExpiredWaitException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class WorkflowVersionMismatchException extends SigloError {
@@ -437,17 +473,20 @@ export class WorkflowVersionMismatchException extends SigloError {
     readonly actualVersion: any;
 
     constructor(expectedVersion: any, actualVersion: any, metadata: ExecutionErrorMetadata = {}) {
-        super(`Workflow version mismatch: expected version '${expectedVersion}', but checkpoint was created with version '${actualVersion}' and no migration was provided.`, {
-            ...metadata,
-            phase: 'checkpoint',
-            retryable: false
-        });
+        super(
+            `Workflow version mismatch: expected version '${expectedVersion}', but checkpoint was created with version '${actualVersion}' and no migration was provided.`,
+            {
+                ...metadata,
+                phase: 'checkpoint',
+                retryable: false,
+            },
+        );
         this.name = 'WorkflowVersionMismatchException';
         this.expectedVersion = expectedVersion;
         this.actualVersion = actualVersion;
         Object.setPrototypeOf(this, WorkflowVersionMismatchException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class GraphValidationException extends SigloError {
@@ -457,13 +496,13 @@ export class GraphValidationException extends SigloError {
         super(`Workflow graph validation failed: ${errors.join('; ')}`, {
             ...metadata,
             phase: 'validation',
-            retryable: false
+            retryable: false,
         });
         this.name = 'GraphValidationException';
         this.errors = errors;
         Object.setPrototypeOf(this, GraphValidationException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class NetworkPolicyViolationException extends SigloError {
@@ -476,7 +515,7 @@ export class NetworkPolicyViolationException extends SigloError {
         requestedUrl: string,
         requestedHost: string,
         allowedHosts: (string | RegExp)[],
-        metadata: ExecutionErrorMetadata = {}
+        metadata: ExecutionErrorMetadata = {},
     ) {
         const extraReason = (metadata as any)?.reason ? ` Reason: ${(metadata as any).reason}.` : '';
         super(
@@ -485,8 +524,8 @@ export class NetworkPolicyViolationException extends SigloError {
                 ...metadata,
                 stepName,
                 phase: metadata.phase || 'action',
-                retryable: false // Security/policy violations should not retry blindly
-            }
+                retryable: false, // Security/policy violations should not retry blindly
+            },
         );
         this.name = 'NetworkPolicyViolationException';
         this.requestedUrl = requestedUrl;
@@ -494,32 +533,28 @@ export class NetworkPolicyViolationException extends SigloError {
         this.allowedHosts = allowedHosts;
         Object.setPrototypeOf(this, NetworkPolicyViolationException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export class UnresolvableCompensationException extends SigloError {
     readonly handlerName?: string;
 
-    constructor(
-        stepName: string,
-        handlerName?: string,
-        metadata: ExecutionErrorMetadata = {}
-    ) {
-        const hName = handlerName ? ` '${handlerName}'` : "";
+    constructor(stepName: string, handlerName?: string, metadata: ExecutionErrorMetadata = {}) {
+        const hName = handlerName ? ` '${handlerName}'` : '';
         super(
             `Cannot resolve compensation handler${hName} for step '${stepName}'. The compensation handler is missing or step definition has drifted.`,
             {
                 ...metadata,
                 stepName,
-                phase: metadata.phase || "compensation",
-                retryable: false
-            }
+                phase: metadata.phase || 'compensation',
+                retryable: false,
+            },
         );
-        this.name = "UnresolvableCompensationException";
+        this.name = 'UnresolvableCompensationException';
         this.handlerName = handlerName;
         Object.setPrototypeOf(this, UnresolvableCompensationException.prototype);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): SigloError {
@@ -534,23 +569,26 @@ export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}
     if (error?.name === 'AbortError' || error?.message?.includes('aborted') || error?.message?.includes('cancelled')) {
         return new CancellationException(error?.message || 'This operation was aborted', {
             ...metadata,
-            cause: error
+            cause: error,
         });
     }
-    if (Array.isArray(error) && error.length > 0 && error[0] && typeof error[0] === 'object' && ('field' in error[0] || 'error' in error[0])) {
+    if (
+        Array.isArray(error) &&
+        error.length > 0 &&
+        error[0] &&
+        typeof error[0] === 'object' &&
+        ('field' in error[0] || 'error' in error[0])
+    ) {
         return new ValidationException(error, metadata);
     }
-    const message = error instanceof Error
-        ? error.message
-        : (typeof error === 'string' ? error : 'Execution failed');
+    const message = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Execution failed';
     const sigloError = new SigloError(message, {
         ...metadata,
-        cause: error instanceof Error ? error : undefined
+        cause: error instanceof Error ? error : undefined,
     });
     // Legacy compatibility: maintain error property
     (sigloError as any).error = error;
     return sigloError;
 }
-
 
 export { SigloError as RivuletError };

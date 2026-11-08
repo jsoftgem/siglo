@@ -258,9 +258,9 @@ console.log(metrics);
 
 ## 11. Related Topic Guides
 
-- 📜 [Execution Semantics Contract](execution-semantics.md)
-- 🧱 [API Reference: Step Methods](api/step.md)
-- 🌊 [API Reference: Flow Instance Methods](api/flow.md)
-- 🛡️ [Retries, Timeouts, and Cancellation](05-retries-timeouts-and-cancellation.md)
-- 🚨 [Error Model & Exception Hierarchy](error-model.md)
-- 🧪 [Deterministic Testing Guide](09-testing-and-replay.md)
+- 📜 [Execution Semantics Contract](/execution-semantics)
+- 🧱 [API Reference: Step Methods](/api/step)
+- 🌊 [API Reference: Flow Instance Methods](/api/flow)
+- 🛡️ [Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- 🚨 [Error Model & Exception Hierarchy](/error-model)
+- 🧪 [Deterministic Testing Guide](/09-testing-and-replay)

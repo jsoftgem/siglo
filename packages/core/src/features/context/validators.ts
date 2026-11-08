@@ -5,11 +5,7 @@ export class Validators {
     private readonly getChainContext: (stepId: string, field: string) => any;
     private CollectPromiseResult: any;
 
-    constructor(
-        stepId: string,
-        getChainContext: (stepId: string, field: string) => any,
-        CollectPromiseResult?: any
-    ) {
+    constructor(stepId: string, getChainContext: (stepId: string, field: string) => any, CollectPromiseResult?: any) {
         this.stepId = stepId;
         this.getChainContext = getChainContext;
         this.CollectPromiseResult = CollectPromiseResult;
@@ -76,5 +72,5 @@ export class Validators {
             });
         });
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

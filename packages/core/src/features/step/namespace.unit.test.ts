@@ -1,7 +1,7 @@
-import {expect} from 'chai';
-import {defaultStorageManager, flow, Step, StorageManager} from '../../index';
+import { expect } from 'chai';
+import { defaultStorageManager, flow, Step, StorageManager } from '../../index';
 import Context from '../context';
-import {Util} from '../executer';
+import { Util } from '../executer';
 
 describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () => {
     afterEach(() => {
@@ -12,18 +12,18 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
         const orderPipeline = flow(
             Step.create('validate', async (param: any) => ({
                 valid: true,
-                namespace: param.$namespace ? param.$namespace() : undefined
+                namespace: param.$namespace ? param.$namespace() : undefined,
             })),
             Step.create('charge', async (param: any) => ({
                 charged: true,
-                amount: param.amount?.val !== undefined ? param.amount.val : param.amount
-            }))
+                amount: param.amount?.val !== undefined ? param.amount.val : param.amount,
+            })),
         );
 
         // Run Namespace A and Namespace B concurrently
         const [resA, resB] = await Promise.all([
-            orderPipeline.run({amount: 100}, {namespace: 'ns_acme', pojo: true}),
-            orderPipeline.run({amount: 250}, {namespace: 'ns_globex', pojo: true})
+            orderPipeline.run({ amount: 100 }, { namespace: 'ns_acme', pojo: true }),
+            orderPipeline.run({ amount: 250 }, { namespace: 'ns_globex', pojo: true }),
         ]);
 
         expect(resA.namespace).to.equal('ns_acme');
@@ -42,7 +42,7 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
             },
             async setCachedStep(key: string, value: any) {
                 store.set(key, value);
-            }
+            },
         });
 
         let executionCount = 0;
@@ -52,25 +52,25 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
             const sub = param.subtotal?.val !== undefined ? param.subtotal.val : param.subtotal;
             return {
                 tax: sub * 0.1,
-                calculatedFor: param.$namespace ? param.$namespace() : undefined
+                calculatedFor: param.$namespace ? param.$namespace() : undefined,
             };
         }).cache(60);
 
         const taxFlow = flow(sharedCachedStep);
 
         // Execute for ns_a with subtotal 100
-        const outA1 = await taxFlow.run({subtotal: 100}, {namespace: 'ns_a'});
+        const outA1 = await taxFlow.run({ subtotal: 100 }, { namespace: 'ns_a' });
         expect(executionCount).to.equal(1);
         expect(outA1.tax ?? outA1.tax).to.equal(10);
         expect(outA1.calculatedFor?.val ?? outA1.calculatedFor).to.equal('ns_a');
 
         // Execute for ns_a again with same subtotal -> hits cache!
-        const outA2 = await taxFlow.run({subtotal: 100}, {namespace: 'ns_a'});
+        const outA2 = await taxFlow.run({ subtotal: 100 }, { namespace: 'ns_a' });
         expect(executionCount).to.equal(1);
         expect(outA2.tax ?? outA2.tax).to.equal(10);
 
         // Execute for ns_b with identical subtotal 100 -> MUST NOT hit ns_a's cache!
-        const outB1 = await taxFlow.run({subtotal: 100}, {namespace: 'ns_b'});
+        const outB1 = await taxFlow.run({ subtotal: 100 }, { namespace: 'ns_b' });
         expect(executionCount).to.equal(2);
         expect(outB1.tax ?? outB1.tax).to.equal(10);
         expect(outB1.calculatedFor?.val ?? outB1.calculatedFor).to.equal('ns_b');
@@ -86,15 +86,15 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
             },
             async getCheckpoint(id) {
                 return checkpoints.get(id);
-            }
+            },
         });
 
         const testFlow = flow(
-            Step.create('step1', async () => ({value: 'alpha'})),
-            Step.create('step2', async () => ({value: 'beta'}))
+            Step.create('step1', async () => ({ value: 'alpha' })),
+            Step.create('step2', async () => ({ value: 'beta' })),
         );
 
-        const execution = await testFlow.run({}, {namespace: 'ns_123'});
+        const execution = await testFlow.run({}, { namespace: 'ns_123' });
         expect(execution).to.not.be.undefined;
 
         // Verify checkpoint saved with namespace
@@ -106,17 +106,17 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
     it('executes 100% anonymous steps and supports $steps[i] and $history[i] indexing', async () => {
         const anonymousPipeline = flow(
             Step.create(async (param: any) => ({
-                stepZeroVal: 42
+                stepZeroVal: 42,
             })),
             Step.create(async (param: any) => ({
-                stepOneVal: (param.$steps[0]?.val ?? param.$steps[0]).stepZeroVal + 8
+                stepOneVal: (param.$steps[0]?.val ?? param.$steps[0]).stepZeroVal + 8,
             })),
             Step.create('namedStep', async (param: any) => ({
-                stepTwoVal: (param.$history[1]?.val ?? param.$history[1]).stepOneVal * 2
-            }))
+                stepTwoVal: (param.$history[1]?.val ?? param.$history[1]).stepOneVal * 2,
+            })),
         );
 
-        const result = await anonymousPipeline.run({}, {pojo: true});
+        const result = await anonymousPipeline.run({}, { pojo: true });
         expect(result.stepZeroVal).to.equal(42);
         expect(result.stepOneVal).to.equal(50);
         expect(result.stepTwoVal).to.equal(100);
@@ -164,28 +164,28 @@ describe('Multi-Tenancy, Anonymous Steps & State Serialization Unit Tests', () =
     });
 
     it('attaches namespace in Util.convertToContextStructure', () => {
-        const initial = {foo: 'bar'};
+        const initial = { foo: 'bar' };
         const converted = Util.convertToContextStructure(initial, 'chain_1', 'stack_1', 'ns_special');
         expect(converted.foo.val).to.equal('bar');
         expect(converted.$namespace()).to.equal('ns_special');
     });
-    it("sets namespace directly via Context.setNamespace", () => {
-        const ctx = Context.createContext("chain_c");
-        ctx.setNamespace("ns_direct");
-        expect(ctx.$namespace).to.equal("ns_direct");
+    it('sets namespace directly via Context.setNamespace', () => {
+        const ctx = Context.createContext('chain_c');
+        ctx.setNamespace('ns_direct');
+        expect(ctx.$namespace).to.equal('ns_direct');
     });
 
-    it("attaches namespace when convertToContextStructure receives an existing Context instance", () => {
-        const ctx = Context.createContext("chain_d");
-        const converted = Util.convertToContextStructure(ctx, "chain_d", "stack_d", "ns_on_ctx");
-        expect(ctx.$namespace).to.equal("ns_on_ctx");
-        expect(converted.$namespace()).to.equal("ns_on_ctx");
+    it('attaches namespace when convertToContextStructure receives an existing Context instance', () => {
+        const ctx = Context.createContext('chain_d');
+        const converted = Util.convertToContextStructure(ctx, 'chain_d', 'stack_d', 'ns_on_ctx');
+        expect(ctx.$namespace).to.equal('ns_on_ctx');
+        expect(converted.$namespace()).to.equal('ns_on_ctx');
     });
 
-    it("handles StorageManager.createStack without arguments and StorageManager.get for non-existent step", () => {
+    it('handles StorageManager.createStack without arguments and StorageManager.get for non-existent step', () => {
         const mgr = new StorageManager();
         const autoStackId = mgr.createStack();
-        expect(autoStackId).to.be.a("string");
-        expect(mgr.get(autoStackId, "nonexistent_step")).to.be.undefined;
+        expect(autoStackId).to.be.a('string');
+        expect(mgr.get(autoStackId, 'nonexistent_step')).to.be.undefined;
     });
 });

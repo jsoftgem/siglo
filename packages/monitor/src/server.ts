@@ -1,11 +1,18 @@
 import * as http from 'http';
-import {sanitizeInspection, redactEvent, RedactionOptions, redactValue, resumeWorkflow, WorkflowEventEmitter} from '@siglo/core';
-import {MonitorServerAuthOptions, MonitorServerCorsOptions, MonitorServerOptions} from './types';
-import {WorkflowExecutionStore} from './store';
-import {SSEBroadcaster} from './transports/sse';
-import {WebSocketBroadcaster} from './transports/websocket';
-import {PrometheusExporter} from './metrics';
-import {getDashboardHtml} from './ui/dashboard';
+import {
+    sanitizeInspection,
+    redactEvent,
+    RedactionOptions,
+    redactValue,
+    resumeWorkflow,
+    WorkflowEventEmitter,
+} from '@siglo/core';
+import { MonitorServerAuthOptions, MonitorServerCorsOptions, MonitorServerOptions } from './types';
+import { WorkflowExecutionStore } from './store';
+import { SSEBroadcaster } from './transports/sse';
+import { WebSocketBroadcaster } from './transports/websocket';
+import { PrometheusExporter } from './metrics';
+import { getDashboardHtml } from './ui/dashboard';
 
 export interface MonitorServerInstance {
     server: http.Server;
@@ -24,10 +31,18 @@ const activeServers = new Map<number, MonitorServerInstance>();
 
 function validInspectionEvent(event: any): boolean {
     if (event?.type !== 'step:inspection' && !(event?.type === 'ai:complete' && event.inspection)) return true;
-    return typeof event.stackId === 'string' && !!event.stackId && typeof event.stepId === 'string' && !!event.stepId
-        && Number.isSafeInteger(event.attempt) && event.attempt > 0
-        && Number.isFinite(event.timestamp) && event.timestamp >= 0 && !!sanitizeInspection(event.inspection)
-        && (event.type !== 'ai:complete' || event.inspection.kind === 'ai');
+    return (
+        typeof event.stackId === 'string' &&
+        !!event.stackId &&
+        typeof event.stepId === 'string' &&
+        !!event.stepId &&
+        Number.isSafeInteger(event.attempt) &&
+        event.attempt > 0 &&
+        Number.isFinite(event.timestamp) &&
+        event.timestamp >= 0 &&
+        !!sanitizeInspection(event.inspection) &&
+        (event.type !== 'ai:complete' || event.inspection.kind === 'ai')
+    );
 }
 
 function safeJsonStringify(obj: any): string {
@@ -55,9 +70,7 @@ function sanitizeRunRecord(run: any, redaction?: RedactionOptions): any {
         contextDiffs: Array.isArray(run.contextDiffs)
             ? run.contextDiffs.map((d: any) => ({ ...d, value: redactValue(d.value, redaction) }))
             : run.contextDiffs,
-        events: Array.isArray(run.events)
-            ? run.events.map((ev: any) => redactEvent(ev, redaction))
-            : run.events
+        events: Array.isArray(run.events) ? run.events.map((ev: any) => redactEvent(ev, redaction)) : run.events,
     };
 }
 
@@ -89,15 +102,16 @@ function validateResumePayload(flowCandidate: any, payload: any): { valid: boole
     return { valid: true };
 }
 
-function resolveTargetFlow(stackId: string, run: any, options: MonitorServerOptions, workflows: Map<string, any>): any | undefined {
+function resolveTargetFlow(
+    stackId: string,
+    run: any,
+    options: MonitorServerOptions,
+    workflows: Map<string, any>,
+): any | undefined {
     if (options.flow && !options.workflows) {
         return options.flow;
     }
-    const candidates = [
-        run?.flowName,
-        run?.workflowId,
-        stackId
-    ].filter(Boolean);
+    const candidates = [run?.flowName, run?.workflowId, stackId].filter(Boolean);
 
     for (const key of candidates) {
         if (workflows.has(key)) {
@@ -152,9 +166,8 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     const emitter = options.emitter || new WorkflowEventEmitter(options.namespaceFilter);
 
     // Normalize auth options
-    const authConfig: MonitorServerAuthOptions | undefined = typeof options.auth === 'string'
-        ? { apiKey: options.auth }
-        : options.auth;
+    const authConfig: MonitorServerAuthOptions | undefined =
+        typeof options.auth === 'string' ? { apiKey: options.auth } : options.auth;
 
     const allowRemoteResume = options.allowRemoteResume !== undefined ? options.allowRemoteResume : true;
     const maxPayloadBytes = options.maxPayloadBytes && options.maxPayloadBytes > 0 ? options.maxPayloadBytes : 1048576; // 1 MB default
@@ -187,28 +200,31 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
         }
 
         if (scope === 'ingest') {
-            return Boolean((authConfig.ingestionKey && token === authConfig.ingestionKey) ||
-                           (authConfig.apiKey && token === authConfig.apiKey) ||
-                           (authConfig.adminKey && token === authConfig.adminKey));
+            return Boolean(
+                (authConfig.ingestionKey && token === authConfig.ingestionKey) ||
+                (authConfig.apiKey && token === authConfig.apiKey) ||
+                (authConfig.adminKey && token === authConfig.adminKey),
+            );
         }
 
         if (scope === 'control') {
-            return Boolean((authConfig.adminKey && token === authConfig.adminKey) ||
-                           (authConfig.apiKey && token === authConfig.apiKey));
+            return Boolean(
+                (authConfig.adminKey && token === authConfig.adminKey) ||
+                (authConfig.apiKey && token === authConfig.apiKey),
+            );
         }
 
         // 'read' scope
-        return Boolean((authConfig.apiKey && token === authConfig.apiKey) ||
-                       (authConfig.adminKey && token === authConfig.adminKey) ||
-                       (authConfig.ingestionKey && token === authConfig.ingestionKey));
+        return Boolean(
+            (authConfig.apiKey && token === authConfig.apiKey) ||
+            (authConfig.adminKey && token === authConfig.adminKey) ||
+            (authConfig.ingestionKey && token === authConfig.ingestionKey),
+        );
     };
 
     const effectiveRedaction: RedactionOptions = {
-        redactKeys: [
-            ...(options.redaction?.redactKeys || []),
-            ...(options.security?.redactedKeys || [])
-        ],
-        redactHook: options.security?.maskFn || options.redaction?.redactHook
+        redactKeys: [...(options.redaction?.redactKeys || []), ...(options.security?.redactedKeys || [])],
+        redactHook: options.security?.maskFn || options.redaction?.redactHook,
     };
 
     const sse = new SSEBroadcaster({ redaction: effectiveRedaction });
@@ -216,10 +232,13 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
         redaction: effectiveRedaction,
         allowRemoteResume,
         maxPayloadBytes,
-        authorizeMessage: (message, req) => checkAuth(req,
-            new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`),
-            message.action === 'event' ? 'ingest' : message.action === 'resume' ? 'control' : 'read'),
-        authenticate: (req) => {
+        authorizeMessage: (message, req) =>
+            checkAuth(
+                req,
+                new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`),
+                message.action === 'event' ? 'ingest' : message.action === 'resume' ? 'control' : 'read',
+            ),
+        authenticate: req => {
             const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
             return checkAuth(req, url, 'read');
         },
@@ -232,24 +251,31 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                 const run = store.getRun(message.stackId);
                 const targetFlow = resolveTargetFlow(message.stackId, run, options, workflows);
                 if (!targetFlow) {
-                    ws.send(client, { action: 'error', error: `Workflow definition not registered for '${message.stackId}'` });
+                    ws.send(client, {
+                        action: 'error',
+                        error: `Workflow definition not registered for '${message.stackId}'`,
+                    });
                     return;
                 }
                 const validation = validateResumePayload(targetFlow, message.payload);
                 if (!validation.valid) {
-                    ws.send(client, { action: 'error', error: 'Unprocessable Entity: Invalid resume payload', details: validation.error });
+                    ws.send(client, {
+                        action: 'error',
+                        error: 'Unprocessable Entity: Invalid resume payload',
+                        details: validation.error,
+                    });
                     return;
                 }
-                resumeWorkflow(targetFlow, message.stackId, message.payload, { monitor: emitter }).catch((err) => {
+                resumeWorkflow(targetFlow, message.stackId, message.payload, { monitor: emitter }).catch(err => {
                     ws.send(client, { action: 'error', error: err?.message || String(err) });
                 });
             }
-        }
+        },
     });
     const metrics = new PrometheusExporter();
 
     // Wire up events
-    emitter.on('*', (rawEvent) => {
+    emitter.on('*', rawEvent => {
         const event = redactEvent(rawEvent, effectiveRedaction);
         store.addEvent(event);
         sse.broadcast(event);
@@ -352,7 +378,9 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             }
             const ns = url.searchParams.get('namespace') || undefined;
             const status = url.searchParams.get('status') || undefined;
-            const runs = store.listRuns({ namespace: ns, status }).map((r: any) => sanitizeRunRecord(r, effectiveRedaction));
+            const runs = store
+                .listRuns({ namespace: ns, status })
+                .map((r: any) => sanitizeRunRecord(r, effectiveRedaction));
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(safeJsonStringify(runs));
             return;
@@ -422,14 +450,23 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                     const targetFlow = resolveTargetFlow(stackId, run, options, workflows);
                     if (!targetFlow) {
                         res.writeHead(404, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: `Cannot resume workflow '${stackId}': workflow definition not registered on monitor server.` }));
+                        res.end(
+                            JSON.stringify({
+                                error: `Cannot resume workflow '${stackId}': workflow definition not registered on monitor server.`,
+                            }),
+                        );
                         return;
                     }
 
                     const validation = validateResumePayload(targetFlow, parsed.payload);
                     if (!validation.valid) {
                         res.writeHead(422, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: 'Unprocessable Entity: Invalid resume payload', details: validation.error }));
+                        res.end(
+                            JSON.stringify({
+                                error: 'Unprocessable Entity: Invalid resume payload',
+                                details: validation.error,
+                            }),
+                        );
                         return;
                     }
 
@@ -483,7 +520,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     ws.attach(server);
 
     return new Promise((resolve, reject) => {
-        server.on('error', (err) => {
+        server.on('error', err => {
             reject(err);
         });
 
@@ -503,10 +540,10 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                     activeServers.delete(actualPort);
                     sse.close();
                     ws.close();
-                    return new Promise((resClose) => {
+                    return new Promise(resClose => {
                         server.close(() => resClose());
                     });
-                }
+                },
             };
             activeServers.set(actualPort, instance);
             resolve(instance);

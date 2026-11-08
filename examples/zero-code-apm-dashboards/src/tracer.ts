@@ -5,7 +5,7 @@ import {
     BatchSpanProcessor,
     InMemorySpanExporter,
     SpanProcessor,
-    ReadableSpan
+    ReadableSpan,
 } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
@@ -28,14 +28,15 @@ export interface TelemetryConfig {
 export function initTelemetry(config: TelemetryConfig = {}): Tracer {
     const serviceName = config.serviceName || process.env.OTEL_SERVICE_NAME || 'siglo-apm';
     const serviceVersion = config.serviceVersion || '1.1.0';
-    const exportToOtlp = config.exportToOtlp ?? (process.env.NODE_ENV !== 'test' && process.env.OTEL_TRACES_EXPORTER !== 'none');
+    const exportToOtlp =
+        config.exportToOtlp ?? (process.env.NODE_ENV !== 'test' && process.env.OTEL_TRACES_EXPORTER !== 'none');
 
     let provider = providers.get(serviceName);
     if (!provider) {
         const resource = resourceFromAttributes({
             [ATTR_SERVICE_NAME]: serviceName,
             [ATTR_SERVICE_VERSION]: serviceVersion,
-            'deployment.environment': process.env.NODE_ENV || 'development'
+            'deployment.environment': process.env.NODE_ENV || 'development',
         });
 
         // 1. In-memory processor for terminal visualizer & test assertions
@@ -46,13 +47,15 @@ export function initTelemetry(config: TelemetryConfig = {}): Tracer {
             const otlpExporter = new OTLPTraceExporter({
                 // Let the SDK resolve standard endpoint and authentication environment variables.
                 ...(config.otlpEndpoint ? { url: config.otlpEndpoint } : {}),
-                timeoutMillis: 1500
+                timeoutMillis: 1500,
             });
-            spanProcessors.push(new BatchSpanProcessor(otlpExporter, {
-                maxQueueSize: 2048,
-                maxExportBatchSize: 512,
-                scheduledDelayMillis: 100
-            }));
+            spanProcessors.push(
+                new BatchSpanProcessor(otlpExporter, {
+                    maxQueueSize: 2048,
+                    maxExportBatchSize: 512,
+                    scheduledDelayMillis: 100,
+                }),
+            );
         }
 
         provider = new NodeTracerProvider({ resource, spanProcessors });
@@ -135,7 +138,7 @@ export function printTraceWaterfall(title: string, spans: ReadableSpan[]): void 
         const statusBadge = isError ? '❌ ERROR' : '✅ OK';
 
         console.log(
-            `${indent}[+${offset.toString().padStart(3, ' ')}ms] ${span.name} (${duration}ms) [${statusBadge}]`
+            `${indent}[+${offset.toString().padStart(3, ' ')}ms] ${span.name} (${duration}ms) [${statusBadge}]`,
         );
         if (span.attributes['siglo.step.timeout']) {
             console.log(`  │   │   └─ timeout: ${span.attributes['siglo.step.timeout']}ms`);
@@ -143,7 +146,9 @@ export function printTraceWaterfall(title: string, spans: ReadableSpan[]): void 
         if (span.events && span.events.length > 0) {
             for (const ev of span.events) {
                 if (ev.name === 'exception') {
-                    console.log(`  │   │   └─ exception: ${(ev.attributes as any)?.['exception.message'] || 'Unknown'}`);
+                    console.log(
+                        `  │   │   └─ exception: ${(ev.attributes as any)?.['exception.message'] || 'Unknown'}`,
+                    );
                 }
             }
         }

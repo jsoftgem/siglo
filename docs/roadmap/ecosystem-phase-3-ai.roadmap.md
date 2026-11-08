@@ -348,5 +348,5 @@ export const agenticAdvisoryStep = aiStep('financialAdvisor', {
 - Live API smoke tests require the deployment's own credentials and supported model IDs;
   they are not part of zero-network CI. Wire contracts are tested with injected transports.
 
-See [`packages/ai/README.md`](../../packages/ai/README.md) and [`docs/adapters/ai.md`](../adapters/ai.md) for working configuration, tool,
+See [`packages/ai/README.md`](https://github.com/jsoftgem/siglo/blob/main/packages/ai/README.md) and [`docs/adapters/ai.md`](/adapters/ai) for working configuration, tool,
 cache, telemetry and replay examples, plus official provider references.

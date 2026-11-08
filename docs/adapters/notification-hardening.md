@@ -5,7 +5,7 @@ description: "Production security, two-phase approval confirmation, authorizatio
 
 # Notification Approval Security & Recovery
 
-This guide outlines the production security architecture, authorization controls, durable recovery guarantees, and network egress defenses implemented across `@siglo/notifications`. For standard multi-channel messaging and interactive step setup, see the [@siglo/notifications Adapter Guide](./notifications.md).
+This guide outlines the production security architecture, authorization controls, durable recovery guarantees, and network egress defenses implemented across `@siglo/notifications`. For standard multi-channel messaging and interactive step setup, see the [@siglo/notifications Adapter Guide](/adapters/notifications).
 
 ---
 
@@ -182,7 +182,7 @@ When receiving SMS reply approvals (e.g. Twilio SMS webhooks):
 
 ## 7. Related Guides
 
-- [Notifications Adapter Guide](./notifications.md): Multi-channel messaging, Slack cards, and interactive approval step configuration.
-- [PostgreSQL Adapter Guide](./postgres.md): Schema management, ACID checkpoints, and advisory locks.
-- [Scheduler Adapter Guide](./scheduler.md): Background polling and durable timer resumption.
-- [Network Egress Policy](../network-egress-policy.md): AsyncLocalStorage network perimeter enforcement.
+- [Notifications Adapter Guide](/adapters/notifications): Multi-channel messaging, Slack cards, and interactive approval step configuration.
+- [PostgreSQL Adapter Guide](/adapters/postgres): Schema management, ACID checkpoints, and advisory locks.
+- [Scheduler Adapter Guide](/adapters/scheduler): Background polling and durable timer resumption.
+- [Network Egress Policy](/network-egress-policy): AsyncLocalStorage network perimeter enforcement.

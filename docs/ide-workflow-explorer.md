@@ -12,7 +12,7 @@ Supported IDEs:
 - **Visual Studio Code**: 1.90+ (Desktop & Remote Workspace hosts) available on the [VS Code Marketplace](https://marketplace.visualstudio.com/) as **Siglo Workflow Explorer** (`jsoftgem.siglo-workflow-explorer`).
 
 > [!NOTE]
-> **Static IDE Explorer vs. Live DevTools**: The IDE Workflow Explorer performs **pure static AST analysis** of your TypeScript/JavaScript source code without running your application or connecting to external services. For runtime execution streaming, event waterfall timelines, and interactive replay, see [Live Monitoring & DevTools](live-monitoring.md).
+> **Static IDE Explorer vs. Live DevTools**: The IDE Workflow Explorer performs **pure static AST analysis** of your TypeScript/JavaScript source code without running your application or connecting to external services. For runtime execution streaming, event waterfall timelines, and interactive replay, see [Live Monitoring & DevTools](/live-monitoring).
 
 ---
 
@@ -281,8 +281,8 @@ If the visualizer displays a blank screen or prompts that analysis is paused, ch
 
 ## 7. Related Documentation
 
-- [Live Monitoring & DevTools](live-monitoring.md) — Real-time execution streaming, latency waterfalls, and interactive replay.
-- [Execution Semantics Contract](execution-semantics.md) — Formal runtime execution semantics, lifecycle phases, and context accumulation.
-- [Ecosystem DevTools and Offline Testing](ecosystem-devtools.md) — Inspection protocols for HTTP, AI, webhook, and notification steps.
-- [IntelliJ Plugin Roadmap](roadmap/intellij.roadmap.md) — Architecture and upcoming milestones for the IntelliJ plugin.
-- [VS Code Extension Roadmap](roadmap/vscode.roadmap.md) — Architecture and upcoming milestones for the VS Code extension.
+- [Live Monitoring & DevTools](/live-monitoring) — Real-time execution streaming, latency waterfalls, and interactive replay.
+- [Execution Semantics Contract](/execution-semantics) — Formal runtime execution semantics, lifecycle phases, and context accumulation.
+- [Ecosystem DevTools and Offline Testing](/ecosystem-devtools) — Inspection protocols for HTTP, AI, webhook, and notification steps.
+- [IntelliJ Plugin Roadmap](/roadmap/intellij.roadmap) — Architecture and upcoming milestones for the IntelliJ plugin.
+- [VS Code Extension Roadmap](/roadmap/vscode.roadmap) — Architecture and upcoming milestones for the VS Code extension.

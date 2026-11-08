@@ -7,7 +7,9 @@ async function main() {
     subscriber.on('error', error => console.error('Monitor Redis:', error.message));
     await subscriber.connect();
     const monitor = await createMonitorServer({
-        port: Number(process.env.MONITOR_PORT || 4000), host: '0.0.0.0', allowRemoteResume: false
+        port: Number(process.env.MONITOR_PORT || 4000),
+        host: '0.0.0.0',
+        allowRemoteResume: false,
     });
     new RedisMonitoringAdapter({ subscriber: pubsubClient(subscriber), channel, emitter: monitor.emitter });
     // Await subscription acknowledgment before declaring readiness.
@@ -17,8 +19,15 @@ async function main() {
         subscriber.disconnect();
         await monitor.close();
     };
-    process.once('SIGINT', () => { void close(); });
-    process.once('SIGTERM', () => { void close(); });
+    process.once('SIGINT', () => {
+        void close();
+    });
+    process.once('SIGTERM', () => {
+        void close();
+    });
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; });
+main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

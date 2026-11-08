@@ -244,4 +244,4 @@ For request-specific control, replace `durable: true` with `durable: (req) => re
 
 A custom `output` callback takes full control of the response body and status, including for waiting results. If you supply one, handle `result.status === 'waiting'` explicitly when you want to preserve the `202` response.
 
-The HTTP adapter does not supply persistence. Configure a shared storage adapter that supports checkpoints and wait records to survive process restarts and resume across replicas. Timer waits also need a scheduler to resume them when due. See [Durable Workflows](../06-durable-workflows.md), [Storage and Adapters](../07-storage-and-adapters.md), and [the distributed checkout tutorial](../durable-distributed-checkout.md).
+The HTTP adapter does not supply persistence. Configure a shared storage adapter that supports checkpoints and wait records to survive process restarts and resume across replicas. Timer waits also need a scheduler to resume them when due. See [Durable Workflows](/06-durable-workflows), [Storage and Adapters](/07-storage-and-adapters), and [the distributed checkout tutorial](/durable-distributed-checkout).

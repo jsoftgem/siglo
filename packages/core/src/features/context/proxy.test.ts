@@ -29,7 +29,7 @@ describe('proxy.unit.test', () => {
                 },
                 destroy: () => {
                     called = true;
-                }
+                },
             };
             const result = toPOJO<any>(input);
             expect(called).to.be.false;
@@ -54,8 +54,8 @@ describe('proxy.unit.test', () => {
                 b: 'text',
                 sig: signalGetter,
                 nested: {
-                    c: computedC
-                }
+                    c: computedC,
+                },
             };
             const result = toPOJO<any>(input);
             expect(result.a).to.equal(42);
@@ -70,7 +70,7 @@ describe('proxy.unit.test', () => {
             const input = {
                 $$$validators: ['dummy'],
                 $stackId: 'internal-stack-id',
-                valid: 'yes'
+                valid: 'yes',
             };
             const result = toPOJO<any>(input);
             expect(result.$$$validators).to.be.undefined;
@@ -83,11 +83,7 @@ describe('proxy.unit.test', () => {
             (computedId as any)._isSigloComputed = true;
 
             const input = {
-                items: [
-                    { id: computedId },
-                    'rawStr',
-                    3
-                ]
+                items: [{ id: computedId }, 'rawStr', 3],
             };
             const result = toPOJO<any>(input);
             expect(result.items[0].id).to.equal(1);
@@ -102,7 +98,7 @@ describe('proxy.unit.test', () => {
             const input = {
                 prom: p,
                 eventTarget: listener,
-                activeSpan: span
+                activeSpan: span,
             };
             const result = toPOJO<any>(input);
             expect(result.prom).to.equal(p);

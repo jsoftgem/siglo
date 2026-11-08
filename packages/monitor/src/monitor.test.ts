@@ -18,7 +18,7 @@ import {
     getDashboardHtml,
     createExpressMonitorMiddleware,
     fastifyMonitorPlugin,
-    honoMonitorMiddleware
+    honoMonitorMiddleware,
 } from './index';
 
 describe('@siglo/monitor Suite', () => {
@@ -34,7 +34,7 @@ describe('@siglo/monitor Suite', () => {
                 flowName: 'OrderFlow',
                 version: '1.0',
                 namespace: 'tenant-a',
-                timestamp: 1000
+                timestamp: 1000,
             });
 
             const r1 = store.getRun('stk-1');
@@ -49,7 +49,7 @@ describe('@siglo/monitor Suite', () => {
                 stepId: 'stp-1',
                 stepName: 'chargeCard',
                 attempt: 1,
-                timestamp: 1010
+                timestamp: 1010,
             });
             expect(r1!.steps['stp-1'].status).to.equal('RUNNING');
 
@@ -60,7 +60,7 @@ describe('@siglo/monitor Suite', () => {
                 stepId: 'stp-1',
                 stepName: 'chargeCard',
                 durationMs: 15,
-                timestamp: 1025
+                timestamp: 1025,
             });
             expect(r1!.steps['stp-1'].status).to.equal('COMPLETED');
             expect(r1!.steps['stp-1'].durationMs).to.equal(15);
@@ -71,7 +71,7 @@ describe('@siglo/monitor Suite', () => {
                 stackId: 'stk-1',
                 field: 'orderStatus',
                 value: 'PAID',
-                timestamp: 1026
+                timestamp: 1026,
             });
             expect(r1!.context.orderStatus).to.equal('PAID');
             expect(r1!.contextDiffs).to.have.lengthOf(1);
@@ -83,7 +83,7 @@ describe('@siglo/monitor Suite', () => {
                 stackId: 'stk-1',
                 status: 'COMPLETED',
                 durationMs: 30,
-                timestamp: 1030
+                timestamp: 1030,
             });
             expect(r1!.status).to.equal('COMPLETED');
             expect(r1!.durationMs).to.equal(30);
@@ -111,10 +111,10 @@ describe('@siglo/monitor Suite', () => {
     });
 
     describe('SSEBroadcaster Transport', () => {
-        it('manages clients and broadcasts redacted events with heartbeat', (done) => {
+        it('manages clients and broadcasts redacted events with heartbeat', done => {
             const sse = new SSEBroadcaster({
                 redaction: { redactKeys: ['token', 'password'] },
-                heartbeatIntervalMs: 50
+                heartbeatIntervalMs: 50,
             });
 
             const writtenChunks: string[] = [];
@@ -126,7 +126,7 @@ describe('@siglo/monitor Suite', () => {
                 write: (chunk: string) => {
                     writtenChunks.push(chunk);
                 },
-                on: (_event: string, _cb: (...args: any[]) => void) => {}
+                on: (_event: string, _cb: (...args: any[]) => void) => {},
             };
 
             sse.addClient(mockRes as any, 'tenant-x');
@@ -142,7 +142,7 @@ describe('@siglo/monitor Suite', () => {
                 namespace: 'tenant-x',
                 stackId: 'stk-x',
                 field: 'token',
-                value: 'secret123'
+                value: 'secret123',
             });
 
             // Verify event is redacted
@@ -157,7 +157,7 @@ describe('@siglo/monitor Suite', () => {
             sse.broadcast({
                 type: 'flow:start',
                 namespace: 'other-tenant',
-                stackId: 'stk-other'
+                stackId: 'stk-other',
             });
             expect(writtenChunks.length).to.equal(countBefore);
 
@@ -170,14 +170,14 @@ describe('@siglo/monitor Suite', () => {
             }, 80);
         });
 
-        it('supports createSSEHandler', (done) => {
+        it('supports createSSEHandler', done => {
             const sse = new SSEBroadcaster();
             const handler = createSSEHandler(sse);
             const req = { url: '/events?namespace=ns1', headers: { host: 'localhost' } };
             const res = {
                 writeHead: () => {},
                 write: () => {},
-                on: () => {}
+                on: () => {},
             };
             handler(req as any, res as any);
             expect(sse.getClientCount()).to.equal(1);
@@ -191,10 +191,10 @@ describe('@siglo/monitor Suite', () => {
         let ws: WebSocketBroadcaster;
         let port: number;
 
-        before((done) => {
+        before(done => {
             server = http.createServer();
             ws = new WebSocketBroadcaster({
-                redaction: { redactKeys: ['secret'] }
+                redaction: { redactKeys: ['secret'] },
             });
             ws.attach(server, '/ws');
             server.listen(0, () => {
@@ -203,26 +203,26 @@ describe('@siglo/monitor Suite', () => {
             });
         });
 
-        after((done) => {
+        after(done => {
             ws.close();
             server.close(done);
         });
 
-        it('performs RFC 6455 upgrade, handles ping/pong, and receives text frame', (done) => {
+        it('performs RFC 6455 upgrade, handles ping/pong, and receives text frame', done => {
             const clientKey = crypto.randomBytes(16).toString('base64');
             const socket = net.createConnection({ port, host: '127.0.0.1' }, () => {
                 socket.write(
                     `GET /ws HTTP/1.1\r\n` +
-                    `Host: 127.0.0.1:${port}\r\n` +
-                    `Upgrade: websocket\r\n` +
-                    `Connection: Upgrade\r\n` +
-                    `Sec-WebSocket-Key: ${clientKey}\r\n` +
-                    `Sec-WebSocket-Version: 13\r\n\r\n`
+                        `Host: 127.0.0.1:${port}\r\n` +
+                        `Upgrade: websocket\r\n` +
+                        `Connection: Upgrade\r\n` +
+                        `Sec-WebSocket-Key: ${clientKey}\r\n` +
+                        `Sec-WebSocket-Version: 13\r\n\r\n`,
                 );
             });
 
             let upgraded = false;
-            socket.on('data', (data) => {
+            socket.on('data', data => {
                 const response = data.toString('utf8');
                 if (!upgraded && response.includes('HTTP/1.1 101 Switching Protocols')) {
                     upgraded = true;
@@ -250,7 +250,7 @@ describe('@siglo/monitor Suite', () => {
                         ws.broadcast({
                             type: 'flow:start',
                             stackId: 'ws-stk',
-                            namespace: 'test-ns'
+                            namespace: 'test-ns',
                         });
                     }, 20);
                 } else if (upgraded) {
@@ -275,21 +275,21 @@ describe('@siglo/monitor Suite', () => {
                     publishedChannel = channel;
                     publishedMessage = message;
                 },
-                subscribe: () => {}
+                subscribe: () => {},
             };
 
             const mockSubscriber = {
                 publish: () => {},
                 subscribe: (channel: string, cb: any) => {
                     subscriberCallback = cb;
-                }
+                },
             };
 
             const adapter = new RedisMonitoringAdapter({
                 publisher: mockPublisher,
                 subscriber: mockSubscriber,
                 channel: 'test:events',
-                redaction: { redactKeys: ['pass'] }
+                redaction: { redactKeys: ['pass'] },
             });
 
             // Publishing
@@ -297,7 +297,7 @@ describe('@siglo/monitor Suite', () => {
                 type: 'context:change',
                 stackId: 'redis-1',
                 field: 'pass',
-                value: 'mySecret'
+                value: 'mySecret',
             });
 
             expect(publishedChannel).to.equal('test:events');
@@ -309,14 +309,16 @@ describe('@siglo/monitor Suite', () => {
             adapter.attachToEmitter(emitter);
 
             let receivedEvent: any = null;
-            emitter.on('flow:start', (ev) => {
+            emitter.on('flow:start', ev => {
                 receivedEvent = ev;
             });
 
-            subscriberCallback!(JSON.stringify({
-                type: 'flow:start',
-                stackId: 'redis-incoming'
-            }));
+            subscriberCallback!(
+                JSON.stringify({
+                    type: 'flow:start',
+                    stackId: 'redis-incoming',
+                }),
+            );
 
             expect(receivedEvent).to.not.be.null;
             expect(receivedEvent.stackId).to.equal('redis-incoming');
@@ -330,7 +332,13 @@ describe('@siglo/monitor Suite', () => {
             exporter.handleEvent({ type: 'flow:start', stackId: 's1', timestamp: 100 });
             exporter.handleEvent({ type: 'step:retry', stackId: 's1', stepId: 'stp-1', attempt: 2 });
             exporter.handleEvent({ type: 'step:complete', stackId: 's1', stepId: 'stp-1', durationMs: 12 });
-            exporter.handleEvent({ type: 'flow:complete', stackId: 's1', status: 'COMPLETED', durationMs: 50, timestamp: 150 });
+            exporter.handleEvent({
+                type: 'flow:complete',
+                stackId: 's1',
+                status: 'COMPLETED',
+                durationMs: 50,
+                timestamp: 150,
+            });
 
             const text = exporter.getMetricsAsText();
             expect(text).to.include('siglo_active_flows 0');
@@ -372,7 +380,7 @@ describe('@siglo/monitor Suite', () => {
                 type: 'flow:start',
                 stackId: 'server-stk',
                 flowName: 'APIFlow',
-                timestamp: 100
+                timestamp: 100,
             });
 
             const listRes = await fetch(`http://127.0.0.1:${monitorServer.port}/api/workflows`);
@@ -391,29 +399,35 @@ describe('@siglo/monitor Suite', () => {
 
         it('handles resume and replay endpoints', async () => {
             const replayRes = await fetch(`http://127.0.0.1:${monitorServer.port}/api/workflows/server-stk/replay`, {
-                method: 'POST'
+                method: 'POST',
             });
             expect(replayRes.status).to.equal(200);
 
             let suspendedStackId = '';
             const waitingFlow = flow(waitForEvent('token.verified', { correlationKey: 'token-123' }));
             try {
-                await waitingFlow.run({}, {
-                    durable: true,
-                    monitor: (ev) => {
-                        if (ev.type === 'flow:start') suspendedStackId = ev.stackId;
-                    }
-                });
+                await waitingFlow.run(
+                    {},
+                    {
+                        durable: true,
+                        monitor: ev => {
+                            if (ev.type === 'flow:start') suspendedStackId = ev.stackId;
+                        },
+                    },
+                );
             } catch {
                 // Expected workflow suspension
             }
             monitorServer.workflows.set(suspendedStackId, waitingFlow);
 
-            const resumeRes = await fetch(`http://127.0.0.1:${monitorServer.port}/api/workflows/${suspendedStackId}/resume`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ payload: { tokenValid: true } })
-            });
+            const resumeRes = await fetch(
+                `http://127.0.0.1:${monitorServer.port}/api/workflows/${suspendedStackId}/resume`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payload: { tokenValid: true } }),
+                },
+            );
             expect(resumeRes.status).to.equal(200);
             const resData = await resumeRes.json();
             expect(resData.ok).to.be.true;
@@ -428,15 +442,15 @@ describe('@siglo/monitor Suite', () => {
                         type: 'flow:start',
                         stackId: 'ingested-flow-1',
                         flowName: 'IngestedFlow',
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
                     },
                     {
                         type: 'step:complete',
                         stackId: 'ingested-flow-1',
                         stepId: 'step-a',
-                        durationMs: 42
-                    }
-                ])
+                        durationMs: 42,
+                    },
+                ]),
             });
 
             expect(postRes.status).to.equal(202);
@@ -461,7 +475,7 @@ describe('@siglo/monitor Suite', () => {
             // Reusing existing server
             const reused = await createMonitorServer({
                 port: monitorServer.port,
-                reuseExisting: true
+                reuseExisting: true,
             });
             expect(reused).to.equal(monitorServer);
         });
@@ -476,7 +490,7 @@ describe('@siglo/monitor Suite', () => {
                 type: 'flow:start',
                 stackId: 'attached-run-1',
                 flowName: 'AttachedWorkflow',
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
 
             // Verify server received the event
@@ -487,14 +501,14 @@ describe('@siglo/monitor Suite', () => {
             // Using createMonitorClient with URL over HTTP
             const client = createMonitorClient({
                 url: `http://127.0.0.1:${monitorServer.port}`,
-                batchSize: 1
+                batchSize: 1,
             });
 
             await client.sendEvent({
                 type: 'flow:start',
                 stackId: 'remote-client-run-1',
                 flowName: 'RemoteWorkflow',
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
 
             await client.flush();
@@ -516,18 +530,18 @@ describe('@siglo/monitor Suite', () => {
                 setHeader: () => {},
                 send: (html: string) => {
                     sentHtml = html.includes('Siglo Live Monitor');
-                }
+                },
             };
             middleware(req, res, () => {});
             expect(sentHtml).to.be.true;
         });
 
-        it('supports Fastify plugin', (done) => {
+        it('supports Fastify plugin', done => {
             const mockFastify = {
                 routes: {} as Record<string, any>,
                 get: function (path: string, handler: any) {
                     this.routes[path] = handler;
-                }
+                },
             };
             fastifyMonitorPlugin(mockFastify, {}, () => {
                 expect(mockFastify.routes['/']).to.be.a('function');
@@ -542,8 +556,11 @@ describe('@siglo/monitor Suite', () => {
             let htmlCalled = false;
             const mockContext = {
                 req: { path: '/dashboard' },
-                html: () => { htmlCalled = true; return 'ok'; },
-                json: () => {}
+                html: () => {
+                    htmlCalled = true;
+                    return 'ok';
+                },
+                json: () => {},
             };
             await middleware(mockContext, async () => {});
             expect(htmlCalled).to.be.true;
@@ -565,15 +582,15 @@ describe('@siglo/monitor Suite', () => {
                 port: 4099,
                 auth: {
                     ingestionKey: 'ingest-secret',
-                    adminKey: 'admin-secret'
-                }
+                    adminKey: 'admin-secret',
+                },
             });
 
             // 1. Ingest without token -> 401
             const unauthPost = await fetch(`http://127.0.0.1:4099/api/events`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'flow:start', stackId: 's-1' })
+                body: JSON.stringify({ type: 'flow:start', stackId: 's-1' }),
             });
             expect(unauthPost.status).to.equal(401);
 
@@ -582,9 +599,9 @@ describe('@siglo/monitor Suite', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ingest-secret'
+                    Authorization: 'Bearer ingest-secret',
                 },
-                body: JSON.stringify({ type: 'flow:start', stackId: 's-auth-1' })
+                body: JSON.stringify({ type: 'flow:start', stackId: 's-auth-1' }),
             });
             expect(authPost.status).to.equal(202);
 
@@ -593,9 +610,9 @@ describe('@siglo/monitor Suite', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-API-Key': 'ingest-secret'
+                    'X-API-Key': 'ingest-secret',
                 },
-                body: JSON.stringify({ type: 'flow:start', stackId: 's-auth-2' })
+                body: JSON.stringify({ type: 'flow:start', stackId: 's-auth-2' }),
             });
             expect(apiKeyPost.status).to.equal(202);
 
@@ -604,9 +621,9 @@ describe('@siglo/monitor Suite', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer admin-secret'
+                    Authorization: 'Bearer admin-secret',
                 },
-                body: JSON.stringify({ type: 'flow:start', stackId: 's-auth-3' })
+                body: JSON.stringify({ type: 'flow:start', stackId: 's-auth-3' }),
             });
             expect(adminPost.status).to.equal(202);
 
@@ -615,14 +632,14 @@ describe('@siglo/monitor Suite', () => {
             expect(unauthList.status).to.equal(401);
 
             const authList = await fetch(`http://127.0.0.1:4099/api/workflows`, {
-                headers: { 'Authorization': 'Bearer admin-secret' }
+                headers: { Authorization: 'Bearer admin-secret' },
             });
             expect(authList.status).to.equal(200);
 
             // 6. Resume requires adminKey
             const unauthResume = await fetch(`http://127.0.0.1:4099/api/workflows/s-auth-1/resume`, {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ingest-secret' } // ingestionKey cannot control
+                headers: { Authorization: 'Bearer ingest-secret' }, // ingestionKey cannot control
             });
             expect(unauthResume.status).to.equal(401);
         });
@@ -630,20 +647,20 @@ describe('@siglo/monitor Suite', () => {
         it('disables remote workflow resumption when allowRemoteResume is false', async () => {
             secureServer = await createMonitorServer({
                 port: 4098,
-                allowRemoteResume: false
+                allowRemoteResume: false,
             });
 
             const resumeRes = await fetch(`http://127.0.0.1:4098/api/workflows/any-id/resume`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ payload: {} })
+                body: JSON.stringify({ payload: {} }),
             });
             expect(resumeRes.status).to.equal(403);
             const data = await resumeRes.json();
             expect(data.error).to.include('Remote workflow resumption is disabled');
 
             const replayRes = await fetch(`http://127.0.0.1:4098/api/workflows/any-id/replay`, {
-                method: 'POST'
+                method: 'POST',
             });
             expect(replayRes.status).to.equal(403);
         });
@@ -651,20 +668,20 @@ describe('@siglo/monitor Suite', () => {
         it('enforces payload size limits (413 Payload Too Large)', async () => {
             secureServer = await createMonitorServer({
                 port: 4097,
-                maxPayloadBytes: 256 // Strict 256 bytes cap for testing
+                maxPayloadBytes: 256, // Strict 256 bytes cap for testing
             });
 
             const hugePayload = JSON.stringify({
                 type: 'flow:start',
                 stackId: 'stk-huge',
-                bloat: 'x'.repeat(500)
+                bloat: 'x'.repeat(500),
             });
 
             try {
                 const res = await fetch(`http://127.0.0.1:4097/api/events`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: hugePayload
+                    body: hugePayload,
                 });
                 expect(res.status).to.equal(413);
             } catch (err: any) {
@@ -677,19 +694,21 @@ describe('@siglo/monitor Suite', () => {
             secureServer = await createMonitorServer({
                 port: 4096,
                 cors: {
-                    origin: ['https://trusted-dashboard.internal.corp']
-                }
+                    origin: ['https://trusted-dashboard.internal.corp'],
+                },
             });
 
             // Trusted origin
             const trustedRes = await fetch(`http://127.0.0.1:4096/api/workflows`, {
-                headers: { 'Origin': 'https://trusted-dashboard.internal.corp' }
+                headers: { Origin: 'https://trusted-dashboard.internal.corp' },
             });
-            expect(trustedRes.headers.get('access-control-allow-origin')).to.equal('https://trusted-dashboard.internal.corp');
+            expect(trustedRes.headers.get('access-control-allow-origin')).to.equal(
+                'https://trusted-dashboard.internal.corp',
+            );
 
             // Untrusted origin
             const untrustedRes = await fetch(`http://127.0.0.1:4096/api/workflows`, {
-                headers: { 'Origin': 'https://malicious-site.com' }
+                headers: { Origin: 'https://malicious-site.com' },
             });
             expect(untrustedRes.headers.get('access-control-allow-origin')).to.equal('null');
         });
@@ -697,7 +716,7 @@ describe('@siglo/monitor Suite', () => {
         it('client enforces bounded queue memory limits and injects auth headers', async () => {
             secureServer = await createMonitorServer({
                 port: 4095,
-                auth: 'client-key'
+                auth: 'client-key',
             });
 
             // Client with apiKey and small bounded queue
@@ -705,7 +724,7 @@ describe('@siglo/monitor Suite', () => {
                 url: 'http://127.0.0.1:4095',
                 apiKey: 'client-key',
                 maxQueueSize: 3,
-                batchSize: 10 // Queue up to 10 before flush
+                batchSize: 10, // Queue up to 10 before flush
             });
 
             // Enqueue 5 events into maxQueueSize=3
@@ -715,7 +734,7 @@ describe('@siglo/monitor Suite', () => {
                     stackId: 'bounded-run',
                     field: `k${i}`,
                     value: i,
-                    timestamp: i
+                    timestamp: i,
                 });
             }
 
@@ -740,23 +759,23 @@ describe('@siglo/monitor Suite', () => {
         it('attachToMonitorServer accepts auth options and forwards to client', async () => {
             secureServer = await createMonitorServer({
                 port: 4094,
-                auth: 'attach-key'
+                auth: 'attach-key',
             });
 
             const monitor = attachToMonitorServer('http://127.0.0.1:4094', {
                 apiKey: 'attach-key',
-                batchSize: 1
+                batchSize: 1,
             });
 
             monitor({
                 type: 'flow:start',
                 stackId: 'stk-attached-auth',
                 flowName: 'SecuredWorkflow',
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
 
             // Wait brief moment for async dispatch
-            await new Promise((r) => setTimeout(r, 60));
+            await new Promise(r => setTimeout(r, 60));
 
             const run = secureServer.store.getRun('stk-attached-auth');
             expect(run).to.not.be.undefined;
@@ -764,7 +783,7 @@ describe('@siglo/monitor Suite', () => {
         });
     });
 
-    describe("Phase 5: DevTools Control Plane Hardening & Redaction", () => {
+    describe('Phase 5: DevTools Control Plane Hardening & Redaction', () => {
         let p5Server: any;
 
         afterEach(async () => {
@@ -774,146 +793,146 @@ describe('@siglo/monitor Suite', () => {
             }
         });
 
-        it("strictly rejects resume requests with 404 when workflow is not registered (no default fallback)", async () => {
+        it('strictly rejects resume requests with 404 when workflow is not registered (no default fallback)', async () => {
             p5Server = await createMonitorServer({ port: 4095 });
 
-            const res = await fetch("http://127.0.0.1:4095/api/workflows/unknown-stack-xyz/resume", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ payload: { token: "abc" } })
+            const res = await fetch('http://127.0.0.1:4095/api/workflows/unknown-stack-xyz/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payload: { token: 'abc' } }),
             });
 
             expect(res.status).to.equal(404);
-            const body = await res.json() as any;
-            expect(body.error).to.include("not registered");
+            const body = (await res.json()) as any;
+            expect(body.error).to.include('not registered');
         });
 
-        it("enforces schema validation on resume payload with 422 when resumeSchema is defined", async () => {
+        it('enforces schema validation on resume payload with 422 when resumeSchema is defined', async () => {
             // Create flow with Zod-like / function resumeSchema
             const mockFlowWithSchema: any = {
-                name: "ValidatedFlow",
+                name: 'ValidatedFlow',
                 resumeSchema: {
                     safeParse: (payload: any) => {
                         if (!payload || !payload.approvedBy) {
-                            return { success: false, error: "Missing approvedBy field" };
+                            return { success: false, error: 'Missing approvedBy field' };
                         }
                         return { success: true, data: payload };
-                    }
-                }
+                    },
+                },
             };
 
             const workflowsMap = new Map();
-            workflowsMap.set("val-flow", mockFlowWithSchema);
+            workflowsMap.set('val-flow', mockFlowWithSchema);
 
             p5Server = await createMonitorServer({
                 port: 4096,
-                workflows: workflowsMap
+                workflows: workflowsMap,
             });
 
             // Add run record to store so it resolves to this workflow
             p5Server.store.addEvent({
-                type: "flow:start",
-                stackId: "stk-validated-1",
-                flowName: "val-flow",
-                timestamp: Date.now()
+                type: 'flow:start',
+                stackId: 'stk-validated-1',
+                flowName: 'val-flow',
+                timestamp: Date.now(),
             });
 
             // 1. Invalid payload -> 422
-            const invalidRes = await fetch("http://127.0.0.1:4096/api/workflows/stk-validated-1/resume", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ payload: { comment: "looks good" } })
+            const invalidRes = await fetch('http://127.0.0.1:4096/api/workflows/stk-validated-1/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payload: { comment: 'looks good' } }),
             });
 
             expect(invalidRes.status).to.equal(422);
-            const errBody = await invalidRes.json() as any;
-            expect(errBody.error).to.include("Unprocessable Entity");
-            expect(errBody.details).to.include("Missing approvedBy");
+            const errBody = (await invalidRes.json()) as any;
+            expect(errBody.error).to.include('Unprocessable Entity');
+            expect(errBody.details).to.include('Missing approvedBy');
 
             // 2. Function validator support
             const fnFlow: any = {
-                name: "FnFlow",
+                name: 'FnFlow',
                 resumeSchema: (payload: any) => {
                     if (!payload?.amount || payload.amount < 0) {
-                        throw new Error("Amount must be positive");
+                        throw new Error('Amount must be positive');
                     }
                     return true;
-                }
+                },
             };
-            workflowsMap.set("fn-flow", fnFlow);
+            workflowsMap.set('fn-flow', fnFlow);
             p5Server.store.addEvent({
-                type: "flow:start",
-                stackId: "stk-fn-1",
-                flowName: "fn-flow",
-                timestamp: Date.now()
+                type: 'flow:start',
+                stackId: 'stk-fn-1',
+                flowName: 'fn-flow',
+                timestamp: Date.now(),
             });
 
-            const fnInvalidRes = await fetch("http://127.0.0.1:4096/api/workflows/stk-fn-1/resume", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ payload: { amount: -50 } })
+            const fnInvalidRes = await fetch('http://127.0.0.1:4096/api/workflows/stk-fn-1/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payload: { amount: -50 } }),
             });
             expect(fnInvalidRes.status).to.equal(422);
-            const fnErrBody = await fnInvalidRes.json() as any;
-            expect(fnErrBody.details).to.include("Amount must be positive");
+            const fnErrBody = (await fnInvalidRes.json()) as any;
+            expect(fnErrBody.details).to.include('Amount must be positive');
         });
 
-        it("redacts sensitive fields in /api/workflows and /api/workflows/:id using MonitorSecurityOptions", async () => {
+        it('redacts sensitive fields in /api/workflows and /api/workflows/:id using MonitorSecurityOptions', async () => {
             p5Server = await createMonitorServer({
                 port: 4097,
                 security: {
-                    redactedKeys: ["userPassword", "taxId"],
-                    maskFn: (key, val) => (key === "taxId" ? "XXX-XX-XXXX" : undefined)
-                }
+                    redactedKeys: ['userPassword', 'taxId'],
+                    maskFn: (key, val) => (key === 'taxId' ? 'XXX-XX-XXXX' : undefined),
+                },
             });
 
             p5Server.emitter.emit({
-                type: "flow:start",
-                stackId: "stk-redact-test",
-                flowName: "SecretFlow",
-                timestamp: Date.now()
+                type: 'flow:start',
+                stackId: 'stk-redact-test',
+                flowName: 'SecretFlow',
+                timestamp: Date.now(),
             });
 
             p5Server.emitter.emit({
-                type: "context:change",
-                stackId: "stk-redact-test",
-                stepId: "step-1",
-                field: "userPassword",
-                value: "SuperSecretPassword123!"
+                type: 'context:change',
+                stackId: 'stk-redact-test',
+                stepId: 'step-1',
+                field: 'userPassword',
+                value: 'SuperSecretPassword123!',
             });
 
             p5Server.emitter.emit({
-                type: "context:change",
-                stackId: "stk-redact-test",
-                stepId: "step-1",
-                field: "taxId",
-                value: "123-45-6789"
+                type: 'context:change',
+                stackId: 'stk-redact-test',
+                stepId: 'step-1',
+                field: 'taxId',
+                value: '123-45-6789',
             });
 
             p5Server.emitter.emit({
-                type: "context:change",
-                stackId: "stk-redact-test",
-                stepId: "step-1",
-                field: "publicField",
-                value: "safeValue"
+                type: 'context:change',
+                stackId: 'stk-redact-test',
+                stepId: 'step-1',
+                field: 'publicField',
+                value: 'safeValue',
             });
 
             // GET single workflow run
-            const runRes = await fetch("http://127.0.0.1:4097/api/workflows/stk-redact-test");
+            const runRes = await fetch('http://127.0.0.1:4097/api/workflows/stk-redact-test');
             expect(runRes.status).to.equal(200);
-            const run = await runRes.json() as any;
+            const run = (await runRes.json()) as any;
 
-            expect(run.context.publicField).to.equal("safeValue");
-            expect(run.context.userPassword).to.equal("[REDACTED]");
-            expect(run.context.taxId).to.equal("XXX-XX-XXXX");
+            expect(run.context.publicField).to.equal('safeValue');
+            expect(run.context.userPassword).to.equal('[REDACTED]');
+            expect(run.context.taxId).to.equal('XXX-XX-XXXX');
 
             // GET workflow list
-            const listRes = await fetch("http://127.0.0.1:4097/api/workflows");
+            const listRes = await fetch('http://127.0.0.1:4097/api/workflows');
             expect(listRes.status).to.equal(200);
-            const list = await listRes.json() as any;
-            const target = list.find((w: any) => w.stackId === "stk-redact-test");
-            expect(target.context.userPassword).to.equal("[REDACTED]");
-            expect(target.context.taxId).to.equal("XXX-XX-XXXX");
+            const list = (await listRes.json()) as any;
+            const target = list.find((w: any) => w.stackId === 'stk-redact-test');
+            expect(target.context.userPassword).to.equal('[REDACTED]');
+            expect(target.context.taxId).to.equal('XXX-XX-XXXX');
         });
     });
 });

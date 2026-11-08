@@ -12,7 +12,10 @@ for (const [name, changes, status, actions] of [
 ] as const) {
     test(name, async () => {
         const saved: OrderOutcome[] = [];
-        const workflow = createOrderRoutingWorkflow(async outcome => { saved.push(outcome); return outcome; });
+        const workflow = createOrderRoutingWorkflow(async outcome => {
+            saved.push(outcome);
+            return outcome;
+        });
         const result = await workflow.run({ ...base, ...changes }, { pojo: true });
         assert.equal(result.status, status);
         assert.deepEqual(result.actions, actions);
@@ -22,7 +25,10 @@ for (const [name, changes, status, actions] of [
 }
 test('unsupported event takes the explicit fallback without saving an outcome', async () => {
     let saves = 0;
-    const workflow = createOrderRoutingWorkflow(async outcome => { saves++; return outcome; });
+    const workflow = createOrderRoutingWorkflow(async outcome => {
+        saves++;
+        return outcome;
+    });
     await assert.rejects(workflow.run({ ...base, type: 'order.refunded' }, { pojo: true }), UnsupportedOrderEvent);
     assert.equal(saves, 0);
 });

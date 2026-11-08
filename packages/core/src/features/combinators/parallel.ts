@@ -1,10 +1,10 @@
-import {Step, flow} from '../step';
-import {toPOJO} from '../context';
-import {generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType, safeClone} from '../../shared';
-import {ParallelNode, WorkflowNode, toGraph} from '../graph';
-import {FieldCollisionException, CollisionDetail} from '../executer';
-import {combineAbortSignals} from '../executer/signals';
-import {stepExecutionHookStorage} from '../executer/hooks';
+import { Step, flow } from '../step';
+import { toPOJO } from '../context';
+import { generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType, safeClone } from '../../shared';
+import { ParallelNode, WorkflowNode, toGraph } from '../graph';
+import { FieldCollisionException, CollisionDetail } from '../executer';
+import { combineAbortSignals } from '../executer/signals';
+import { stepExecutionHookStorage } from '../executer/hooks';
 
 export const ParallelMergeStrategy = {
     SHALLOW: 'shallow',
@@ -26,7 +26,13 @@ export type ParallelMode = (typeof ParallelMode)[keyof typeof ParallelMode];
 export interface ParallelOptions {
     name?: string;
     mode?: ParallelMode | 'fail-fast' | 'allSettled' | 'race';
-    mergeStrategy?: ParallelMergeStrategy | 'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
+    mergeStrategy?:
+        | ParallelMergeStrategy
+        | 'shallow'
+        | 'deep'
+        | 'error'
+        | 'namespace'
+        | ((target: any, source: any, branchKey: string | number) => any);
 }
 
 export interface BranchExecutionSummary {
@@ -44,10 +50,7 @@ function cleanBranchOutput(output: any): any {
     }
     const clean: Record<string, any> = {};
     for (const key of Object.keys(output)) {
-        if (
-            isReservedKey(key) ||
-            isFunction(output[key])
-        ) {
+        if (isReservedKey(key) || isFunction(output[key])) {
             continue;
         }
         clean[key] = output[key];
@@ -64,7 +67,14 @@ function deepMerge(target: any, source: any): any {
     for (const key of Object.keys(source)) {
         const sVal = source[key];
         const tVal = output[key];
-        if (sVal && typeof sVal === 'object' && !Array.isArray(sVal) && tVal && typeof tVal === 'object' && !Array.isArray(tVal)) {
+        if (
+            sVal &&
+            typeof sVal === 'object' &&
+            !Array.isArray(sVal) &&
+            tVal &&
+            typeof tVal === 'object' &&
+            !Array.isArray(tVal)
+        ) {
             output[key] = deepMerge(tVal, sVal);
         } else if (Array.isArray(sVal) && Array.isArray(tVal)) {
             output[key] = [...tVal, ...sVal];
@@ -75,9 +85,7 @@ function deepMerge(target: any, source: any): any {
     return output;
 }
 
-function detectCollisions(
-    branchOutputs: Array<{ name: string; output: any }>
-): CollisionDetail[] {
+function detectCollisions(branchOutputs: Array<{ name: string; output: any }>): CollisionDetail[] {
     const fieldValues = new Map<string, Array<{ branchName: string; value: any }>>();
 
     for (const b of branchOutputs) {
@@ -85,7 +93,7 @@ function detectCollisions(
             for (const key of Object.keys(b.output)) {
                 if (key.startsWith('$')) continue;
                 const existing = fieldValues.get(key) || [];
-                existing.push({branchName: b.name, value: b.output[key]});
+                existing.push({ branchName: b.name, value: b.output[key] });
                 fieldValues.set(key, existing);
             }
         }
@@ -95,6 +103,7 @@ function detectCollisions(
     for (const [field, entries] of fieldValues.entries()) {
         if (entries.length > 1) {
             const safeStr = (v: any) => {
+                // prettier-ignore
                 try { return JSON.stringify(v); } catch { return String(v); }
             };
             const firstValStr = safeStr(entries[0].value);
@@ -103,7 +112,7 @@ function detectCollisions(
                 collisions.push({
                     field,
                     values: entries.map(e => e.value),
-                    branchNames: entries.map(e => e.branchName)
+                    branchNames: entries.map(e => e.branchName),
                 });
             }
         }
@@ -114,10 +123,17 @@ function detectCollisions(
 
 function executeBranch(branch: any, input: any, signal?: AbortSignal): Promise<any> {
     const isolatedInput = safeClone(toPOJO(input));
-    const parentStackId = typeof input?.$stackId === 'function' ? input.$stackId() : (input?.$stackId || input?.stackId);
-    const namespace = typeof input?.$namespace === 'function' ? input.$namespace() : (input?.$namespace || input?.namespace);
+    const parentStackId = typeof input?.$stackId === 'function' ? input.$stackId() : input?.$stackId || input?.stackId;
+    const namespace =
+        typeof input?.$namespace === 'function' ? input.$namespace() : input?.$namespace || input?.namespace;
     const hook = stepExecutionHookStorage.getStore();
-    const branchOptions: any = {signal, pojo: true, stackId: parentStackId, namespace, ...(hook ? {stepExecutionHook: hook} : {})};
+    const branchOptions: any = {
+        signal,
+        pojo: true,
+        stackId: parentStackId,
+        namespace,
+        ...(hook ? { stepExecutionHook: hook } : {}),
+    };
 
     if (typeof branch === 'function') {
         return Promise.resolve(branch(isolatedInput, branchOptions));
@@ -134,20 +150,33 @@ function executeBranch(branch: any, input: any, signal?: AbortSignal): Promise<a
     return flow(branch).execute(isolatedInput, branchOptions);
 }
 
-export function parallel(
-    ...args: any[]
-): Step<any, any> {
+export function parallel(...args: any[]): Step<any, any> {
     let branches: any[] = [];
     let options: ParallelOptions = {};
 
     if (args.length === 1 && Array.isArray(args[0])) {
         branches = args[0];
-    } else if (args.length === 2 && Array.isArray(args[0]) && typeof args[1] === 'object' && !args[1].action && !args[1].execute) {
+    } else if (
+        args.length === 2 &&
+        Array.isArray(args[0]) &&
+        typeof args[1] === 'object' &&
+        !args[1].action &&
+        !args[1].execute
+    ) {
         branches = args[0];
         options = args[1];
     } else {
         const last = args[args.length - 1];
-        if (last && typeof last === 'object' && !Array.isArray(last) && !last.action && !last.execute && !last.run && !last.isFlow && !(last instanceof Step)) {
+        if (
+            last &&
+            typeof last === 'object' &&
+            !Array.isArray(last) &&
+            !last.action &&
+            !last.execute &&
+            !last.run &&
+            !last.isFlow &&
+            !(last instanceof Step)
+        ) {
             options = last;
             branches = args.slice(0, -1);
         } else {
@@ -166,16 +195,16 @@ export function parallel(
         type: WorkflowNodeType.PARALLEL,
         branches: branchNodes,
         mode,
-        mergeStrategy
+        mergeStrategy,
     };
 
     const step = Step.create(stepName, async (param: any) => {
         const rawSig = param?.$signal || param?.signal;
-        const outerSignal = typeof rawSig === 'function' ? (rawSig.val || rawSig()) : rawSig;
+        const outerSignal = typeof rawSig === 'function' ? rawSig.val || rawSig() : rawSig;
         const innerController = new AbortController();
-        const {signal: combinedSignal, cleanup: cleanupSignals} = combineAbortSignals([
+        const { signal: combinedSignal, cleanup: cleanupSignals } = combineAbortSignals([
             outerSignal,
-            innerController.signal
+            innerController.signal,
         ]);
 
         const branchSummaries = new Array<BranchExecutionSummary>(branches.length);
@@ -199,7 +228,7 @@ export function parallel(
                                         index,
                                         status: Status.COMPLETED,
                                         durationMs: Date.now() - bStart,
-                                        output: cleaned
+                                        output: cleaned,
                                     };
                                     resolve(cleaned);
                                 }
@@ -213,7 +242,7 @@ export function parallel(
                                         index,
                                         status: Status.FAILED,
                                         durationMs: Date.now() - bStart,
-                                        error: err
+                                        error: err,
                                     };
                                     reject(err);
                                 }
@@ -238,7 +267,7 @@ export function parallel(
                                 index,
                                 status: Status.COMPLETED,
                                 durationMs: Date.now() - bStart,
-                                output: cleaned
+                                output: cleaned,
                             };
                             return cleaned;
                         } catch (err: any) {
@@ -247,21 +276,22 @@ export function parallel(
                                 index,
                                 status: Status.FAILED,
                                 durationMs: Date.now() - bStart,
-                                error: err
+                                error: err,
                             };
                             throw err;
                         }
-                    })
+                    }),
                 );
 
                 const finalOutput: Record<string, any> = {
                     $branches: branchSummaries,
-                    $settled: results
+                    $settled: results,
                 };
                 for (let i = 0; i < results.length; i++) {
                     const r = results[i];
                     const bName = branchSummaries[i]?.name || `branch_${i}`;
-                    finalOutput[bName] = r.status === Status.FULFILLED ? cleanBranchOutput(r.value) : {error: r.reason};
+                    finalOutput[bName] =
+                        r.status === Status.FULFILLED ? cleanBranchOutput(r.value) : { error: r.reason };
                 }
                 return finalOutput;
             }
@@ -279,9 +309,9 @@ export function parallel(
                         index,
                         status: Status.COMPLETED,
                         durationMs: Date.now() - bStart,
-                        output: cleaned
+                        output: cleaned,
                     };
-                    branchOutputs[index] = {name: bName, output: cleaned};
+                    branchOutputs[index] = { name: bName, output: cleaned };
                     return cleaned;
                 } catch (err: any) {
                     innerController.abort();
@@ -290,7 +320,7 @@ export function parallel(
                         index,
                         status: Status.FAILED,
                         durationMs: Date.now() - bStart,
-                        error: err
+                        error: err,
                     };
                     throw err;
                 }
@@ -339,7 +369,7 @@ export function parallel(
 
             merged.$branches = branchSummaries;
             merged.$timing = {
-                durationMs: Date.now() - startTime
+                durationMs: Date.now() - startTime,
             };
 
             return merged;
@@ -352,34 +382,41 @@ export function parallel(
     return step;
 }
 
-export function all(
-    branches: any[],
-    options?: ParallelOptions
-): Step<any, any> {
-    return parallel(branches, {...options, mode: 'fail-fast'});
+export function all(branches: any[], options?: ParallelOptions): Step<any, any> {
+    return parallel(branches, { ...options, mode: 'fail-fast' });
 }
 
-export function allSettled(
-    branches: any[],
-    options?: ParallelOptions
-): Step<any, any> {
-    return parallel(branches, {...options, mode: 'allSettled'});
+export function allSettled(branches: any[], options?: ParallelOptions): Step<any, any> {
+    return parallel(branches, { ...options, mode: 'allSettled' });
 }
 
-export function race(
-    ...args: any[]
-): Step<any, any> {
+export function race(...args: any[]): Step<any, any> {
     let branches: any[] = [];
     let options: ParallelOptions = {};
 
     if (args.length === 1 && Array.isArray(args[0])) {
         branches = args[0];
-    } else if (args.length === 2 && Array.isArray(args[0]) && typeof args[1] === 'object' && !args[1].action && !args[1].execute) {
+    } else if (
+        args.length === 2 &&
+        Array.isArray(args[0]) &&
+        typeof args[1] === 'object' &&
+        !args[1].action &&
+        !args[1].execute
+    ) {
         branches = args[0];
         options = args[1];
     } else {
         const last = args[args.length - 1];
-        if (last && typeof last === 'object' && !Array.isArray(last) && !last.action && !last.execute && !last.run && !last.isFlow && !(last instanceof Step)) {
+        if (
+            last &&
+            typeof last === 'object' &&
+            !Array.isArray(last) &&
+            !last.action &&
+            !last.execute &&
+            !last.run &&
+            !last.isFlow &&
+            !(last instanceof Step)
+        ) {
             options = last;
             branches = args.slice(0, -1);
         } else {
@@ -387,5 +424,5 @@ export function race(
         }
     }
 
-    return parallel(branches, {...options, mode: 'race'});
+    return parallel(branches, { ...options, mode: 'race' });
 }

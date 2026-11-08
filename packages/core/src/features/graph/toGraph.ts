@@ -15,7 +15,7 @@ export function toGraph(item: any): WorkflowNode {
         return {
             id: generateUUID(),
             name: 'empty',
-            type: WorkflowNodeType.STEP
+            type: WorkflowNodeType.STEP,
         };
     }
 
@@ -26,7 +26,7 @@ export function toGraph(item: any): WorkflowNode {
     if (item.workflowNode && isWorkflowNode(item.workflowNode)) {
         return {
             ...item.workflowNode,
-            metadata: { ...item.workflowNode.metadata, runtimeStepId: item.$stepId }
+            metadata: { ...item.workflowNode.metadata, runtimeStepId: item.$stepId },
         };
     }
 
@@ -38,7 +38,7 @@ export function toGraph(item: any): WorkflowNode {
             id: generateUUID(),
             name: 'sequence',
             type: WorkflowNodeType.SEQUENCE,
-            children: item.map(toGraph)
+            children: item.map(toGraph),
         };
     }
 
@@ -47,13 +47,15 @@ export function toGraph(item: any): WorkflowNode {
         if (steps.length === 1) {
             return toGraph(steps[0]);
         }
-        const flowPolicy = item.networkPolicyConfig || (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
+        const flowPolicy =
+            item.networkPolicyConfig ||
+            (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
         return {
             id: item.workflowId || generateUUID(),
             name: item.name || 'flow',
             type: WorkflowNodeType.SEQUENCE,
             children: steps.map(toGraph),
-            metadata: flowPolicy ? { networkPolicy: flowPolicy } : undefined
+            metadata: flowPolicy ? { networkPolicy: flowPolicy } : undefined,
         };
     }
 
@@ -64,12 +66,14 @@ export function toGraph(item: any): WorkflowNode {
                 id: item.$stepId || generateUUID(),
                 name: item.name || item.func || 'sequence',
                 type: WorkflowNodeType.SEQUENCE,
-                children: item.sequence.map(toGraph)
+                children: item.sequence.map(toGraph),
             };
         }
         const stepId = item.$stepId || generateUUID();
         const stepName = item.name || item.func || 'step';
-        const stepPolicy = item.networkPolicyConfig || (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
+        const stepPolicy =
+            item.networkPolicyConfig ||
+            (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);
         const node: StepNode = {
             id: stepId,
             name: stepName,
@@ -82,8 +86,8 @@ export function toGraph(item: any): WorkflowNode {
                 cacheOptions: item.cacheOptions,
                 hasCompensation: Boolean(item.compensationHandler),
                 retryConfig: item.onfail && typeof item.onfail === 'object' ? item.onfail : undefined,
-                networkPolicy: stepPolicy
-            }
+                networkPolicy: stepPolicy,
+            },
         };
         return node;
     }
@@ -92,13 +96,13 @@ export function toGraph(item: any): WorkflowNode {
         return {
             id: generateUUID(),
             name: item.name || 'anonymous_step',
-            type: WorkflowNodeType.STEP
+            type: WorkflowNodeType.STEP,
         };
     }
 
     return {
         id: generateUUID(),
         name: String(item),
-        type: WorkflowNodeType.STEP
+        type: WorkflowNodeType.STEP,
     };
 }

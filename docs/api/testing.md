@@ -407,6 +407,6 @@ describe('Checkout Workflow Test Suite', () => {
 
 ## Related Topic Guides
 
-- [09. Testing and Replay](../09-testing-and-replay.md)
-- [02. Core Concepts](../02-core-concepts.md)
-- [Testing Adapter & Harness Guide](../adapters/testing.md)
+- [09. Testing and Replay](/09-testing-and-replay)
+- [02. Core Concepts](/02-core-concepts)
+- [Testing Adapter & Harness Guide](/adapters/testing)

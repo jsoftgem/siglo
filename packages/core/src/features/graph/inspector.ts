@@ -51,7 +51,7 @@ export function inspectGraph(workflowOrNode: any): GraphInspectionResult {
             id: node.id,
             name: node.name,
             type: node.type,
-            metadata: node.metadata
+            metadata: node.metadata,
         });
 
         switch (node.type) {
@@ -117,6 +117,6 @@ export function inspectGraph(workflowOrNode: any): GraphInspectionResult {
         edges,
         entryNodeId: root.id,
         exitNodeIds: getExitNodeIds(root),
-        totalNodes: nodesMap.size
+        totalNodes: nodesMap.size,
     };
 }

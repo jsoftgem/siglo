@@ -8,7 +8,7 @@ description: "Runbook and operational best practices for Siglo in mission-critic
 This runbook covers operational best practices, capacity planning, distributed coordination, and disaster recovery when running `Siglo` workflows in mission-critical production environments.
 
 > [!TIP]
-> For a comprehensive, step-by-step production hardening guide covering PostgreSQL OCC, `@siglo/scheduler` polling, zero-trust network policies, named compensation DLQs, and DevTools security, see the dedicated [Production Best Practices & Operational Runbook](./production-best-practices.md).
+> For a comprehensive, step-by-step production hardening guide covering PostgreSQL OCC, `@siglo/scheduler` polling, zero-trust network policies, named compensation DLQs, and DevTools security, see the dedicated [Production Best Practices & Operational Runbook](/production-best-practices).
 
 ---
 
@@ -159,8 +159,8 @@ describe('Production Readiness Smoke Test', () => {
 
 ## API Reference Links
 
-- [Production Best Practices & Operational Runbook](./production-best-practices.md)
-- [Getting Started](./01-getting-started.md)
-- [Storage and Adapters](./07-storage-and-adapters.md)
-- [Observability Guide](./08-observability.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Production Best Practices & Operational Runbook](/production-best-practices)
+- [Getting Started](/01-getting-started)
+- [Storage and Adapters](/07-storage-and-adapters)
+- [Observability Guide](/08-observability)
+- [Testing & Replay Reference](/09-testing-and-replay)

@@ -6,7 +6,7 @@ import {
     instrumentStep,
     injectTraceContext,
     extractTraceContext,
-    getTraceHeaders
+    getTraceHeaders,
 } from '@siglo/opentelemetry';
 import { RandomSource } from '../engine/property-generators';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
@@ -75,9 +75,15 @@ class ExploratoryMockSpan implements Partial<Span> {
         return this;
     }
 
-    addEvent(): this { return this; }
-    addLink(): this { return this; }
-    addLinks(): this { return this; }
+    addEvent(): this {
+        return this;
+    }
+    addLink(): this {
+        return this;
+    }
+    addLinks(): this {
+        return this;
+    }
 }
 
 class ExploratoryMockTracer implements Partial<Tracer> {
@@ -88,9 +94,8 @@ class ExploratoryMockTracer implements Partial<Tracer> {
     startSpan(name: string, options?: SpanOptions): Span {
         this.spanCounter++;
         const id = `span_${this.spanCounter}_${Math.random().toString(36).slice(2, 8)}`;
-        const parentId = this.activeSpanStack.length > 0
-            ? this.activeSpanStack[this.activeSpanStack.length - 1].id
-            : undefined;
+        const parentId =
+            this.activeSpanStack.length > 0 ? this.activeSpanStack[this.activeSpanStack.length - 1].id : undefined;
 
         const span = new ExploratoryMockSpan(name, id, parentId, options);
         this.spans.push(span);
@@ -113,10 +118,7 @@ class ExploratoryMockTracer implements Partial<Tracer> {
     }
 }
 
-export async function runOpenTelemetryCharter(
-    iterations: number = 15,
-    seed: number = 9009
-): Promise<CharterResult> {
+export async function runOpenTelemetryCharter(iterations: number = 15, seed: number = 9009): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -160,7 +162,10 @@ export async function runOpenTelemetryCharter(
             if (branchType === 'parallel') {
                 testFlow = flow(s1, parallel(s2, s3)).version('1.0.0');
             } else if (branchType === 'when') {
-                testFlow = flow(s1, when((ctx: any) => ctx?.a === 1, s2, s3)).version('1.0.0');
+                testFlow = flow(
+                    s1,
+                    when((ctx: any) => ctx?.a === 1, s2, s3),
+                ).version('1.0.0');
             } else {
                 testFlow = flow(s1, s2, s3).version('1.0.0');
             }
@@ -186,7 +191,7 @@ export async function runOpenTelemetryCharter(
             const spanRecords = tracer.spans.map(s => ({
                 id: s.id,
                 parentId: s.parentId,
-                name: s.name
+                name: s.name,
             }));
 
             try {
@@ -217,7 +222,6 @@ export async function runOpenTelemetryCharter(
                     errors.push(`Iteration ${i}: Span "${span.name}" (${span.id}) was not ended.`);
                 }
             }
-
         } catch (charterErr: any) {
             errors.push(`Iteration ${i} Unhandled Exception: ${charterErr.message}`);
         }
@@ -229,6 +233,6 @@ export async function runOpenTelemetryCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

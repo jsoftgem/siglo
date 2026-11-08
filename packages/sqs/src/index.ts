@@ -30,7 +30,14 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
+        const val =
+            typeof obj[key] === 'function'
+                ? obj[key].val !== undefined
+                    ? obj[key].val
+                    : obj[key].length === 0
+                      ? obj[key]()
+                      : obj[key]
+                : obj[key];
         clean[key] = val;
     }
     return clean;
@@ -46,7 +53,7 @@ export interface SqsBatchResponse {
  */
 export function createSqsBatchHandler<TInput = any, TOutput = any>(
     workflow: Flow<TInput, TOutput>,
-    options: SigloSqsOptions<TInput, TOutput> = {}
+    options: SigloSqsOptions<TInput, TOutput> = {},
 ) {
     return async (event: SigloSqsEvent): Promise<SqsBatchResponse> => {
         const batchItemFailures: Array<{ itemIdentifier: string }> = [];
@@ -112,7 +119,6 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
         return { batchItemFailures, processedCount };
     };
 }
-
 
 export type RivuletSqsRecord = SigloSqsRecord;
 export type RivuletSqsEvent = SigloSqsEvent;

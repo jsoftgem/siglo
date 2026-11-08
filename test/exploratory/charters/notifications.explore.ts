@@ -5,17 +5,14 @@ import {
     sendInteractiveApprovalStep,
     handleNotificationCallback,
     signActionToken,
-    verifyActionToken
+    verifyActionToken,
 } from '@siglo/notifications';
 import { MockNotificationTransport } from '@siglo/notifications/testing';
 import { RandomSource } from '../engine/property-generators';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
 import { CharterResult } from './combinators.explore';
 
-export async function runNotificationsCharter(
-    iterations: number = 15,
-    seed: number = 1111
-): Promise<CharterResult> {
+export async function runNotificationsCharter(iterations: number = 15, seed: number = 1111): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -31,25 +28,26 @@ export async function runNotificationsCharter(
             const idempotencyStore = new InMemoryIdempotencyStore();
 
             // Channel-specific recipient format matching Siglo validation schemas
-            const recipient = channel === 'email'
-                ? `user_${i}_${rng.nextInt(100, 999)}@example.com`
-                : channel === 'sms'
-                    ? `+1${rng.nextInt(1000000000, 9999999999)}`
-                    : `C${rng.nextInt(10000000, 99999999)}`;
+            const recipient =
+                channel === 'email'
+                    ? `user_${i}_${rng.nextInt(100, 999)}@example.com`
+                    : channel === 'sms'
+                      ? `+1${rng.nextInt(1000000000, 9999999999)}`
+                      : `C${rng.nextInt(10000000, 99999999)}`;
 
             const notificationStep = sendNotificationStep(`notify_${i}`, {
                 channel,
                 recipient,
                 template: 'Order confirmed for #{{id}}',
                 transport,
-                idempotencyStore
+                idempotencyStore,
             });
 
             // Concurrently dispatch duplicate notifications with identical stackId
             const stackId = `stack_notif_${i}_${rng.nextInt(1000, 9999)}`;
             const concurrentCalls = rng.nextInt(3, 8);
             const dispatchPromises = Array.from({ length: concurrentCalls }, () =>
-                notificationStep.execute({ id: `order_${i}` }, { stackId })
+                notificationStep.execute({ id: `order_${i}` }, { stackId }),
             );
 
             const results = await Promise.all(dispatchPromises);
@@ -57,7 +55,7 @@ export async function runNotificationsCharter(
             // Assert Oracle 3: Exactly 1 dispatch reached the transport
             if (transport.messages.length !== 1) {
                 errors.push(
-                    `Iteration ${i} [Oracle 3]: Idempotency failure! Transport received ${transport.messages.length} messages for identical stackId, expected 1.`
+                    `Iteration ${i} [Oracle 3]: Idempotency failure! Transport received ${transport.messages.length} messages for identical stackId, expected 1.`,
                 );
             }
 
@@ -66,7 +64,7 @@ export async function runNotificationsCharter(
             for (let r = 1; r < results.length; r++) {
                 if (results[r].notificationId !== firstId) {
                     errors.push(
-                        `Iteration ${i}: Inconsistent notificationId returned for duplicate dispatch: ${results[r].notificationId} vs ${firstId}`
+                        `Iteration ${i}: Inconsistent notificationId returned for duplicate dispatch: ${results[r].notificationId} vs ${firstId}`,
                     );
                 }
             }
@@ -83,7 +81,7 @@ export async function runNotificationsCharter(
                 correlationKey: `corr_${i}`,
                 expectedEvent: 'PAYMENT_APPROVED',
                 approved: true,
-                expiresAt: Date.now() + 60000
+                expiresAt: Date.now() + 60000,
             };
 
             const token = await signActionToken(payload, ring, Date.now());
@@ -101,7 +99,7 @@ export async function runNotificationsCharter(
             const tamperedVariants = [
                 token + 'tampered',
                 'malformed.token.format',
-                token.slice(0, token.length - 6) + 'xxxxxx'
+                token.slice(0, token.length - 6) + 'xxxxxx',
             ];
 
             for (const badToken of tamperedVariants) {
@@ -134,10 +132,10 @@ export async function runNotificationsCharter(
                     onRejectEvent: 'REJECTED',
                     callbackBaseUrl: 'https://api.siglo.internal/approval',
                     signingSecret,
-                    transport: approvalTransport
+                    transport: approvalTransport,
                 }),
                 waitForEvent('APPROVED', { correlationKey, timeout: '1h' }),
-                Step.create(`approved_effect_${i}`, async () => ({ executed: true }))
+                Step.create(`approved_effect_${i}`, async () => ({ executed: true })),
             );
 
             // Execute up to suspension
@@ -161,25 +159,24 @@ export async function runNotificationsCharter(
                         handleNotificationCallback(parsedToken, {
                             workflow: approvalFlow,
                             allowBearerApproval: true,
-                            signingSecret
+                            signingSecret,
                         }),
                         handleNotificationCallback(parsedToken, {
                             workflow: approvalFlow,
                             allowBearerApproval: true,
-                            signingSecret
-                        })
+                            signingSecret,
+                        }),
                     ]);
 
                     const statuses = callbackResolutions.map(r => r.status).sort();
                     // Exactly one 200 OK and one 409 Conflict
                     if (statuses[0] !== 200 || statuses[1] !== 409) {
                         errors.push(
-                            `Iteration ${i} [Oracle 3]: Concurrent approval resolution race violation! Expected [200, 409], got ${JSON.stringify(statuses)}`
+                            `Iteration ${i} [Oracle 3]: Concurrent approval resolution race violation! Expected [200, 409], got ${JSON.stringify(statuses)}`,
                         );
                     }
                 }
             }
-
         } catch (charterErr: any) {
             errors.push(`Iteration ${i} Unhandled Exception: ${charterErr.message}`);
         }
@@ -191,6 +188,6 @@ export async function runNotificationsCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

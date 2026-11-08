@@ -9,7 +9,7 @@ import {
     emitMonitoringEvent,
     redactValue,
     redactEvent,
-    WorkflowExecutionEvent
+    WorkflowExecutionEvent,
 } from '../../index';
 import { defaultStorageManager } from '../storage';
 import { createExecutionStack } from '../storage/index';
@@ -37,7 +37,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             const emitter = new WorkflowEventEmitter();
             const events: any[] = [];
 
-            emitter.on('flow:start', (ev) => {
+            emitter.on('flow:start', ev => {
                 events.push(ev);
             });
 
@@ -55,7 +55,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             const fnListener = (ev: any) => fnEvents.push(ev);
             emitter.on(fnListener);
 
-            emitter.on('*', (ev) => {
+            emitter.on('*', ev => {
                 wildcardEvents.push(ev);
             });
 
@@ -148,7 +148,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('ignores invalid events and filters by namespace', () => {
             const emitter = new WorkflowEventEmitter('ns-a');
             const events: any[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             (emitter as any).emit(null);
             (emitter as any).emit({} as any);
@@ -166,7 +166,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             const emitter = new WorkflowEventEmitter();
             const scoped = emitter.filterNamespace('tenant-1');
             const scopedEvents: any[] = [];
-            scoped.on('*', (ev) => scopedEvents.push(ev));
+            scoped.on('*', ev => scopedEvents.push(ev));
 
             emitter.emit({ type: 'flow:start', stackId: 's1', timestamp: 10, namespace: 'tenant-1' });
             emitter.emit({ type: 'flow:start', stackId: 's2', timestamp: 20, namespace: 'tenant-2' });
@@ -180,7 +180,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('adapts to StorageAdapter via toStorageAdapter()', async () => {
             const emitter = new WorkflowEventEmitter();
             const events: any[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             const adapter = emitter.toStorageAdapter();
             expect(adapter.name).to.equal('workflow-event-emitter');
@@ -191,7 +191,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 field: 'foo',
                 value: 'bar',
                 timestamp: 100,
-                namespace: 'ns-1'
+                namespace: 'ns-1',
             });
 
             adapter.onCacheEvent?.({
@@ -200,7 +200,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stepId: 'stp-1',
                 key: 'cache-key',
                 timestamp: 101,
-                namespace: 'ns-1'
+                namespace: 'ns-1',
             });
 
             adapter.onCacheEvent?.({
@@ -209,20 +209,20 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stepId: 'stp-1',
                 key: 'cache-key-2',
                 timestamp: 102,
-                namespace: 'ns-1'
+                namespace: 'ns-1',
             });
 
             await adapter.saveCheckpoint?.({
                 stackId: 'stk-1',
                 status: 'COMPLETED' as any,
-                revision: 1
+                revision: 1,
             });
 
             expect(events.map(e => e.type)).to.deep.equal([
                 'context:change',
                 'cache:hit',
                 'cache:miss',
-                'checkpoint:save'
+                'checkpoint:save',
             ]);
         });
     });
@@ -237,7 +237,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             expect(getDefaultMonitor()).to.equal(global);
 
             const globalEvents: any[] = [];
-            global.on('*', (ev) => globalEvents.push(ev));
+            global.on('*', ev => globalEvents.push(ev));
 
             // local target is a function
             const localFnEvents: any[] = [];
@@ -256,7 +256,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             const faultyMonitor = {
                 emit: () => {
                     throw new Error('Faulty emit');
-                }
+                },
             };
             expect(() => {
                 emitMonitoringEvent({ monitor: faultyMonitor }, { type: 'flow:start', stackId: 's3', timestamp: 30 });
@@ -296,8 +296,8 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 privatekey: 'key2',
                 nested: {
                     token: 'nested-token',
-                    active: true
-                }
+                    active: true,
+                },
             };
             const redactedObj = redactValue(obj);
             expect(redactedObj.username).to.equal('alice');
@@ -310,7 +310,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('supports custom redactKeys and redactHook', () => {
             const obj = {
                 customSecret: 'topsecret',
-                safeVal: 'ok'
+                safeVal: 'ok',
             };
             const res = redactValue(obj, { redactKeys: ['customSecret'] });
             expect(res.customSecret).to.equal('[REDACTED]');
@@ -320,7 +320,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 redactHook: (key, val) => {
                     if (key === 'safeVal') return 'HOOKED';
                     return undefined;
-                }
+                },
             });
             expect(hooked.safeVal).to.equal('HOOKED');
         });
@@ -331,7 +331,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             const safeEvent: WorkflowExecutionEvent = {
                 type: 'flow:start',
                 stackId: 's1',
-                timestamp: 100
+                timestamp: 100,
             };
             expect(redactEvent(safeEvent)).to.deep.equal(safeEvent);
 
@@ -341,7 +341,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stepId: 'st1',
                 field: 'password',
                 value: 'secret123',
-                timestamp: 100
+                timestamp: 100,
             };
             const redactedContext = redactEvent(sensitiveContextEvent);
             expect((redactedContext as any).value).to.equal('[REDACTED]');
@@ -353,33 +353,36 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stepId: 'st1',
                 field: 'userProfile',
                 value: { name: 'Bob', token: 'secretToken' },
-                timestamp: 100
+                timestamp: 100,
             };
             const redactedNestedContext = redactEvent(nestedContextEvent);
             expect((redactedNestedContext as any).value.token).to.equal('[REDACTED]');
 
             // Context change with redactHook
             const hookedContext = redactEvent(sensitiveContextEvent, {
-                redactHook: (field, val) => `MASKED:${val}`
+                redactHook: (field, val) => `MASKED:${val}`,
             });
             expect((hookedContext as any).value).to.equal('MASKED:secret123');
 
             // Context change with redactHook returning undefined
             const unhookedContext = redactEvent(sensitiveContextEvent, {
-                redactHook: () => undefined
+                redactHook: () => undefined,
             });
             expect((unhookedContext as any).value).to.equal('[REDACTED]');
 
-            const safeContextWithUnhook = redactEvent({
-                type: 'context:change',
-                stackId: 's1',
-                stepId: 'st1',
-                field: 'nonSensitiveField',
-                value: { password: 'pass' },
-                timestamp: 100
-            }, {
-                redactHook: () => undefined
-            });
+            const safeContextWithUnhook = redactEvent(
+                {
+                    type: 'context:change',
+                    stackId: 's1',
+                    stepId: 'st1',
+                    field: 'nonSensitiveField',
+                    value: { password: 'pass' },
+                    timestamp: 100,
+                },
+                {
+                    redactHook: () => undefined,
+                },
+            );
             expect((safeContextWithUnhook as any).value.password).to.equal('[REDACTED]');
 
             const stepCompleteEvent: WorkflowExecutionEvent = {
@@ -389,7 +392,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stepName: 'fetchSecrets',
                 outputSummary: { secret: 'abc', count: 5 },
                 durationMs: 42,
-                timestamp: 100
+                timestamp: 100,
             };
             const redactedStep = redactEvent(stepCompleteEvent);
             expect((redactedStep as any).outputSummary.secret).to.equal('[REDACTED]');
@@ -401,7 +404,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('emits lifecycle events for successful workflow with flow().monitor()', async () => {
             const emitter = new WorkflowEventEmitter();
             const events: WorkflowExecutionEvent[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             const s1 = Step.create('step1', async () => ({ res1: 'ok' }));
             const s2 = Step.create('step2', async () => ({ res2: 'done' }));
@@ -427,10 +430,9 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('emits step:skipped when onbefore returns false', async () => {
             const emitter = new WorkflowEventEmitter();
             const events: WorkflowExecutionEvent[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
-            const skippedStep = Step.create('skippedStep', async () => ({ ok: true }))
-                .onBefore(() => false);
+            const skippedStep = Step.create('skippedStep', async () => ({ ok: true })).onBefore(() => false);
 
             await Step.start([skippedStep], {}, { monitor: emitter });
 
@@ -443,7 +445,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('emits step:retry, step:error, and flow:error on step failure', async () => {
             const emitter = new WorkflowEventEmitter();
             const events: WorkflowExecutionEvent[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             let attempts = 0;
             const failingStep = Step.create('failingStep', async () => {
@@ -480,7 +482,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('emits step:retry with parent stackId and completes without creating phantom workflows', async () => {
             const emitter = new WorkflowEventEmitter();
             const events: WorkflowExecutionEvent[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             let attempts = 0;
             const retryingStep = Step.create('retryingStep', async () => {
@@ -513,7 +515,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
         it('emits checkpoint:save and storage events', async () => {
             const emitter = new WorkflowEventEmitter();
             const events: WorkflowExecutionEvent[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             const stackId = createExecutionStack('checkpoint-ns', emitter);
 
@@ -524,7 +526,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stackId,
                 stepId: 'stp-1',
                 key: 'k1',
-                namespace: 'checkpoint-ns'
+                namespace: 'checkpoint-ns',
             });
 
             const types = events.map(e => e.type);
@@ -538,7 +540,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             expect(Step.getDefaultMonitor()).to.equal(emitter);
 
             const events: WorkflowExecutionEvent[] = [];
-            emitter.on('*', (ev) => events.push(ev));
+            emitter.on('*', ev => events.push(ev));
 
             const s = Step.create('simple', async () => 42);
             await Step.start([s]);

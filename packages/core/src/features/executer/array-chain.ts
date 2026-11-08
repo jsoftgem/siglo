@@ -7,7 +7,7 @@ import {
     BRANCH_SELECTED,
     VALUE,
     STEPS,
-    HISTORY
+    HISTORY,
 } from '../../shared';
 import { toPOJO } from '../context/proxy';
 import { WorkflowSuspendedException } from './exceptions';
@@ -20,12 +20,7 @@ export class ArrayChain {
     private Context: any;
     private singleChain: any;
 
-    constructor(
-        getChain: any,
-        generateUUID: any,
-        Context: any,
-        singleChain: any
-    ) {
+    constructor(getChain: any, generateUUID: any, Context: any, singleChain: any) {
         this.getChain = getChain;
         this.generateUUID = generateUUID;
         this.Context = Context;
@@ -56,11 +51,11 @@ export class ArrayChain {
                 this.singleChain,
                 options,
                 {},
-                0
+                0,
             );
         });
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 const executeArrayChain = (
@@ -74,7 +69,7 @@ const executeArrayChain = (
     singleChain: any,
     options?: any,
     steps: Record<string, any> = {},
-    stepIndex = 0
+    stepIndex = 0,
 ): void => {
     /* c8 ignore next 3 */
     if (options?.signal?.aborted) {
@@ -82,15 +77,14 @@ const executeArrayChain = (
     }
 
     const chain = array.shift();
-    singleChain.start(param, chain, options)
+    singleChain
+        .start(param, chain, options)
         .then((result: any) => {
             if (options?.onStepComplete) {
                 options.onStepComplete();
             }
 
-            const stepName = (typeof chain === 'string')
-                ? chain
-                : (chain?.name || chain?.func || `$step_${stepIndex}`);
+            const stepName = typeof chain === 'string' ? chain : chain?.name || chain?.func || `$step_${stepIndex}`;
 
             const rawOutput = toPOJO(result);
             const cleanStepOutput: Record<string, any> = {};
@@ -111,7 +105,7 @@ const executeArrayChain = (
 
             const updatedSteps = Object.assign({}, steps, {
                 [stepName]: cleanStepOutput,
-                [stepIndex]: cleanStepOutput
+                [stepIndex]: cleanStepOutput,
             });
 
             const newAccumulated = Object.assign({}, accumulatedParam, result);
@@ -126,7 +120,7 @@ const executeArrayChain = (
 
             const nextParam = Object.assign({}, newAccumulated, {
                 [STEPS]: stepsAccessor,
-                [HISTORY]: stepsAccessor
+                [HISTORY]: stepsAccessor,
             });
 
             if (array.length) {
@@ -141,21 +135,24 @@ const executeArrayChain = (
                     singleChain,
                     options,
                     updatedSteps,
-                    stepIndex + 1
+                    stepIndex + 1,
                 );
             } else {
                 const outputObj = isObject(result)
                     ? Object.assign({}, newAccumulated, result, {
-                        [STEPS]: stepsAccessor,
-                        [HISTORY]: stepsAccessor
-                    })
+                          [STEPS]: stepsAccessor,
+                          [HISTORY]: stepsAccessor,
+                      })
                     : result;
                 const finalResult = toPOJO(outputObj);
                 done(undefined, finalResult);
             }
         })
         .catch((err: any) => {
-            if ((err instanceof WorkflowSuspendedException || err?.name === 'WorkflowSuspendedException') && options?.durable) {
+            if (
+                (err instanceof WorkflowSuspendedException || err?.name === 'WorkflowSuspendedException') &&
+                options?.durable
+            ) {
                 try {
                     const waitRecord = {
                         stackId: options.stackId,
@@ -168,7 +165,7 @@ const executeArrayChain = (
                         expiresAt: err.expiresAt,
                         createdAt: Date.now(),
                         version: options.workflowVersion,
-                        namespace: options.namespace
+                        namespace: options.namespace,
                     };
                     defaultStorageManager.checkpoint(options.stackId, {
                         status: Status.WAITING,
@@ -176,8 +173,8 @@ const executeArrayChain = (
                         metadata: {
                             waitRecord,
                             accumulatedContext: toPOJO(accumulatedParam),
-                            steps: steps
-                        }
+                            steps: steps,
+                        },
                     });
                     defaultDurableManager.registerWait(waitRecord);
                     const adapter = defaultStorageManager.getAdapter();
@@ -187,7 +184,7 @@ const executeArrayChain = (
                             saveRes.catch(() => {});
                         }
                     }
-                /* c8 ignore next 3 */
+                    /* c8 ignore next 3 */
                 } catch {
                     // ignore
                 }
@@ -198,7 +195,7 @@ const executeArrayChain = (
                     correlationKey: err.correlationKey,
                     eventName: err.eventName,
                     expiresAt: err.expiresAt,
-                    continuationStepIndex: stepIndex + 1
+                    continuationStepIndex: stepIndex + 1,
                 });
             }
             done(err);

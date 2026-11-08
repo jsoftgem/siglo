@@ -68,9 +68,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -103,9 +101,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -138,9 +134,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -173,9 +167,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -231,11 +223,7 @@
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": [
-    "siglo",
-    "live-monitoring",
-    "workflows"
-  ],
+  "tags": ["siglo", "live-monitoring", "workflows"],
   "time": {
     "from": "now-15m",
     "to": "now"

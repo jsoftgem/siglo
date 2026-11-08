@@ -33,7 +33,7 @@ export function createImageOptimizationWorkflow() {
             targetWidth: targetWidth || 800,
             targetHeight: targetHeight || 600,
             originalSize: 4194304, // 4MB
-            dimensions: { width: 1920, height: 1080 }
+            dimensions: { width: 1920, height: 1080 },
         };
     });
 
@@ -48,7 +48,7 @@ export function createImageOptimizationWorkflow() {
             outputUri,
             compressedSize,
             compressionRatio: '93.75%',
-            status: 'COMPLETED'
+            status: 'COMPLETED',
         };
     });
 
@@ -68,9 +68,10 @@ export function createBullMqImageProcessor(workflow = createImageOptimizationWor
             return {
                 jobId: job.id,
                 outputUri: typeof result.outputUri === 'function' ? result.outputUri() : result.outputUri,
-                compressionRatio: typeof result.compressionRatio === 'function' ? result.compressionRatio() : result.compressionRatio
+                compressionRatio:
+                    typeof result.compressionRatio === 'function' ? result.compressionRatio() : result.compressionRatio,
             };
-        }
+        },
     });
 }
 

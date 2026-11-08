@@ -18,14 +18,14 @@ export function createGovernedDeploymentPipeline() {
     // Stage 1: Build & Package
     const buildPackage = Step.create('buildPackage', async (param: any) => ({
         artifactUrl: `https://artifacts.corp/builds/${param.commitSha}.tar.gz`,
-        buildSuccess: true
+        buildSuccess: true,
     }));
 
     // Stage 2: Parallel Quality & Compliance Checks
     const runUnitTests = Step.create('runUnitTests', async () => ({ unitTestsPassed: true }));
     const runSecurityScan = Step.create('runSecurityScan', async () => ({
         cveVulnerabilitiesCount: 0,
-        securityPassed: true
+        securityPassed: true,
     }));
     const runLicenseAudit = Step.create('runLicenseAudit', async () => ({ licenseCompliant: true }));
 
@@ -35,15 +35,11 @@ export function createGovernedDeploymentPipeline() {
     const deployToCluster = Step.create('deployToCluster', async (param: any) => ({
         deploymentStatus: 'DEPLOYED',
         releaseId: param.releaseId,
-        activeCluster: `k8s-${param.environment}-cluster-1`
+        activeCluster: `k8s-${param.environment}-cluster-1`,
     }));
 
     // Compose Full Workflow
-    const deploymentWorkflow = flow(
-        buildPackage,
-        qualityGate,
-        deployToCluster
-    );
+    const deploymentWorkflow = flow(buildPackage, qualityGate, deployToCluster);
 
     // Governance Inspection Function
     function auditWorkflowGovernance() {
@@ -66,12 +62,12 @@ export function createGovernedDeploymentPipeline() {
         return {
             isCompliant: validation.valid && hasSecurityScan,
             metrics,
-            validation
+            validation,
         };
     }
 
     return {
         workflow: deploymentWorkflow,
-        auditWorkflowGovernance
+        auditWorkflowGovernance,
     };
 }

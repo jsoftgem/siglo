@@ -1,4 +1,11 @@
-import { resumeWorkflow, defaultDurableManager, getStorageAdapter, DuplicateEventException, WorkflowAlreadyResumedException, WorkflowSuspendedException } from '@siglo/core';
+import {
+    resumeWorkflow,
+    defaultDurableManager,
+    getStorageAdapter,
+    DuplicateEventException,
+    WorkflowAlreadyResumedException,
+    WorkflowSuspendedException,
+} from '@siglo/core';
 import { PostgresPollerOptions, PollerReport, WaitRecord } from './types';
 
 function validateIdentifier(name: string, label: string): string {
@@ -29,7 +36,10 @@ export class PostgresWaitPoller {
             throw new Error('PostgresWaitPoller requires a valid PostgreSQL client with a .query() method.');
         }
         this.client = options.client;
-        this.waitRecordsTable = validateIdentifier(options.waitRecordsTable || 'siglo_wait_records', 'waitRecordsTable');
+        this.waitRecordsTable = validateIdentifier(
+            options.waitRecordsTable || 'siglo_wait_records',
+            'waitRecordsTable',
+        );
         this.pollIntervalMs = options.pollIntervalMs && options.pollIntervalMs > 0 ? options.pollIntervalMs : 1000;
         this.batchSize = options.batchSize && options.batchSize > 0 ? options.batchSize : 50;
         this.workerId = options.workerId || `worker-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
@@ -74,25 +84,30 @@ export class PostgresWaitPoller {
     async pollOnce(): Promise<PollerReport> {
         const storage = getStorageAdapter();
         if (!storage?.withWorkflowLock || !storage.claimWaitRecord || !storage.completeWaitRecord) {
-            throw new Error('PostgresWaitPoller requires a storage adapter with workflow locks and durable claim completion');
+            throw new Error(
+                'PostgresWaitPoller requires a storage adapter with workflow locks and durable claim completion',
+            );
         }
         const report: PollerReport = {
             claimed: 0,
             resumed: 0,
-            failed: 0
+            failed: 0,
         };
 
         // Selection is advisory. resumeWorkflow obtains the per-stack database-session lock
         // and atomically accepts the timer or replays an already persisted decision.
         // Never fall back to a non-atomic SELECT/UPDATE claim on SQL errors.
-        const claimResult = await this.client.query(`
+        const claimResult = await this.client.query(
+            `
             WITH due_records AS (
                 SELECT * FROM ${this.waitRecordsTable}
                 WHERE (status = 'WAITING' AND expires_at IS NOT NULL AND expires_at <= NOW())
                    OR (status = 'RESUMING' AND resume_payload IS NOT NULL)
                 ORDER BY updated_at ASC
                 LIMIT $1
-            ) SELECT * FROM due_records`, [this.batchSize]);
+            ) SELECT * FROM due_records`,
+            [this.batchSize],
+        );
 
         const rows = claimResult.rows || [];
         report.claimed = rows.length;
@@ -104,14 +119,15 @@ export class PostgresWaitPoller {
                 namespace: row.namespace,
                 eventName: row.event_name,
                 status: row.status,
-                continuationStepIndex: row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
+                continuationStepIndex:
+                    row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
                 version: row.version,
                 data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
                 lockedAt: row.locked_at ? new Date(row.locked_at) : undefined,
                 lockedBy: row.locked_by,
                 resumedAt: row.resumed_at ? new Date(row.resumed_at) : undefined,
                 resumedBy: row.resumed_by,
-                expiresAt: row.expires_at ? new Date(row.expires_at) : null
+                expiresAt: row.expires_at ? new Date(row.expires_at) : null,
             };
 
             try {
@@ -122,7 +138,10 @@ export class PostgresWaitPoller {
 
                 let result: any;
                 if (targetFlow) {
-                    if (!defaultDurableManager.getWaitingByStack(record.stackId) && !defaultDurableManager.getWaiting(record.correlationKey)) {
+                    if (
+                        !defaultDurableManager.getWaitingByStack(record.stackId) &&
+                        !defaultDurableManager.getWaiting(record.correlationKey)
+                    ) {
                         defaultDurableManager.registerWait({
                             correlationKey: record.correlationKey,
                             stackId: record.stackId,
@@ -133,16 +152,29 @@ export class PostgresWaitPoller {
                             stepId: 'timer',
                             status: 'waiting',
                             createdAt: Date.now(),
-                            expiresAt: record.expiresAt ? (record.expiresAt instanceof Date ? record.expiresAt.getTime() : Number(record.expiresAt)) : undefined
+                            expiresAt: record.expiresAt
+                                ? record.expiresAt instanceof Date
+                                    ? record.expiresAt.getTime()
+                                    : Number(record.expiresAt)
+                                : undefined,
                         });
                     }
 
-                    const savedEvent = typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload;
+                    const savedEvent =
+                        typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload;
                     try {
-                        result = await resumeWorkflow(targetFlow, record.correlationKey, savedEvent ?? {
-                            ...record.data, event: { type: 'timer:expired', timestamp: Date.now() }
-                        }, { allowExpired: !savedEvent, stackId: this.workerId });
-                    } catch (error) { if (!(error instanceof WorkflowSuspendedException)) throw error; }
+                        result = await resumeWorkflow(
+                            targetFlow,
+                            record.correlationKey,
+                            savedEvent ?? {
+                                ...record.data,
+                                event: { type: 'timer:expired', timestamp: Date.now() },
+                            },
+                            { allowExpired: !savedEvent, stackId: this.workerId },
+                        );
+                    } catch (error) {
+                        if (!(error instanceof WorkflowSuspendedException)) throw error;
+                    }
                 } else {
                     throw new Error('No workflow registered for durable continuation');
                 }

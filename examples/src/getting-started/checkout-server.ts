@@ -9,17 +9,25 @@ import { createDemoServices } from './checkout-demo';
 function isOrder(value: unknown): value is Order {
     if (!value || typeof value !== 'object') return false;
     const order = value as Partial<Order>;
-    return typeof order.orderId === 'string' && order.orderId.trim().length > 0
-        && typeof order.sku === 'string' && order.sku.trim().length > 0
-        && typeof order.quantity === 'number' && Number.isInteger(order.quantity) && order.quantity > 0
-        && typeof order.amountCents === 'number' && Number.isSafeInteger(order.amountCents) && order.amountCents > 0;
+    return (
+        typeof order.orderId === 'string' &&
+        order.orderId.trim().length > 0 &&
+        typeof order.sku === 'string' &&
+        order.sku.trim().length > 0 &&
+        typeof order.quantity === 'number' &&
+        Number.isInteger(order.quantity) &&
+        order.quantity > 0 &&
+        typeof order.amountCents === 'number' &&
+        Number.isSafeInteger(order.amountCents) &&
+        order.amountCents > 0
+    );
 }
 
 export async function startCheckoutServer(port = 3000, monitorPort = 4000) {
     const monitor = await createMonitorServer({
         port: monitorPort,
         host: '127.0.0.1',
-        allowRemoteResume: false
+        allowRemoteResume: false,
     });
     const app = express();
     app.use(express.json({ limit: '16kb' }));
@@ -41,11 +49,12 @@ export async function startCheckoutServer(port = 3000, monitorPort = 4000) {
             durable: false,
             timeout: 5000,
             exposeErrorDetails: false,
-            output: (result, response) => response.status(201).json({
-                orderId: input.orderId,
-                status: 'confirmed',
-                trackingId: result.trackingId
-            })
+            output: (result, response) =>
+                response.status(201).json({
+                    orderId: input.orderId,
+                    status: 'confirmed',
+                    trackingId: result.trackingId,
+                }),
         });
         await handler(req, res, next);
         console.log(`${orderId}: ${events.join(' -> ')}`);
@@ -63,22 +72,26 @@ export async function startCheckoutServer(port = 3000, monitorPort = 4000) {
         monitor,
         async close() {
             await new Promise<void>((resolve, reject) => {
-                server.close(error => error ? reject(error) : resolve());
+                server.close(error => (error ? reject(error) : resolve()));
             });
             await monitor.close();
-        }
+        },
     };
 }
 
 if (require.main === module) {
-    startCheckoutServer().then(({ close }) => {
-        console.log('Checkout API: http://127.0.0.1:3000/api/checkouts');
-        console.log('Live monitor: http://127.0.0.1:4000');
-        const shutdown = () => { close().catch(console.error); };
-        process.once('SIGINT', shutdown);
-        process.once('SIGTERM', shutdown);
-    }).catch(error => {
-        console.error(error);
-        process.exitCode = 1;
-    });
+    startCheckoutServer()
+        .then(({ close }) => {
+            console.log('Checkout API: http://127.0.0.1:3000/api/checkouts');
+            console.log('Live monitor: http://127.0.0.1:4000');
+            const shutdown = () => {
+                close().catch(console.error);
+            };
+            process.once('SIGINT', shutdown);
+            process.once('SIGTERM', shutdown);
+        })
+        .catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+        });
 }

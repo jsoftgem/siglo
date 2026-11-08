@@ -24,11 +24,11 @@ export function createMediaTranscodingPipeline() {
         return {
             uploadReceived: true,
             storagePointer: sourceS3Url,
-            assetStatus: 'QUEUED_FOR_PROCESSING'
+            assetStatus: 'QUEUED_FOR_PROCESSING',
         };
     })
-      .spec('assetId', { require: true })
-      .spec('sourceS3Url', { require: true });
+        .spec('assetId', { require: true })
+        .spec('sourceS3Url', { require: true });
 
     // Step 2: Extract Video Metadata
     const extractMetadata = Step.create('mediaExtractMetadata', async () => {
@@ -39,7 +39,7 @@ export function createMediaTranscodingPipeline() {
             codec: 'h264',
             audioChannels: 2,
             aspectRatio: '16:9',
-            originalResolution: '1920x1080'
+            originalResolution: '1920x1080',
         };
     });
 
@@ -50,13 +50,13 @@ export function createMediaTranscodingPipeline() {
         const transcodedOutputs = resolutions.map((res: string) => ({
             resolution: res,
             outputUrl: `s3://cdn-bucket/media/${assetId}/${res}/stream.m3u8`,
-            bitrateKbps: res === '1080p' ? 5000 : res === '720p' ? 2800 : 1200
+            bitrateKbps: res === '1080p' ? 5000 : res === '720p' ? 2800 : 1200,
         }));
 
         return {
             transcodingComplete: true,
             outputs: transcodedOutputs,
-            variantCount: transcodedOutputs.length
+            variantCount: transcodedOutputs.length,
         };
     });
 
@@ -71,7 +71,7 @@ export function createMediaTranscodingPipeline() {
 
         return {
             thumbnailsGenerated: true,
-            thumbnails: thumbnailUrls
+            thumbnails: thumbnailUrls,
         };
     });
 
@@ -93,15 +93,9 @@ export function createMediaTranscodingPipeline() {
             thumbnailsGenerated: true,
             thumbnailPreview: thumbnails[0],
             cdnPurgedAndWarm: true,
-            completedAt: new Date().toISOString()
+            completedAt: new Date().toISOString(),
         };
     });
 
-    return flow(
-        receiveMediaUpload,
-        extractMetadata,
-        transcodeResolutions,
-        generateThumbnails,
-        syncCdn
-    );
+    return flow(receiveMediaUpload, extractMetadata, transcodeResolutions, generateThumbnails, syncCdn);
 }

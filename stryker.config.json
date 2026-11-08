@@ -1,32 +1,17 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "mutate": [
-    "test/exploratory/engine/invariant-evaluator.ts"
-  ],
+  "mutate": ["test/exploratory/engine/invariant-evaluator.ts"],
   "testRunner": "command",
   "commandRunner": {
     "command": "npx mocha -r tsx/cjs test/exploratory/engine/invariant-evaluator.test.ts"
   },
   "coverageAnalysis": "off",
   "mutator": {
-    "excludedMutations": [
-      "StringLiteral"
-    ]
+    "excludedMutations": ["StringLiteral"]
   },
   "disableTypeChecks": false,
-  "ignorePatterns": [
-    "build",
-    "dist",
-    ".stryker-tmp",
-    "plugins/intellij/build",
-    "reports"
-  ],
-  "reporters": [
-    "clear-text",
-    "progress",
-    "html",
-    "json"
-  ],
+  "ignorePatterns": ["build", "dist", ".stryker-tmp", "plugins/intellij/build", "reports"],
+  "reporters": ["clear-text", "progress", "html", "json"],
   "htmlReporter": {
     "fileName": "reports/mutation/mutation.html"
   },

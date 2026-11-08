@@ -1,10 +1,5 @@
 import { expect } from 'chai';
-import {
-    RedisStorageAdapter,
-    RedisIdempotencyStore,
-    RedisLock,
-    RedisClientInterface
-} from './index';
+import { RedisStorageAdapter, RedisIdempotencyStore, RedisLock, RedisClientInterface } from './index';
 
 class MockRedisClient implements RedisClientInterface {
     public storage = new Map<string, string>();
@@ -175,7 +170,7 @@ describe('@siglo/redis Storage & Idempotency Adapter Suite', () => {
                 correlationKey: 'corr-redis-1',
                 eventName: 'approval',
                 status: 'waiting',
-                continuationStepIndex: 1
+                continuationStepIndex: 1,
             };
             await adapter.saveWaitRecord(waitRecord);
             const retrievedByStack = await adapter.getWaitRecord('redis-wait-stack');

@@ -10,7 +10,7 @@ import {
     GraphValidationResult,
     GraphInspectionResult,
     parseDuration,
-    reconcileAbandonedStacks
+    reconcileAbandonedStacks,
 } from '@siglo/core';
 
 export interface WorkflowVisualizationResult {
@@ -96,7 +96,7 @@ export function validateWorkflow(workflow: Flow): GraphValidationResult {
  */
 export function inspectWorkflow(
     workflow: Flow,
-    options: { redact?: string[] } = {}
+    options: { redact?: string[] } = {},
 ): GraphInspectionResult & { redactedFields?: string[] } {
     const inspection = inspectGraph(workflow);
     const redactedFields = options.redact || [];
@@ -121,13 +121,9 @@ export function inspectWorkflow(
 /**
  * Replays a workflow execution against a recorded test fixture.
  */
-export async function replayFixture(
-    workflow: Flow,
-    fixture: ReplayFixture | string
-): Promise<ReplayResult> {
-    const parsedFixture: ReplayFixture = typeof fixture === 'string'
-        ? JSON.parse(fs.readFileSync(fixture, 'utf-8'))
-        : fixture;
+export async function replayFixture(workflow: Flow, fixture: ReplayFixture | string): Promise<ReplayResult> {
+    const parsedFixture: ReplayFixture =
+        typeof fixture === 'string' ? JSON.parse(fs.readFileSync(fixture, 'utf-8')) : fixture;
 
     const startTime = Date.now();
     const result = await workflow.run(parsedFixture.initialParam, { pojo: true });
@@ -157,13 +153,8 @@ export async function replayFixture(
 /**
  * Inspects a serialized checkpoint with optional field redaction.
  */
-export function inspectCheckpoint(
-    checkpoint: any | string,
-    options: { redact?: string[] } = {}
-): Record<string, any> {
-    const parsed: any = typeof checkpoint === 'string'
-        ? JSON.parse(checkpoint)
-        : checkpoint;
+export function inspectCheckpoint(checkpoint: any | string, options: { redact?: string[] } = {}): Record<string, any> {
+    const parsed: any = typeof checkpoint === 'string' ? JSON.parse(checkpoint) : checkpoint;
 
     const redactKeys = options.redact || [];
     const contexts = { ...(parsed.contexts || {}) };
@@ -245,12 +236,18 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
 /**
  * Scaffolds a new typed workflow file and test.
  */
-export function generateWorkflow(name: string, targetDir: string = process.cwd()): { filePath: string; testPath: string } {
-    const srcDir = path.join(targetDir, "src", "workflows");
+export function generateWorkflow(
+    name: string,
+    targetDir: string = process.cwd(),
+): { filePath: string; testPath: string } {
+    const srcDir = path.join(targetDir, 'src', 'workflows');
     fs.mkdirSync(srcDir, { recursive: true });
 
-    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const pascalName = kebabName.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("");
+    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const pascalName = kebabName
+        .split('-')
+        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+        .join('');
     const camelName = pascalName.charAt(0).toLowerCase() + pascalName.slice(1);
 
     const filePath = path.join(srcDir, `${kebabName}.workflow.ts`);
@@ -260,8 +257,8 @@ export function generateWorkflow(name: string, targetDir: string = process.cwd()
 
     const testContent = `import { expect } from "chai";\nimport { createWorkflowHarness } from "@siglo/testing";\nimport { ${camelName}Workflow } from "./${kebabName}.workflow";\n\ndescribe("${pascalName}Workflow", () => {\n    it("executes successfully", async () => {\n        const harness = createWorkflowHarness(${camelName}Workflow);\n        const result = await harness.run({ id: "test-123" });\n        expect(result.status).to.equal("COMPLETED");\n        harness.assertStepExecuted("validate");\n        harness.assertStepExecuted("process");\n    });\n});\n`;
 
-    fs.writeFileSync(filePath, workflowContent, "utf-8");
-    fs.writeFileSync(testPath, testContent, "utf-8");
+    fs.writeFileSync(filePath, workflowContent, 'utf-8');
+    fs.writeFileSync(testPath, testContent, 'utf-8');
 
     return { filePath, testPath };
 }
@@ -269,13 +266,19 @@ export function generateWorkflow(name: string, targetDir: string = process.cwd()
 /**
  * Scaffolds a new typed step file and test.
  */
-export function generateStep(name: string, targetDir: string = process.cwd(), options: GenerateStepOptions = {}): { filePath: string; testPath: string } {
+export function generateStep(
+    name: string,
+    targetDir: string = process.cwd(),
+    options: GenerateStepOptions = {},
+): { filePath: string; testPath: string } {
     validateStepOptions(name, options);
-    const srcDir = path.join(targetDir, "src", "steps");
+    const srcDir = path.join(targetDir, 'src', 'steps');
 
-
-    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const pascalName = kebabName.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join("");
+    const kebabName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const pascalName = kebabName
+        .split('-')
+        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+        .join('');
     const camelName = pascalName.charAt(0).toLowerCase() + pascalName.slice(1);
 
     const filePath = path.join(srcDir, `${kebabName}.step.ts`);
@@ -300,31 +303,24 @@ export function generateStep(name: string, targetDir: string = process.cwd(), op
 }
 
 export interface ExportWorkflowOptions {
-    format?: "mermaid" | "dot" | "json";
-    direction?: "TD" | "LR" | "TB";
+    format?: 'mermaid' | 'dot' | 'json';
+    direction?: 'TD' | 'LR' | 'TB';
     includeBadges?: boolean;
 }
 
 /**
  * Exports a workflow graph to Mermaid, Graphviz DOT, or JSON format.
  */
-export function exportWorkflow(
-    workflow: any,
-    options: ExportWorkflowOptions = {}
-): string {
-    const format = options.format || "mermaid";
-    if (format === "json") {
-        return typeof workflow.toJSON === "function"
-            ? workflow.toJSON()
-            : JSON.stringify(workflow, null, 2);
+export function exportWorkflow(workflow: any, options: ExportWorkflowOptions = {}): string {
+    const format = options.format || 'mermaid';
+    if (format === 'json') {
+        return typeof workflow.toJSON === 'function' ? workflow.toJSON() : JSON.stringify(workflow, null, 2);
     }
-    if (format === "dot") {
-        return typeof workflow.toDot === "function"
-            ? workflow.toDot({ direction: options.direction as any })
-            : "";
+    if (format === 'dot') {
+        return typeof workflow.toDot === 'function' ? workflow.toDot({ direction: options.direction as any }) : '';
     }
     // Default: mermaid
-    return typeof workflow.toMermaid === "function"
+    return typeof workflow.toMermaid === 'function'
         ? workflow.toMermaid({ direction: options.direction, includeBadges: options.includeBadges })
         : toMermaid(inspectGraph(workflow));
 }
@@ -341,20 +337,20 @@ export interface MonitorOptions {
  * Starts the live workflow monitoring dev server and web dashboard.
  */
 export async function startMonitor(options: MonitorOptions = {}): Promise<any> {
-    const { createMonitorServer } = await import("@siglo/monitor");
+    const { createMonitorServer } = await import('@siglo/monitor');
     return createMonitorServer({
         port: options.port,
         host: options.host,
         namespaceFilter: options.namespace,
         flow: options.flow,
-        open: options.open
+        open: options.open,
     });
 }
 
 export interface ReconcileCommandOptions {
     staleThreshold?: string;
-    action?: "compensate" | "fail" | "inspect";
-    mode?: "strict" | "best-effort";
+    action?: 'compensate' | 'fail' | 'inspect';
+    mode?: 'strict' | 'best-effort';
     namespace?: string;
     flow?: any;
     stacks?: any[];
@@ -371,6 +367,6 @@ export async function reconcileCommand(options: ReconcileCommandOptions = {}): P
         mode: options.mode,
         namespace: options.namespace,
         flowLookup: () => options.flow,
-        stacks: options.stacks
+        stacks: options.stacks,
     });
 }

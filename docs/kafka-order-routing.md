@@ -5,7 +5,7 @@ description: "Consume Kafka order events, route conditional fulfillment with bra
 
 # Route Kafka Order Events with `branch` and `when`
 
-In [Suspend Checkout for Approval and Resume Across Servers](durable-distributed-checkout.md), an HTTP request started checkout and another request resumed it after approval. Now imagine a storefront publishing order events while fulfillment services consume them independently.
+In [Suspend Checkout for Approval and Resume Across Servers](/durable-distributed-checkout), an HTTP request started checkout and another request resumed it after approval. Now imagine a storefront publishing order events while fulfillment services consume them independently.
 
 This tutorial uses **`@siglo/kafka`** to start a Siglo workflow for each Kafka record. Two consumer replicas share **`@siglo/postgres` idempotency**, and a Redis-backed live monitor shows the workflow's routing decisions:
 
@@ -116,7 +116,7 @@ Kafka records, consumer offsets, and PostgreSQL results survive `down`. Add `--v
 | [workflow.test.ts](../examples/src/kafka-order-routing/workflow.test.ts) | Routing, threshold, optional-step, and validation tests |
 | [smoke.ts](../examples/src/kafka-order-routing/smoke.ts) | Real Kafka, PostgreSQL, Redis, and restart assertions |
 | [docker-compose.yml](../examples/kafka-order-routing/docker-compose.yml) | Isolated broker, database, Redis, two workers, and monitor |
-| [Example README](../examples/kafka-order-routing/README.md) | Commands, ports, and rebuilding after edits |
+| [Example README](https://github.com/jsoftgem/siglo/blob/main/examples/kafka-order-routing/README.md) | Commands, ports, and rebuilding after edits |
 
 ---
 
@@ -209,7 +209,7 @@ const placedOrder = when(
 
 An order at or above the threshold executes only `queueReview`, producing `review-required`. It does not reserve inventory, charge a payment, or ship. An ordinary order executes the fulfillment flow instead.
 
-The demo records the review decision and completes processing of that Kafka record. To wait for approval, model a separate approval event or follow the persisted-wait design in the [durable checkout tutorial](durable-distributed-checkout.md). A returned review status alone does not register a durable wait.
+The demo records the review decision and completes processing of that Kafka record. To wait for approval, model a separate approval event or follow the persisted-wait design in the [durable checkout tutorial](/durable-distributed-checkout). A returned review status alone does not register a durable wait.
 
 ### Use `when` Without an Else for an Optional Step
 
@@ -454,8 +454,10 @@ The smoke check uses fresh event IDs and verifies actual Kafka delivery, four su
 - An accepted Kafka send is not proof that the workflow has completed. Inspect the persisted result, monitor, or another application-level completion channel.
 - A dead-letter send and claim completion are separate writes. A crash between them can publish a duplicate dead letter; its stable `recordId` is available for downstream deduplication.
 
-The result table's `executions` field is a demo audit counter, not an exactly-once business-effects mechanism. For database changes that must reliably publish follow-up Kafka events, use an application transaction and an outbox. Built-in outbox support and a separate tutorial are [recorded for later](roadmap/kafka-outbox.roadmap.md).
+The result table's `executions` field is a demo audit counter, not an exactly-once business-effects mechanism. For database changes that must reliably publish follow-up Kafka events, use an application transaction and an outbox. Built-in outbox support and a separate tutorial are [recorded for later](/roadmap/kafka-outbox.roadmap).
 
-For producer-to-consumer traces and provisioned Grafana metrics using a separate APM example with the same routing model, continue with [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
+For producer-to-consumer traces and provisioned Grafana metrics using a separate APM example with the same routing model, continue with [Zero-Code APM Dashboards](/zero-code-apm-dashboards).
 
-Continue with the [Kafka adapter reference](adapters/kafka.md), [branching and parallelism guide](04-branching-and-parallelism.md), or the [durable checkout tutorial](durable-distributed-checkout.md) when an event path needs a persisted wait.
+Continue with the [Kafka adapter reference](/adapters/kafka), [branching and parallelism guide](/04-branching-and-parallelism), or the [durable checkout tutorial](/durable-distributed-checkout) when an event path needs a persisted wait.
+
+To authenticate the HTTP producers feeding an order stream, continue with [Accept Asymmetrically Signed Orders](/signed-order-intake), using `@siglo/crypto` and `@siglo/express` in an independent example.

@@ -55,7 +55,7 @@ if (process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('src')) {
             await shutdownTelemetry();
             process.exit(0);
         })
-        .catch(async (err) => {
+        .catch(async err => {
             console.error('Execution failed:', err);
             await shutdownTelemetry();
             process.exit(1);

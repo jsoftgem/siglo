@@ -32,18 +32,18 @@ export function createIotTelemetryPipeline() {
         return {
             batchAccepted: true,
             sampleCount: readings.length,
-            ingestedAt: Date.now()
+            ingestedAt: Date.now(),
         };
     })
-      .spec('deviceId', { require: true })
-      .spec('readings', {
-          require: true,
-          validator: async (r: any[]) => {
-              if (!Array.isArray(r) || r.length === 0) {
-                  throw new Error('Readings must be a non-empty array');
-              }
-          }
-      });
+        .spec('deviceId', { require: true })
+        .spec('readings', {
+            require: true,
+            validator: async (r: any[]) => {
+                if (!Array.isArray(r) || r.length === 0) {
+                    throw new Error('Readings must be a non-empty array');
+                }
+            },
+        });
 
     // Step 2: Normalize Units (Fahrenheit -> Celsius, PSI -> Bar)
     const normalizeUnits = Step.create('iotNormalizeUnits', async (param: any) => {
@@ -54,11 +54,13 @@ export function createIotTelemetryPipeline() {
             temperatureCelsius: +(((r.temperatureFahrenheit - 32) * 5) / 9).toFixed(2),
             pressureBar: +(r.pressurePsi * 0.0689476).toFixed(2),
             vibrationG: r.vibrationG,
-            timestamp: r.recordedAt
+            timestamp: r.recordedAt,
         }));
 
         // Compute batch averages
-        const avgTempCelsius = +(normalized.reduce((s, r) => s + r.temperatureCelsius, 0) / normalized.length).toFixed(2);
+        const avgTempCelsius = +(normalized.reduce((s, r) => s + r.temperatureCelsius, 0) / normalized.length).toFixed(
+            2,
+        );
         const avgPressureBar = +(normalized.reduce((s, r) => s + r.pressureBar, 0) / normalized.length).toFixed(2);
         const maxVibration = Math.max(...normalized.map(r => r.vibrationG));
 
@@ -67,8 +69,8 @@ export function createIotTelemetryPipeline() {
             metrics: {
                 avgTempCelsius,
                 avgPressureBar,
-                maxVibration
-            }
+                maxVibration,
+            },
         };
     });
 
@@ -90,7 +92,7 @@ export function createIotTelemetryPipeline() {
         return {
             anomalyDetected: hasAnomaly,
             severity: isOverheated && isOverpressured ? 'CRITICAL' : hasAnomaly ? 'WARNING' : 'NORMAL',
-            anomalyReasons: reasons
+            anomalyReasons: reasons,
         };
     });
 
@@ -109,13 +111,14 @@ export function createIotTelemetryPipeline() {
         return {
             alertDispatched,
             alertId,
-            alertSummary: anomalyDetected ? `[${severity}] ${reasons.join(', ')}` : 'All metrics nominal'
+            alertSummary: anomalyDetected ? `[${severity}] ${reasons.join(', ')}` : 'All metrics nominal',
         };
     });
 
     // Step 5: Archive Cold Storage (Parquet / S3 partitioning)
     const archiveColdStorage = Step.create('iotArchiveColdStorage', async (param: any) => {
-        const { deviceId, fleetId, sampleCount, metrics, alertDispatched, alertId, anomalyDetected, batchAccepted } = param;
+        const { deviceId, fleetId, sampleCount, metrics, alertDispatched, alertId, anomalyDetected, batchAccepted } =
+            param;
 
         const coldStoragePartition = `year=2026/month=10/fleet=${fleetId}/device=${deviceId}`;
         const archiveKey = `s3://telemetry-lakehouse/${coldStoragePartition}/batch_${Date.now()}.parquet`;
@@ -132,15 +135,9 @@ export function createIotTelemetryPipeline() {
             alertDispatched,
             alertId,
             archiveKey,
-            archivedAt: new Date().toISOString()
+            archivedAt: new Date().toISOString(),
         };
     });
 
-    return flow(
-        ingestSensorBatch,
-        normalizeUnits,
-        evaluateThresholds,
-        triggerAlert,
-        archiveColdStorage
-    );
+    return flow(ingestSensorBatch, normalizeUnits, evaluateThresholds, triggerAlert, archiveColdStorage);
 }

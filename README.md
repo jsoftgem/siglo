@@ -447,6 +447,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 * **Distributed Checkout**: [PostgreSQL and Redis Persistence](docs/distributed-rest-and-live-monitoring.md) &mdash; Run two API instances with shared persistence, caching, and a separate live monitor using Docker Compose.
 * **Durable Workflows**: [Suspend Checkout for Approval and Resume Across Servers](docs/durable-distributed-checkout.md) &mdash; Suspend long-running orders for external webhooks or human approvals, survive server restarts, and resume across replicas.
 * **Kafka Event Routing**: [Route Kafka Order Events with `branch` and `when`](docs/kafka-order-routing.md) &mdash; Consume events across two workers, route fulfillment decisions, share PostgreSQL idempotency, and inspect the live monitor.
+* **Signed Order Intake**: [Accept Asymmetrically Signed Orders](docs/signed-order-intake.md) &mdash; Verify client signatures and nonces with `@siglo/crypto` and `@siglo/express` before publishing to an isolated Kafka order stream.
 
 ### 📖 The 11 Core Guides
 
@@ -647,6 +648,18 @@ npm install --save-dev @siglo/testing @siglo/cli
 | `InMemoryStorageFake` | In-memory storage adapter tracking context changes and checkpoints for zero-dependency testing. |
 
 ---
+
+## Formatting
+
+Run `npm run format` from the repository root to format TypeScript, JavaScript, JSON,
+CSS, and HTML across packages, examples, plugins, and tests. Run `npm run format:check`
+to check formatting without changing files; CI runs this check on each pull request.
+
+Prettier uses the shared `.prettierrc.json` configuration. ESLint retains code quality
+checks, with `eslint-config-prettier` disabling conflicting formatting rules. Configure
+your editor to use the project's local Prettier installation for formatting on save.
+Generated dashboard code, analyzer fixtures, build output, and local credentials are
+excluded through `.prettierignore`.
 
 ## License
 

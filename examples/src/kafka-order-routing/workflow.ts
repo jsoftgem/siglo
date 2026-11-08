@@ -29,16 +29,20 @@ export function createOrderRoutingWorkflow(save: (outcome: OrderOutcome) => Prom
         actions: [...order.actions, 'chargePayment'],
     }));
     const wrapGift = Step.create('wrapGift', async (order: { actions: string[] }) => ({
-        giftWrapped: true, actions: [...order.actions, 'wrapGift'],
+        giftWrapped: true,
+        actions: [...order.actions, 'wrapGift'],
     }));
     const shipOrder = Step.create('shipOrder', async (order: { actions: string[] }) => ({
-        status: 'shipped' as const, actions: [...order.actions, 'shipOrder'],
+        status: 'shipped' as const,
+        actions: [...order.actions, 'shipOrder'],
     }));
     const queueReview = Step.create('queueReview', async () => ({
-        status: 'review-required' as const, actions: ['queueReview'],
+        status: 'review-required' as const,
+        actions: ['queueReview'],
     }));
     const cancelOrder = Step.create('recordCancellation', async () => ({
-        status: 'cancellation-recorded' as const, actions: ['recordCancellation'],
+        status: 'cancellation-recorded' as const,
+        actions: ['recordCancellation'],
     }));
     const rejectUnsupported = Step.create('rejectUnsupported', async (event: OrderEvent) => {
         throw new UnsupportedOrderEvent(event.type);
@@ -51,16 +55,16 @@ export function createOrderRoutingWorkflow(save: (outcome: OrderOutcome) => Prom
         when(order => order.giftWrap === true, wrapGift),
         shipOrder,
     );
-    const placedOrder = when(
-        order => order.amountCents >= 100000,
-        queueReview,
-        fulfillment,
-    );
+    const placedOrder = when(order => order.amountCents >= 100000, queueReview, fulfillment);
     return flow(
-        branch(event => event.type, {
-            'order.placed': placedOrder,
-            'order.cancelled': cancelOrder,
-        }, rejectUnsupported),
+        branch(
+            event => event.type,
+            {
+                'order.placed': placedOrder,
+                'order.cancelled': cancelOrder,
+            },
+            rejectUnsupported,
+        ),
         saveOutcome,
     );
 }
@@ -76,5 +80,6 @@ export function validateOrderEvent(value: unknown): asserts value is OrderEvent 
     if (event.type === 'order.placed' && (!Number.isSafeInteger(event.amountCents) || event.amountCents! <= 0)) {
         throw new Error('order.placed requires positive integer amountCents');
     }
-    if (event.giftWrap !== undefined && typeof event.giftWrap !== 'boolean') throw new Error('giftWrap must be boolean');
+    if (event.giftWrap !== undefined && typeof event.giftWrap !== 'boolean')
+        throw new Error('giftWrap must be boolean');
 }

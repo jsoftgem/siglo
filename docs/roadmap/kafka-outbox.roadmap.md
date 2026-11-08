@@ -9,4 +9,4 @@ Deferred on 2026-11-06 while continuing the Kafka routing tutorial. Revisit this
 - Document stable event IDs, downstream deduplication, publication ordering, and crash recovery.
 - Test concurrent relays and crashes after publication but before marking a row sent.
 
-The [current outbox recipe](../../packages/kafka/docs/outbox.md) is the starting point. Built-in support and a dedicated tutorial remain future work.
+The [current outbox recipe](https://github.com/jsoftgem/siglo/blob/main/packages/kafka/docs/outbox.md) is the starting point. Built-in support and a dedicated tutorial remain future work.

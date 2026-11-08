@@ -1,5 +1,5 @@
 function redactValue(val: any, redactList: Set<string>): any {
-    if (val === null || typeof val !== "object") {
+    if (val === null || typeof val !== 'object') {
         return val;
     }
     if (Array.isArray(val)) {
@@ -8,7 +8,7 @@ function redactValue(val: any, redactList: Set<string>): any {
     const result: Record<string, any> = {};
     for (const [k, v] of Object.entries(val)) {
         if (redactList.has(k)) {
-            result[k] = "[REDACTED]";
+            result[k] = '[REDACTED]';
         } else {
             result[k] = redactValue(v, redactList);
         }
@@ -21,44 +21,44 @@ import {
     getChainDataById as gcdbi,
     getLogMonitor as _getLogMonitor,
     getPlugins as _getPlugins,
-    setGetChainContextPlugin as _setGetChainContextPlugin
-} from "./get";
+    setGetChainContextPlugin as _setGetChainContextPlugin,
+} from './get';
 import {
     putChainContext as pcc,
     setChainConfig as _setChainConfig,
-    setPutChainContextPlugin as _setPutChainContextPlugin
-} from "./put";
-import { CHAIN_CONFIG } from "./constants";
+    setPutChainContextPlugin as _setPutChainContextPlugin,
+} from './put';
+import { CHAIN_CONFIG } from './constants';
 import {
     StorageState,
     createInitialState,
     PutChainContextMeta,
     SerializedExecutionStack,
     SerializedStorageState,
-    StorageErrorMode
-} from "./state";
-import { generateUUID, Status, VALIDATORS } from "../../shared";
-import { StorageAdapter, CacheEvent, ContextChangeEvent } from "./adapter";
+    StorageErrorMode,
+} from './state';
+import { generateUUID, Status, VALIDATORS } from '../../shared';
+import { StorageAdapter, CacheEvent, ContextChangeEvent } from './adapter';
 import {
     CheckpointConflictException,
     NamespaceMismatchException,
     CheckpointVersionException,
-    StorageAdapterException
-} from "../executer";
-import { emitMonitoringEvent } from "../events/emitter";
-import { defaultCompensationManager } from "../compensation";
-import { toPOJO } from "../context/proxy";
+    StorageAdapterException,
+} from '../executer';
+import { emitMonitoringEvent } from '../events/emitter';
+import { defaultCompensationManager } from '../compensation';
+import { toPOJO } from '../context/proxy';
 
-export { GetChainTypeException } from "./get";
-export { PutChainTypeException } from "./put";
+export { GetChainTypeException } from './get';
+export { PutChainTypeException } from './put';
 export {
     StorageState,
     PutChainContextMeta,
     SerializedExecutionStack,
     SerializedStorageState,
-    StorageErrorMode
-} from "./state";
-export { StorageAdapter, ContextChangeEvent, CacheEvent } from "./adapter";
+    StorageErrorMode,
+} from './state';
+export { StorageAdapter, ContextChangeEvent, CacheEvent } from './adapter';
 
 export interface CheckpointOptions {
     ttlMs?: number;
@@ -73,16 +73,16 @@ export function serializeParam(param: any): string {
     if (param === null || param === undefined) {
         return String(param);
     }
-    if (typeof param !== "object") {
+    if (typeof param !== 'object') {
         return JSON.stringify(param);
     }
     const seen = new WeakSet();
     const clean = (val: any): any => {
-        if (val === null || typeof val !== "object") {
+        if (val === null || typeof val !== 'object') {
             return val;
         }
         if (seen.has(val)) {
-            return "[Circular]";
+            return '[Circular]';
         }
         seen.add(val);
         if (Array.isArray(val)) {
@@ -160,7 +160,7 @@ export class StorageManager {
         let namespace: string | undefined;
         let stackId: string | undefined;
         let stackObj: any;
-        if (typeof meta === "string") {
+        if (typeof meta === 'string') {
             stackId = meta;
         } else if (meta) {
             stackId = meta.stackId;
@@ -184,21 +184,24 @@ export class StorageManager {
 
         const changeEvent: ContextChangeEvent = {
             namespace,
-            stackId: stackId || "",
+            stackId: stackId || '',
             stepId,
             field,
             value,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
-        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
-            type: 'context:change',
-            ...changeEvent
-        });
+        emitMonitoringEvent(
+            { monitor: stackObj?.monitor },
+            {
+                type: 'context:change',
+                ...changeEvent,
+            },
+        );
 
         if (this.adapter?.onContextChange) {
             try {
                 const res = this.adapter.onContextChange(changeEvent);
-                if (res && typeof (res as any).catch === "function") {
+                if (res && typeof (res as any).catch === 'function') {
                     (res as any).catch((err: any) => {
                         this.handleAdapterError('onContextChange', err);
                     });
@@ -211,19 +214,22 @@ export class StorageManager {
 
     emitCacheEvent(event: CacheEvent): void {
         const stackObj = event.stackId ? this.state.stacks.get(event.stackId) : undefined;
-        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
-            type: event.type === 'hit' ? 'cache:hit' : 'cache:miss',
-            stackId: event.stackId,
-            stepId: event.stepId,
-            key: event.key,
-            timestamp: event.timestamp || Date.now(),
-            namespace: event.namespace
-        });
+        emitMonitoringEvent(
+            { monitor: stackObj?.monitor },
+            {
+                type: event.type === 'hit' ? 'cache:hit' : 'cache:miss',
+                stackId: event.stackId,
+                stepId: event.stepId,
+                key: event.key,
+                timestamp: event.timestamp || Date.now(),
+                namespace: event.namespace,
+            },
+        );
 
         if (this.adapter?.onCacheEvent) {
             try {
                 const res = this.adapter.onCacheEvent(event);
-                if (res && typeof (res as any).catch === "function") {
+                if (res && typeof (res as any).catch === 'function') {
                     (res as any).catch((err: any) => {
                         this.handleAdapterError('onCacheEvent', err);
                     });
@@ -241,12 +247,12 @@ export class StorageManager {
     createExecutionStack(namespace?: string, monitor?: any): string {
         const stackId = generateUUID();
         this.state.stacks.set(stackId, {
-            type: "execution",
+            type: 'execution',
             chains: [],
             namespace,
             status: Status.RUNNING,
             revision: 0,
-            monitor
+            monitor,
         });
         this.revisions.set(stackId, 0);
         return stackId;
@@ -262,12 +268,12 @@ export class StorageManager {
             stackId = stackIdOrNamespace || generateUUID();
         }
         this.state.stacks.set(stackId, {
-            type: "execution",
+            type: 'execution',
             chains: [],
             namespace: effectiveNamespace,
             status: Status.RUNNING,
             revision: 0,
-            monitor
+            monitor,
         });
         this.revisions.set(stackId, 0);
         return stackId;
@@ -280,7 +286,7 @@ export class StorageManager {
     getAllStacks(): any[] {
         return Array.from(this.state.stacks.entries()).map(([stackId, stack]) => ({
             stackId,
-            ...stack
+            ...stack,
         }));
     }
 
@@ -299,7 +305,8 @@ export class StorageManager {
         }
         const res: Record<string, any> = {};
         for (const [k, v] of Object.entries(raw)) {
-            res[k] = (typeof v === "function" && (v as any).val !== undefined) ? (v as any).val : (typeof v === "function" ? v() : v);
+            // prettier-ignore
+            res[k] = typeof v === 'function' && (v as any).val !== undefined ? (v as any).val : typeof v === 'function' ? v() : v;
         }
         return res;
     }
@@ -324,7 +331,7 @@ export class StorageManager {
         }
         chainCache.set(serializeParam(param), {
             result,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
     }
 
@@ -402,7 +409,7 @@ export class StorageManager {
 
     snapshot(): Readonly<Record<string, any>> {
         const snap: Record<string, any> = {
-            [CHAIN_CONFIG]: this.state.config
+            [CHAIN_CONFIG]: this.state.config,
         };
         for (const [key, value] of this.state.contexts) {
             snap[key] = value;
@@ -452,7 +459,7 @@ export class StorageManager {
 
         const redactList = new Set<string>([
             ...(options?.redactFields || []),
-            ...(this.state.config?.redactFields || [])
+            ...(this.state.config?.redactFields || []),
         ]);
 
         const contexts: Record<string, Record<string, any>> = {};
@@ -466,7 +473,7 @@ export class StorageManager {
                             if (redactList.has(key)) {
                                 rawCtx[key] = '[REDACTED]';
                             } else {
-                                const resolved = typeof fnOrVal === "function" ? fnOrVal() : fnOrVal;
+                                const resolved = typeof fnOrVal === 'function' ? fnOrVal() : fnOrVal;
                                 rawCtx[key] = redactValue(resolved, redactList);
                             }
                         }
@@ -494,13 +501,13 @@ export class StorageManager {
             payload: toPOJO(rec.payload),
             options: rec.options,
             status: rec.status,
-            completedAt: rec.completedAt
+            completedAt: rec.completedAt,
         }));
 
         const mergedMetadata: Record<string, any> = {
             ...(stack.metadata || {}),
             ...(options?.metadata || {}),
-            ...(compensations.length > 0 ? { compensations } : {})
+            ...(compensations.length > 0 ? { compensations } : {}),
         };
         stack.metadata = mergedMetadata;
 
@@ -517,22 +524,25 @@ export class StorageManager {
             contexts,
             timestamp: Date.now(),
             expiresAt,
-            metadata: mergedMetadata
+            metadata: mergedMetadata,
         };
 
         const stackObj = this.state.stacks.get(stackId);
-        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
-            type: 'checkpoint:save',
-            stackId,
-            status: snapshot.status,
-            timestamp: Date.now(),
-            namespace: snapshot.namespace
-        });
+        emitMonitoringEvent(
+            { monitor: stackObj?.monitor },
+            {
+                type: 'checkpoint:save',
+                stackId,
+                status: snapshot.status,
+                timestamp: Date.now(),
+                namespace: snapshot.namespace,
+            },
+        );
 
         if (this.adapter?.saveCheckpoint) {
             try {
                 const res = this.adapter.saveCheckpoint(snapshot);
-                if (res && typeof (res as any).catch === "function") {
+                if (res && typeof (res as any).catch === 'function') {
                     (res as any).catch((err: any) => {
                         this.handleAdapterError('saveCheckpoint', err);
                     });
@@ -547,13 +557,13 @@ export class StorageManager {
 
     async saveCheckpoint(checkpointData: SerializedExecutionStack): Promise<void> {
         if (!checkpointData || !checkpointData.stackId) {
-            throw new Error("Invalid checkpoint data.");
+            throw new Error('Invalid checkpoint data.');
         }
         const currentRev = this.revisions.get(checkpointData.stackId) || 0;
         if (checkpointData.revision !== undefined && checkpointData.revision <= currentRev) {
             this.handleAdapterError(
                 'saveCheckpoint',
-                new CheckpointConflictException(checkpointData.stackId, currentRev, checkpointData.revision)
+                new CheckpointConflictException(checkpointData.stackId, currentRev, checkpointData.revision),
             );
             return;
         }
@@ -561,13 +571,16 @@ export class StorageManager {
         this.revisions.set(checkpointData.stackId, checkpointData.revision || currentRev + 1);
 
         const stackObj = this.state.stacks.get(checkpointData.stackId);
-        emitMonitoringEvent({ monitor: stackObj?.monitor }, {
-            type: 'checkpoint:save',
-            stackId: checkpointData.stackId,
-            status: checkpointData.status,
-            timestamp: checkpointData.timestamp || Date.now(),
-            namespace: checkpointData.namespace
-        });
+        emitMonitoringEvent(
+            { monitor: stackObj?.monitor },
+            {
+                type: 'checkpoint:save',
+                stackId: checkpointData.stackId,
+                status: checkpointData.status,
+                timestamp: checkpointData.timestamp || Date.now(),
+                namespace: checkpointData.namespace,
+            },
+        );
 
         if (this.adapter?.saveCheckpoint) {
             try {
@@ -597,13 +610,17 @@ export class StorageManager {
 
     restoreCheckpoint(
         checkpointData: SerializedExecutionStack,
-        options?: { expectedNamespace?: string; expectedWorkflowId?: string }
+        options?: { expectedNamespace?: string; expectedWorkflowId?: string },
     ): string {
         if (!checkpointData || !checkpointData.stackId) {
-            throw new Error("Invalid checkpoint data.");
+            throw new Error('Invalid checkpoint data.');
         }
 
-        if (checkpointData.version !== undefined && typeof checkpointData.version === 'number' && checkpointData.version > 2) {
+        if (
+            checkpointData.version !== undefined &&
+            typeof checkpointData.version === 'number' &&
+            checkpointData.version > 2
+        ) {
             throw new CheckpointVersionException(checkpointData.version);
         }
 
@@ -616,23 +633,23 @@ export class StorageManager {
         this.revisions.set(checkpointData.stackId, rev);
 
         this.state.stacks.set(checkpointData.stackId, {
-            type: checkpointData.type || "execution",
+            type: checkpointData.type || 'execution',
             chains: Array.isArray(checkpointData.chains) ? [...checkpointData.chains] : [],
             namespace: checkpointData.namespace,
             workflowId: checkpointData.workflowId,
             status: checkpointData.status || Status.RUNNING,
             revision: rev,
             expiresAt: checkpointData.expiresAt,
-            metadata: checkpointData.metadata
+            metadata: checkpointData.metadata,
         });
 
         if (checkpointData.contexts) {
             for (const [stepId, fields] of Object.entries(checkpointData.contexts)) {
-                if (fields && typeof fields === "object") {
+                if (fields && typeof fields === 'object') {
                     for (const [field, value] of Object.entries(fields)) {
                         this.putChainContext(stepId, field, value, {
                             stackId: checkpointData.stackId,
-                            namespace: checkpointData.namespace
+                            namespace: checkpointData.namespace,
                         });
                     }
                 }
@@ -654,7 +671,7 @@ export class StorageManager {
                 status: sVal.status,
                 revision: sVal.revision,
                 workflowId: sVal.workflowId,
-                expiresAt: sVal.expiresAt
+                expiresAt: sVal.expiresAt,
             };
         }
         const contexts: Record<string, Record<string, any>> = {};
@@ -662,7 +679,7 @@ export class StorageManager {
             const rawCtx: Record<string, any> = {};
             for (const [key, fnOrVal] of Object.entries(ctx)) {
                 if (key !== VALIDATORS) {
-                    rawCtx[key] = typeof fnOrVal === "function" ? fnOrVal() : fnOrVal;
+                    rawCtx[key] = typeof fnOrVal === 'function' ? fnOrVal() : fnOrVal;
                 }
             }
             contexts[cId] = rawCtx;
@@ -672,19 +689,19 @@ export class StorageManager {
             timestamp: Date.now(),
             config: this.state.config ? { ...this.state.config } : {},
             stacks,
-            contexts
+            contexts,
         };
         return JSON.stringify(stateObj);
     }
 
     hydrateState(
         serialized: string | SerializedStorageState | SerializedExecutionStack,
-        options?: { expectedNamespace?: string }
+        options?: { expectedNamespace?: string },
     ): string | undefined {
         if (!serialized) {
-            throw new Error("Cannot hydrate empty state.");
+            throw new Error('Cannot hydrate empty state.');
         }
-        const data = typeof serialized === "string" ? JSON.parse(serialized) : serialized;
+        const data = typeof serialized === 'string' ? JSON.parse(serialized) : serialized;
         let restoredId: string | undefined;
         if (data.stackId) {
             return this.restoreCheckpoint(data as SerializedExecutionStack, options);
@@ -700,19 +717,19 @@ export class StorageManager {
                 const rev = sVal.revision || 1;
                 this.revisions.set(sId, rev);
                 this.state.stacks.set(sId, {
-                    type: sVal.type || "execution",
+                    type: sVal.type || 'execution',
                     chains: Array.isArray(sVal.chains) ? [...sVal.chains] : [],
                     namespace: sVal.namespace,
                     status: sVal.status || Status.RUNNING,
                     revision: rev,
                     workflowId: sVal.workflowId,
-                    expiresAt: sVal.expiresAt
+                    expiresAt: sVal.expiresAt,
                 });
             }
         }
         if (data.contexts) {
             for (const [stepId, fields] of Object.entries(data.contexts as Record<string, any>)) {
-                if (fields && typeof fields === "object") {
+                if (fields && typeof fields === 'object') {
                     for (const [field, value] of Object.entries(fields)) {
                         this.putChainContext(stepId, field, value);
                     }
@@ -734,10 +751,10 @@ export const defaultStorageManager = new StorageManager();
 export const storage: StorageHolder = {
     __$store: (id: string) => {
         if (id !== STORE_ID) {
-            throw new Error("Unauthorized storage access");
+            throw new Error('Unauthorized storage access');
         }
         return defaultStorageManager.snapshot();
-    }
+    },
 };
 
 export function useStorage(adapter: StorageAdapter): void {
@@ -824,7 +841,9 @@ export function setGetChainContextPlugin(plugin: any): void {
     defaultStorageManager.setGetChainContextPlugin(plugin);
 }
 
-export function setPutChainContextPlugin(plugin: (stepId: string, field: string, getter: () => any, meta?: PutChainContextMeta) => void): void {
+export function setPutChainContextPlugin(
+    plugin: (stepId: string, field: string, getter: () => any, meta?: PutChainContextMeta) => void,
+): void {
     defaultStorageManager.setPutChainContextPlugin(plugin);
 }
 
@@ -838,7 +857,7 @@ export function getCheckpoint(stackId: string): Promise<SerializedExecutionStack
 
 export function restoreCheckpoint(
     checkpointData: SerializedExecutionStack,
-    options?: { expectedNamespace?: string; expectedWorkflowId?: string }
+    options?: { expectedNamespace?: string; expectedWorkflowId?: string },
 ): string {
     return defaultStorageManager.restoreCheckpoint(checkpointData, options);
 }
@@ -849,7 +868,7 @@ export function serializeState(stackId?: string): string {
 
 export function hydrateState(
     serialized: string | SerializedStorageState | SerializedExecutionStack,
-    options?: { expectedNamespace?: string }
+    options?: { expectedNamespace?: string },
 ): string | undefined {
     return defaultStorageManager.hydrateState(serialized, options);
 }

@@ -8,7 +8,7 @@ import {
     installNetworkInterceptors,
     uninstallNetworkInterceptors,
     isNetworkInterceptorsInstalled,
-    ensureNetworkInterceptorsInstalled
+    ensureNetworkInterceptorsInstalled,
 } from './interceptor';
 import { networkPolicyStorage } from './storage';
 import { NetworkPolicyViolationException } from '../executer/exceptions';
@@ -22,21 +22,21 @@ describe('Multi-Layer Network Interceptor Tests', () => {
     let unixServer: net.Server;
     const unixSocketPath = `/tmp/fluid_func_test_${Date.now()}.sock`;
 
-    before((done) => {
+    before(done => {
         httpServer = http.createServer((_req, res) => {
             res.writeHead(200, { 'Content-Type': 'text/plain', connection: 'close' });
             res.end('ok');
         });
         httpServer.listen(0, '127.0.0.1', () => {
             httpPort = (httpServer.address() as net.AddressInfo).port;
-            unixServer = net.createServer((c) => c.end());
+            unixServer = net.createServer(c => c.end());
             unixServer.listen(unixSocketPath, () => {
                 done();
             });
         });
     });
 
-    after((done) => {
+    after(done => {
         (httpServer as any).closeAllConnections?.();
         (unixServer as any).closeAllConnections?.();
         (globalThis as any).fetch = initialGlobalFetch;
@@ -95,18 +95,22 @@ describe('Multi-Layer Network Interceptor Tests', () => {
 
             // fetch when unmanaged
             const res = await fetch(`http://127.0.0.1:${httpPort}/`, {
-                headers: { connection: 'close' }
+                headers: { connection: 'close' },
             });
             expect(res.status).to.equal(200);
 
             // http when unmanaged
-            await new Promise<void>((resolve) => {
-                const req = http.request(`http://127.0.0.1:${httpPort}/`, {
-                    headers: { connection: 'close' }
-                }, (r) => {
-                    r.resume();
-                    r.on('end', () => resolve());
-                });
+            await new Promise<void>(resolve => {
+                const req = http.request(
+                    `http://127.0.0.1:${httpPort}/`,
+                    {
+                        headers: { connection: 'close' },
+                    },
+                    r => {
+                        r.resume();
+                        r.on('end', () => resolve());
+                    },
+                );
                 req.end();
             });
 
@@ -117,7 +121,7 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             httpsReq.destroy();
 
             // socket connect when unmanaged
-            await new Promise<void>((resolve) => {
+            await new Promise<void>(resolve => {
                 const sock = net.connect(httpPort, '127.0.0.1', () => {
                     sock.end();
                     resolve();
@@ -137,7 +141,7 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'chargeStep'
+                stepName: 'chargeStep',
             };
 
             await networkPolicyStorage.run(policy, async () => {
@@ -152,7 +156,9 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                     expect(err.allowedHosts).to.deep.equal(['api.stripe.com']);
                     expect(err.retryable).to.be.false;
                     expect(err.phase).to.equal('action');
-                    expect(err.message).to.include("Step 'chargeStep' attempted unauthorized network call to 'evil.com'");
+                    expect(err.message).to.include(
+                        "Step 'chargeStep' attempted unauthorized network call to 'evil.com'",
+                    );
                 }
             });
         });
@@ -163,7 +169,7 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'testStep'
+                stepName: 'testStep',
             };
 
             await networkPolicyStorage.run(policy, async () => {
@@ -195,14 +201,14 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'customInputStep'
+                stepName: 'customInputStep',
             };
 
             await networkPolicyStorage.run(policy, async () => {
                 const customObj = {
                     toString() {
                         return 'https://blocked-custom.org/test';
-                    }
+                    },
                 };
                 try {
                     await fetch(customObj as any);
@@ -220,7 +226,7 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'authorizedStep'
+                stepName: 'authorizedStep',
             };
 
             let capturedInValidatedScope = false;
@@ -250,7 +256,7 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'invalidUrlStep'
+                stepName: 'invalidUrlStep',
             };
 
             uninstallNetworkInterceptors();
@@ -283,13 +289,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             installNetworkInterceptors();
         });
 
-        it('supports URL objects and unparseable target strings in http.request', (done) => {
+        it('supports URL objects and unparseable target strings in http.request', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'httpRequestUrlStep'
+                stepName: 'httpRequestUrlStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -307,13 +313,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('blocks unauthorized http.request and emits NetworkPolicyViolationException on error event', (done) => {
+        it('blocks unauthorized http.request and emits NetworkPolicyViolationException on error event', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'httpRequestStep'
+                stepName: 'httpRequestStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -327,13 +333,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('blocks unauthorized http.get and exercises BlockedClientRequest dummy methods', (done) => {
+        it('blocks unauthorized http.get and exercises BlockedClientRequest dummy methods', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'httpGetStep'
+                stepName: 'httpGetStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -361,13 +367,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('blocks unauthorized https.request and https.get', (done) => {
+        it('blocks unauthorized https.request and https.get', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'httpsStep'
+                stepName: 'httpsStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -380,33 +386,37 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('allows authorized http.request and marks socket as validated', (done) => {
+        it('allows authorized http.request and marks socket as validated', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'allowedHttp'
+                stepName: 'allowedHttp',
             };
 
             networkPolicyStorage.run(policy, () => {
-                const req = http.get(`http://127.0.0.1:${httpPort}/`, {
-                    headers: { connection: 'close' }
-                }, (res) => {
-                    expect(res.statusCode).to.equal(200);
-                    done();
-                });
+                const req = http.get(
+                    `http://127.0.0.1:${httpPort}/`,
+                    {
+                        headers: { connection: 'close' },
+                    },
+                    res => {
+                        expect(res.statusCode).to.equal(200);
+                        done();
+                    },
+                );
                 req.on('error', done);
             });
         });
 
-        it('allows authorized https.request and marks socket as validated', (done) => {
+        it('allows authorized https.request and marks socket as validated', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'allowedHttps'
+                stepName: 'allowedHttps',
             };
 
             uninstallNetworkInterceptors();
@@ -436,13 +446,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             installNetworkInterceptors();
         });
 
-        it('blocks raw unauthorized TCP connection and emits NetworkPolicyViolationException on socket error', (done) => {
+        it('blocks raw unauthorized TCP connection and emits NetworkPolicyViolationException on socket error', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'rawTcpStep'
+                stepName: 'rawTcpStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -457,13 +467,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('blocks raw TCP connection with (port, host) arguments format', (done) => {
+        it('blocks raw TCP connection with (port, host) arguments format', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['api.stripe.com'],
                 allowLocalhost: true,
-                stepName: 'rawTcpArgStep'
+                stepName: 'rawTcpArgStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -477,14 +487,14 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('permits Unix domain sockets when explicitly in allowUnixSockets', (done) => {
+        it('permits Unix domain sockets when explicitly in allowUnixSockets', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: [],
                 allowLocalhost: true,
                 allowUnixSockets: [unixSocketPath],
-                stepName: 'unixStep'
+                stepName: 'unixStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -499,13 +509,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('blocks unauthorized Unix domain sockets when not in allowUnixSockets', (done) => {
+        it('blocks unauthorized Unix domain sockets when not in allowUnixSockets', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: [],
                 allowLocalhost: true,
-                stepName: 'unixStep'
+                stepName: 'unixStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -519,13 +529,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('bypasses socket connect when socket is already validated or in inValidatedScope', (done) => {
+        it('bypasses socket connect when socket is already validated or in inValidatedScope', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: [],
                 allowLocalhost: true,
-                stepName: 'validatedSocketStep'
+                stepName: 'validatedSocketStep',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -544,17 +554,17 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('supports http.request and https.request called with options object', (done) => {
+        it('supports http.request and https.request called with options object', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['127.0.0.1'],
                 allowLocalhost: true,
-                stepName: 'optionsStep'
+                stepName: 'optionsStep',
             };
 
             networkPolicyStorage.run(policy, () => {
-                const req = http.request({ hostname: '127.0.0.1', port: httpPort, method: 'GET' }, (res) => {
+                const req = http.request({ hostname: '127.0.0.1', port: httpPort, method: 'GET' }, res => {
                     expect(res.statusCode).to.equal(200);
                     const httpsReq = https.request({ hostname: '127.0.0.1', port: 443, method: 'GET' });
                     httpsReq.on('error', () => {});
@@ -565,13 +575,34 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('catches DNS rebinding to restricted IP via wrapLookup in http.request', (done) => {
+        it('supports http.request and https.request called with string URL without options object', done => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: ['127.0.0.1'],
+                allowLocalhost: true,
+                stepName: 'urlOnlyStep',
+            };
+
+            networkPolicyStorage.run(policy, () => {
+                const req = http.request(`http://127.0.0.1:${httpPort}`, res => {
+                    expect(res.statusCode).to.equal(200);
+                    const httpsReq = https.request('https://127.0.0.1:443', () => {});
+                    httpsReq.on('error', () => {});
+                    httpsReq.destroy();
+                    done();
+                });
+                req.end();
+            });
+        });
+
+        it('catches DNS rebinding to restricted IP via wrapLookup in http.request', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['public-service.com'],
                 allowLocalhost: false,
-                stepName: 'dnsRebindHttp'
+                stepName: 'dnsRebindHttp',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -583,10 +614,10 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 const req = http.request({
                     hostname: 'public-service.com',
                     port: 80,
-                    lookup: customLookup
+                    lookup: customLookup,
                 });
 
-                req.on('error', (err) => {
+                req.on('error', err => {
                     expect(err).to.be.instanceOf(NetworkPolicyViolationException);
                     expect(err.message).to.include('restricted IP');
                     done();
@@ -594,13 +625,13 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
-        it('passes through DNS lookup error in wrapLookup', (done) => {
+        it('passes through DNS lookup error in wrapLookup', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['public-service.com'],
                 allowLocalhost: false,
-                stepName: 'dnsErrorHttp'
+                stepName: 'dnsErrorHttp',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -612,23 +643,23 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 const req = http.request({
                     hostname: 'public-service.com',
                     port: 80,
-                    lookup: customLookup
+                    lookup: customLookup,
                 });
 
-                req.on('error', (err) => {
+                req.on('error', err => {
                     expect(err.message).to.include('DNS resolution error');
                     done();
                 });
             });
         });
 
-        it('permits public IP via wrapLookup', (done) => {
+        it('permits public IP via wrapLookup', done => {
             const policy = {
                 enabled: true,
                 defaultPolicy: 'deny' as const,
                 allowedHosts: ['public-service.com'],
                 allowLocalhost: false,
-                stepName: 'dnsPublicHttp'
+                stepName: 'dnsPublicHttp',
             };
 
             networkPolicyStorage.run(policy, () => {
@@ -640,7 +671,7 @@ describe('Multi-Layer Network Interceptor Tests', () => {
                 const req = http.request({
                     hostname: 'public-service.com',
                     port: 80,
-                    lookup: customLookup
+                    lookup: customLookup,
                 });
 
                 let called = false;

@@ -335,8 +335,8 @@ Siglo uses optimistic concurrency control to prevent multiple distributed worker
 
 ## Related Topic Guides
 
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [07. Storage and Adapters](../07-storage-and-adapters.md)
-- [Storage and Checkpoint Contract](../storage-contract.md)
-- [Durable Waits Contract](../durable-waits.md)
-- [Ecosystem Adapters Overview](../ecosystem-adapters.md)
+- [06. Durable Workflows](/06-durable-workflows)
+- [07. Storage and Adapters](/07-storage-and-adapters)
+- [Storage and Checkpoint Contract](/storage-contract)
+- [Durable Waits Contract](/durable-waits)
+- [Ecosystem Adapters Overview](/ecosystem-adapters)

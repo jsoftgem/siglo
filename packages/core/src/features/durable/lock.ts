@@ -8,6 +8,9 @@ export async function withLocalWorkflowLock<T>(stackId: string, action: () => Pr
     if (held.has(stackId)) throw new DuplicateEventException(stackId);
     const owner = Symbol(stackId);
     held.set(stackId, owner);
-    try { return await scope.run(new Map([...(scope.getStore() ?? []), [stackId, owner]]), action); }
-    finally { held.delete(stackId); }
+    try {
+        return await scope.run(new Map([...(scope.getStore() ?? []), [stackId, owner]]), action);
+    } finally {
+        held.delete(stackId);
+    }
 }

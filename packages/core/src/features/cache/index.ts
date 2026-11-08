@@ -11,7 +11,7 @@ import {
     WORKFLOW_ID,
     NAMESPACE,
     NAMESPACE_KEY,
-    STACK_ID_KEY
+    STACK_ID_KEY,
 } from '../../shared';
 import { cacheChainAction, clearCache, defaultStorageManager, getCachedChainAction, hasCached } from '../storage';
 import { toPOJO } from '../context';
@@ -33,13 +33,13 @@ export function cache(
     cachedLast: number,
     action: (param: any) => any,
     namespace?: string,
-    options?: CacheOptions
+    options?: CacheOptions,
 ): any {
     const adapter = defaultStorageManager.getStorageAdapter();
     const cleanParam = toPOJO(param);
     const paramToHash = Object.assign({}, cleanParam);
     const internalKeys = [
-            STEP_ID,
+        STEP_ID,
         STACK_ID,
         VALIDATORS,
         STEPS,
@@ -50,7 +50,7 @@ export function cache(
         'raw',
         ATTEMPT,
         RETRY_DELAY,
-        WORKFLOW_ID
+        WORKFLOW_ID,
     ];
     for (const ik of internalKeys) {
         delete paramToHash[ik];
@@ -59,18 +59,15 @@ export function cache(
     delete paramToHash[NAMESPACE_KEY];
     delete paramToHash[STACK_ID_KEY];
 
-    const customSerializer = options?.keySerializer || (defaultStorageManager.getState().config?.cacheKeySerializer);
-    const paramKey = customSerializer
-        ? customSerializer(stepId, paramToHash, namespace)
-        : JSON.stringify(paramToHash);
+    const customSerializer = options?.keySerializer || defaultStorageManager.getState().config?.cacheKeySerializer;
+    const paramKey = customSerializer ? customSerializer(stepId, paramToHash, namespace) : JSON.stringify(paramToHash);
 
-    const effectiveCacheKey = namespace
-        ? `${namespace}:${stepId}:${paramKey}`
-        : `${stepId}:${paramKey}`;
+    const effectiveCacheKey = namespace ? `${namespace}:${stepId}:${paramKey}` : `${stepId}:${paramKey}`;
 
-    const swrWindow = typeof options?.swr === 'number'
-        ? options.swr
-        : (options?.staleWhileRevalidate || (options?.swr ? cachedLast : 0));
+    const swrWindow =
+        typeof options?.swr === 'number'
+            ? options.swr
+            : options?.staleWhileRevalidate || (options?.swr ? cachedLast : 0);
 
     // 1. In-Memory Cache Lookup
     if (hasCached(stackId, effectiveCacheKey, paramKey)) {
@@ -85,7 +82,7 @@ export function cache(
                 stepId,
                 stackId,
                 namespace,
-                timestamp: currentTime
+                timestamp: currentTime,
             });
             return cachedAction.result;
         } else if (swrWindow > 0 && currentTime <= expirationTime + swrWindow) {
@@ -95,7 +92,7 @@ export function cache(
                 stepId,
                 stackId,
                 namespace,
-                timestamp: currentTime
+                timestamp: currentTime,
             });
             // Background revalidation
             Promise.resolve().then(async () => {
@@ -136,8 +133,8 @@ export function cache(
                         key: effectiveCacheKey,
                         stepId,
                         stackId,
-                namespace,
-                timestamp: Date.now()
+                        namespace,
+                        timestamp: Date.now(),
                     });
                     cacheChainAction(stackId, effectiveCacheKey, paramKey, adapterCached);
                     return adapterCached;
@@ -152,7 +149,7 @@ export function cache(
                 stepId,
                 stackId,
                 namespace,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
 
             const actionResult = await action(param);
@@ -169,7 +166,9 @@ export function cache(
 
         if (useStampedeProtection) {
             inFlightPromises.set(effectiveCacheKey, executionPromise);
-            const clean = () => { inFlightPromises.delete(effectiveCacheKey); };
+            const clean = () => {
+                inFlightPromises.delete(effectiveCacheKey);
+            };
             executionPromise.then(clean, clean);
         }
         return executionPromise;
@@ -180,14 +179,14 @@ export function cache(
         key: effectiveCacheKey,
         stepId,
         stackId,
-                namespace,
-                timestamp: Date.now()
+        namespace,
+        timestamp: Date.now(),
     });
 
     // 4. Local Execution
     const rawResult = action(param);
     if (rawResult instanceof Promise) {
-        const executionPromise = rawResult.then(async (val) => {
+        const executionPromise = rawResult.then(async val => {
             cacheChainAction(stackId, effectiveCacheKey, paramKey, val);
             if (adapter?.setCachedStep) {
                 try {
@@ -201,7 +200,9 @@ export function cache(
 
         if (useStampedeProtection) {
             inFlightPromises.set(effectiveCacheKey, executionPromise);
-            const clean = () => { inFlightPromises.delete(effectiveCacheKey); };
+            const clean = () => {
+                inFlightPromises.delete(effectiveCacheKey);
+            };
             executionPromise.then(clean, clean);
         }
         return executionPromise;

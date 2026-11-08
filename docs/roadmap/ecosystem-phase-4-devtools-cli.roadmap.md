@@ -3,7 +3,7 @@
 > **Status: Completed & Validated (2026-11-04)**<br>
 > All required Phase 4 deliverables (**4A–4D**) are fully implemented, tested, and validated across the monorepo with 100% coverage requirements in `@siglo/core`.
 > Optional conveniences under **4E** were evaluated and intentionally deferred or declined with documented rationale.
-> Detailed developer guides and configuration instructions are documented in [docs/ecosystem-devtools.md](../ecosystem-devtools.md) and [packages/cli/ECOSYSTEM.md](../../packages/cli/ECOSYSTEM.md).
+> Detailed developer guides and configuration instructions are documented in [docs/ecosystem-devtools.md](/ecosystem-devtools) and [packages/cli/ECOSYSTEM.md](https://github.com/jsoftgem/siglo/blob/main/packages/cli/ECOSYSTEM.md).
 
 ---
 

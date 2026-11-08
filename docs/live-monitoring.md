@@ -5,7 +5,7 @@ description: "Real-time DAG topology visualization, execution state diff inspect
 
 # Live Monitoring & DevTools
 
-Follow [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md) for a runnable Express checkout with HTTP requests, live events, and failure inspection.
+Follow [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring) for a runnable Express checkout with HTTP requests, live events, and failure inspection.
 
 `Siglo` provides complete real-time live monitoring, dynamic DAG topology visualization, execution state diff inspection, and interactive DevTools for complex asynchronous workflows.
 

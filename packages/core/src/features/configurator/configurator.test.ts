@@ -4,65 +4,90 @@ import { getLogger } from './getLogger';
 import Configurator from './index';
 
 describe('configurator.unit.test', () => {
-
     it('throws an error when plugin is missing .name', () => {
         expect(() => {
-            getPlugins({}, {
-                plugins: [{}]
-            });
+            getPlugins(
+                {},
+                {
+                    plugins: [{}],
+                },
+            );
         }).to.throw('plugin must have .name');
     });
 
     it('throw error when plugin is missing action', () => {
         expect(() => {
-            getPlugins({}, {
-                plugins: [{
-                    name: 'Sample'
-                }]
-            });
+            getPlugins(
+                {},
+                {
+                    plugins: [
+                        {
+                            name: 'Sample',
+                        },
+                    ],
+                },
+            );
         }).to.throw('plugin must have .action function');
     });
 
     it('throw error when plugin is missing before or after chains', () => {
         expect(() => {
-            getPlugins({}, {
-                plugins: [{
-                    name: 'Sample',
-                    action: () => { }
-                }]
-            });
+            getPlugins(
+                {},
+                {
+                    plugins: [
+                        {
+                            name: 'Sample',
+                            action: () => {},
+                        },
+                    ],
+                },
+            );
         }).to.throw('plugin must have alteast one .before or .after array');
     });
 
     it('throw error when plugins is not an array', () => {
         expect(() => {
-            getPlugins({}, {
-                plugins: 'invalid' as any
-            });
+            getPlugins(
+                {},
+                {
+                    plugins: 'invalid' as any,
+                },
+            );
         }).to.throw('plugins must be array');
     });
 
     it('throw error when plugin.before is not an array', () => {
         expect(() => {
-            getPlugins({}, {
-                plugins: [{
-                    name: 'Sample',
-                    action: () => {},
-                    before: 'notAnArray' as any
-                }]
-            });
+            getPlugins(
+                {},
+                {
+                    plugins: [
+                        {
+                            name: 'Sample',
+                            action: () => {},
+                            before: 'notAnArray' as any,
+                        },
+                    ],
+                },
+            );
         }).to.throw('plugin.before must be array');
     });
 
     it('throw error when plugin.after is not an array', () => {
         expect(() => {
-            getPlugins({}, {
-                plugins: [{
-                    name: 'Sample',
-                    action: () => {},
-                    after: 'notAnArray' as any
-                }]
-            });
+            getPlugins(
+                {},
+                {
+                    plugins: [
+                        {
+                            name: 'Sample',
+                            action: () => {},
+                            after: 'notAnArray' as any,
+                        },
+                    ],
+                },
+            );
         }).to.throw('plugin.after must be array');
     });
 
@@ -70,18 +95,22 @@ describe('configurator.unit.test', () => {
         const config: any = {};
         let counter = 0;
         getPlugins(config, {
-            plugins: [{
-                name: 'Sample',
-                action: () => {
-                    counter++;
+            plugins: [
+                {
+                    name: 'Sample',
+                    action: () => {
+                        counter++;
+                    },
+                    before: ['chain1', 'chain2', 'chain3'],
                 },
-                before: ['chain1', 'chain2', 'chain3']
-            }]
+            ],
         });
         expect(config.plugins).to.be.not.undefined;
-        Object.keys(config.plugins).filter(key => key.indexOf('before') > -1).forEach(key => {
-            config.plugins[key][0].action();
-        });
+        Object.keys(config.plugins)
+            .filter(key => key.indexOf('before') > -1)
+            .forEach(key => {
+                config.plugins[key][0].action();
+            });
         expect(counter).to.be.equal(3);
     });
 
@@ -89,41 +118,54 @@ describe('configurator.unit.test', () => {
         const config: any = {};
         let counter = 0;
         getPlugins(config, {
-            plugins: [{
-                name: 'Sample',
-                action: () => {
-                    counter++;
+            plugins: [
+                {
+                    name: 'Sample',
+                    action: () => {
+                        counter++;
+                    },
+                    after: ['chain1', 'chain2', 'chain3'],
                 },
-                after: ['chain1', 'chain2', 'chain3']
-            }]
+            ],
         });
         expect(config.plugins).to.be.not.undefined;
-        Object.keys(config.plugins).filter(key => key.indexOf('after') > -1).forEach(key => {
-            config.plugins[key][0].action();
-        });
+        Object.keys(config.plugins)
+            .filter(key => key.indexOf('after') > -1)
+            .forEach(key => {
+                config.plugins[key][0].action();
+            });
         expect(counter).to.be.equal(3);
     });
 
     it('should extends existing plugins', () => {
         const config: any = {};
         const plugins: any = {
-            'before_everything': [{
-                name: 'sample',
-                action: () => { }
-            }]
+            before_everything: [
+                {
+                    name: 'sample',
+                    action: () => {},
+                },
+            ],
         };
-        getPlugins(config, {
-            plugins: [{
-                name: 'sample',
-                action: () => { },
-                before: ['everything', 'everything2'],
-                after: ['everything']
-            }, {
-                name: 'sample2',
-                action: () => { },
-                before: ['everything']
-            }]
-        }, plugins);
+        getPlugins(
+            config,
+            {
+                plugins: [
+                    {
+                        name: 'sample',
+                        action: () => {},
+                        before: ['everything', 'everything2'],
+                        after: ['everything'],
+                    },
+                    {
+                        name: 'sample2',
+                        action: () => {},
+                        before: ['everything'],
+                    },
+                ],
+            },
+            plugins,
+        );
         expect(config.plugins.after_everything).to.be.not.undefined;
         expect(config.plugins.before_everything).to.be.not.undefined;
         expect(config.plugins.before_everything2).to.be.not.undefined;
@@ -162,11 +204,10 @@ describe('configurator.unit.test', () => {
                 {
                     name: 'PluginX',
                     action: () => 'result',
-                    before: ['target1']
-                }
-            ]
+                    before: ['target1'],
+                },
+            ],
         });
         expect(new Configurator()).to.be.an.instanceOf(Configurator);
     });
-
 });

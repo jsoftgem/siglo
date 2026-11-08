@@ -1,4 +1,7 @@
-export function combineAbortSignals(signals: (AbortSignal | undefined)[]): { signal?: AbortSignal; cleanup: () => void } {
+export function combineAbortSignals(signals: (AbortSignal | undefined)[]): {
+    signal?: AbortSignal;
+    cleanup: () => void;
+} {
     const active = signals.filter((s): s is AbortSignal => !!s && typeof (s as any).addEventListener === 'function');
     if (active.length === 0) {
         return { signal: undefined, cleanup: () => {} };

@@ -15,7 +15,7 @@ import {
     generateStep,
     exportWorkflow,
     startMonitor,
-    reconcileCommand
+    reconcileCommand,
 } from './index';
 
 describe('@siglo/cli Developer Tools Suite', () => {
@@ -65,13 +65,13 @@ describe('@siglo/cli Developer Tools Suite', () => {
         const calculateFlow = flow(
             Step.create('calc', async ({ amount }: any) => ({
                 doubled: amount * 2,
-                status: 'OK'
-            }))
+                status: 'OK',
+            })),
         );
 
         const fixture = {
             initialParam: { amount: 25 },
-            expectedOutputs: { doubled: 50, status: 'OK' }
+            expectedOutputs: { doubled: 50, status: 'OK' },
         };
 
         const result = await replayFixture(calculateFlow, fixture);
@@ -81,19 +81,17 @@ describe('@siglo/cli Developer Tools Suite', () => {
     });
 
     it('detects output diff in replayFixture when expectations fail', async () => {
-        const dummyFlow = flow(
-            Step.create('dummy', async () => ({ value: 100 }))
-        );
+        const dummyFlow = flow(Step.create('dummy', async () => ({ value: 100 })));
 
         const fixture = {
             initialParam: {},
-            expectedOutputs: { value: 999 }
+            expectedOutputs: { value: 999 },
         };
 
         const result = await replayFixture(dummyFlow, fixture);
         expect(result.success).to.be.false;
         expect(result.diff).to.deep.equal({
-            value: { expected: 999, actual: 100 }
+            value: { expected: 999, actual: 100 },
         });
     });
 
@@ -106,9 +104,9 @@ describe('@siglo/cli Developer Tools Suite', () => {
             contexts: {
                 'step-1': {
                     secretKey: 'top-secret-token',
-                    publicStatus: 'READY'
-                }
-            }
+                    publicStatus: 'READY',
+                },
+            },
         };
 
         const inspected = inspectCheckpoint(checkpoint, { redact: ['secretKey'] });
@@ -134,45 +132,45 @@ describe('@siglo/cli Developer Tools Suite', () => {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
     });
-    it("scaffolds typed workflow files via generateWorkflow", () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "siglo-cli-wf-test-"));
+    it('scaffolds typed workflow files via generateWorkflow', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'siglo-cli-wf-test-'));
         try {
-            const res = generateWorkflow("order-processing", tempDir);
+            const res = generateWorkflow('order-processing', tempDir);
             expect(fs.existsSync(res.filePath)).to.be.true;
             expect(fs.existsSync(res.testPath)).to.be.true;
-            const wfContent = fs.readFileSync(res.filePath, "utf-8");
-            expect(wfContent).to.include("OrderProcessingInput");
-            expect(wfContent).to.include("orderProcessingWorkflow");
+            const wfContent = fs.readFileSync(res.filePath, 'utf-8');
+            expect(wfContent).to.include('OrderProcessingInput');
+            expect(wfContent).to.include('orderProcessingWorkflow');
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
     });
 
-    it("scaffolds typed step files via generateStep", () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "siglo-cli-step-test-"));
+    it('scaffolds typed step files via generateStep', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'siglo-cli-step-test-'));
         try {
-            const res = generateStep("authorize-payment", tempDir);
+            const res = generateStep('authorize-payment', tempDir);
             expect(fs.existsSync(res.filePath)).to.be.true;
             expect(fs.existsSync(res.testPath)).to.be.true;
-            const stepContent = fs.readFileSync(res.filePath, "utf-8");
-            expect(stepContent).to.include("AuthorizePaymentInput");
-            expect(stepContent).to.include("authorizePaymentStep");
+            const stepContent = fs.readFileSync(res.filePath, 'utf-8');
+            expect(stepContent).to.include('AuthorizePaymentInput');
+            expect(stepContent).to.include('authorizePaymentStep');
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
     });
-    it("exports workflow diagrams via exportWorkflow", () => {
-        const wf = flow(Step.create("s1", async () => ({})));
-        const mermaid = exportWorkflow(wf, { format: "mermaid", direction: "LR" });
-        expect(mermaid).to.include("flowchart LR");
-        expect(mermaid).to.include("s1");
+    it('exports workflow diagrams via exportWorkflow', () => {
+        const wf = flow(Step.create('s1', async () => ({})));
+        const mermaid = exportWorkflow(wf, { format: 'mermaid', direction: 'LR' });
+        expect(mermaid).to.include('flowchart LR');
+        expect(mermaid).to.include('s1');
 
-        const dot = exportWorkflow(wf, { format: "dot" });
-        expect(dot).to.include("digraph");
-        expect(dot).to.include("s1");
+        const dot = exportWorkflow(wf, { format: 'dot' });
+        expect(dot).to.include('digraph');
+        expect(dot).to.include('s1');
 
-        const json = exportWorkflow(wf, { format: "json" });
-        expect(JSON.parse(json)).to.have.property("name", "s1");
+        const json = exportWorkflow(wf, { format: 'json' });
+        expect(JSON.parse(json)).to.have.property('name', 's1');
     });
     it('starts live monitoring server via startMonitor', async () => {
         const monitor = await startMonitor({ port: 0 });
@@ -184,14 +182,14 @@ describe('@siglo/cli Developer Tools Suite', () => {
         const staleTime = Date.now() - 10 * 60 * 1000;
         const dummyStacks = [
             { stackId: 'cli-stale-1', status: 'running', timestamp: staleTime, workflowId: 'wf-cli' },
-            { stackId: 'cli-fresh-1', status: 'running', timestamp: Date.now(), workflowId: 'wf-cli' }
+            { stackId: 'cli-fresh-1', status: 'running', timestamp: Date.now(), workflowId: 'wf-cli' },
         ];
 
         // 1. Inspect
         const inspectReport = await reconcileCommand({
             staleThreshold: '5m',
             action: 'inspect',
-            stacks: dummyStacks
+            stacks: dummyStacks,
         });
         expect(inspectReport.inspected).to.equal(2);
         expect(inspectReport.staleStacks).to.have.length(1);
@@ -201,7 +199,7 @@ describe('@siglo/cli Developer Tools Suite', () => {
         const failReport = await reconcileCommand({
             staleThreshold: '5m',
             action: 'fail',
-            stacks: dummyStacks
+            stacks: dummyStacks,
         });
         expect(failReport.reconciled).to.include('cli-stale-1');
 
@@ -212,7 +210,7 @@ describe('@siglo/cli Developer Tools Suite', () => {
                 expect(id).to.equal('cli-stale-1');
                 compensated = true;
                 return { completed: ['step1'], failed: [] };
-            }
+            },
         };
 
         const compReport = await reconcileCommand({
@@ -220,7 +218,7 @@ describe('@siglo/cli Developer Tools Suite', () => {
             action: 'compensate',
             mode: 'best-effort',
             flow: mockFlow,
-            stacks: dummyStacks
+            stacks: dummyStacks,
         });
         expect(compensated).to.be.true;
         expect(compReport.reconciled).to.include('cli-stale-1');

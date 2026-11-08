@@ -12,10 +12,7 @@ export interface StepExecutionContext {
     index?: number;
 }
 
-export type StepExecutionHook = (
-    context: StepExecutionContext,
-    next: () => Promise<any> | any
-) => Promise<any> | any;
+export type StepExecutionHook = (context: StepExecutionContext, next: () => Promise<any> | any) => Promise<any> | any;
 
 export const stepExecutionHookStorage = new AsyncLocalStorage<StepExecutionHook>();
 

@@ -17,23 +17,23 @@ Detailed standalone guides are available for each plugin, adapter, and developer
 
 | Package | Category | Documentation Guide | Key Features |
 | :--- | :--- | :--- | :--- |
-| **`@siglo/crypto`** | Security & Data Confidentiality | [Crypto Security Guide](adapters/crypto.md) | Timing-safe webhook verification, replay defense, AES-256-GCM envelope encryption, PII context redaction |
-| **`@siglo/notifications`** | Notifications & Human Approvals | [Notifications Guide](adapters/notifications.md) / [Notification Hardening](adapters/notification-hardening.md) | Multi-channel transports (Slack, Resend, SendGrid, Twilio, Postmark, Discord, SMTP, Push), HMAC action tokens, distributed durable resumption, saga message invalidation |
-| **`@siglo/ai`** | AI & Generative Inference | [AI Adapter Guide](adapters/ai.md) | Multi-provider LLM step (`aiStep`), structured output JSON schema repair, token usage and cost accounting, automatic model fallback |
-| **`@siglo/monitor`** | Observability & DevTools | [Live Monitoring Guide](live-monitoring.md) / [Monitor Adapter Guide](adapters/monitor.md) | React 18 DevTools SPA, dynamic DAG, latency waterfall, state diffs, SSE/WebSocket, Prometheus `/metrics` |
-| **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](adapters/opentelemetry.md) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
-| **`@siglo/http`** | HTTP Client Egress | [HTTP Client Guide](adapters/http.md) | Resilient client steps, ASL egress perimeter, W3C tracing, Retry-After backoff, sagas |
-| **`@siglo/redis`** | Storage & Caching | [Redis Adapter Guide](adapters/redis.md) | Distributed checkpoints, step caching, atomic idempotency, single-flight mutex |
-| **`@siglo/postgres`** | Storage & Persistence | [PostgreSQL Adapter Guide](adapters/postgres.md) | ACID checkpoints, context mutation audit log, automatic DDL, retention cleanup |
-| **`@siglo/bullmq`** | Queue & Job Worker | [BullMQ Adapter Guide](adapters/bullmq.md) | Redis job queue consumer, job ID deduplication, concurrency control |
-| **`@siglo/kafka`** | Event Streaming | [Kafka Adapter Guide](adapters/kafka.md) | Partitioned consumer, composite idempotency keys, header namespace routing |
-| **`@siglo/sqs`** | Cloud Message Queue | [AWS SQS Adapter Guide](adapters/sqs.md) | AWS Lambda SQS event processor, `ReportBatchItemFailures` partial responses |
-| **`@siglo/hono`** | HTTP Ingress | [Hono Adapter Guide](adapters/hono.md) | Web Standards (`Request`/`Response`), Cloudflare Workers, Deno, Bun, Node.js |
-| **`@siglo/fastify`** | HTTP Ingress | [Fastify Adapter Guide](adapters/fastify.md) | Low-overhead Node.js HTTP route handler, raw abort signals, schema support |
-| **`@siglo/express`** | HTTP Ingress | [Express Adapter Guide](adapters/express.md) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
-| **`@siglo/scheduler`** | Background Schedulers & Timers | [Scheduler Adapter Guide](adapters/scheduler.md) | PostgreSQL advisory poller with session locks, memory poller, and cloud webhook dispatchers (AWS EventBridge, GCP Cloud Tasks) |
-| **`@siglo/testing`** | Testing & Deterministic Replay | [Testing Adapter Guide](adapters/testing.md) | Virtual clocks (`FakeClock`), step spies, step mocks, harness assertions, and failure replay |
-| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](adapters/cli.md) | Scaffolding (`init`, `generate`), AST visualizer (`visualize`), live monitor dev server (`monitor`), cycle validator (`validate`), fixture replay |
+| **`@siglo/crypto`** | Security & Data Confidentiality | [Crypto Security Guide](/adapters/crypto) | Timing-safe webhook verification, replay defense, AES-256-GCM envelope encryption, PII context redaction |
+| **`@siglo/notifications`** | Notifications & Human Approvals | [Notifications Guide](/adapters/notifications) / [Notification Hardening](/adapters/notification-hardening) | Multi-channel transports (Slack, Resend, SendGrid, Twilio, Postmark, Discord, SMTP, Push), HMAC action tokens, distributed durable resumption, saga message invalidation |
+| **`@siglo/ai`** | AI & Generative Inference | [AI Adapter Guide](/adapters/ai) | Multi-provider LLM step (`aiStep`), structured output JSON schema repair, token usage and cost accounting, automatic model fallback |
+| **`@siglo/monitor`** | Observability & DevTools | [Live Monitoring Guide](/live-monitoring) / [Monitor Adapter Guide](/adapters/monitor) | React 18 DevTools SPA, dynamic DAG, latency waterfall, state diffs, SSE/WebSocket, Prometheus `/metrics` |
+| **`@siglo/opentelemetry`** | Observability | [OpenTelemetry Guide](/adapters/opentelemetry) | Distributed tracing, W3C Trace Context, step/retry spans, PII redaction |
+| **`@siglo/http`** | HTTP Client Egress | [HTTP Client Guide](/adapters/http) | Resilient client steps, ASL egress perimeter, W3C tracing, Retry-After backoff, sagas |
+| **`@siglo/redis`** | Storage & Caching | [Redis Adapter Guide](/adapters/redis) | Distributed checkpoints, step caching, atomic idempotency, single-flight mutex |
+| **`@siglo/postgres`** | Storage & Persistence | [PostgreSQL Adapter Guide](/adapters/postgres) | ACID checkpoints, context mutation audit log, automatic DDL, retention cleanup |
+| **`@siglo/bullmq`** | Queue & Job Worker | [BullMQ Adapter Guide](/adapters/bullmq) | Redis job queue consumer, job ID deduplication, concurrency control |
+| **`@siglo/kafka`** | Event Streaming | [Kafka Adapter Guide](/adapters/kafka) | Partitioned consumer, composite idempotency keys, header namespace routing |
+| **`@siglo/sqs`** | Cloud Message Queue | [AWS SQS Adapter Guide](/adapters/sqs) | AWS Lambda SQS event processor, `ReportBatchItemFailures` partial responses |
+| **`@siglo/hono`** | HTTP Ingress | [Hono Adapter Guide](/adapters/hono) | Web Standards (`Request`/`Response`), Cloudflare Workers, Deno, Bun, Node.js |
+| **`@siglo/fastify`** | HTTP Ingress | [Fastify Adapter Guide](/adapters/fastify) | Low-overhead Node.js HTTP route handler, raw abort signals, schema support |
+| **`@siglo/express`** | HTTP Ingress | [Express Adapter Guide](/adapters/express) | Express 4.x/5.x middleware, correlation ID tracking, status code mapping |
+| **`@siglo/scheduler`** | Background Schedulers & Timers | [Scheduler Adapter Guide](/adapters/scheduler) | PostgreSQL advisory poller with session locks, memory poller, and cloud webhook dispatchers (AWS EventBridge, GCP Cloud Tasks) |
+| **`@siglo/testing`** | Testing & Deterministic Replay | [Testing Adapter Guide](/adapters/testing) | Virtual clocks (`FakeClock`), step spies, step mocks, harness assertions, and failure replay |
+| **`@siglo/cli`** | Developer Tooling | [Developer CLI Guide](/adapters/cli) | Scaffolding (`init`, `generate`), AST visualizer (`visualize`), live monitor dev server (`monitor`), cycle validator (`validate`), fixture replay |
 
 ---
 

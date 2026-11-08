@@ -4,10 +4,7 @@ import { flow } from '@siglo/core';
 import { step } from '../engine/step-helper';
 import { CharterResult } from './combinators.explore';
 
-export async function runSagasCharter(
-    iterations: number = 25,
-    seed: number = 2002
-): Promise<CharterResult> {
+export async function runSagasCharter(iterations: number = 25, seed: number = 2002): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -25,18 +22,17 @@ export async function runSagasCharter(
         for (let s = 1; s <= stepCount; s++) {
             const stepName = `step_${s}`;
             let st = step(stepName, async () => {
-                    if (s === failAtStep) {
-                        throw new Error(`Deliberate failure at ${stepName}`);
-                    }
-                    completedSteps.push(stepName);
-                    return { [`${stepName}_done`]: true };
-                })
-                .compensate(async () => {
-                    compensatedSteps.push(stepName);
-                    if (injectCompensationError && s === 1) {
-                        throw new Error(`Injected failure inside compensation for ${stepName}`);
-                    }
-                });
+                if (s === failAtStep) {
+                    throw new Error(`Deliberate failure at ${stepName}`);
+                }
+                completedSteps.push(stepName);
+                return { [`${stepName}_done`]: true };
+            }).compensate(async () => {
+                compensatedSteps.push(stepName);
+                if (injectCompensationError && s === 1) {
+                    throw new Error(`Injected failure inside compensation for ${stepName}`);
+                }
+            });
 
             stepsList.push(st);
         }
@@ -62,6 +58,6 @@ export async function runSagasCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

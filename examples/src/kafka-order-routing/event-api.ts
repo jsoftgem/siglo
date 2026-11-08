@@ -3,7 +3,11 @@ import type { Producer } from 'kafkajs';
 import { publishScenario, scenarios } from './publish';
 
 // This demo endpoint publishes through the worker's already connected producer.
-export async function handlePublishEvent(request: IncomingMessage, response: ServerResponse, producer: Pick<Producer, 'send'>) {
+export async function handlePublishEvent(
+    request: IncomingMessage,
+    response: ServerResponse,
+    producer: Pick<Producer, 'send'>,
+) {
     response.setHeader('Content-Type', 'application/json');
     const reply = (status: number, body: unknown) => {
         response.statusCode = status;

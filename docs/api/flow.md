@@ -88,7 +88,7 @@ flow.run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
 #### Parameters
 
 - `param`: `TInput` *(optional)* &mdash; Initial POJO input parameters passed to the first step.
-- `options`: [`ExecutionOptions`](execution-options.md) *(optional)* &mdash; Runtime options such as `signal`, `timeout`, `services`, `pojo`, `durable`, `namespace`, `stepExecutionHook`, and `idempotencyKey`.
+- `options`: [`ExecutionOptions`](/api/execution-options) *(optional)* &mdash; Runtime options such as `signal`, `timeout`, `services`, `pojo`, `durable`, `namespace`, `stepExecutionHook`, and `idempotencyKey`.
 
 #### Returns
 
@@ -506,12 +506,12 @@ console.log(result.complete); // true
 
 ## Related Topic Guides
 
-- [02. Core Concepts](../02-core-concepts.md)
-- [03. Sequential Workflows](../03-sequential-workflows.md)
-- [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [08. Observability](../08-observability.md)
-- [Network Egress Policy](../network-egress-policy.md)
-- [Compensation and Sagas Contract](../compensation-and-sagas.md)
-- [Live Monitoring and DevTools](../live-monitoring.md)
-- [Workflow Versioning and Migrations](../workflow-versioning.md)
+- [02. Core Concepts](/02-core-concepts)
+- [03. Sequential Workflows](/03-sequential-workflows)
+- [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [06. Durable Workflows](/06-durable-workflows)
+- [08. Observability](/08-observability)
+- [Network Egress Policy](/network-egress-policy)
+- [Compensation and Sagas Contract](/compensation-and-sagas)
+- [Live Monitoring and DevTools](/live-monitoring)
+- [Workflow Versioning and Migrations](/workflow-versioning)

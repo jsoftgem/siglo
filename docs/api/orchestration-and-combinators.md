@@ -729,11 +729,11 @@ Serializes the entire workflow AST into a clean JSON string.
 
 ## Related Topic Guides
 
-- [02. Core Concepts](../02-core-concepts.md)
-- [03. Sequential Workflows](../03-sequential-workflows.md)
-- [04. Branching and Parallelism](../04-branching-and-parallelism.md)
-- [06. Durable Workflows](../06-durable-workflows.md)
-- [08. Observability](../08-observability.md)
-- [Concurrency and Parallelism](../concurrency-and-parallelism.md)
-- [Durable Waits Contract](../durable-waits.md)
-- [Workflow Graph AST](../workflow-graph.md)
+- [02. Core Concepts](/02-core-concepts)
+- [03. Sequential Workflows](/03-sequential-workflows)
+- [04. Branching and Parallelism](/04-branching-and-parallelism)
+- [06. Durable Workflows](/06-durable-workflows)
+- [08. Observability](/08-observability)
+- [Concurrency and Parallelism](/concurrency-and-parallelism)
+- [Durable Waits Contract](/durable-waits)
+- [Workflow Graph AST](/workflow-graph)

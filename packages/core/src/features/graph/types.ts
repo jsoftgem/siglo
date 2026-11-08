@@ -18,7 +18,8 @@ export interface SequenceNode extends BaseWorkflowNode {
 }
 
 export type ParallelMode = 'fail-fast' | 'allSettled' | 'race';
-export type MergeStrategyType = 'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
+export type MergeStrategyType =
+    'shallow' | 'deep' | 'error' | 'namespace' | ((target: any, source: any, branchKey: string | number) => any);
 
 export interface ParallelNode extends BaseWorkflowNode {
     type: 'parallel';
@@ -44,20 +45,15 @@ export interface WaitNode extends BaseWorkflowNode {
 
 export interface MapNode extends BaseWorkflowNode {
     type: 'map';
-    items?: any[] | AsyncIterable<any> | ((ctx: any) => any[] | AsyncIterable<any> | Promise<any[] | AsyncIterable<any>>);
+    items?:
+        any[] | AsyncIterable<any> | ((ctx: any) => any[] | AsyncIterable<any> | Promise<any[] | AsyncIterable<any>>);
     itemNode: WorkflowNode;
     concurrency?: number;
     stopOnError?: boolean;
     preserveOrder?: boolean;
 }
 
-export type WorkflowNode =
-    | StepNode
-    | SequenceNode
-    | ParallelNode
-    | BranchNode
-    | WaitNode
-    | MapNode;
+export type WorkflowNode = StepNode | SequenceNode | ParallelNode | BranchNode | WaitNode | MapNode;
 
 export interface GraphValidationResult {
     valid: boolean;

@@ -74,9 +74,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -137,9 +135,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -200,9 +196,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -292,9 +286,7 @@
         "displayMode": "basic",
         "showUnfilled": true,
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         }
@@ -335,12 +327,7 @@
   ],
   "refresh": "5s",
   "schemaVersion": 39,
-  "tags": [
-    "siglo",
-    "apm",
-    "tracing",
-    "opentelemetry"
-  ],
+  "tags": ["siglo", "apm", "tracing", "opentelemetry"],
   "templating": {
     "list": []
   },

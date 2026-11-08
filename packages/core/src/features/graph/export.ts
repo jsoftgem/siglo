@@ -92,13 +92,17 @@ export function toMermaid(workflowOrNode: any, options: MermaidExportOptions = {
  */
 export function toJSON(workflowOrNode: any): string {
     const root = toGraph(workflowOrNode);
-    return JSON.stringify(root, (key, value) => {
-        // Strip cyclical or internal function pointers from serialized AST
-        if (key === 'step' || key === 'action' || key === 'selector') {
-            return undefined;
-        }
-        return value;
-    }, 2);
+    return JSON.stringify(
+        root,
+        (key, value) => {
+            // Strip cyclical or internal function pointers from serialized AST
+            if (key === 'step' || key === 'action' || key === 'selector') {
+                return undefined;
+            }
+            return value;
+        },
+        2,
+    );
 }
 
 /**
@@ -113,7 +117,7 @@ export function toDot(workflowOrNode: any, options: DotExportOptions = {}): stri
         `digraph ${graphName} {`,
         `  rankdir=${dir};`,
         '  node [fontname="Helvetica", fontsize=11];',
-        '  edge [fontname="Helvetica", fontsize=9];'
+        '  edge [fontname="Helvetica", fontsize=9];',
     ];
 
     for (const node of inspection.nodes) {

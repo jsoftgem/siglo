@@ -25,7 +25,10 @@ describe('InvariantEvaluator Unit Tests', () => {
         it('ignores keys starting with $ or null/undefined beforeSnapshot', () => {
             expect(() => {
                 InvariantEvaluator.assertContextImmutability(null, { a: 1 });
-                InvariantEvaluator.assertContextImmutability({ $internal: { secret: 123 } }, { $internal: { secret: 456 } });
+                InvariantEvaluator.assertContextImmutability(
+                    { $internal: { secret: 123 } },
+                    { $internal: { secret: 456 } },
+                );
                 InvariantEvaluator.assertContextImmutability({ a: 123 }, null);
             }).to.not.throw();
         });
@@ -35,7 +38,9 @@ describe('InvariantEvaluator Unit Tests', () => {
             try {
                 expect(() => {
                     InvariantEvaluator.assertContextImmutability({}, {});
-                }).to.throw(InvariantViolation).with.property('oracleNumber', 1);
+                })
+                    .to.throw(InvariantViolation)
+                    .with.property('oracleNumber', 1);
             } finally {
                 delete (Object.prototype as any)['canary'];
             }
@@ -46,7 +51,9 @@ describe('InvariantEvaluator Unit Tests', () => {
             try {
                 expect(() => {
                     InvariantEvaluator.assertContextImmutability({}, {}, 'customCanary');
-                }).to.throw(InvariantViolation).with.property('oracleNumber', 1);
+                })
+                    .to.throw(InvariantViolation)
+                    .with.property('oracleNumber', 1);
             } finally {
                 delete (Object.prototype as any)['customCanary'];
             }
@@ -57,14 +64,19 @@ describe('InvariantEvaluator Unit Tests', () => {
             const after = { config: { timeout: 999 } };
             expect(() => {
                 InvariantEvaluator.assertContextImmutability(before, after);
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 1);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 1);
         });
 
         it('handles non-object properties and circular references gracefully', () => {
             const circular: any = { a: 1 };
             circular.self = circular;
             expect(() => {
-                InvariantEvaluator.assertContextImmutability({ num: 42, str: 'hello', emptyObj: {}, emptyArr: [] }, { num: 42, str: 'hello', emptyObj: {}, emptyArr: [] });
+                InvariantEvaluator.assertContextImmutability(
+                    { num: 42, str: 'hello', emptyObj: {}, emptyArr: [] },
+                    { num: 42, str: 'hello', emptyObj: {}, emptyArr: [] },
+                );
                 InvariantEvaluator.assertContextImmutability({ circ: circular }, { circ: circular });
                 InvariantEvaluator.assertContextImmutability({ val: null }, { val: null });
             }).to.not.throw();
@@ -74,22 +86,21 @@ describe('InvariantEvaluator Unit Tests', () => {
             expect(() => {
                 InvariantEvaluator.assertContextImmutability(
                     { list: [10, 20, 30] },
-                    { list: { '0': 10, '1': 20, '2': 30 } }
+                    { list: { '0': 10, '1': 20, '2': 30 } },
                 );
             }).to.not.throw();
 
             expect(() => {
                 InvariantEvaluator.assertContextImmutability(
                     { list: [10, 20, 30] },
-                    { list: { '0': 10, '1': 999, '2': 30 } }
+                    { list: { '0': 10, '1': 999, '2': 30 } },
                 );
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 1);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 1);
 
             expect(() => {
-                InvariantEvaluator.assertContextImmutability(
-                    { map: { a: 1, b: 2 } },
-                    { map: { a: 1, b: 2 } }
-                );
+                InvariantEvaluator.assertContextImmutability({ map: { a: 1, b: 2 } }, { map: { a: 1, b: 2 } });
             }).to.not.throw();
         });
     });
@@ -163,7 +174,7 @@ describe('InvariantEvaluator Unit Tests', () => {
                 InvariantEvaluator.assertOptimisticConcurrency([
                     { status: 'fulfilled', value: { token: 'abc' } },
                     { status: 'fulfilled', value: { token: 'xyz' } },
-                    { status: 'rejected', reason: new Error('Conflict') }
+                    { status: 'rejected', reason: new Error('Conflict') },
                 ]);
                 expect.fail('Should have thrown');
             } catch (err: any) {
@@ -239,7 +250,9 @@ describe('InvariantEvaluator Unit Tests', () => {
         it('throws for allSettled when branches are missing', () => {
             expect(() => {
                 InvariantEvaluator.assertCombinatorSoundness('allSettled', { b1: 1 }, { branchCount: 2 });
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 6);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 6);
         });
 
         it('passes for valid map result length', () => {
@@ -253,7 +266,9 @@ describe('InvariantEvaluator Unit Tests', () => {
         it('throws for map when output length does not match input length', () => {
             expect(() => {
                 InvariantEvaluator.assertCombinatorSoundness('map', [10, 20], { branchCount: 3 });
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 6);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 6);
         });
     });
 
@@ -320,25 +335,33 @@ describe('InvariantEvaluator Unit Tests', () => {
         it('throws when error is missing', () => {
             expect(() => {
                 InvariantEvaluator.assertTimeoutType(null, 'step');
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 8);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 8);
         });
 
         it('throws when expected step timeout but received generic or other error', () => {
             expect(() => {
                 InvariantEvaluator.assertTimeoutType(new Error('something else'), 'step');
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 8);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 8);
 
             expect(() => {
                 const bareErr = Object.create(null);
                 bareErr.message = 'bare';
                 InvariantEvaluator.assertTimeoutType(bareErr, 'step');
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 8);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 8);
         });
 
         it('throws when expected flow timeout but received step timeout', () => {
             expect(() => {
                 InvariantEvaluator.assertTimeoutType(new StepTimeoutException('step'), 'flow');
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 8);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 8);
         });
     });
 
@@ -360,7 +383,9 @@ describe('InvariantEvaluator Unit Tests', () => {
                     { id: 'span-a', parentId: 'span-b', name: 'span-a' },
                     { id: 'span-b', parentId: 'span-a', name: 'span-b' },
                 ]);
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 9);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 9);
         });
 
         it('throws when child references missing parent ID', () => {
@@ -369,7 +394,9 @@ describe('InvariantEvaluator Unit Tests', () => {
                     { id: 'root', name: 'root' },
                     { id: 'orphan', parentId: 'non-existent', name: 'orphan' },
                 ]);
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 9);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 9);
         });
     });
 
@@ -386,7 +413,9 @@ describe('InvariantEvaluator Unit Tests', () => {
             emitter.on('data', () => {});
             expect(() => {
                 InvariantEvaluator.assertNoListenerLeak(emitter, ['data'], { data: 0 });
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 10);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 10);
         });
 
         it('throws when baseline count is undefined for an event with listeners', () => {
@@ -394,7 +423,9 @@ describe('InvariantEvaluator Unit Tests', () => {
             emitter.on('ping', () => {});
             expect(() => {
                 InvariantEvaluator.assertNoListenerLeak(emitter, ['ping'], {});
-            }).to.throw(InvariantViolation).with.property('oracleNumber', 10);
+            })
+                .to.throw(InvariantViolation)
+                .with.property('oracleNumber', 10);
         });
     });
 });
