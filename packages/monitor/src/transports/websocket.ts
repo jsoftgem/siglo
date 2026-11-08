@@ -30,7 +30,8 @@ export class WebSocketBroadcaster {
         allowRemoteResume?: boolean;
     }) {
         this.redaction = options?.redaction;
-        this.maxPayloadBytes = options?.maxPayloadBytes && options.maxPayloadBytes > 0 ? options.maxPayloadBytes : 1048576;
+        this.maxPayloadBytes =
+            options?.maxPayloadBytes && options.maxPayloadBytes > 0 ? options.maxPayloadBytes : 1048576;
         this.authorizeMessage = options?.authorizeMessage;
         this.onClientMessageCallback = options?.onClientMessage;
         this.authenticateCallback = options?.authenticate;
@@ -67,7 +68,7 @@ export class WebSocketBroadcaster {
                 'Upgrade: websocket',
                 'Connection: Upgrade',
                 `Sec-WebSocket-Accept: ${acceptKey}`,
-                '\r\n'
+                '\r\n',
             ].join('\r\n');
 
             socket.write(responseHeaders);
@@ -78,7 +79,7 @@ export class WebSocketBroadcaster {
             const client: WSClient = {
                 id: Math.random().toString(36).substring(2, 11),
                 socket,
-                namespace
+                namespace,
             };
 
             this.clients.add(client);
@@ -112,9 +113,15 @@ export class WebSocketBroadcaster {
                 }
 
                 // Reject oversized or unsupported frames before waiting for their payload.
-                if (!Number.isSafeInteger(payloadLength) || payloadLength > this.maxPayloadBytes ||
-                    !isMasked || !(firstByte & 0x80) || (firstByte & 0x70) ||
-                    ![0x01, 0x08, 0x09, 0x0a].includes(opcode) || (opcode >= 0x08 && payloadLength > 125)) {
+                if (
+                    !Number.isSafeInteger(payloadLength) ||
+                    payloadLength > this.maxPayloadBytes ||
+                    !isMasked ||
+                    !(firstByte & 0x80) ||
+                    firstByte & 0x70 ||
+                    ![0x01, 0x08, 0x09, 0x0a].includes(opcode) ||
+                    (opcode >= 0x08 && payloadLength > 125)
+                ) {
                     this.removeClient(client);
                     client.socket.destroy();
                     return;
@@ -189,10 +196,7 @@ export class WebSocketBroadcaster {
     }
 
     private sendPong(socket: Socket, payload: Buffer): void {
-        const frame = Buffer.concat([
-            Buffer.from([0x8a, payload.length]),
-            payload
-        ]);
+        const frame = Buffer.concat([Buffer.from([0x8a, payload.length]), payload]);
         try {
             socket.write(frame);
         } catch {
@@ -220,7 +224,7 @@ export class WebSocketBroadcaster {
     }
 
     send(client: WSClient, message: any): void {
-        const text = typeof message === "string" ? message : JSON.stringify(message);
+        const text = typeof message === 'string' ? message : JSON.stringify(message);
         const frame = this.encodeTextFrame(text);
         try {
             client.socket.write(frame);
@@ -234,10 +238,7 @@ export class WebSocketBroadcaster {
         const length = payload.length;
 
         if (length < 126) {
-            return Buffer.concat([
-                Buffer.from([0x81, length]),
-                payload
-            ]);
+            return Buffer.concat([Buffer.from([0x81, length]), payload]);
         } else if (length < 65536) {
             const header = Buffer.alloc(4);
             header[0] = 0x81;

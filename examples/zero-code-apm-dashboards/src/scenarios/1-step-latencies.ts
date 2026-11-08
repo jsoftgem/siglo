@@ -29,7 +29,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean; emit
             await sleep(75);
             return { inStock: true, warehouse: 'WH-EAST-1' };
         }),
-        { tracer }
+        { tracer },
     );
 
     const performRiskAssessment = instrumentStep(
@@ -37,15 +37,15 @@ export async function runStepLatenciesScenario(options: { silent?: boolean; emit
             await sleep(90);
             return { riskScore: 0.02, fraudFlag: false };
         }),
-        { tracer }
+        { tracer },
     );
 
     const fetchPricingRules = instrumentStep(
         Step.create('fetchPricingRules', async () => {
             await sleep(50);
-            return { discountApplied: 0.10, taxRate: 0.08 };
+            return { discountApplied: 0.1, taxRate: 0.08 };
         }),
-        { tracer }
+        { tracer },
     );
 
     const parallelChecks = parallel(checkInventory, performRiskAssessment, fetchPricingRules);
@@ -56,12 +56,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean; emit
         return { invoiceId: `INV-${param.orderId}`, total: 108.0 };
     });
 
-    const orderPipeline = flow(
-        validateOrder,
-        enrichCustomer,
-        parallelChecks,
-        generateInvoice
-    );
+    const orderPipeline = flow(validateOrder, enrichCustomer, parallelChecks, generateInvoice);
 
     if (options.emitter) orderPipeline.monitor(options.emitter);
 
@@ -69,7 +64,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean; emit
     const monitoredFlow = instrumentWorkflow(orderPipeline, {
         tracer,
         workflowName: 'OrderFulfillmentPipeline',
-        workflowVersion: '1.2.0'
+        workflowVersion: '1.2.0',
     });
 
     const rawResult = await monitoredFlow.run({ orderId: 'ORD-1001', amount: 100.0 });

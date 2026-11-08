@@ -9,5 +9,5 @@ export class GetContext {
     getContext(): Record<string, any> {
         return this.context;
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

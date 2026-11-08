@@ -32,7 +32,7 @@ export function createHttpCheckoutWorkflow() {
         if (!orderId || !items || !Array.isArray(items) || items.length === 0) {
             throw new Error('InvalidOrderPayload: orderId and non-empty items array are required');
         }
-        const totalAmount = items.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0);
+        const totalAmount = items.reduce((sum: number, it: any) => sum + it.price * it.quantity, 0);
         return { orderId, totalAmount, currency: currency || 'USD', validated: true };
     });
 
@@ -46,7 +46,7 @@ export function createHttpCheckoutWorkflow() {
             status: 'PAID',
             confirmationCode,
             paidAmount: totalAmount,
-            settledCurrency: currency
+            settledCurrency: currency,
         };
     });
 
@@ -64,15 +64,16 @@ export function createFastifyCheckoutHandler(workflow = createHttpCheckoutWorkfl
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
             totalAmount: typeof result.totalAmount === 'function' ? result.totalAmount() : result.totalAmount,
             status: typeof result.status === 'function' ? result.status() : result.status,
-            confirmationCode: typeof result.confirmationCode === 'function' ? result.confirmationCode() : result.confirmationCode
+            confirmationCode:
+                typeof result.confirmationCode === 'function' ? result.confirmationCode() : result.confirmationCode,
         }),
         onError: (err: any) => {
             const isValidation = err.message.includes('InvalidOrderPayload');
             return {
                 status: isValidation ? 400 : 500,
-                body: { error: err.message, code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_ERROR' }
+                body: { error: err.message, code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_ERROR' },
             };
-        }
+        },
     });
 }
 
@@ -87,16 +88,17 @@ export function createExpressCheckoutHandler(workflow = createHttpCheckoutWorkfl
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
             totalAmount: typeof result.totalAmount === 'function' ? result.totalAmount() : result.totalAmount,
             status: typeof result.status === 'function' ? result.status() : result.status,
-            confirmationCode: typeof result.confirmationCode === 'function' ? result.confirmationCode() : result.confirmationCode
+            confirmationCode:
+                typeof result.confirmationCode === 'function' ? result.confirmationCode() : result.confirmationCode,
         }),
         onError: (err: any, _req: any, res: any) => {
             const isValidation = err.message.includes('InvalidOrderPayload');
             const status = isValidation ? 400 : 500;
             return res.status(status).json({
                 error: err.message,
-                code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_ERROR'
+                code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_ERROR',
             });
-        }
+        },
     });
 }
 
@@ -111,14 +113,15 @@ export function createHonoCheckoutHandler(workflow = createHttpCheckoutWorkflow(
             orderId: typeof result.orderId === 'function' ? result.orderId() : result.orderId,
             totalAmount: typeof result.totalAmount === 'function' ? result.totalAmount() : result.totalAmount,
             status: typeof result.status === 'function' ? result.status() : result.status,
-            confirmationCode: typeof result.confirmationCode === 'function' ? result.confirmationCode() : result.confirmationCode
+            confirmationCode:
+                typeof result.confirmationCode === 'function' ? result.confirmationCode() : result.confirmationCode,
         }),
         onError: (err: any) => {
             const isValidation = err.message.includes('InvalidOrderPayload');
             return {
                 status: isValidation ? 400 : 500,
-                body: { error: err.message, code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_ERROR' }
+                body: { error: err.message, code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_ERROR' },
             };
-        }
+        },
     });
 }

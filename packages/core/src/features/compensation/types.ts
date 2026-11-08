@@ -34,7 +34,10 @@ export interface CompensationDeadLetterQueue {
 
 export interface CompensationRunOptions {
     mode?: 'strict' | 'best-effort';
-    onFailure?: (failed: { stepName: string; error: any; record: CompensationRecord }, error: any) => Promise<void> | void;
+    onFailure?: (
+        failed: { stepName: string; error: any; record: CompensationRecord },
+        error: any,
+    ) => Promise<void> | void;
     deadLetterQueue?: CompensationDeadLetterQueue;
     maxRetries?: number;
     delay?: number;

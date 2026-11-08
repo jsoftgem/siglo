@@ -7,7 +7,7 @@ export class Util {
         ContextClass?: any,
         generateUUID?: any,
         stackId?: string,
-        namespace?: string
+        namespace?: string,
     ): any {
         let effContext = Context;
         let effUUID = defaultGenerateUUID;
@@ -58,5 +58,5 @@ export class Util {
         }
         return param.getData();
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

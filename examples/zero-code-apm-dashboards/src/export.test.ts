@@ -31,19 +31,23 @@ it('standalone scenarios flush OTLP spans and honor endpoint/header environment 
                     OTEL_EXPORTER_OTLP_ENDPOINT: `${endpoint}/collector`,
                     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: specificEndpoint ? `${endpoint}/custom-traces` : '',
                     OTEL_EXPORTER_OTLP_HEADERS: 'Authorization=Bearer%20demo-token',
-                    OTEL_EXPORTER_OTLP_TRACES_HEADERS: ''
+                    OTEL_EXPORTER_OTLP_TRACES_HEADERS: '',
                 },
-                timeout: 15000
+                timeout: 15000,
             });
             assert.ok(requests.length > 0, 'Scenario must export before exiting');
-            assert.ok(requests.every(req => req.path === (specificEndpoint ? '/custom-traces' : '/collector/v1/traces')));
+            assert.ok(
+                requests.every(req => req.path === (specificEndpoint ? '/custom-traces' : '/collector/v1/traces')),
+            );
             assert.ok(requests.every(req => req.auth === 'Bearer demo-token'));
-            const spans = requests.flatMap(req => JSON.parse(req.body).resourceSpans)
-                .flatMap(resource => resource.scopeSpans).flatMap(scope => scope.spans);
+            const spans = requests
+                .flatMap(req => JSON.parse(req.body).resourceSpans)
+                .flatMap(resource => resource.scopeSpans)
+                .flatMap(scope => scope.spans);
             assert.ok(spans.some(span => span.name === 'workflow:ResilientPaymentWorkflow'));
             assert.equal(spans.filter(span => span.name.startsWith('step:chargeCreditCard')).length, 3);
         }
     } finally {
-        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+        await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
     }
 });

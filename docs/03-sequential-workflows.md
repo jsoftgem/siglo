@@ -190,9 +190,9 @@ describe('Sequential Workflows Suite', () => {
 
 ## API Reference Links
 
-- [Core Concepts Guide](./02-core-concepts.md)
-- [Branching and Parallelism](./04-branching-and-parallelism.md)
-- [Retries, Timeouts, and Cancellation](./05-retries-timeouts-and-cancellation.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
-- [Scheduler Adapter Guide](./adapters/scheduler.md)
-- [Production Best Practices](./production-best-practices.md)
+- [Core Concepts Guide](/02-core-concepts)
+- [Branching and Parallelism](/04-branching-and-parallelism)
+- [Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [Testing & Replay Reference](/09-testing-and-replay)
+- [Scheduler Adapter Guide](/adapters/scheduler)
+- [Production Best Practices](/production-best-practices)

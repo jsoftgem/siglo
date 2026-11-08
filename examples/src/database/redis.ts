@@ -128,7 +128,7 @@ export function createRedisClient(url = process.env.REDIS_URL): IRedisClient {
             const io = new Redis(url, {
                 maxRetriesPerRequest: 1,
                 connectTimeout: 3000,
-                retryStrategy: () => null // don't loop endlessly if daemon is not up
+                retryStrategy: () => null, // don't loop endlessly if daemon is not up
             });
             console.log(`[Redis] Connected to live Redis instance at: ${url}`);
             return new LiveRedisClient(io);

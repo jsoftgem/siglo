@@ -8,6 +8,6 @@ export const createLog = (source: string, message?: string, error?: any): LogEnt
     return {
         source,
         message,
-        error
+        error,
     };
 };

@@ -27,7 +27,9 @@ export interface WorkerConcurrencyTracker {
  * - Order preservation across mapped items
  * - Accumulation of mapped outputs into context
  */
-export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTracker = { current: 0, peak: 0, processedIds: [] }) {
+export function createBoundedBatchIngestionPipeline(
+    tracker: WorkerConcurrencyTracker = { current: 0, peak: 0, processedIds: [] },
+) {
     // Worker step executed for each item in the documents collection
     const indexDocumentWorker = Step.create('indexDocumentWorker', async (param: any) => {
         tracker.current++;
@@ -41,7 +43,7 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
         const content = item.content || '';
 
         // Simulate async embedding and vector storage
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise(r => setTimeout(r, 10));
 
         tracker.processedIds.push(docId);
         tracker.current--;
@@ -52,7 +54,7 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
             vectorDimensions: 1536,
             tokenCount: Math.ceil(content.length / 4) || 1,
             indexedAt: Date.now(),
-            status: 'INDEXED'
+            status: 'INDEXED',
         };
     });
 
@@ -65,14 +67,14 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
 
         return {
             totalDocumentCount: documents.length,
-            batchInitialized: true
+            batchInitialized: true,
         };
     });
 
     // Step 2: Bounded Concurrency Mapping (Worker pool of max 3 workers)
     const mapDocuments = map((ctx: any) => ctx.documents, indexDocumentWorker, {
         concurrency: 3,
-        stopOnError: false
+        stopOnError: false,
     });
 
     // Step 3: Summarize and Publish Catalog
@@ -86,13 +88,9 @@ export function createBoundedBatchIngestionPipeline(tracker: WorkerConcurrencyTr
             department: param.department,
             totalIndexed: mappedItems.length,
             totalTokens,
-            catalogSummary: `Ingested ${mappedItems.length} documents (${totalTokens} tokens) with peak concurrency ${tracker.peak}`
+            catalogSummary: `Ingested ${mappedItems.length} documents (${totalTokens} tokens) with peak concurrency ${tracker.peak}`,
         };
     });
 
-    return flow(
-        validateBatch,
-        mapDocuments,
-        summarizeCatalog
-    );
+    return flow(validateBatch, mapDocuments, summarizeCatalog);
 }

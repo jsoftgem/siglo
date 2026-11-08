@@ -542,7 +542,7 @@ With a store configured, the adapter stops processing at 80% of `idempotencyTtlM
 
 Cancellation prevents further adapter work, but cannot undo a payment or forcibly stop an external operation that ignores its signal. Use a stable business event ID as the provider's idempotency key. An expired claim, a long process pause, or a delayed store write can still race with another consumer; the generic store API cannot eliminate those races. Split work that exceeds the claim budget into separately persisted stages rather than relying on an arbitrarily long claim.
 
-For a database update followed by a Kafka event, use the [transactional inbox and outbox example](../../packages/kafka/docs/outbox.md). It commits the database effect, processed-event marker, and pending outgoing event together, then relays the event with a stable ID.
+For a database update followed by a Kafka event, use the [transactional inbox and outbox example](https://github.com/jsoftgem/siglo/blob/main/packages/kafka/docs/outbox.md). It commits the database effect, processed-event marker, and pending outgoing event together, then relays the event with a stable ID.
 
 ---
 

@@ -24,7 +24,7 @@ import {
     BRANCHES,
     SETTLED_KEY,
     TIMING,
-    VALUE
+    VALUE,
 } from './ReservedKey';
 
 describe('shared.reservedKey.unit.test', () => {

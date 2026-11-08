@@ -12,14 +12,16 @@ test('REST checkout reports successful, failed, and invalid requests to the righ
         const success = await fetch(`${api}/api/checkouts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Correlation-Id': 'request-1001' },
-            body: JSON.stringify({ ...sampleOrder, token: 'do-not-record' })
+            body: JSON.stringify({ ...sampleOrder, token: 'do-not-record' }),
         });
         assert.equal(success.status, 201);
         assert.equal(success.headers.get('x-correlation-id'), 'request-1001');
         const stackId = success.headers.get('x-workflow-stack-id');
         assert.ok(stackId);
         assert.deepEqual(await success.json(), {
-            orderId: sampleOrder.orderId, status: 'confirmed', trackingId: 'tracking-order-1001'
+            orderId: sampleOrder.orderId,
+            status: 'confirmed',
+            trackingId: 'tracking-order-1001',
         });
         const detail = await (await fetch(`${telemetry}/api/workflows/${stackId}`)).json();
         assert.equal(detail.status, 'COMPLETED');
@@ -28,8 +30,9 @@ test('REST checkout reports successful, failed, and invalid requests to the righ
         assert.ok(!JSON.stringify(detail).includes('do-not-record'));
 
         const failure = await fetch(`${api}/api/checkouts?failShipping=true`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...sampleOrder, orderId: 'order-failed' })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...sampleOrder, orderId: 'order-failed' }),
         });
         assert.equal(failure.status, 500);
         assert.deepEqual(await failure.json(), { error: 'Internal workflow execution error' });
@@ -38,8 +41,9 @@ test('REST checkout reports successful, failed, and invalid requests to the righ
         assert.equal(runs.filter((run: { status: string }) => run.status === 'FAILED').length, 1);
 
         const invalid = await fetch(`${api}/api/checkouts`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...sampleOrder, quantity: 0 })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...sampleOrder, quantity: 0 }),
         });
         assert.equal(invalid.status, 400);
         const afterInvalid = await (await fetch(`${telemetry}/api/workflows`)).json();

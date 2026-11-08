@@ -9,14 +9,11 @@ import {
     inspectGraph,
     WorkflowNodeType,
     WorkflowNode,
-    NetworkPolicyConfig
+    NetworkPolicyConfig,
 } from '@siglo/core';
 import { CharterResult } from './combinators.explore';
 
-export async function runGraphAstCharter(
-    iterations: number = 25,
-    seed: number = 8008
-): Promise<CharterResult> {
+export async function runGraphAstCharter(iterations: number = 25, seed: number = 8008): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -30,7 +27,7 @@ export async function runGraphAstCharter(
             const allowedHosts = [
                 `api-${rng.nextInt(1, 100)}.stripe.com`,
                 `*.internal-${rng.nextInt(1, 50)}.net`,
-                'localhost'
+                'localhost',
             ];
             const defaultPolicy = rng.pick(['allow', 'deny'] as const);
 
@@ -38,7 +35,7 @@ export async function runGraphAstCharter(
                 enabled: true,
                 defaultPolicy,
                 allowedHosts,
-                allowLocalhost: true
+                allowLocalhost: true,
             };
 
             // 1. Step with declarative .allowNetwork / .denyNetwork / .networkPolicy
@@ -87,7 +84,7 @@ export async function runGraphAstCharter(
                 const flowReflected = flowMetadata.networkPolicy;
                 if (flowReflected.defaultPolicy !== defaultPolicy) {
                     errors.push(
-                        `Iteration ${i}: Flow network policy defaultPolicy mismatch! Expected ${defaultPolicy}, got ${flowReflected.defaultPolicy}`
+                        `Iteration ${i}: Flow network policy defaultPolicy mismatch! Expected ${defaultPolicy}, got ${flowReflected.defaultPolicy}`,
                     );
                 }
             }
@@ -99,8 +96,8 @@ export async function runGraphAstCharter(
                 networkPolicy: () => ({
                     enabled: true,
                     defaultPolicy: 'deny' as const,
-                    allowedHosts: ['dynamic.domain.com']
-                })
+                    allowedHosts: ['dynamic.domain.com'],
+                }),
             };
             const dynamicNode = toGraph(getterOnlyStep);
             const dynamicMetadata = (dynamicNode as any).metadata;
@@ -146,7 +143,9 @@ export async function runGraphAstCharter(
             const secondPass = toGraph(firstPass);
             // Must return identical reference
             if (firstPass !== secondPass) {
-                errors.push(`Iteration ${i}: toGraph on already converted WorkflowNode did not return identical reference!`);
+                errors.push(
+                    `Iteration ${i}: toGraph on already converted WorkflowNode did not return identical reference!`,
+                );
             }
 
             // Wrappers add runtime identity without mutating the reusable graph node.
@@ -157,7 +156,7 @@ export async function runGraphAstCharter(
                 assert.notStrictEqual(unwrappedNode, firstPass);
                 assert.deepStrictEqual(unwrappedNode, {
                     ...firstPass,
-                    metadata: { ...originalMetadata, runtimeStepId }
+                    metadata: { ...originalMetadata, runtimeStepId },
                 });
                 assert.deepStrictEqual(firstPass.metadata, originalMetadata);
                 assert.strictEqual(toGraph(unwrappedNode), unwrappedNode);
@@ -179,10 +178,12 @@ export async function runGraphAstCharter(
                 NaN,
                 Symbol('fuzz-sym'),
                 () => 'plain-anonymous-fn',
-                function namedFuzzFn() { return 1; },
+                function namedFuzzFn() {
+                    return 1;
+                },
                 [],
                 {},
-                { unknownProp: true, nested: { deeper: null } }
+                { unknownProp: true, nested: { deeper: null } },
             ];
 
             for (const badInput of degenerateInputs) {
@@ -205,15 +206,17 @@ export async function runGraphAstCharter(
                 Step.create('stepA').allowNetwork(['api.stripe.com']),
                 flow(
                     Step.create('stepB1').timeout(5000),
-                    Step.create('stepB2').compensate(async () => {})
+                    Step.create('stepB2').compensate(async () => {}),
                 ).networkPolicy({ defaultPolicy: 'deny', allowedHosts: ['internal.auth'] }),
-                Step.create('stepC')
+                Step.create('stepC'),
             );
 
             const complexGraph = toGraph(complexWorkflow);
             const validation = validateGraph(complexGraph);
             if (!validation.valid) {
-                errors.push(`Iteration ${i}: Complex hierarchical graph validation failed: ${validation.errors.join('; ')}`);
+                errors.push(
+                    `Iteration ${i}: Complex hierarchical graph validation failed: ${validation.errors.join('; ')}`,
+                );
             }
 
             const inspection = inspectGraph(complexWorkflow);
@@ -231,6 +234,6 @@ export async function runGraphAstCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

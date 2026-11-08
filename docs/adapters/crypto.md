@@ -172,6 +172,8 @@ flowchart LR
 
 ### 4.5 Custom & Asymmetric Webhook Protocols
 
+For a runnable Ed25519 request-authentication example with Express, key lookup, body digests, and nonce protection, see [Accept Asymmetrically Signed Orders](/signed-order-intake).
+
 Supply an inline protocol object implementing the `WebhookProtocol` interface:
 
 ```typescript

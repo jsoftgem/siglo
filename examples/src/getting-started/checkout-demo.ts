@@ -10,7 +10,9 @@ export function createDemoServices(failShipping = false) {
             events.push('reserve stock');
             return `reservation-${order.orderId}`;
         },
-        async release() { events.push('release stock'); },
+        async release() {
+            events.push('release stock');
+        },
         async charge(order) {
             paymentAttempts++;
             events.push(`charge attempt ${paymentAttempts}`);
@@ -20,19 +22,24 @@ export function createDemoServices(failShipping = false) {
             }
             return `payment-${order.orderId}`;
         },
-        async refund() { events.push('refund payment'); },
+        async refund() {
+            events.push('refund payment');
+        },
         async ship(order) {
             events.push('arrange shipping');
             if (failShipping) throw new Error('No courier available');
             return `tracking-${order.orderId}`;
-        }
+        },
     };
 
     return { services, events };
 }
 
 export const sampleOrder: Order = {
-    orderId: 'order-1001', sku: 'coffee-kit', quantity: 1, amountCents: 4500
+    orderId: 'order-1001',
+    sku: 'coffee-kit',
+    quantity: 1,
+    amountCents: 4500,
 };
 
 async function main() {
@@ -51,7 +58,7 @@ async function main() {
 }
 
 if (require.main === module) {
-    main().catch((error) => {
+    main().catch(error => {
         console.error(error);
         process.exitCode = 1;
     });

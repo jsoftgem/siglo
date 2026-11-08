@@ -192,6 +192,6 @@ describe('Full Harness Suite', () => {
 
 ## API Reference Links
 
-- [TypeScript Reference](./10-typescript-reference.md)
-- [Testing Adapter Reference](./adapters/testing.md)
-- [CLI Reference](./adapters/cli.md)
+- [TypeScript Reference](/10-typescript-reference)
+- [Testing Adapter Reference](/adapters/testing)
+- [CLI Reference](/adapters/cli)

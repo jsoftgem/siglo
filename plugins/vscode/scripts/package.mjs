@@ -8,22 +8,34 @@ const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('../', import.meta.url));
 const staging = await mkdtemp(join(tmpdir(), 'siglo-vscode-'));
 try {
-  const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-  // npm accepts scopes; VS Code's extension identifier must be unscoped.
-  manifest.name = 'siglo-workflow-explorer';
-  manifest.files = ['dist/**', 'media/**', 'marketplace/**', 'README.md', 'LICENSE'];
-  delete manifest.devDependencies;
-  delete manifest.scripts;
-  await writeFile(join(staging, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
-  for (const file of ['dist', 'media', 'marketplace', 'README.md', 'LICENSE']) await cp(join(root, file), join(staging, file), { recursive: true });
-  const vsce = join(require.resolve('@vscode/vsce/package.json'), '..', 'vsce');
-  // The extension README lives in a monorepo subdirectory, not the repository root.
-  const result = spawnSync(process.execPath, [vsce, 'package', '--no-dependencies',
-    '--baseContentUrl', 'https://github.com/jsoftgem/siglo/blob/HEAD/plugins/vscode/',
-    '--baseImagesUrl', 'https://github.com/jsoftgem/siglo/raw/HEAD/plugins/vscode/',
-    '-o', join(root, `siglo-workflow-explorer-${manifest.version}.vsix`)], { cwd: staging, stdio: 'inherit' });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`vsce exited with status ${result.status}`);
+    const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+    // npm accepts scopes; VS Code's extension identifier must be unscoped.
+    manifest.name = 'siglo-workflow-explorer';
+    manifest.files = ['dist/**', 'media/**', 'marketplace/**', 'README.md', 'LICENSE'];
+    delete manifest.devDependencies;
+    delete manifest.scripts;
+    await writeFile(join(staging, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
+    for (const file of ['dist', 'media', 'marketplace', 'README.md', 'LICENSE'])
+        await cp(join(root, file), join(staging, file), { recursive: true });
+    const vsce = join(require.resolve('@vscode/vsce/package.json'), '..', 'vsce');
+    // The extension README lives in a monorepo subdirectory, not the repository root.
+    const result = spawnSync(
+        process.execPath,
+        [
+            vsce,
+            'package',
+            '--no-dependencies',
+            '--baseContentUrl',
+            'https://github.com/jsoftgem/siglo/blob/HEAD/plugins/vscode/',
+            '--baseImagesUrl',
+            'https://github.com/jsoftgem/siglo/raw/HEAD/plugins/vscode/',
+            '-o',
+            join(root, `siglo-workflow-explorer-${manifest.version}.vsix`),
+        ],
+        { cwd: staging, stdio: 'inherit' },
+    );
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(`vsce exited with status ${result.status}`);
 } finally {
-  await rm(staging, { recursive: true, force: true });
+    await rm(staging, { recursive: true, force: true });
 }

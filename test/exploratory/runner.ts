@@ -18,7 +18,7 @@ export interface ExploratoryRunOptions {
 }
 
 export async function runAllExploratoryCharters(
-    options: ExploratoryRunOptions = {}
+    options: ExploratoryRunOptions = {},
 ): Promise<{ passed: boolean; results: CharterResult[] }> {
     const iterations = options.iterations ?? 10;
     const seed = options.seed ?? Date.now();
@@ -42,7 +42,7 @@ export async function runAllExploratoryCharters(
         () => runOpenTelemetryCharter(iterations, seed + 9),
         () => runAiCharter(iterations, seed + 10),
         () => runNotificationsCharter(iterations, seed + 11),
-        () => runClusterFailoverCharter(iterations, seed + 12)
+        () => runClusterFailoverCharter(iterations, seed + 12),
     ];
 
     const results: CharterResult[] = [];
@@ -57,9 +57,7 @@ export async function runAllExploratoryCharters(
             results.push(res);
 
             const statusSymbol = res.passed ? '✅ PASSED' : '❌ FAILED';
-            console.log(
-                `${statusSymbol} | ${res.charterName} (${res.durationMs}ms, ${res.iterations} iterations)`
-            );
+            console.log(`${statusSymbol} | ${res.charterName} (${res.durationMs}ms, ${res.iterations} iterations)`);
 
             if (!res.passed) {
                 allPassed = false;
@@ -85,10 +83,8 @@ export async function runAllExploratoryCharters(
 }
 
 // Allow direct CLI execution: `npx tsx test/exploratory/runner.ts`
-const isEntryScript = process.argv[1] && (
-    process.argv[1].endsWith('runner.ts') ||
-    process.argv[1].endsWith('runner.js')
-);
+const isEntryScript =
+    process.argv[1] && (process.argv[1].endsWith('runner.ts') || process.argv[1].endsWith('runner.js'));
 
 if (isEntryScript) {
     const keepAlive = setInterval(() => {}, 1000);

@@ -8,16 +8,13 @@ import {
     defaultDurableManager,
     defaultStorageManager,
     DuplicateEventException,
-    useStorage
+    useStorage,
 } from '@siglo/core';
 import { step } from '../engine/step-helper';
 import { InMemoryStorageFake } from '@siglo/testing';
 import { CharterResult } from './combinators.explore';
 
-export async function runDurableOccCharter(
-    iterations: number = 20,
-    seed: number = 3003
-): Promise<CharterResult> {
+export async function runDurableOccCharter(iterations: number = 20, seed: number = 3003): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -28,7 +25,7 @@ export async function runDurableOccCharter(
         const fakeStorage = new InMemoryStorageFake();
         const chaosProxy = new ChaosStorageProxy(fakeStorage, {
             conflictRate: 0.1,
-            maxLatencyMs: 5
+            maxLatencyMs: 5,
         });
         useStorage(chaosProxy);
 
@@ -37,11 +34,11 @@ export async function runDurableOccCharter(
 
         const s1 = step('initStep', async (ctx: any) => ({ step1Done: true }));
         const waitStep = waitForEvent('user_approval', {
-            correlationKey: (ctx: any) => correlationKey
+            correlationKey: (ctx: any) => correlationKey,
         });
         const s2 = step('postWaitStep', async (ctx: any) => ({
             approved: ctx.approved ?? false,
-            completedAt: Date.now()
+            completedAt: Date.now(),
         }));
 
         const testFlow = flow(s1, waitStep, s2);
@@ -55,7 +52,7 @@ export async function runDurableOccCharter(
             continuationStepIndex: 2,
             version: '1.0.0',
             status: 'WAITING' as any,
-            createdAt: Date.now()
+            createdAt: Date.now(),
         });
 
         await defaultStorageManager.saveCheckpoint({
@@ -66,7 +63,7 @@ export async function runDurableOccCharter(
             status: 'WAITING',
             currentStepId: 'waitForEvent:user_approval',
             completedSteps: ['initStep'],
-            timestamp: Date.now()
+            timestamp: Date.now(),
         } as any);
 
         // 2. Fire concurrent stampede of resume calls
@@ -75,7 +72,7 @@ export async function runDurableOccCharter(
 
         for (let c = 0; c < concurrency; c++) {
             resumePromises.push(
-                resumeWorkflow(testFlow, correlationKey, { approved: true, workerId: c }, { pojo: true })
+                resumeWorkflow(testFlow, correlationKey, { approved: true, workerId: c }, { pojo: true }),
             );
         }
 
@@ -85,16 +82,18 @@ export async function runDurableOccCharter(
             // Verify Oracle 3: Optimistic Concurrency & Checkpoint Idempotency
             const fulfilled = outcomes.filter(o => o.status === 'fulfilled');
             const duplicateErrors = outcomes.filter(
-                o => o.status === 'rejected' && (o.reason instanceof DuplicateEventException || o.reason?.name === 'DuplicateEventException')
+                o =>
+                    o.status === 'rejected' &&
+                    (o.reason instanceof DuplicateEventException || o.reason?.name === 'DuplicateEventException'),
             );
 
             if (fulfilled.length !== 1 && duplicateErrors.length !== concurrency - 1) {
                 const chaosConflicts = outcomes.filter(
-                    o => o.status === 'rejected' && o.reason?.message?.includes('OCC Conflict')
+                    o => o.status === 'rejected' && o.reason?.message?.includes('OCC Conflict'),
                 );
                 if (fulfilled.length + duplicateErrors.length + chaosConflicts.length !== concurrency) {
                     errors.push(
-                        `Iteration ${i}: Inconsistent resume outcomes! Fulfilled: ${fulfilled.length}, DuplicateEventExceptions: ${duplicateErrors.length}, Total: ${concurrency}`
+                        `Iteration ${i}: Inconsistent resume outcomes! Fulfilled: ${fulfilled.length}, DuplicateEventExceptions: ${duplicateErrors.length}, Total: ${concurrency}`,
                     );
                 }
             }
@@ -111,6 +110,6 @@ export async function runDurableOccCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

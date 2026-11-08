@@ -1,5 +1,5 @@
-import { toPOJO } from "../context";
-import { stepExecutionHookStorage } from "./hooks";
+import { toPOJO } from '../context';
+import { stepExecutionHookStorage } from './hooks';
 export class Reducer {
     private array: any[];
     private param: any;
@@ -16,7 +16,7 @@ export class Reducer {
         Context: any,
         propertyToContext: (context: any, chainReturn: any) => void,
         contextInstance?: any,
-        stackId?: string
+        stackId?: string,
     ) {
         this.array = array;
         this.param = param;
@@ -32,33 +32,39 @@ export class Reducer {
             try {
                 if (this.array && this.array.length > index) {
                     const currentValue = this.array[index];
-                    const runItemAction = () => this.chain.action(Object.assign({}, this.param, accumulated), currentValue, index);
+                    const runItemAction = () =>
+                        this.chain.action(Object.assign({}, this.param, accumulated), currentValue, index);
                     const activeHook = stepExecutionHookStorage.getStore();
                     const action = activeHook
-                        ? activeHook({
-                            step: this.chain,
-                            stepName: this.chain.func || this.chain.name || '',
-                            stepId: this.chain.$stepId || this.chain.func || this.chain.name || '',
-                            stackId: this.stackId || '',
-                            attempt: 1,
-                            param: Object.assign({}, this.param, accumulated),
-                            index
-                        }, runItemAction)
+                        ? activeHook(
+                              {
+                                  step: this.chain,
+                                  stepName: this.chain.func || this.chain.name || '',
+                                  stepId: this.chain.$stepId || this.chain.func || this.chain.name || '',
+                                  stackId: this.stackId || '',
+                                  attempt: 1,
+                                  param: Object.assign({}, this.param, accumulated),
+                                  index,
+                              },
+                              runItemAction,
+                          )
                         : runItemAction();
                     if (action !== undefined) {
                         if (action instanceof Promise) {
-                            action.then(props => {
-                                this.propertyToContext(this.context, props);
-                                new Reducer(
-                                    this.array,
-                                    this.param,
-                                    this.chain,
-                                    this.Context,
-                                    this.propertyToContext,
-                                    this.context,
-                                    this.stackId
-                                ).reduce(done, toPOJO(this.context.getData()), ++index);
-                            }).catch(err => done(err));
+                            action
+                                .then(props => {
+                                    this.propertyToContext(this.context, props);
+                                    new Reducer(
+                                        this.array,
+                                        this.param,
+                                        this.chain,
+                                        this.Context,
+                                        this.propertyToContext,
+                                        this.context,
+                                        this.stackId,
+                                    ).reduce(done, toPOJO(this.context.getData()), ++index);
+                                })
+                                .catch(err => done(err));
                         } else {
                             this.propertyToContext(this.context, action);
                             new Reducer(
@@ -68,7 +74,7 @@ export class Reducer {
                                 this.Context,
                                 this.propertyToContext,
                                 this.context,
-                                this.stackId
+                                this.stackId,
                             ).reduce(done, toPOJO(this.context.getData()), ++index);
                         }
                     } else {
@@ -79,7 +85,7 @@ export class Reducer {
                             this.Context,
                             this.propertyToContext,
                             this.context,
-                            this.stackId
+                            this.stackId,
                         ).reduce(done, accumulated, ++index);
                     }
                 } else {
@@ -90,5 +96,5 @@ export class Reducer {
             }
         });
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

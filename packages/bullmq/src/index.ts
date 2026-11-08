@@ -18,7 +18,14 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
+        const val =
+            typeof obj[key] === 'function'
+                ? obj[key].val !== undefined
+                    ? obj[key].val
+                    : obj[key].length === 0
+                      ? obj[key]()
+                      : obj[key]
+                : obj[key];
         clean[key] = val;
     }
     return clean;
@@ -29,7 +36,7 @@ function unwrapContext(obj: any): any {
  */
 export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     workflow: Flow<TInput, TOutput>,
-    options: SigloBullMQOptions<TJob, TInput, TOutput> = {}
+    options: SigloBullMQOptions<TJob, TInput, TOutput> = {},
 ) {
     return async (job: any): Promise<any> => {
         const jobId = job.id || String(Date.now());
@@ -47,7 +54,7 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
         }
 
         try {
-            const inputData = options.input ? await options.input(job) : (job.data || {});
+            const inputData = options.input ? await options.input(job) : job.data || {};
 
             let namespace: string | undefined;
             if (typeof options.namespace === 'function') {
@@ -83,6 +90,5 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
         }
     };
 }
-
 
 export type RivuletBullMQOptions<TJob = any, TInput = any, TOutput = any> = SigloBullMQOptions<TJob, TInput, TOutput>;

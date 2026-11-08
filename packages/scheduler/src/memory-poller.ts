@@ -1,5 +1,5 @@
-import {defaultDurableManager, resumeWorkflow} from '@siglo/core';
-import {MemoryPollerOptions, PollerReport, WaitRecord} from './types';
+import { defaultDurableManager, resumeWorkflow } from '@siglo/core';
+import { MemoryPollerOptions, PollerReport, WaitRecord } from './types';
 
 export class MemoryWaitPoller {
     private pollIntervalMs: number;
@@ -24,11 +24,14 @@ export class MemoryWaitPoller {
         const report: PollerReport = {
             claimed: 0,
             resumed: 0,
-            failed: 0
+            failed: 0,
         };
 
         const now = Date.now();
-        const waitingRecords = typeof (defaultDurableManager as any).getAllWaiting === "function" ? (defaultDurableManager as any).getAllWaiting() : [];
+        const waitingRecords =
+            typeof (defaultDurableManager as any).getAllWaiting === 'function'
+                ? (defaultDurableManager as any).getAllWaiting()
+                : [];
 
         for (const waiting of waitingRecords) {
             if (waiting.expiresAt && waiting.expiresAt <= now) {
@@ -41,16 +44,21 @@ export class MemoryWaitPoller {
                     status: 'RESUMING',
                     expiresAt: waiting.expiresAt,
                     continuationStepIndex: waiting.continuationStepIndex,
-                    version: waiting.version
+                    version: waiting.version,
                 };
 
                 try {
                     const targetFlow = this.flowLookup?.(waiting.version, waiting.stackId);
                     let result: any;
                     if (targetFlow) {
-                        result = await resumeWorkflow(targetFlow, waiting.stackId, {
-                            event: { type: 'timer:expired', timestamp: now }
-                        }, { allowExpired: true });
+                        result = await resumeWorkflow(
+                            targetFlow,
+                            waiting.stackId,
+                            {
+                                event: { type: 'timer:expired', timestamp: now },
+                            },
+                            { allowExpired: true },
+                        );
                     } else {
                         result = defaultDurableManager.resumeWait(waiting.correlationKey, true);
                     }

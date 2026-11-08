@@ -701,10 +701,10 @@ The `Step` class exposes static utilities and orchestrator shortcuts:
 
 ## Related Topic Guides
 
-- [02. Core Concepts](../02-core-concepts.md)
-- [03. Sequential Workflows](../03-sequential-workflows.md)
-- [05. Retries, Timeouts, and Cancellation](../05-retries-timeouts-and-cancellation.md)
-- [10. TypeScript Reference](../10-typescript-reference.md)
-- [Compensation and Sagas Contract](../compensation-and-sagas.md)
-- [Idempotency Contract](../idempotency.md)
-- [Network Egress Policy](../network-egress-policy.md)
+- [02. Core Concepts](/02-core-concepts)
+- [03. Sequential Workflows](/03-sequential-workflows)
+- [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
+- [10. TypeScript Reference](/10-typescript-reference)
+- [Compensation and Sagas Contract](/compensation-and-sagas)
+- [Idempotency Contract](/idempotency)
+- [Network Egress Policy](/network-egress-policy)

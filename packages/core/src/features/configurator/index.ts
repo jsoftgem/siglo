@@ -10,7 +10,7 @@ export default class Configurator {
         getPlugins(config, props, plugins());
         setChainConfig(config);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export { Configurator };

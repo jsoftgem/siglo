@@ -9,7 +9,7 @@ export default class OnSkip {
         reject: (reason?: any) => void,
         Context: any,
         propertyToContext?: (context: any, chainReturn: any) => void,
-        stackId?: string
+        stackId?: string,
     ) {
         const context = Context.createContext(chain.$stepId, stackId);
         if (isFunction(chain.onskip)) {
@@ -17,14 +17,16 @@ export default class OnSkip {
                 const actionParam = toPOJO(param);
                 const result = chain.onskip(actionParam);
                 if (result instanceof Promise) {
-                    result.then((fallbackProps: any) => {
-                        if (fallbackProps !== undefined && propertyToContext) {
-                            propertyToContext(context, fallbackProps);
-                        }
-                        resolve(toPOJO(context.getData()));
-                    }).catch((err: any) => {
-                        reject(err);
-                    });
+                    result
+                        .then((fallbackProps: any) => {
+                            if (fallbackProps !== undefined && propertyToContext) {
+                                propertyToContext(context, fallbackProps);
+                            }
+                            resolve(toPOJO(context.getData()));
+                        })
+                        .catch((err: any) => {
+                            reject(err);
+                        });
                 } else {
                     if (result !== undefined && propertyToContext) {
                         propertyToContext(context, result);
@@ -38,5 +40,5 @@ export default class OnSkip {
             resolve(toPOJO(context.getData()));
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

@@ -13,7 +13,7 @@ Make Siglo workflows easier to understand, author, and inspect directly inside I
 ### Supported Hosts & Runtime Model
 - **IntelliJ IDEA**: Version 2024.1+ (Community and Ultimate editions; tested through modern 2026.2 EAP / Build 262.x).
 - **Runtime Environment**: Kotlin/Java JVM plugin running on the IntelliJ Platform SDK (`plugins/intellij`).
-- **Explicit Negative Scope**: JetBrains IDEs outside core IntelliJ IDEA are deferred until marketplace distribution. The companion VS Code extension lives in `plugins/vscode` and is covered in [vscode.roadmap.md](vscode.roadmap.md).
+- **Explicit Negative Scope**: JetBrains IDEs outside core IntelliJ IDEA are deferred until marketplace distribution. The companion VS Code extension lives in `plugins/vscode` and is covered in [vscode.roadmap.md](/roadmap/vscode.roadmap).
 
 ### Language & Framework Scope
 - **Workflow Language**: TypeScript (TypeScript 5.0+ syntax) and JavaScript.

@@ -40,8 +40,8 @@ describe('@siglo/kafka Adapter Suite', () => {
         const flowInstance = flow(step);
 
         const handler = createKafkaMessageHandler(flowInstance, {
-            input: (msg) => ({ raw: String(msg.value) }),
-            output: (res, msg) => ({ ...res, topic: msg.topic, offset: msg.offset })
+            input: msg => ({ raw: String(msg.value) }),
+            output: (res, msg) => ({ ...res, topic: msg.topic, offset: msg.offset }),
         });
 
         const mockPayload = {
@@ -52,8 +52,8 @@ describe('@siglo/kafka Adapter Suite', () => {
                 value: 'plain string content',
                 offset: '123',
                 partition: 0,
-                topic: 'orders.topic'
-            }
+                topic: 'orders.topic',
+            },
         };
 
         const result = await handler(mockPayload);
@@ -72,22 +72,22 @@ describe('@siglo/kafka Adapter Suite', () => {
 
         // 1. Function namespace
         const fnHandler = createKafkaMessageHandler(flowInstance, {
-            namespace: (msg) => `tenant-${msg.partition}`
+            namespace: msg => `tenant-${msg.partition}`,
         });
         await fnHandler({
             topic: 't1',
             partition: 5,
-            message: { value: JSON.stringify({ a: 1 }), partition: 5, topic: 't1', offset: '1' }
+            message: { value: JSON.stringify({ a: 1 }), partition: 5, topic: 't1', offset: '1' },
         });
 
         // 2. String namespace
         const strHandler = createKafkaMessageHandler(flowInstance, {
-            namespace: 'static-tenant'
+            namespace: 'static-tenant',
         });
         await strHandler({
             topic: 't2',
             partition: 0,
-            message: { value: JSON.stringify({ a: 1 }), partition: 0, topic: 't2', offset: '2' }
+            message: { value: JSON.stringify({ a: 1 }), partition: 0, topic: 't2', offset: '2' },
         });
 
         // 3. Header namespace
@@ -100,8 +100,8 @@ describe('@siglo/kafka Adapter Suite', () => {
                 partition: 0,
                 topic: 't3',
                 offset: '3',
-                headers: { 'x-namespace': 'header-tenant' }
-            }
+                headers: { 'x-namespace': 'header-tenant' },
+            },
         });
     });
 
@@ -119,7 +119,8 @@ describe('@siglo/kafka Adapter Suite', () => {
         const flowInstance = flow(step);
 
         const handler = createKafkaMessageHandler(flowInstance, {
-            groupId: 'test', idempotencyStore: store
+            groupId: 'test',
+            idempotencyStore: store,
         });
 
         const successPayload = {
@@ -129,8 +130,8 @@ describe('@siglo/kafka Adapter Suite', () => {
                 value: JSON.stringify({ val: 42 }),
                 partition: 0,
                 topic: 't',
-                offset: '500'
-            }
+                offset: '500',
+            },
         };
 
         // First run succeeds
@@ -149,8 +150,8 @@ describe('@siglo/kafka Adapter Suite', () => {
                 value: JSON.stringify({ fail: true }),
                 partition: 0,
                 topic: 't',
-                offset: '501'
-            }
+                offset: '501',
+            },
         };
 
         try {
@@ -173,8 +174,8 @@ describe('@siglo/kafka Adapter Suite', () => {
                 value: 'Not JSON string at all',
                 partition: 0,
                 topic: 't',
-                offset: '900'
-            }
+                offset: '900',
+            },
         };
 
         const res = await handler(invalidJsonPayload);
@@ -187,8 +188,8 @@ describe('@siglo/kafka Adapter Suite', () => {
                 value: null,
                 partition: 0,
                 topic: 't',
-                offset: '901'
-            }
+                offset: '901',
+            },
         };
 
         const resNull = await handler(nullPayload);

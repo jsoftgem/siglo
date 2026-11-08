@@ -13,19 +13,21 @@ export function parseDuration(duration: number | string | undefined): number | u
     const val = parseFloat(match[1]);
     const unit = match[2] || 'ms';
     switch (unit) {
-        case 'd': return val * 24 * 60 * 60 * 1000;
-        case 'h': return val * 60 * 60 * 1000;
-        case 'm': return val * 60 * 1000;
-        case 's': return val * 1000;
+        case 'd':
+            return val * 24 * 60 * 60 * 1000;
+        case 'h':
+            return val * 60 * 60 * 1000;
+        case 'm':
+            return val * 60 * 1000;
+        case 's':
+            return val * 1000;
         case 'ms':
-        default: return val;
+        default:
+            return val;
     }
 }
 
-export function waitForEvent(
-    eventName: string,
-    options: WaitForEventOptions
-): Step<any, any> {
+export function waitForEvent(eventName: string, options: WaitForEventOptions): Step<any, any> {
     const timeoutMs = options.timeoutMs ?? parseDuration(options.timeout);
     const stepName = `waitForEvent:${eventName}`;
 
@@ -35,7 +37,7 @@ export function waitForEvent(
         type: WorkflowNodeType.WAIT,
         eventName,
         correlationKey: options.correlationKey,
-        timeoutMs
+        timeoutMs,
     };
 
     const step = Step.create(stepName, async (param: any) => {
@@ -53,8 +55,8 @@ export function waitForEvent(
                     correlationKey,
                     eventName,
                     expiresAt,
-                    continuationNodeId: waitNode.id
-                }
+                    continuationNodeId: waitNode.id,
+                },
             );
         }
 
@@ -62,7 +64,7 @@ export function waitForEvent(
         return {
             eventName,
             correlationKey,
-            waited: true
+            waited: true,
         };
     });
 
@@ -70,14 +72,12 @@ export function waitForEvent(
     (step as any).waitConfig = {
         eventName,
         correlationKey: options.correlationKey,
-        timeoutMs
+        timeoutMs,
     };
     return step;
 }
 
-export function wait(
-    durationOrMs: number | string
-): Step<any, any> {
+export function wait(durationOrMs: number | string): Step<any, any> {
     const durationMs = parseDuration(durationOrMs) || 0;
     const stepName = `wait:${durationMs}ms`;
 
@@ -85,7 +85,7 @@ export function wait(
         id: generateUUID(),
         name: stepName,
         type: 'wait',
-        durationMs
+        durationMs,
     };
 
     const step = Step.create(stepName, async (param: any) => {
@@ -93,15 +93,12 @@ export function wait(
         if (isDurable) {
             const correlationKey = `timer:${generateUUID()}`;
             const expiresAt = Date.now() + durationMs;
-            throw new WorkflowSuspendedException(
-                `Workflow suspended waiting for timer (${durationMs}ms).`,
-                {
-                    correlationKey,
-                    eventName: 'timer',
-                    expiresAt,
-                    continuationNodeId: waitNode.id
-                }
-            );
+            throw new WorkflowSuspendedException(`Workflow suspended waiting for timer (${durationMs}ms).`, {
+                correlationKey,
+                eventName: 'timer',
+                expiresAt,
+                continuationNodeId: waitNode.id,
+            });
         }
 
         if (durationMs > 0) {

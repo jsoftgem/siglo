@@ -11,7 +11,7 @@ export class PrometheusExporter {
     private stepsFailed: number = 0;
 
     attachToEmitter(emitter: WorkflowEventEmitter): this {
-        emitter.on('*', (event) => {
+        emitter.on('*', event => {
             this.handleEvent(event);
         });
         return this;
@@ -70,7 +70,7 @@ export class PrometheusExporter {
             '# TYPE siglo_steps_total counter',
             `siglo_steps_total{status="completed"} ${this.stepsCompleted}`,
             `siglo_steps_total{status="failed"} ${this.stepsFailed}`,
-            ''
+            '',
         ];
         return lines.join('\n');
     }

@@ -66,7 +66,7 @@ describe('Zero-Code APM Monitoring & OpenTelemetry Integration', () => {
             'HOTEL_RESERVED',
             'PAYMENT_CHARGED',
             'PAYMENT_REFUNDED',
-            'HOTEL_CANCELLED'
+            'HOTEL_CANCELLED',
         ]);
 
         const rootSpan = spans.find(s => s.name === 'workflow:HolidayBookingSaga');
@@ -79,8 +79,9 @@ describe('Zero-Code APM Monitoring & OpenTelemetry Integration', () => {
     });
 
     it('Scenario 4: propagates W3C trace context across distributed parent-child services', async () => {
-        const { upstreamResult, downstreamResult, spans, outgoingHeaders } =
-            await runDistributedCallsScenario({ silent: true });
+        const { upstreamResult, downstreamResult, spans, outgoingHeaders } = await runDistributedCallsScenario({
+            silent: true,
+        });
 
         assert.ok(outgoingHeaders.traceparent);
         assert.ok(downstreamResult.trackingCode);

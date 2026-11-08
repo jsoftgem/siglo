@@ -130,4 +130,4 @@ const result = await resumeWorkflow(
 
 ## 5. Human-in-the-Loop Approvals
 
-For production human intervention flows (interactive Slack Block Kit cards, responsive HTML emails, signed HMAC action URLs, two-way Twilio SMS, and web framework callback routers), use [`@siglo/notifications`](./adapters/notifications.md). It pairs `sendInteractiveApprovalStep` with `waitForEvent` and provides signed bearer tokens with application-provided authorization, distributed concurrency claims, and automated saga rollback.
+For production human intervention flows (interactive Slack Block Kit cards, responsive HTML emails, signed HMAC action URLs, two-way Twilio SMS, and web framework callback routers), use [`@siglo/notifications`](/adapters/notifications). It pairs `sendInteractiveApprovalStep` with `waitForEvent` and provides signed bearer tokens with application-provided authorization, distributed concurrency claims, and automated saga rollback.

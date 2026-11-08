@@ -45,9 +45,9 @@ import {
     MockRedisClient,
     createSaaSBillingWorkflow,
     setupSaaSBillingInfrastructure,
-    runLiveMonitoringSample
+    runLiveMonitoringSample,
 } from './workflow/usecases';
-import {FlowContextResult} from "@siglo/core";
+import { FlowContextResult } from '@siglo/core';
 
 // ============================================================================
 //   Base Storage Plugin & Order Pipeline Test
@@ -67,12 +67,12 @@ test('Order pipeline executes correctly using Redis & MongoDB storage adapter', 
         orderId: 'TEST-1001',
         customer: {
             name: 'John Matrix',
-            email: 'matrix@command.com'
+            email: 'matrix@command.com',
         },
         items: [
-            { id: '1', name: 'Item Alpha', price: 50, quantity: 2 } // $100 subtotal
+            { id: '1', name: 'Item Alpha', price: 50, quantity: 2 }, // $100 subtotal
         ],
-        couponCode: 'SAVE10'
+        couponCode: 'SAVE10',
     };
 
     const result = await pipeline.run(order);
@@ -82,8 +82,8 @@ test('Order pipeline executes correctly using Redis & MongoDB storage adapter', 
     assert.equal(result.invoiceId, 'INV-TEST-1001');
     assert.equal(result.subtotal, 100);
     assert.equal(result.discount, 10); // 10% of 100
-    assert.equal(result.tax, 7.20);   // 8% of 90
-    assert.equal(result.amountCharged, 97.20);
+    assert.equal(result.tax, 7.2); // 8% of 90
+    assert.equal(result.amountCharged, 97.2);
 
     // 2. Verify MongoDB persistent storage of execution logs
     const logsInDb = await mongo.collection('siglo_execution_logs').find();
@@ -92,7 +92,10 @@ test('Order pipeline executes correctly using Redis & MongoDB storage adapter', 
     // Verify 100% of execution logs have a valid, non-null stackId
     const nullStackLogs = logsInDb.filter(l => !l.stackId);
     assert.equal(nullStackLogs.length, 0, 'No execution log entry should have a null or undefined stackId');
-    assert.ok(logsInDb.every(l => typeof l.stackId === 'string' && l.stackId.length > 0), 'Every log must have a valid string stackId');
+    assert.ok(
+        logsInDb.every(l => typeof l.stackId === 'string' && l.stackId.length > 0),
+        'Every log must have a valid string stackId',
+    );
 
     // 3. Verify Redis context entries
     const firstStackId = logsInDb[0].stackId;
@@ -109,7 +112,7 @@ test('Order pipeline executes correctly using Redis & MongoDB storage adapter', 
 //   Phase 1: Event-Driven Distributed Architectures (Use Cases 1 to 10)
 // ============================================================================
 
-test('Phase 1 Use Cases Integration Suite', async (t) => {
+test('Phase 1 Use Cases Integration Suite', async t => {
     await t.test('Use Case 1: E-Commerce Saga Orchestration', async () => {
         const saga = createEcommerceSagaPipeline();
         const res = await saga.run({
@@ -117,7 +120,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             customerId: 'CUST-1',
             cartItems: [{ sku: 'SKU-A', name: 'Product A', price: 100, quantity: 1 }],
             paymentDetails: { cardNumber: '4111-XXXX-XXXX-1111', amount: 100 },
-            shippingAddress: { street: '1 Main St', city: 'City', zip: '12345' }
+            shippingAddress: { street: '1 Main St', city: 'City', zip: '12345' },
         });
         assert.equal(res.sagaStatus, 'COMPLETED');
         assert.ok(res.trackingNumber);
@@ -130,7 +133,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             documentId: 'DOC-1',
             sourceUri: 's3://docs/test.pdf',
             mimeType: 'application/pdf',
-            rawText: 'Siglo is a lightweight workflow orchestrator with discrete step execution.'
+            rawText: 'Siglo is a lightweight workflow orchestrator with discrete step execution.',
         });
         assert.equal(res.ragPipelineStatus, 'INDEXED');
         assert.ok(res.indexedVectors >= 1);
@@ -145,7 +148,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             amount: 500,
             currency: 'USD',
             clientIp: '127.0.0.1',
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
         assert.equal(res.finStatus, 'COMPLETED');
         assert.ok(typeof res.riskScore === 'number');
@@ -157,7 +160,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             assetId: 'MEDIA-1',
             sourceS3Url: 's3://bucket/video.mp4',
             targetResolutions: ['1080p', '720p'],
-            uploadedBy: 'user-1'
+            uploadedBy: 'user-1',
         });
         assert.equal(res.mediaPipelineStatus, 'READY_TO_STREAM');
         assert.ok(res.masterManifestUrl.includes('master.m3u8'));
@@ -170,8 +173,14 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             fleetId: 'FLEET-1',
             batchSequence: 1,
             readings: [
-                { sensorId: 'S-1', temperatureFahrenheit: 210, pressurePsi: 85, vibrationG: 1.5, recordedAt: Date.now() }
-            ]
+                {
+                    sensorId: 'S-1',
+                    temperatureFahrenheit: 210,
+                    pressurePsi: 85,
+                    vibrationG: 1.5,
+                    recordedAt: Date.now(),
+                },
+            ],
         });
         assert.equal(res.iotPipelineStatus, 'PROCESSED');
         assert.equal(res.anomalyDetected, true);
@@ -179,7 +188,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
 
     await t.test('Use Case 6: CDC Lakehouse ETL', async () => {
         const pipeline = createCdcLakehousePipeline();
-        const res:FlowContextResult<any> = await pipeline.run({
+        const res: FlowContextResult<any> = await pipeline.run({
             op: 'c',
             source: { db: 'db1', table: 'tbl_users', lsn: 100, ts_ms: Date.now() },
             before: null,
@@ -188,8 +197,8 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
                 usr_email_addr: 'test@example.com',
                 first_nm: 'First',
                 last_nm: 'Last',
-                acct_bal_amt: '100.00'
-            }
+                acct_bal_amt: '100.00',
+            },
         });
         assert.equal(res.cdcPipelineStatus, 'COMMITTED');
         assert.ok(res.partitionPath.includes('tbl_users'));
@@ -204,7 +213,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             idType: 'PASSPORT',
             documentNumber: 'USA-12345',
             documentBase64: 'data:image/jpeg;base64,...',
-            selfieBase64: 'data:image/jpeg;base64,...'
+            selfieBase64: 'data:image/jpeg;base64,...',
         });
         assert.equal(res.kycPipelineStatus, 'APPROVED');
         assert.ok(res.customerAccountNumber);
@@ -223,8 +232,8 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
                 code: { coding: [{ system: 'http://loinc.org', code: '8867-4', display: 'Heart Rate' }] },
                 subject: { reference: 'Patient/1', patientSsn: '000-00-0000', patientName: 'John' },
                 effectiveDateTime: new Date().toISOString(),
-                valueQuantity: { value: 140, unit: 'bpm', system: 'http://unitsofmeasure.org' }
-            }
+                valueQuantity: { value: 140, unit: 'bpm', system: 'http://unitsofmeasure.org' },
+            },
         });
         assert.equal(res.healthcarePipelineStatus, 'SYNCHRONIZED');
         assert.equal(res.alertLevel, 'STAT_EMERGENCY');
@@ -239,7 +248,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             recipientPhone: '+1-555-0100',
             templateKey: 'WELCOME',
             templateVariables: { name: 'Alice' },
-            fallbackChannels: ['PUSH', 'EMAIL']
+            fallbackChannels: ['PUSH', 'EMAIL'],
         });
         assert.equal(res.notificationPipelineStatus, 'DELIVERED');
         assert.equal(res.channel, 'PUSH');
@@ -256,7 +265,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
             metricValue: 8.5,
             threshold: 4.0,
             severity: 'CRITICAL',
-            maintenanceWindowActive: false
+            maintenanceWindowActive: false,
         });
         assert.equal(res.secopsPipelineStatus, 'RESOLVED');
         assert.ok(res.incidentTicket);
@@ -268,7 +277,7 @@ test('Phase 1 Use Cases Integration Suite', async (t) => {
 //   Phase 2: Core Workflow Power, Concurrency & Graph Governance (Use Cases 11 to 17)
 // ============================================================================
 
-test('Phase 2 Use Cases Integration Suite', async (t) => {
+test('Phase 2 Use Cases Integration Suite', async t => {
     await t.test('Use Case 11: Multi-Service Travel Booking Saga with LIFO Compensations', async () => {
         const audit = { actions: [], compensations: [] };
         const saga = createTravelBookingSagaPipeline(audit);
@@ -277,7 +286,7 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
             passengerName: 'Grace',
             flightNumber: 'UA-100',
             hotelName: 'Grand Hotel',
-            shouldFailPayment: false
+            shouldFailPayment: false,
         });
         assert.equal(res.sagaStatus, 'COMPLETED');
         assert.equal(res.vouchersIssued, true);
@@ -292,8 +301,8 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
             department: 'Eng',
             documents: [
                 { docId: 'D1', title: 'Doc 1', category: 'RFC', content: 'Content 1' },
-                { docId: 'D2', title: 'Doc 2', category: 'Sec', content: 'Content 2' }
-            ]
+                { docId: 'D2', title: 'Doc 2', category: 'Sec', content: 'Content 2' },
+            ],
         });
         assert.equal(res.pipelineStatus, 'COMPLETED');
         assert.equal(res.totalIndexed, 2);
@@ -306,7 +315,7 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
             assetId: 'MEDIA-1',
             fileName: 'video.mp4',
             byteSize: 1024,
-            mimeType: 'video/mp4'
+            mimeType: 'video/mp4',
         });
         assert.equal(res.pipelineStatus, 'REPLICATED');
         assert.ok(res.selectedEdge);
@@ -320,7 +329,7 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
             creditScore: 800,
             annualIncome: 150000,
             requestedAmount: 25000,
-            hasPartnerPromo: true
+            hasPartnerPromo: true,
         });
         assert.equal(res.riskTier, 'PRIME');
         assert.equal(res.decision, 'APPROVED_INSTANT');
@@ -334,7 +343,7 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
             sourceAccount: 'ACC-1',
             targetAccount: 'ACC-2',
             amount: 5000,
-            currency: 'USD'
+            currency: 'USD',
         };
         const r1 = await pipeline.run(input);
         assert.equal(r1.pipelineStatus, 'SETTLED');
@@ -348,19 +357,22 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
     await t.test('Use Case 16: Durable Long-Running Expense Approval Workflow', async () => {
         const workflow = createDurableExpenseApprovalWorkflow();
         const reportId = 'EXP-1';
-        const suspendRes: any = await workflow.run({
-            reportId,
-            employeeEmail: 'user@example.com',
-            expenseCategory: 'TRAVEL',
-            amount: 1500
-        }, { durable: true });
+        const suspendRes: any = await workflow.run(
+            {
+                reportId,
+                employeeEmail: 'user@example.com',
+                expenseCategory: 'TRAVEL',
+                amount: 1500,
+            },
+            { durable: true },
+        );
 
         assert.equal(suspendRes.status, 'waiting');
         assert.equal(suspendRes.eventName, 'expense.decision');
 
         const resumeRes = await workflow.resume(reportId, {
             approvedBy: 'manager@example.com',
-            approvedAmount: 1500
+            approvedAmount: 1500,
         });
         assert.equal(resumeRes.pipelineStatus, 'REIMBURSED');
         assert.equal(resumeRes.disbursedAmount, 1500);
@@ -375,7 +387,7 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
         const res = await workflow.run({
             releaseId: 'REL-1',
             commitSha: 'abc1234',
-            environment: 'production'
+            environment: 'production',
         });
         assert.ok(res.activeCluster);
     });
@@ -385,8 +397,8 @@ test('Phase 2 Use Cases Integration Suite', async (t) => {
 //   Phase 3: Ecosystem, Adapters & Distributed Power (Use Cases 18 to 22)
 // ============================================================================
 
-test('Phase 3 Use Cases Integration Suite', async (t) => {
-    await t.test('Use Case 18: HTTP Checkout Service across Fastify, Express, and Hono', async (sub) => {
+test('Phase 3 Use Cases Integration Suite', async t => {
+    await t.test('Use Case 18: HTTP Checkout Service across Fastify, Express, and Hono', async sub => {
         const rawWorkflow = createHttpCheckoutWorkflow();
         assert.ok(rawWorkflow);
 
@@ -397,15 +409,27 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
                 statusCode: 200,
                 headers: {} as Record<string, string>,
                 payload: null as any,
-                status(code: number) { this.statusCode = code; return this; },
-                header(k: string, v: string) { this.headers[k] = v; return this; },
-                send(data: any) { this.payload = data; return this; }
+                status(code: number) {
+                    this.statusCode = code;
+                    return this;
+                },
+                header(k: string, v: string) {
+                    this.headers[k] = v;
+                    return this;
+                },
+                send(data: any) {
+                    this.payload = data;
+                    return this;
+                },
             };
 
-            const successRes: any = await fastifyHandler({
-                body: { orderId: 'ORD-F-1', items: [{ sku: 'ITEM-1', price: 100, quantity: 2 }] },
-                headers: { 'x-namespace': 'fastify-tenant' }
-            } as any, mockReply as any);
+            const successRes: any = await fastifyHandler(
+                {
+                    body: { orderId: 'ORD-F-1', items: [{ sku: 'ITEM-1', price: 100, quantity: 2 }] },
+                    headers: { 'x-namespace': 'fastify-tenant' },
+                } as any,
+                mockReply as any,
+            );
             const data = successRes || mockReply.payload;
             assert.equal(data.status, 'PAID');
             assert.equal(data.totalAmount, 200);
@@ -414,13 +438,24 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
             const errReply = {
                 payload: undefined,
                 statusCode: 200,
-                status(code: number) { this.statusCode = code; return this; },
-                header() { return this; },
-                send(data: any) { this.payload = data; return this; }
+                status(code: number) {
+                    this.statusCode = code;
+                    return this;
+                },
+                header() {
+                    return this;
+                },
+                send(data: any) {
+                    this.payload = data;
+                    return this;
+                },
             };
-            const errRes: FlowContextResult<any> = await fastifyHandler({
-                body: { orderId: 'BAD', items: [] }
-            } as any, errReply as any);
+            const errRes: FlowContextResult<any> = await fastifyHandler(
+                {
+                    body: { orderId: 'BAD', items: [] },
+                } as any,
+                errReply as any,
+            );
             assert.equal((errRes || errReply).status, 400);
         });
 
@@ -431,15 +466,28 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
                 statusCode: 200,
                 headers: {} as Record<string, string>,
                 payload: null as any,
-                status(code: number) { this.statusCode = code; return this; },
-                setHeader(k: string, v: string) { this.headers[k] = v; return this; },
-                json(data: any) { this.payload = data; return this; }
+                status(code: number) {
+                    this.statusCode = code;
+                    return this;
+                },
+                setHeader(k: string, v: string) {
+                    this.headers[k] = v;
+                    return this;
+                },
+                json(data: any) {
+                    this.payload = data;
+                    return this;
+                },
             };
 
-            const successRes: any = await expressHandler({
-                body: { orderId: 'ORD-E-1', items: [{ sku: 'ITEM-2', price: 50, quantity: 3 }] },
-                headers: { 'x-namespace': 'express-tenant' }
-            } as any, mockRes as any, () => {});
+            const successRes: any = await expressHandler(
+                {
+                    body: { orderId: 'ORD-E-1', items: [{ sku: 'ITEM-2', price: 50, quantity: 3 }] },
+                    headers: { 'x-namespace': 'express-tenant' },
+                } as any,
+                mockRes as any,
+                () => {},
+            );
             const data = successRes || mockRes.payload;
             assert.equal(data.status, 'PAID');
             assert.equal(data.totalAmount, 150);
@@ -448,12 +496,22 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
             let errorStatus = 0;
             const errRes = {
                 payload: undefined,
-                status(code: number) { errorStatus = code; return this; },
-                json(d: any) { this.payload = d; return this; }
+                status(code: number) {
+                    errorStatus = code;
+                    return this;
+                },
+                json(d: any) {
+                    this.payload = d;
+                    return this;
+                },
             };
-            await expressHandler({
-                body: { orderId: '', items: [] }
-            } as any, errRes as any, () => {});
+            await expressHandler(
+                {
+                    body: { orderId: '', items: [] },
+                } as any,
+                errRes as any,
+                () => {},
+            );
             assert.equal(errorStatus, 400);
         });
 
@@ -463,10 +521,12 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
             const mockC = {
                 req: {
                     json: async () => ({ orderId: 'ORD-H-1', items: [{ sku: 'ITEM-3', price: 80, quantity: 1 }] }),
-                    header: (k: string) => k === 'x-namespace' ? 'hono-tenant' : undefined
+                    header: (k: string) => (k === 'x-namespace' ? 'hono-tenant' : undefined),
                 },
                 header() {},
-                json(data: any) { return data; }
+                json(data: any) {
+                    return data;
+                },
             };
 
             const successRes: any = await honoHandler(mockC as any);
@@ -477,10 +537,12 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
             const errC = {
                 req: {
                     json: async () => ({ orderId: 'BAD', items: [] }),
-                    header: () => undefined
+                    header: () => undefined,
                 },
                 header() {},
-                json(data: any) { return data; }
+                json(data: any) {
+                    return data;
+                },
             };
             const errRes: any = await honoHandler(errC as any);
             assert.equal(errRes.status, 400);
@@ -497,14 +559,16 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
             partition: 1,
             message: {
                 key: 'user-vip',
-                value: Buffer.from(JSON.stringify({
-                    transactionId: 'TX-KAFKA-1',
-                    accountId: 'VIP-TRADER-1',
-                    amount: 6000,
-                    currency: 'USD'
-                })),
-                offset: '101'
-            }
+                value: Buffer.from(
+                    JSON.stringify({
+                        transactionId: 'TX-KAFKA-1',
+                        accountId: 'VIP-TRADER-1',
+                        amount: 6000,
+                        currency: 'USD',
+                    }),
+                ),
+                offset: '101',
+            },
         });
         assert.equal(res.status, 'COMMITTED');
         assert.equal(res.enriched.accountTier, 'VIP');
@@ -521,7 +585,9 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
         const bullRes: any = await bullProcessor({
             id: 'job-1',
             data: { jobId: 'IMG-1', imageUrl: 'https://cdn.example.com/raw.png', targetWidth: 800, targetHeight: 600 },
-            updateProgress: async (p: number) => { progress = p; }
+            updateProgress: async (p: number) => {
+                progress = p;
+            },
         });
         assert.equal(bullRes.jobId, 'job-1');
         assert.equal(progress, 100);
@@ -533,9 +599,9 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
                 {
                     messageId: 'sqs-1',
                     receiptHandle: 'rh-1',
-                    body: JSON.stringify({ jobId: 'IMG-2', imageUrl: 'https://cdn.example.com/sqs.png' })
-                }
-            ]
+                    body: JSON.stringify({ jobId: 'IMG-2', imageUrl: 'https://cdn.example.com/sqs.png' }),
+                },
+            ],
         });
         assert.equal(sqsRes.processedCount, 1);
         assert.equal(sqsRes.batchItemFailures.length, 0);
@@ -547,13 +613,16 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
 
         const tracer = new MockTracer();
         const { instrumented } = setupInstrumentedWorkflow(tracer, { allowNamespace: true });
-        const res = await instrumented.run({
-            orderId: 'ORD-OTEL-1',
-            itemsCount: 1,
-            customerTier: 'STANDARD',
-            apiKeySecret: 'secret',
-            billingAddress: 'Main St'
-        }, { namespace: 'tenant-otel' });
+        const res = await instrumented.run(
+            {
+                orderId: 'ORD-OTEL-1',
+                itemsCount: 1,
+                customerTier: 'STANDARD',
+                apiKeySecret: 'secret',
+                billingAddress: 'Main St',
+            },
+            { namespace: 'tenant-otel' },
+        );
 
         assert.equal(res.dispatchStatus, 'DISPATCHED');
         assert.ok(tracer.spans.length >= 3);
@@ -573,13 +642,16 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
         const redisClient = new MockRedisClient();
         const { workflow } = setupSaaSBillingInfrastructure(pgClient, redisClient);
 
-        const res = await workflow.run({
-            billingPeriod: '2026-M1',
-            organizationId: 'ORG-TEST',
-            apiRequests: 100000,
-            computeMinutes: 120,
-            storageGigabytes: 50
-        }, { namespace: 'tenant-test', stackId: 'stack-test-1' });
+        const res = await workflow.run(
+            {
+                billingPeriod: '2026-M1',
+                organizationId: 'ORG-TEST',
+                apiRequests: 100000,
+                computeMinutes: 120,
+                storageGigabytes: 50,
+            },
+            { namespace: 'tenant-test', stackId: 'stack-test-1' },
+        );
 
         assert.equal(res.status, 'INVOICED');
         assert.ok(res.invoiceId);
@@ -597,9 +669,12 @@ test('Phase 3 Use Cases Integration Suite', async (t) => {
 test('Order intake specs normalize, default, translate, and validate input', async () => {
     const { createOrderIntakeSpecsPipeline } = await import('./workflow/usecases/usecase-24-order-intake-specs');
     const input = {
-        orderId: 'ORD-24', email: ' Buyer@Example.com ', countryCode: 'ph',
-        quantity: 2, unitPrice: 125,
-        shippingAddress: { city: 'Manila', postalCode: '1000' }
+        orderId: 'ORD-24',
+        email: ' Buyer@Example.com ',
+        countryCode: 'ph',
+        quantity: 2,
+        unitPrice: 125,
+        shippingAddress: { city: 'Manila', postalCode: '1000' },
     };
     const result = await createOrderIntakeSpecsPipeline().run(input);
     assert.equal(result.orderIntakeStatus, 'ACCEPTED');
@@ -612,15 +687,21 @@ test('Order intake specs normalize, default, translate, and validate input', asy
     assert.equal(result.order.shippingRegion, 'DOMESTIC');
 
     const custom = await createOrderIntakeSpecsPipeline(true).run({
-        ...input, purchaseOrder: 'PO-24', currency: 'USD', shippingMethod: 'EXPRESS'
+        ...input,
+        purchaseOrder: 'PO-24',
+        currency: 'USD',
+        shippingMethod: 'EXPRESS',
     });
     assert.equal(custom.order.purchaseOrder, 'PO-24');
     assert.equal(custom.order.currency, 'USD');
     assert.equal(custom.order.shippingMethod, 'EXPRESS');
 
     for (const invalid of [
-        { orderId: '' }, { quantity: 0 }, { unitPrice: -1 },
-        { email: 'invalid' }, { shippingAddress: { city: '', postalCode: '1000' } }
+        { orderId: '' },
+        { quantity: 0 },
+        { unitPrice: -1 },
+        { email: 'invalid' },
+        { shippingAddress: { city: '', postalCode: '1000' } },
     ]) {
         await assert.rejects(() => createOrderIntakeSpecsPipeline().run({ ...input, ...invalid }));
     }

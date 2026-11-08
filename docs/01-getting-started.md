@@ -3,7 +3,7 @@ title: "Getting Started"
 description: "Build a resilient checkout workflow with retries, compensation rollbacks, and unit tests using Siglo."
 ---
 
-# Getting Started: Build a Checkout That Handles Failure
+# Build a Checkout That Handles Failure
 
 An online shop needs to reserve stock, charge a customer, and arrange delivery. The happy path is three service calls. The difficult part starts when a payment gateway is temporarily unavailable or a courier rejects a shipment after the customer has paid.
 
@@ -156,14 +156,14 @@ If payment fails before completing, only the stock reservation needs compensatio
 
 ### Explore the workflow in your IDE
 
-Siglo provides extensions for [VS Code](../plugins/vscode/README.md) and [IntelliJ IDEA](../plugins/intellij/README.md). They turn JavaScript and TypeScript workflow definitions into interactive graphs without executing your application. You can inspect step input contracts, retries, timeouts, and compensation policies, click steps to navigate to their source, and refresh the graph as you edit with **Auto-Reload**. Use **All Flows** to explore multiple workflows in one file.
+Siglo provides extensions for [VS Code](https://github.com/jsoftgem/siglo/blob/main/plugins/vscode/README.md) and [IntelliJ IDEA](https://github.com/jsoftgem/siglo/blob/main/plugins/intellij/README.md). They turn JavaScript and TypeScript workflow definitions into interactive graphs without executing your application. You can inspect step input contracts, retries, timeouts, and compensation policies, click steps to navigate to their source, and refresh the graph as you edit with **Auto-Reload**. Use **All Flows** to explore multiple workflows in one file.
 
 Follow the linked guides to build and install the VS Code VSIX or IntelliJ plugin ZIP, including each IDE’s analyzer requirements. Open and trust your project, then open `checkout.ts`:
 
 - **VS Code:** open the Command Palette and run **Siglo: Open Workflow Visualizer**.
 - **IntelliJ IDEA:** right-click the editor and choose **Visualize Siglo Workflow**, or open **View → Tool Windows → Siglo Workflows**.
 
-The graph shows the workflow’s declared structure and policies. To inspect actual runs, retries, and failures, continue with [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md).
+The graph shows the workflow’s declared structure and policies. To inspect actual runs, retries, and failures, continue with [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring).
 
 ## 4. Run the Happy Path and a Failure
 
@@ -285,7 +285,7 @@ node --import tsx --test checkout.test.ts
 
 The [complete test file](../examples/src/getting-started/checkout.test.ts) also checks payment recovery, invalid orders, permanent payment failure, and duplicate completed requests. Because services are passed into `createCheckout`, tests can substitute behavior without contacting external APIs.
 
-For step spies, recorded traces, and replay tools, continue with [Testing and Replay](09-testing-and-replay.md).
+For step spies, recorded traces, and replay tools, continue with [Testing and Replay](/09-testing-and-replay).
 
 ## 6. Handle a Duplicate Checkout Request
 
@@ -308,9 +308,9 @@ const second = await checkout.run(sampleOrder, options);
 
 Use the same key only for the same logical request. If the cart changes, validate the request against the stored order and define whether it represents a new checkout.
 
-The default idempotency store is in memory. For multiple application instances or restarts, configure a shared persistent store such as [PostgreSQL](adapters/postgres.md) or [Redis](adapters/redis.md).
+The default idempotency store is in memory. For multiple application instances or restarts, configure a shared persistent store such as [PostgreSQL](/adapters/postgres) or [Redis](/adapters/redis).
 
-Workflow deduplication also cannot close the gap between “the payment provider accepted the charge” and “the application recorded success.” Pass a stable provider-supported idempotency key to the actual payment API, and reconcile unknown outcomes before charging again. See [Idempotency and Deduplication](idempotency.md) for store configuration and step-level policies.
+Workflow deduplication also cannot close the gap between “the payment provider accepted the charge” and “the application recorded success.” Pass a stable provider-supported idempotency key to the actual payment API, and reconcile unknown outcomes before charging again. See [Idempotency and Deduplication](/idempotency) for store configuration and step-level policies.
 
 ## 7. Apply the Same Idea to Other Problems
 
@@ -319,12 +319,12 @@ Checkout is one example. Look for a business operation with several stages and e
 | Real-world problem | Where Siglo helps | Continue with |
 |---|---|---|
 | A travel booking reserves a flight, then fails to book a hotel | Attach cancellation actions to completed reservations and compensate in reverse order | [Travel booking example](../examples/src/workflow/usecases/usecase-11-distributed-saga-compensation.ts) |
-| An expense claim waits for a manager’s decision | Suspend at an event wait, persist the checkpoint, and resume when a verified approval arrives | [Durable workflows](06-durable-workflows.md) |
+| An expense claim waits for a manager’s decision | Suspend at an event wait, persist the checkpoint, and resume when a verified approval arrives | [Durable workflows](/06-durable-workflows) |
 | A document import overloads an embedding service when every item runs at once | Use bounded `map` concurrency to limit active work | [Batch ingestion example](../examples/src/workflow/usecases/usecase-12-bounded-batch-mapping.ts) |
-| A Kafka message needs validation, customer enrichment, and an audit write | Reuse named steps inside a consumer, with retry and deduplication policies | [Kafka adapter](adapters/kafka.md) |
-| A support assistant needs structured model output and an alternate provider on failure | Compose AI steps with output validation and fallback policies | [AI adapter](adapters/ai.md) |
+| A Kafka message needs validation, customer enrichment, and an audit write | Reuse named steps inside a consumer, with retry and deduplication policies | [Kafka adapter](/adapters/kafka) |
+| A support assistant needs structured model output and an alternate provider on failure | Compose AI steps with output validation and fallback policies | [AI adapter](/adapters/ai) |
 
-For durable approvals, persistence and resumption must be configured explicitly. If a wait needs to expire while no worker is running it, configure a [scheduler](adapters/scheduler.md) or an external dispatch mechanism. An in-memory demo does not survive a process restart.
+For durable approvals, persistence and resumption must be configured explicitly. If a wait needs to expire while no worker is running it, configure a [scheduler](/adapters/scheduler) or an external dispatch mechanism. An in-memory demo does not survive a process restart.
 
 ## 8. Decide Whether Siglo Fits
 
@@ -332,13 +332,13 @@ Siglo fits when an application needs reusable business steps with retries, compe
 
 A single database transaction should usually stay a database transaction. A short function with no recovery rules can stay a function. A queue still handles delivery and worker scheduling; Siglo can coordinate the operations inside its consumer.
 
-For this checkout, the next production work is concrete: replace fake clients, add provider idempotency, configure shared storage where required, and observe failures. If a refund itself fails, handle the reported compensation failure and arrange reconciliation; registering a handler does not guarantee that an external refund succeeds. Start with [Compensation and Sagas](compensation-and-sagas.md), then [Production Operations](11-production-operations.md).
+For this checkout, the next production work is concrete: replace fake clients, add provider idempotency, configure shared storage where required, and observe failures. If a refund itself fails, handle the reported compensation failure and arrange reconciliation; registering a handler does not guarantee that an external refund succeeds. Start with [Compensation and Sagas](/compensation-and-sagas), then [Production Operations](/11-production-operations).
 
 ## 9. Where to Go Next
 
-- [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md): expose this checkout through Express and inspect successful and failed requests.
-- [Core Concepts](02-core-concepts.md): context, step lifecycle, and execution options.
-- [Branching and Parallelism](04-branching-and-parallelism.md): conditional routes and concurrent work.
-- [Retries, Timeouts, and Cancellation](05-retries-timeouts-and-cancellation.md): deadlines and cooperative cancellation for real clients.
-- [Observability](08-observability.md): inspect and visualize what ran.
-- [Runnable Examples](../examples/README.md): adapt a workflow close to your own use case.
+- [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring): expose this checkout through Express and inspect successful and failed requests.
+- [Core Concepts](/02-core-concepts): context, step lifecycle, and execution options.
+- [Branching and Parallelism](/04-branching-and-parallelism): conditional routes and concurrent work.
+- [Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation): deadlines and cooperative cancellation for real clients.
+- [Observability](/08-observability): inspect and visualize what ran.
+- [Runnable Examples](https://github.com/jsoftgem/siglo/blob/main/examples/README.md): adapt a workflow close to your own use case.

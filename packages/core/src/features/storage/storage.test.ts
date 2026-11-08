@@ -22,7 +22,7 @@ import {
     checkpoint,
     restoreCheckpoint,
     serializeState,
-    hydrateState
+    hydrateState,
 } from './index';
 import { GetChainTypeException } from './get';
 import { PutChainTypeException } from './put';
@@ -32,7 +32,7 @@ describe('storage.unit.test', () => {
     it('should put chain config', () => {
         setChainConfig({
             logMonitor: () => true,
-            plugins: { name: 'sample' }
+            plugins: { name: 'sample' },
         });
         expect(getPlugins()).to.be.not.undefined;
         expect(getPlugins().name).to.be.equal('sample');
@@ -145,6 +145,13 @@ describe('storage.unit.test', () => {
         }).to.throw('Unauthorized storage access');
     });
 
+    it('storage.get resolves function values without val property', () => {
+        const mgr = new StorageManager();
+        mgr.state.contexts.set('stepFn', { plainFn: () => 'computed' } as any);
+        const res = mgr.get('stack1', 'stepFn');
+        expect(res.plainFn).to.equal('computed');
+    });
+
     it('serializeParam handles primitives, sorted keys, arrays, circular structures, and errors', () => {
         expect(serializeParam(null)).to.equal('null');
         expect(serializeParam(undefined)).to.equal('undefined');
@@ -169,7 +176,7 @@ describe('storage.unit.test', () => {
             },
             toString() {
                 return 'fallbackString';
-            }
+            },
         };
         expect(serializeParam(throwingObj)).to.equal('fallbackString');
     });
@@ -225,10 +232,10 @@ describe('storage.unit.test', () => {
                 contexts: {
                     step_a: {
                         name: 'Siglo',
-                        age: 5
-                    }
+                        age: 5,
+                    },
                 },
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
 
             isolated.restoreCheckpoint(chk);
@@ -287,14 +294,14 @@ describe('storage.unit.test', () => {
                 stacks: {
                     stack_hydrated: {
                         type: 'execution',
-                        chains: ['chain_h1']
-                    }
+                        chains: ['chain_h1'],
+                    },
                 },
                 contexts: {
                     chain_h1: {
-                        value: 999
-                    }
-                }
+                        value: 999,
+                    },
+                },
             });
 
             isolated.hydrateState(serialized);
@@ -308,9 +315,9 @@ describe('storage.unit.test', () => {
                 type: 'execution',
                 chains: ['ch_1'],
                 contexts: {
-                    ch_1: { result: 'ok' }
+                    ch_1: { result: 'ok' },
                 },
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
             expect(isolated.getChainContext('ch_1', 'result')()).to.equal('ok');
         });

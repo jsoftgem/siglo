@@ -90,9 +90,9 @@ describe('@siglo/bullmq Adapter Suite', () => {
 
         // 1. Function namespace + custom input/output
         const processor1 = createBullMQProcessor(flow(step), {
-            input: (job) => ({ value: job.data.v }),
+            input: job => ({ value: job.data.v }),
             output: (result, job) => ({ ...result, jobId: job.id }),
-            namespace: (job) => `ns-${job.id}`
+            namespace: job => `ns-${job.id}`,
         });
 
         const res1 = await processor1({ id: 'j1', data: { v: 10 } });
@@ -101,7 +101,7 @@ describe('@siglo/bullmq Adapter Suite', () => {
 
         // 2. Static string namespace
         const processor2 = createBullMQProcessor(flow(step), {
-            namespace: 'tenant-static'
+            namespace: 'tenant-static',
         });
         const res2 = await processor2({ id: 'j2', data: { value: 5 } });
         expect(res2.computed).to.equal(10);

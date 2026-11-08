@@ -34,12 +34,12 @@ export function createOrderPipeline() {
 
         return {
             isValid: true,
-            subtotal
+            subtotal,
         };
     })
-      .spec('orderId', { require: true })
-      .spec('items', { require: true })
-      .spec('customer', { require: true });
+        .spec('orderId', { require: true })
+        .spec('items', { require: true })
+        .spec('customer', { require: true });
 
     // 2. Step 2: Calculate Pricing, Discounts, and Taxes
     const calculatePricing = Step.create('calculatePricing', async (param: any) => {
@@ -48,7 +48,7 @@ export function createOrderPipeline() {
 
         let discount = 0;
         if (couponCode === 'SAVE10') {
-            discount = subtotal * 0.10;
+            discount = subtotal * 0.1;
         } else if (subtotal >= 100) {
             discount = 15; // $15 off orders over $100
         }
@@ -60,7 +60,7 @@ export function createOrderPipeline() {
         return {
             discount,
             tax,
-            finalTotal
+            finalTotal,
         };
     });
 
@@ -78,13 +78,9 @@ export function createOrderPipeline() {
             discount: param.discount,
             tax: param.tax,
             amountCharged: finalTotal,
-            issuedAt: new Date().toISOString()
+            issuedAt: new Date().toISOString(),
         };
     });
 
-    return flow(
-        validateOrder,
-        calculatePricing,
-        generateInvoice
-    );
+    return flow(validateOrder, calculatePricing, generateInvoice);
 }

@@ -7,15 +7,20 @@ import {
     restoreCheckpoint,
     serializeState,
     setErrorMode,
-    useStorage
+    useStorage,
 } from '../storage';
-import {Executer, RetryConfig, UnresolvableCompensationException} from '../executer';
-import {StepExecutionHook, stepExecutionHookStorage, withStepExecutionHook, getStepExecutionHook} from '../executer/hooks';
-import Spec, {SpecData} from '../spec';
+import { Executer, RetryConfig, UnresolvableCompensationException } from '../executer';
+import {
+    StepExecutionHook,
+    stepExecutionHookStorage,
+    withStepExecutionHook,
+    getStepExecutionHook,
+} from '../executer/hooks';
+import Spec, { SpecData } from '../spec';
 import Configurator from '../configurator';
-import {generateUUID, isFunction, isObject, isReservedKey} from '../../shared';
-import {toPOJO} from '../context';
-import {CacheOptions} from '../cache';
+import { generateUUID, isFunction, isObject, isReservedKey } from '../../shared';
+import { toPOJO } from '../context';
+import { CacheOptions } from '../cache';
 
 // Phase 2 imports
 import {
@@ -39,7 +44,7 @@ import {
     validateGraph,
     WaitNode,
     WorkflowNode,
-    WorkflowNodeType
+    WorkflowNodeType,
 } from '../graph';
 
 import {
@@ -50,7 +55,7 @@ import {
     IdempotencyRecord,
     IdempotencyStore,
     InMemoryIdempotencyStore,
-    isPermanentBusinessError
+    isPermanentBusinessError,
 } from '../idempotency';
 
 import {
@@ -66,7 +71,7 @@ import {
     hasCompensationHandler,
     reconcileAbandonedStacks,
     registerCompensationHandler,
-    unregisterCompensationHandler
+    unregisterCompensationHandler,
 } from '../compensation';
 
 import {
@@ -84,7 +89,7 @@ import {
     ParallelMode,
     ParallelOptions,
     race,
-    when
+    when,
 } from '../combinators';
 
 import {
@@ -98,7 +103,7 @@ import {
     wait,
     waitForEvent,
     WaitForEventOptions,
-    WaitingWorkflowRecord
+    WaitingWorkflowRecord,
 } from '../durable';
 
 import {
@@ -112,7 +117,7 @@ import {
     WorkflowEventEmitter,
     WorkflowExecutionEvent,
     WorkflowExecutionEventMap,
-    WorkflowExecutionEventType
+    WorkflowExecutionEventType,
 } from '../events';
 
 import {
@@ -132,7 +137,7 @@ import {
     normalizeIP,
     resolveEffectiveNetworkPolicy,
     uninstallNetworkInterceptors,
-    validateAndPinTarget
+    validateAndPinTarget,
 } from '../network';
 
 export {
@@ -164,14 +169,14 @@ export {
     NetworkPolicyViolationException,
     normalizeError,
     RetryConfig,
-    RetryPredicate
+    RetryPredicate,
 } from '../executer';
 export {
     StepExecutionContext,
     StepExecutionHook,
     stepExecutionHookStorage,
     withStepExecutionHook,
-    getStepExecutionHook
+    getStepExecutionHook,
 } from '../executer/hooks';
 
 export {
@@ -181,7 +186,7 @@ export {
     ContextChangeEvent,
     CacheEvent,
     StorageErrorMode,
-    CheckpointOptions
+    CheckpointOptions,
 } from '../storage';
 
 export { CacheOptions } from '../cache';
@@ -209,7 +214,7 @@ export {
     toJSON,
     toDot,
     MermaidExportOptions,
-    DotExportOptions
+    DotExportOptions,
 };
 
 export {
@@ -220,7 +225,7 @@ export {
     InMemoryIdempotencyStore,
     defaultIdempotencyStore,
     buildIdempotencyKey,
-    isPermanentBusinessError
+    isPermanentBusinessError,
 };
 
 export {
@@ -229,7 +234,7 @@ export {
     CompensationRecord,
     CompensationRunResult,
     CompensationManager,
-    defaultCompensationManager
+    defaultCompensationManager,
 };
 
 export {
@@ -247,7 +252,7 @@ export {
     BranchPredicate,
     BranchSelector,
     MapOptions,
-    MapItemAccessor
+    MapItemAccessor,
 };
 
 export {
@@ -261,7 +266,7 @@ export {
     DurableManager,
     defaultDurableManager,
     validateWorkflowVersion,
-    resumeWorkflow
+    resumeWorkflow,
 };
 
 export {
@@ -275,7 +280,7 @@ export {
     emitMonitoringEvent,
     redactEvent,
     redactValue,
-    RedactionOptions
+    RedactionOptions,
 };
 
 export {
@@ -295,7 +300,7 @@ export {
     normalizeIP,
     validateAndPinTarget,
     isUnixSocket,
-    isUnixSocketAllowed
+    isUnixSocketAllowed,
 };
 
 export interface ExecutionOptions {
@@ -330,11 +335,16 @@ export interface ExecutionOptions {
     stepExecutionHook?: StepExecutionHook;
 }
 
-export type StepAction<TInput = any, TOutput = any> = (parameter: TInput, current?: any, index?: number) => TOutput | Promise<TOutput>;
+export type StepAction<TInput = any, TOutput = any> = (
+    parameter: TInput,
+    current?: any,
+    index?: number,
+) => TOutput | Promise<TOutput>;
 export type OnBeforeAction<TInput = any> = (parameter: TInput) => boolean | Promise<boolean>;
 export type OnSkipAction<TInput = any, TFallback = any> = (parameter: TInput) => TFallback | Promise<TFallback>;
 export type OnAfterAction<TOutput = any, TInput = any> = (output: TOutput, parameter: TInput) => any | Promise<any>;
-export type OnFailAction = ((error: any, retry: (fallback?: any) => void, reject: (err?: any) => void) => any) | RetryConfig;
+export type OnFailAction =
+    ((error: any, retry: (fallback?: any) => void, reject: (err?: any) => void) => any) | RetryConfig;
 
 export interface Flow<TInput = any, TOutput = any> {
     execute: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
@@ -361,13 +371,9 @@ export interface Flow<TInput = any, TOutput = any> {
     stepExecutionHook?: StepExecutionHook;
 }
 
-export type FlowItem<TIn = any, TOut = any> =
-    | Step<TIn, TOut, any>
-    | Flow<TIn, TOut>;
+export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut, any> | Flow<TIn, TOut>;
 
-export type FlowArg<TIn = any, TOut = any> =
-    | FlowItem<TIn, TOut>
-    | FlowArg<TIn, TOut>[];
+export type FlowArg<TIn = any, TOut = any> = FlowItem<TIn, TOut> | FlowArg<TIn, TOut>[];
 
 export function isFlow(item: any): item is Flow {
     if (!isObject(item)) {
@@ -402,9 +408,7 @@ function createFlowStep(flowInstance: Flow<any, any>): Step<any, any, any> {
     return new Step(flowInstance);
 }
 
-export function flattenSteps(
-    steps: any[]
-): Step<any, any, any>[] {
+export function flattenSteps(steps: any[]): Step<any, any, any>[] {
     const result: Step<any, any, any>[] = [];
     for (const item of steps) {
         if (Array.isArray(item)) {
@@ -426,8 +430,8 @@ export function flattenSteps(
 export type MergeStepContext<TAcc, TOut> = [TOut] extends [void | undefined]
     ? TAcc
     : [TOut] extends [object]
-        ? Omit<TAcc, keyof TOut> & TOut
-        : TAcc;
+      ? Omit<TAcc, keyof TOut> & TOut
+      : TAcc;
 
 export type FlowContextResult<TContext, THistory = Record<string, any>> = TContext & {
     $steps: THistory;
@@ -435,42 +439,84 @@ export type FlowContextResult<TContext, THistory = Record<string, any>> = TConte
 
 // Flow overloads with Accumulated Context Inference & Typed Step History
 export function flow<TIn, T1Out, N1 extends string>(
-    s1: Step<any, T1Out, N1>
+    s1: Step<any, T1Out, N1>,
 ): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
     s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>
-): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>>;
+    s2: Step<any, T2Out, N2>,
+): Flow<
+    TIn,
+    FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>
+>;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string>(
     s1: Step<any, T1Out, N1>,
     s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>
-): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out>>>;
-
-export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string, T4Out, N4 extends string>(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
     s3: Step<any, T3Out, N3>,
-    s4: Step<any, T4Out, N4>
-): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out>>>;
+): Flow<
+    TIn,
+    FlowContextResult<
+        MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>,
+        Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out>
+    >
+>;
 
-export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string, T4Out, N4 extends string, T5Out, N5 extends string>(
+export function flow<
+    TIn,
+    T1Out,
+    N1 extends string,
+    T2Out,
+    N2 extends string,
+    T3Out,
+    N3 extends string,
+    T4Out,
+    N4 extends string,
+>(
     s1: Step<any, T1Out, N1>,
     s2: Step<any, T2Out, N2>,
     s3: Step<any, T3Out, N3>,
     s4: Step<any, T4Out, N4>,
-    s5: Step<any, T5Out, N5>
-): Flow<TIn, FlowContextResult<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>, T5Out>, Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out> & Record<N5, T5Out>>>;
+): Flow<
+    TIn,
+    FlowContextResult<
+        MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>,
+        Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out>
+    >
+>;
 
-export function flow<TInput = any, TOutput = any>(
-    ...steps: FlowArg[]
-): Flow<TInput, TOutput>;
+export function flow<
+    TIn,
+    T1Out,
+    N1 extends string,
+    T2Out,
+    N2 extends string,
+    T3Out,
+    N3 extends string,
+    T4Out,
+    N4 extends string,
+    T5Out,
+    N5 extends string,
+>(
+    s1: Step<any, T1Out, N1>,
+    s2: Step<any, T2Out, N2>,
+    s3: Step<any, T3Out, N3>,
+    s4: Step<any, T4Out, N4>,
+    s5: Step<any, T5Out, N5>,
+): Flow<
+    TIn,
+    FlowContextResult<
+        MergeStepContext<
+            MergeStepContext<MergeStepContext<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, T3Out>, T4Out>,
+            T5Out
+        >,
+        Record<N1, T1Out> & Record<N2, T2Out> & Record<N3, T3Out> & Record<N4, T4Out> & Record<N5, T5Out>
+    >
+>;
 
-export function flow<TInput = any, TOutput = any>(
-    ...steps: FlowArg[]
-): Flow<TInput, TOutput> {
+export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TInput, TOutput>;
+
+export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TInput, TOutput> {
     const flatSteps = flattenSteps(steps);
     let defaultTimeoutMs: number | undefined;
     let declaredVersion: string | number | undefined;
@@ -492,11 +538,12 @@ export function flow<TInput = any, TOutput = any>(
             ...(flowHook !== undefined ? { stepExecutionHook: flowHook } : {}),
             ast: flowObj.toGraph(),
             ...options,
-            ...(resolvedNetworkPolicy !== undefined ? { networkPolicy: resolvedNetworkPolicy } : {})
+            ...(resolvedNetworkPolicy !== undefined ? { networkPolicy: resolvedNetworkPolicy } : {}),
         };
         if (effectiveOptions.stepExecutionHook && !stepExecutionHookStorage.getStore()) {
-            return withStepExecutionHook(effectiveOptions.stepExecutionHook, () =>
-                Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>
+            return withStepExecutionHook(
+                effectiveOptions.stepExecutionHook,
+                () => Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>,
             );
         }
         return Step.start(flatSteps, param, effectiveOptions) as Promise<TOutput>;
@@ -552,10 +599,11 @@ export function flow<TInput = any, TOutput = any>(
                                 handler = getCompensationHandler(record.handlerName);
                             }
                             if (!handler) {
-                                const matchingStep = allSteps.find((s: any) =>
-                                    (s?.name && s.name === record.stepName) ||
-                                    (s?.func && s.func === record.stepName) ||
-                                    (s?.$stepId && s.$stepId === record.stepId)
+                                const matchingStep = allSteps.find(
+                                    (s: any) =>
+                                        (s?.name && s.name === record.stepName) ||
+                                        (s?.func && s.func === record.stepName) ||
+                                        (s?.$stepId && s.$stepId === record.stepId),
                                 );
                                 if (matchingStep?.compensationHandler) {
                                     handler = matchingStep.compensationHandler;
@@ -578,7 +626,7 @@ export function flow<TInput = any, TOutput = any>(
                                 payload: record.payload,
                                 options: record.options,
                                 status: record.status,
-                                completedAt: record.completedAt
+                                completedAt: record.completedAt,
                             });
                         }
                     }
@@ -597,7 +645,7 @@ export function flow<TInput = any, TOutput = any>(
                 defaultPolicy: policy?.defaultPolicy ?? 'deny',
                 allowedHosts: policy?.allowedHosts ? [...policy.allowedHosts] : [],
                 allowLocalhost: policy?.allowLocalhost ?? false,
-                ...(policy?.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {})
+                ...(policy?.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {}),
             };
             flowObj.networkPolicyConfig = flowPolicyConfig;
             return flowObj;
@@ -614,7 +662,7 @@ export function flow<TInput = any, TOutput = any>(
             flowObj.stepExecutionHook = h;
             return flowObj;
         },
-        stepExecutionHook: undefined
+        stepExecutionHook: undefined,
     };
     return flowObj;
 }
@@ -650,7 +698,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     constructor(
         nameOrAction?: TName | StepAction<TInput, TOutput> | Flow<TInput, TOutput>,
         action: StepAction<TInput, TOutput> = (_parameter: any) => undefined as any,
-        sequence: Step<any, any, any>[] = []
+        sequence: Step<any, any, any>[] = [],
     ) {
         if (isFlow(nameOrAction)) {
             const flowInstance = nameOrAction;
@@ -665,10 +713,10 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             this.action = nameOrAction;
             this.name = '' as TName;
         } else {
-            this.name = ((nameOrAction as TName) || ('' as TName));
+            this.name = (nameOrAction as TName) || ('' as TName);
             this.action = action;
         }
-        this.func = (this.name as string);
+        this.func = this.name as string;
         this.$stepId = generateUUID();
         this.specs = [];
         this.onbefore = () => true;
@@ -681,7 +729,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static start<TOut = any>(
         steps: Step | Step[] | Flow | (Step | Flow)[],
         param?: any,
-        options?: ExecutionOptions
+        options?: ExecutionOptions,
     ): Promise<TOut>;
     static start(steps?: undefined, param?: any, options?: ExecutionOptions): undefined;
     static start(steps?: any, param: any = {}, options?: ExecutionOptions): any {
@@ -690,15 +738,21 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         }
         let effParam = param;
         let effOptions = options;
-        if (options === undefined && param && (param.signal || param.namespace || param.timeout || param.timeoutMs || param.pojo)) {
+        if (
+            options === undefined &&
+            param &&
+            (param.signal || param.namespace || param.timeout || param.timeoutMs || param.pojo)
+        ) {
             effOptions = param;
             effParam = {};
         }
         const normalizedSteps = isFlow(steps)
-            ? (Array.isArray(steps.steps) ? flattenSteps(steps.steps) : [createFlowStep(steps)])
+            ? Array.isArray(steps.steps)
+                ? flattenSteps(steps.steps)
+                : [createFlowStep(steps)]
             : Array.isArray(steps)
-                ? flattenSteps(steps)
-                : steps;
+              ? flattenSteps(steps)
+              : steps;
         if (effOptions && !effOptions.ast) {
             effOptions = Object.assign({}, effOptions, { ast: toGraph(normalizedSteps) });
         }
@@ -707,19 +761,14 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
 
     static create<TName extends string, TIn = any, TOut = any>(
         name: TName,
-        action?: StepAction<TIn, TOut>
+        action?: StepAction<TIn, TOut>,
     ): Step<TIn, TOut, TName>;
-    static create<TIn = any, TOut = any>(
-        action: StepAction<TIn, TOut> | Flow<TIn, TOut>
-    ): Step<TIn, TOut, string>;
-    static create<TIn, TOut, TName extends string>(
-        name: TName,
-        action: StepAction<TIn, TOut>
-    ): Step<TIn, TOut, TName>;
+    static create<TIn = any, TOut = any>(action: StepAction<TIn, TOut> | Flow<TIn, TOut>): Step<TIn, TOut, string>;
+    static create<TIn, TOut, TName extends string>(name: TName, action: StepAction<TIn, TOut>): Step<TIn, TOut, TName>;
     static create<TIn = any, TOut = any>(
         nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>,
         action?: StepAction<TIn, TOut>,
-        sequence?: Step<any, any, any>[]
+        sequence?: Step<any, any, any>[],
     ): Step<TIn, TOut, any> {
         return new Step<TIn, TOut, any>(nameOrAction as any, action, sequence);
     }
@@ -785,7 +834,9 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             defaultPolicy: 'deny',
             allowedHosts: list,
             allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? false,
-            ...(this.networkPolicyConfig?.allowUnixSockets ? { allowUnixSockets: this.networkPolicyConfig.allowUnixSockets } : {})
+            ...(this.networkPolicyConfig?.allowUnixSockets
+                ? { allowUnixSockets: this.networkPolicyConfig.allowUnixSockets }
+                : {}),
         };
         return this;
     }
@@ -797,7 +848,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             defaultPolicy: this.networkPolicyConfig?.defaultPolicy ?? 'deny',
             allowedHosts: this.networkPolicyConfig?.allowedHosts || [],
             allowLocalhost: this.networkPolicyConfig?.allowLocalhost ?? false,
-            allowUnixSockets: list
+            allowUnixSockets: list,
         };
         return this;
     }
@@ -817,7 +868,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             defaultPolicy: policy.defaultPolicy ?? 'deny',
             allowedHosts: policy.allowedHosts ? [...policy.allowedHosts] : [],
             allowLocalhost: policy.allowLocalhost ?? false,
-            ...(policy.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {})
+            ...(policy.allowUnixSockets ? { allowUnixSockets: [...policy.allowUnixSockets] } : {}),
         };
         return this;
     }
@@ -925,7 +976,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     compensate(
         handlerOrName: string | any,
         payloadMapperOrOptions?: ((output: any, input: any) => any) | CompensationOptions,
-        options?: CompensationOptions
+        options?: CompensationOptions,
     ): Step<TInput, TOutput, TName> {
         if (typeof handlerOrName === 'string') {
             this.compensationHandlerName = handlerOrName;
@@ -959,11 +1010,20 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     execute(param?: TInput, options?: ExecutionOptions): Promise<TOutput> {
         let effParam = param;
         let effOptions = options;
-        /* c8 ignore next 4 */
-        if (options === undefined && param && ((param as any).signal || (param as any).namespace || (param as any).timeout || (param as any).timeoutMs || (param as any).pojo)) {
+        /* c8 ignore start */
+        if (
+            options === undefined &&
+            param &&
+            ((param as any).signal ||
+                (param as any).namespace ||
+                (param as any).timeout ||
+                (param as any).timeoutMs ||
+                (param as any).pojo)
+        ) {
             effOptions = param as any;
             effParam = {} as any;
         }
+        /* c8 ignore stop */
         return Step.start<TOutput>(this.sequence.length ? [...this.sequence] : this, effParam, effOptions);
     }
 
@@ -974,7 +1034,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     static config(props: Record<string, any>): void {
         Configurator.configure(props);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 // Compatibility Aliases
@@ -1001,15 +1061,15 @@ export {
     hasCompensationHandler,
     unregisterCompensationHandler,
     clearCompensationHandlers,
-    reconcileAbandonedStacks
+    reconcileAbandonedStacks,
 };
 
 export type {
     CompensationRunOptions,
     CompensationDeadLetterQueue,
     ReconcilerOptions,
-    ReconcileReport
-} from "../compensation";
+    ReconcileReport,
+} from '../compensation';
 
 export default Step;
 

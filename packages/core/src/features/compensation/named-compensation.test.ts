@@ -13,7 +13,7 @@ import {
     defaultCompensationManager,
     defaultStorageManager,
     clearStorage,
-    Status
+    Status,
 } from '../../index';
 
 describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
@@ -49,7 +49,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
         it('supports handler objects with an execute method', () => {
             const handlerObj = {
-                execute: async (ctx: any) => ctx
+                execute: async (ctx: any) => ctx,
             };
             registerCompensationHandler('objHandler', handlerObj as any);
             expect(getCompensationHandler('objHandler')).to.equal(handlerObj);
@@ -57,19 +57,19 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
         it('throws an error if handler name is empty or invalid', () => {
             expect(() => registerCompensationHandler('', () => {})).to.throw(
-                'Compensation handler name must be a non-empty string'
+                'Compensation handler name must be a non-empty string',
             );
             expect(() => registerCompensationHandler(null as any, () => {})).to.throw(
-                'Compensation handler name must be a non-empty string'
+                'Compensation handler name must be a non-empty string',
             );
         });
 
         it('throws an error if handler is not a function or object with execute', () => {
             expect(() => registerCompensationHandler('invalid', null as any)).to.throw(
-                "Compensation handler for 'invalid' must be a function or have an execute method"
+                "Compensation handler for 'invalid' must be a function or have an execute method",
             );
             expect(() => registerCompensationHandler('invalid', 123 as any)).to.throw(
-                "Compensation handler for 'invalid' must be a function or have an execute method"
+                "Compensation handler for 'invalid' must be a function or have an execute method",
             );
         });
 
@@ -95,11 +95,15 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const step1 = Step.create('reserve', ({ sku, qty }: any) => ({
                 sku,
                 qty,
-                reservedId: 'res-99'
-            })).compensate('releaseInventory', (output, input) => ({
-                sku: output.sku,
-                qty: output.qty
-            }), { maxRetries: 1 });
+                reservedId: 'res-99',
+            })).compensate(
+                'releaseInventory',
+                (output, input) => ({
+                    sku: output.sku,
+                    qty: output.qty,
+                }),
+                { maxRetries: 1 },
+            );
 
             const step2 = Step.create('failStep', () => {
                 throw new Error('Payment declined');
@@ -121,8 +125,9 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 receivedOutput = payload;
             });
 
-            const step1 = Step.create('issueTicket', () => ({ ticketNo: 'T-456' }))
-                .compensate('cancelTicket', { maxRetries: 0 });
+            const step1 = Step.create('issueTicket', () => ({ ticketNo: 'T-456' })).compensate('cancelTicket', {
+                maxRetries: 0,
+            });
 
             const step2 = Step.create('boom', () => {
                 throw new Error('Crash');
@@ -143,8 +148,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 ran = true;
             });
 
-            const step1 = Step.create('step1', () => ({ ok: true }))
-                .compensate('simpleComp');
+            const step1 = Step.create('step1', () => ({ ok: true })).compensate('simpleComp');
 
             const step2 = Step.create('fail', () => {
                 throw new Error('Fail');
@@ -161,8 +165,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
     describe('UnresolvableCompensationException & No Silent Drops', () => {
         it('throws UnresolvableCompensationException when named handler is missing in strict mode', async () => {
-            const step1 = Step.create('orderStep', () => ({ item: 'phone' }))
-                .compensate('nonExistentHandler');
+            const step1 = Step.create('orderStep', () => ({ item: 'phone' })).compensate('nonExistentHandler');
 
             const step2 = Step.create('failStep', () => {
                 throw new Error('Card expired');
@@ -205,7 +208,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             output: {},
             input: {},
             handler: () => {},
-            status: Status.COMPLETED
+            status: Status.COMPLETED,
         });
 
         const result = await defaultCompensationManager.runCompensations(stackId);
@@ -218,7 +221,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const dlq = {
                 send: async (entry: any) => {
                     dlqEntries.push(entry);
-                }
+                },
             };
 
             const onFailureCalls: any[] = [];
@@ -234,40 +237,42 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 stepName: 'step1',
                 output: { n: 1 },
                 input: {},
-                handler: async () => { executedCompensations.push('step1'); }
+                handler: async () => {
+                    executedCompensations.push('step1');
+                },
             });
             defaultCompensationManager.registerCompensation(stackId, {
                 stepId: 's2',
                 stepName: 'step2',
                 output: { n: 2 },
                 input: {},
-                handler: async () => { throw new Error('Comp 2 failed'); }
+                handler: async () => {
+                    throw new Error('Comp 2 failed');
+                },
             });
             defaultCompensationManager.registerCompensation(stackId, {
                 stepId: 's3',
                 stepName: 'step3',
                 output: { n: 3 },
                 input: {},
-                handlerName: 'unregisteredCompHandler'
+                handlerName: 'unregisteredCompHandler',
             });
             defaultCompensationManager.registerCompensation(stackId, {
                 stepId: 's4',
                 stepName: 'step4',
                 output: { n: 4 },
                 input: {},
-                handler: async () => { executedCompensations.push('step4'); }
+                handler: async () => {
+                    executedCompensations.push('step4');
+                },
             });
 
             try {
-                await defaultCompensationManager.runCompensations(
-                    stackId,
-                    new Error('Pipeline exploded'),
-                    {
-                        mode: 'best-effort',
-                        deadLetterQueue: dlq,
-                        onFailure
-                    }
-                );
+                await defaultCompensationManager.runCompensations(stackId, new Error('Pipeline exploded'), {
+                    mode: 'best-effort',
+                    deadLetterQueue: dlq,
+                    onFailure,
+                });
                 expect.fail('Should throw CompensationException');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(CompensationException);
@@ -290,21 +295,27 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 stepName: 'step1',
                 output: {},
                 input: {},
-                handler: async () => { executed.push('step1'); }
+                handler: async () => {
+                    executed.push('step1');
+                },
             });
             defaultCompensationManager.registerCompensation(stackId, {
                 stepId: 's2',
                 stepName: 'step2',
                 output: {},
                 input: {},
-                handler: async () => { throw new Error('Strict failure'); }
+                handler: async () => {
+                    throw new Error('Strict failure');
+                },
             });
             defaultCompensationManager.registerCompensation(stackId, {
                 stepId: 's3',
                 stepName: 'step3',
                 output: {},
                 input: {},
-                handler: async () => { executed.push('step3'); }
+                handler: async () => {
+                    executed.push('step3');
+                },
             });
 
             try {
@@ -325,8 +336,10 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 compensatedPayload = payload;
             });
 
-            const step1 = Step.create('chargeStep', () => ({ chargeId: 'ch_999', currency: 'usd' }))
-                .compensate('refundCharge', (out) => ({ refundId: out.chargeId }));
+            const step1 = Step.create('chargeStep', () => ({ chargeId: 'ch_999', currency: 'usd' })).compensate(
+                'refundCharge',
+                out => ({ refundId: out.chargeId }),
+            );
 
             const waitStep = Step.create('waitStep', () => {
                 const err: any = new Error('Suspended');
@@ -370,13 +383,13 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const dummyStacks = [
                 { stackId: 'stale-1', status: Status.RUNNING, timestamp: staleTime, workflowId: 'wf-1' },
                 { stackId: 'fresh-1', status: Status.RUNNING, timestamp: now - 1000, workflowId: 'wf-2' },
-                { stackId: 'completed-1', status: Status.COMPLETED, timestamp: staleTime, workflowId: 'wf-3' }
+                { stackId: 'completed-1', status: Status.COMPLETED, timestamp: staleTime, workflowId: 'wf-3' },
             ];
 
             const report = await reconcileAbandonedStacks({
                 staleThresholdMs: 10 * 60 * 1000,
                 action: 'inspect',
-                stacks: dummyStacks
+                stacks: dummyStacks,
             });
 
             expect(report.inspected).to.equal(3);
@@ -395,7 +408,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
             const report = await reconcileAbandonedStacks({
                 staleThresholdMs: 10 * 60 * 1000,
-                action: 'fail'
+                action: 'fail',
             });
 
             expect(report.staleStacks.some(s => s.stackId === stackId)).to.be.true;
@@ -423,14 +436,14 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                         stepName: 'abandonedStep',
                         output: { x: 1 },
                         input: {},
-                        handlerName: 'reconcileComp'
-                    }
-                ]
+                        handlerName: 'reconcileComp',
+                    },
+                ],
             };
 
             const report = await reconcileAbandonedStacks({
                 staleThresholdMs: 10 * 60 * 1000,
-                action: 'compensate'
+                action: 'compensate',
             });
 
             expect(report.reconciled).to.include(stackId);
@@ -442,14 +455,14 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const staleTime = Date.now() - 15 * 60 * 1000;
             const stacks = [
                 { stackId: 'ns-target', namespace: 'tenant-a', status: Status.RUNNING, timestamp: staleTime },
-                { stackId: 'ns-other', namespace: 'tenant-b', status: Status.RUNNING, timestamp: staleTime }
+                { stackId: 'ns-other', namespace: 'tenant-b', status: Status.RUNNING, timestamp: staleTime },
             ];
 
             const report = await reconcileAbandonedStacks({
                 staleThresholdMs: 10 * 60 * 1000,
                 action: 'fail',
                 namespace: 'tenant-a',
-                stacks
+                stacks,
             });
 
             expect(report.staleStacks).to.have.length(1);
@@ -470,15 +483,15 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                         stepName: 'missingStep',
                         output: {},
                         input: {},
-                        handlerName: 'nonExistentReconcileHandler'
-                    }
-                ]
+                        handlerName: 'nonExistentReconcileHandler',
+                    },
+                ],
             };
 
             const report = await reconcileAbandonedStacks({
                 staleThresholdMs: 10 * 60 * 1000,
                 action: 'compensate',
-                mode: 'strict'
+                mode: 'strict',
             });
 
             expect(report.failed).to.have.length(1);
@@ -495,18 +508,16 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                     expect(id).to.equal(stackId);
                     flowCompCalled = true;
                     return { completed: ['stepA'], failed: [] };
-                }
+                },
             };
 
-            const stacks = [
-                { stackId, workflowId: 'wf-lookup', status: Status.RUNNING, timestamp: staleTime }
-            ];
+            const stacks = [{ stackId, workflowId: 'wf-lookup', status: Status.RUNNING, timestamp: staleTime }];
 
             const report = await reconcileAbandonedStacks({
                 staleThresholdMs: 10 * 60 * 1000,
                 action: 'compensate',
                 stacks,
-                flowLookup: (wfId: any) => wfId === 'wf-lookup' ? dummyFlow : undefined
+                flowLookup: (wfId: any) => (wfId === 'wf-lookup' ? dummyFlow : undefined),
             });
 
             expect(flowCompCalled).to.be.true;
@@ -521,10 +532,12 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 expect(payload.refundAmount).to.equal(50);
             });
 
-            const throwingStep = Step.create('throwingCompStep', () => ({ processed: true }))
-                .compensate('refundItems', () => {
+            const throwingStep = Step.create('throwingCompStep', () => ({ processed: true })).compensate(
+                'refundItems',
+                () => {
                     throw new Error('Mapper exploded');
-                });
+                },
+            );
 
             // Throwing mapper should be caught safely without unhandled rejection
             const throwRes: any = await throwingStep.execute({}, { stackId: 'throwing-stack' });
@@ -533,8 +546,8 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const reducerStep = Step.create('reduceCompStep', (param: any, current: any) => {
                 return (param.value || 0) + current;
             })
-            .reduce('items')
-            .compensate('refundItems', (output: any) => ({ refundAmount: output.value * 10 }));
+                .reduce('items')
+                .compensate('refundItems', (output: any) => ({ refundAmount: output.value * 10 }));
 
             await reducerStep.execute({ items: [2, 3] }, { stackId });
 
@@ -546,16 +559,24 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
     describe('Compensation recovery without serialized functions', () => {
         it('recovers inline and named handlers from workflow steps after restart', async () => {
             const restored: string[] = [];
-            registerCompensationHandler('release-restored', () => { restored.push('named'); });
-            const inline = Step.create('inline-restored', () => ({}))
-                .compensate(() => { restored.push('inline'); });
+            registerCompensationHandler('release-restored', () => {
+                restored.push('named');
+            });
+            const inline = Step.create('inline-restored', () => ({})).compensate(() => {
+                restored.push('inline');
+            });
             const named = Step.create('named-restored', () => ({})).compensate('release-restored');
             const workflow = flow(inline, named);
             const original = defaultStorageManager.getCheckpoint;
-            defaultStorageManager.getCheckpoint = async () => ({ metadata: { compensations: [
-                { stepId: 'old-inline-id', stepName: 'inline-restored', output: {}, input: {} },
-                { stepId: 'old-named-id', stepName: 'named-restored', output: {}, input: {} }
-            ] } } as any);
+            defaultStorageManager.getCheckpoint = async () =>
+                ({
+                    metadata: {
+                        compensations: [
+                            { stepId: 'old-inline-id', stepName: 'inline-restored', output: {}, input: {} },
+                            { stepId: 'old-named-id', stepName: 'named-restored', output: {}, input: {} },
+                        ],
+                    },
+                }) as any;
             try {
                 const result = await workflow.compensate('restored-handler-stack');
                 expect(result.failed).to.deep.equal([]);
@@ -567,9 +588,12 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
         it('rejects recovery when a persisted compensation has no resolvable handler', async () => {
             const original = defaultStorageManager.getCheckpoint;
-            defaultStorageManager.getCheckpoint = async () => ({ metadata: { compensations: [
-                { stepId: 'removed-id', stepName: 'removed-step', output: {}, input: {} }
-            ] } } as any);
+            defaultStorageManager.getCheckpoint = async () =>
+                ({
+                    metadata: {
+                        compensations: [{ stepId: 'removed-id', stepName: 'removed-step', output: {}, input: {} }],
+                    },
+                }) as any;
             try {
                 try {
                     await flow(Step.create('remaining-step', () => ({}))).compensate('missing-handler-stack');
@@ -584,15 +608,17 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
         it('tolerates an unavailable checkpoint when no compensations are registered', async () => {
             const original = defaultStorageManager.getCheckpoint;
-            defaultStorageManager.getCheckpoint = async () => { throw new Error('storage offline'); };
+            defaultStorageManager.getCheckpoint = async () => {
+                throw new Error('storage offline');
+            };
             try {
-                const result = await flow(Step.create('empty-recovery', () => ({})))
-                    .compensate('offline-checkpoint-stack');
+                const result = await flow(Step.create('empty-recovery', () => ({}))).compensate(
+                    'offline-checkpoint-stack',
+                );
                 expect(result).to.deep.equal({ completed: [], failed: [] });
             } finally {
                 defaultStorageManager.getCheckpoint = original;
             }
         });
     });
-
 });

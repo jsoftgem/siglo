@@ -11,12 +11,12 @@ export default class ResolveChain {
         executeAfter?: (chain: string, context: any) => Promise<any>,
         Context?: any,
         reject?: (reason?: any) => void,
-        _options?: any
+        _options?: any,
     ) {
         logInfo('SingleChain', {
             chain,
             message: 'Completed',
-            resolvedContext: context
+            resolvedContext: context,
         });
         const resolveFinal = (ctx: any) => {
             if (!ctx) {
@@ -31,14 +31,13 @@ export default class ResolveChain {
                         cleanOutput[k] = rawOutput[k];
                     }
                 }
-                const stepName = typeof chain === 'string'
-                    ? chain
-                    : (chain && (chain.func || chain.name)) || 'step_0';
+                const stepName = typeof chain === 'string' ? chain : (chain && (chain.func || chain.name)) || 'step_0';
                 const singleSteps: Record<string, any> = {
                     [stepName]: cleanOutput,
-                    [0]: cleanOutput
+                    [0]: cleanOutput,
                 };
-                const stepsAccessor: any = (subField?: string) => subField !== undefined ? singleSteps[subField] : singleSteps;
+                const stepsAccessor: any = (subField?: string) =>
+                    subField !== undefined ? singleSteps[subField] : singleSteps;
                 Object.assign(stepsAccessor, singleSteps);
                 ctx = Object.assign({}, ctx);
                 ctx[STEPS] = stepsAccessor;
@@ -48,24 +47,26 @@ export default class ResolveChain {
         };
 
         if (executeAfter) {
-            executeAfter(chain, context).then((resolvedPluginData: any) => {
-                if (resolvedPluginData) {
-                    const stackId = typeof context?.[STACK_ID] === 'function' ? context[STACK_ID]() : undefined;
-                    const newContext = new Context('_after_temp', stackId);
-                    new SetResolvedContexts(resolvedPluginData, newContext);
-                    context = Object.assign(context, newContext.getData());
-                }
-                resolveFinal(context);
-            }).catch((err: any) => {
-                if (reject) {
-                    reject(err);
-                } else {
-                    logInfo('SingleChain', { error: err });
-                }
-            });
+            executeAfter(chain, context)
+                .then((resolvedPluginData: any) => {
+                    if (resolvedPluginData) {
+                        const stackId = typeof context?.[STACK_ID] === 'function' ? context[STACK_ID]() : undefined;
+                        const newContext = new Context('_after_temp', stackId);
+                        new SetResolvedContexts(resolvedPluginData, newContext);
+                        context = Object.assign(context, newContext.getData());
+                    }
+                    resolveFinal(context);
+                })
+                .catch((err: any) => {
+                    if (reject) {
+                        reject(err);
+                    } else {
+                        logInfo('SingleChain', { error: err });
+                    }
+                });
         } else {
             resolveFinal(context);
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

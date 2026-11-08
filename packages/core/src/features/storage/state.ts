@@ -8,12 +8,7 @@ export interface PutChainContextMeta {
 
 export interface StoragePlugins {
     getChainContext?: (stepId: string, field: string) => any;
-    putChainContext?: (
-        stepId: string,
-        field: string,
-        getter: () => any,
-        meta?: PutChainContextMeta
-    ) => void;
+    putChainContext?: (stepId: string, field: string, getter: () => any, meta?: PutChainContextMeta) => void;
 }
 
 export interface StackRecord {
@@ -68,6 +63,6 @@ export function createInitialState(): StorageState {
         stacks: new Map(),
         cache: new Map(),
         config: {},
-        plugins: {}
+        plugins: {},
     };
 }

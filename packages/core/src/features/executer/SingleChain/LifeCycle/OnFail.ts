@@ -30,20 +30,22 @@ export default class OnFail {
         logError: (source: string, error: any) => void,
         _executeAfter?: any,
         _Context?: any,
-        options?: any
+        options?: any,
     ) {
         error = Object.assign(error || {}, { func: chain.func });
         logError('SingleChain', error);
         logInfo('SingleChain', {
             chain: chains,
             message: 'Failed to complete',
-            params: initialParam
+            params: initialParam,
         });
         const outerSignal = options?.outerSignal || options?.signal;
 
-        const resolvedStackId = options?.stackId ||
+        const resolvedStackId =
+            options?.stackId ||
             singleChain?.stackId ||
             (typeof initialParam?.$stackId === 'function' ? initialParam.$stackId() : initialParam?.$stackId) ||
+            // prettier-ignore
             (initialParam && typeof initialParam[STACK_ID] === 'function' ? initialParam[STACK_ID]() : initialParam?.[STACK_ID]) ||
             initialParam?.[STACK_ID_KEY] ||
             '';
@@ -62,10 +64,10 @@ export default class OnFail {
                 error: {
                     message: err?.message || String(err),
                     code: err?.code,
-                    stack: err?.stack
+                    stack: err?.stack,
                 },
                 timestamp: Date.now(),
-                namespace: options?.namespace
+                namespace: options?.namespace,
             });
         };
         const safeRejectWithEvent = (err: any) => {
@@ -111,7 +113,8 @@ export default class OnFail {
                         reject(outerSignal.reason || new Error('This operation was aborted'));
                         return;
                     }
-                    singleChain.start(initialParam, chains, options)
+                    singleChain
+                        .start(initialParam, chains, options)
                         .then((result: any) => {
                             resolve(result);
                         })
@@ -128,9 +131,11 @@ export default class OnFail {
                     const callbackRes = chain.onfail(error, retryFn, rejectFn);
                     if (callbackRes !== undefined) {
                         if (callbackRes instanceof Promise) {
-                            callbackRes.then((res: any) => {
-                                if (res !== undefined) resolve(res);
-                            }).catch((cbErr: any) => reject(cbErr));
+                            callbackRes
+                                .then((res: any) => {
+                                    if (res !== undefined) resolve(res);
+                                })
+                                .catch((cbErr: any) => reject(cbErr));
                         } else {
                             resolve(callbackRes);
                         }
@@ -140,7 +145,12 @@ export default class OnFail {
                 }
             } else if (typeof chain.onfail === 'object') {
                 const config: RetryConfig = chain.onfail;
-                const maxRetries = config.maxRetries !== undefined ? config.maxRetries : ((config as any).maxAttempts !== undefined ? (config as any).maxAttempts : 3);
+                const maxRetries =
+                    config.maxRetries !== undefined
+                        ? config.maxRetries
+                        : (config as any).maxAttempts !== undefined
+                          ? (config as any).maxAttempts
+                          : 3;
                 const baseDelay = config.delay !== undefined ? config.delay : 100;
                 const maxDelay = config.maxDelay !== undefined ? config.maxDelay : 10000;
                 const backoff = config.backoff || 'fixed';
@@ -150,9 +160,10 @@ export default class OnFail {
                         initialParam[RETRY_MAP] = {};
                     }
                 }
-                const stepKey = (chains && typeof chains === 'object' && chains[STEP_ID])
-                    ? chains[STEP_ID]
-                    : (chain.func || chain.name || (typeof chains === 'string' ? chains : 'chain'));
+                const stepKey =
+                    chains && typeof chains === 'object' && chains[STEP_ID]
+                        ? chains[STEP_ID]
+                        : chain.func || chain.name || (typeof chains === 'string' ? chains : 'chain');
                 const retryMap = initialParam && typeof initialParam === 'object' ? initialParam[RETRY_MAP] : {};
                 const currentAttempt = (retryMap[stepKey] || 0) + 1;
                 retryMap[stepKey] = currentAttempt;
@@ -197,11 +208,11 @@ export default class OnFail {
                         error: {
                             message: error?.message || String(error),
                             code: error?.code,
-                            stack: error?.stack
+                            stack: error?.stack,
                         },
                         delayMs,
                         timestamp: Date.now(),
-                        namespace: options?.namespace
+                        namespace: options?.namespace,
                     });
 
                     if (initialParam && typeof initialParam === 'object') {
@@ -245,7 +256,8 @@ export default class OnFail {
                             reject(outerSignal.reason || new Error('This operation was aborted'));
                             return;
                         }
-                        singleChain.start(initialParam, chains, options)
+                        singleChain
+                            .start(initialParam, chains, options)
                             .then((result: any) => {
                                 resolve(result);
                             })
@@ -269,5 +281,5 @@ export default class OnFail {
             reject(error);
         }
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

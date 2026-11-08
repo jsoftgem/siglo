@@ -31,13 +31,13 @@ export function createSecOpsRemediationPipeline() {
             incidentTicket: `INC-${alertId}`,
             cluster,
             severity,
-            metric
+            metric,
         };
     })
-      .spec('alertId', { require: true })
-      .spec('clusterName', { require: true })
-      .spec('nodeId', { require: true })
-      .spec('podId', { require: true });
+        .spec('alertId', { require: true })
+        .spec('clusterName', { require: true })
+        .spec('nodeId', { require: true })
+        .spec('podId', { require: true });
 
     // Step 2: Correlate Logs & Validate Blast Radius (with onBefore safety check)
     const correlateLogs = Step.create('secopsCorrelateLogs', async (param: any) => {
@@ -49,13 +49,14 @@ export function createSecOpsRemediationPipeline() {
             suspectProcess: 'crypto_miner_daemon',
             affectedPod: podId,
             hostNode: nodeId,
-            blastRadius: 'ISOLATED_POD'
+            blastRadius: 'ISOLATED_POD',
         };
     }).onBefore(async (param: any) => {
         // Enforce safety constraint: Ensure remediation is allowed unless maintenance freeze
-        const isMaintenance = typeof param?.maintenanceWindowActive === 'function'
-            ? param.maintenanceWindowActive()
-            : (param?.maintenanceWindowActive?.val ?? param?.maintenanceWindowActive ?? false);
+        const isMaintenance =
+            typeof param?.maintenanceWindowActive === 'function'
+                ? param.maintenanceWindowActive()
+                : (param?.maintenanceWindowActive?.val ?? param?.maintenanceWindowActive ?? false);
         if (isMaintenance) {
             console.log('[SecOps Safety] Maintenance window active, pausing automated disruption');
             return false;
@@ -71,14 +72,14 @@ export function createSecOpsRemediationPipeline() {
         const actionsTaken = [
             `kubectl cordon ${hostNode}`,
             `kubectl delete pod ${affectedPod} --force --grace-period=0`,
-            `vault token revoke -role=k8s-node-${hostNode}`
+            `vault token revoke -role=k8s-node-${hostNode}`,
         ];
 
         return {
             remediationExecuted: true,
             actionsTaken,
             quarantinedNode: hostNode,
-            terminatedPod: affectedPod
+            terminatedPod: affectedPod,
         };
     });
 
@@ -89,7 +90,7 @@ export function createSecOpsRemediationPipeline() {
             clusterHealthy: true,
             cpuUtilizationPercent: 24.2,
             memoryUtilizationPercent: 41.5,
-            healthStatus: 'HEALTHY'
+            healthStatus: 'HEALTHY',
         };
     });
 
@@ -104,10 +105,11 @@ export function createSecOpsRemediationPipeline() {
             rootCauseIdentified,
             remediationExecuted,
             quarantinedNode,
-            clusterHealthy
+            clusterHealthy,
         } = param;
 
-        const slackMessage = `🚨 *Resolved Incident:* ${incidentTicket} on cluster \`${cluster}\`\n` +
+        const slackMessage =
+            `🚨 *Resolved Incident:* ${incidentTicket} on cluster \`${cluster}\`\n` +
             `*Actions:* ${actions.join('; ')}\n` +
             `*Cluster Health:* ${health}`;
 
@@ -122,15 +124,9 @@ export function createSecOpsRemediationPipeline() {
             slackDispatched: true,
             slackChannel: '#secops-alerts',
             slackMessage,
-            resolvedAt: new Date().toISOString()
+            resolvedAt: new Date().toISOString(),
         };
     });
 
-    return flow(
-        receiveMonitoringAlert,
-        correlateLogs,
-        executeRemediation,
-        verifyHealth,
-        postSlackSummary
-    );
+    return flow(receiveMonitoringAlert, correlateLogs, executeRemediation, verifyHealth, postSlackSummary);
 }

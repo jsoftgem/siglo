@@ -17,7 +17,7 @@ export function getErrorStatusCode(err: any): number {
         return 500;
     }
     const name = err.name || '';
-    const causeName = err.cause?.name || (err.error?.name) || '';
+    const causeName = err.cause?.name || err.error?.name || '';
 
     if (name.includes('Suspended') || causeName.includes('Suspended')) {
         return 202;
@@ -25,13 +25,30 @@ export function getErrorStatusCode(err: any): number {
     if (err.isTimeout || name.includes('Timeout') || causeName.includes('Timeout')) {
         return 504;
     }
-    if (name.includes('SpecFailed') || name.includes('Validation') || causeName.includes('SpecFailed') || causeName.includes('Validation')) {
+    if (
+        name.includes('SpecFailed') ||
+        name.includes('Validation') ||
+        causeName.includes('SpecFailed') ||
+        causeName.includes('Validation')
+    ) {
         return 400;
     }
-    if (name.includes('Idempotency') || name.includes('Conflict') || causeName.includes('Idempotency') || causeName.includes('Conflict')) {
+    if (
+        name.includes('Idempotency') ||
+        name.includes('Conflict') ||
+        causeName.includes('Idempotency') ||
+        causeName.includes('Conflict')
+    ) {
         return 409;
     }
-    if (err.isCancellation || name.includes('Cancellation') || name.includes('Abort') || causeName.includes('Cancellation') || causeName.includes('Abort') || err.message?.includes('aborted')) {
+    if (
+        err.isCancellation ||
+        name.includes('Cancellation') ||
+        name.includes('Abort') ||
+        causeName.includes('Cancellation') ||
+        causeName.includes('Abort') ||
+        err.message?.includes('aborted')
+    ) {
         return 499;
     }
     return typeof err.status === 'number' ? err.status : 500;
@@ -46,7 +63,14 @@ function unwrapContext(obj: any): any {
         if (key.startsWith('$')) {
             continue;
         }
-        const val = typeof obj[key] === 'function' ? (obj[key].val !== undefined ? obj[key].val : (obj[key].length === 0 ? obj[key]() : obj[key])) : obj[key];
+        const val =
+            typeof obj[key] === 'function'
+                ? obj[key].val !== undefined
+                    ? obj[key].val
+                    : obj[key].length === 0
+                      ? obj[key]()
+                      : obj[key]
+                : obj[key];
         clean[key] = val;
     }
     return clean;
@@ -57,7 +81,7 @@ function unwrapContext(obj: any): any {
  */
 export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     workflow: Flow<TInput, TOutput>,
-    options: SigloExpressOptions<TReq, TInput, TOutput> = {}
+    options: SigloExpressOptions<TReq, TInput, TOutput> = {},
 ) {
     return async (req: any, res: any, next: (err?: any) => void): Promise<any> => {
         try {
@@ -91,7 +115,11 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
                 durable = options.durable(req);
             } else if (options.durable !== undefined) {
                 durable = options.durable;
-            } else if (req.headers?.['x-durable'] === 'true' || req.query?.durable === 'true' || req.body?.durable === true) {
+            } else if (
+                req.headers?.['x-durable'] === 'true' ||
+                req.query?.durable === 'true' ||
+                req.body?.durable === true
+            ) {
                 durable = true;
             }
 
@@ -106,9 +134,10 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
 
             const rawResult: any = await workflow.run(inputData, execOptions);
 
-            const stackId = typeof rawResult?.$stackId === 'function'
-                ? rawResult.$stackId()
-                : (rawResult?.stackId || rawResult?.$stackId);
+            const stackId =
+                typeof rawResult?.$stackId === 'function'
+                    ? rawResult.$stackId()
+                    : rawResult?.stackId || rawResult?.$stackId;
             if (stackId && res.setHeader) {
                 res.setHeader('X-Workflow-Stack-Id', stackId);
             }
@@ -133,7 +162,7 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
             }
             if (res.status && res.json) {
                 const status = getErrorStatusCode(err);
-                const exposeDetails = options.exposeErrorDetails ?? (process.env.NODE_ENV !== 'production');
+                const exposeDetails = options.exposeErrorDetails ?? process.env.NODE_ENV !== 'production';
                 let errorMessage = err.message || 'Workflow execution error';
                 if (status === 500 && !exposeDetails) {
                     errorMessage = 'Internal workflow execution error';
@@ -144,7 +173,6 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
         }
     };
 }
-
 
 export type RivuletExpressOptions<TReq = any, TInput = any, TOutput = any> = SigloExpressOptions<TReq, TInput, TOutput>;
 export const rivuletExpressMiddleware = sigloExpressMiddleware;

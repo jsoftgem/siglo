@@ -221,6 +221,6 @@ describe('TypeScript Type Parity Test', () => {
 
 ## API Reference Links
 
-- [Core Concepts Guide](./02-core-concepts.md)
-- [Sequential Workflows](./03-sequential-workflows.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Core Concepts Guide](/02-core-concepts)
+- [Sequential Workflows](/03-sequential-workflows)
+- [Testing & Replay Reference](/09-testing-and-replay)

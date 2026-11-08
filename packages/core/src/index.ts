@@ -1,5 +1,11 @@
 import { captureInspection, sanitizeInspectionContent } from './features/events/capture';
-import { stepInspectionStorage, sanitizeInspection, recordInspection, observeEcosystem, hasEcosystemContent } from './features/events/inspection';
+import {
+    stepInspectionStorage,
+    sanitizeInspection,
+    recordInspection,
+    observeEcosystem,
+    hasEcosystemContent,
+} from './features/events/inspection';
 /* c8 ignore start */
 import {
     Step,
@@ -165,7 +171,7 @@ import {
     StepExecutionHook,
     stepExecutionHookStorage,
     withStepExecutionHook,
-    getStepExecutionHook
+    getStepExecutionHook,
 } from './features/executer/hooks';
 
 import {
@@ -188,7 +194,7 @@ import {
     setGetChainContextPlugin,
     setPutChainContextPlugin,
     getStorage,
-    clearStorage
+    clearStorage,
 } from './features/storage';
 
 import {
@@ -198,7 +204,7 @@ import {
     getDefaultMonitor,
     emitMonitoringEvent,
     redactEvent,
-    redactValue
+    redactValue,
 } from './features/events';
 
 export * from './features/events';
@@ -386,11 +392,11 @@ export {
     StepExecutionHook,
     stepExecutionHookStorage,
     withStepExecutionHook,
-    getStepExecutionHook
+    getStepExecutionHook,
 };
 
 // Compatibility for both CJS require('@siglo/core') and ESM import Siglo from '@siglo/core'
-/* c8 ignore next 80 */
+/* c8 ignore start */
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Object.assign(Step, {
         default: Step,
@@ -497,7 +503,13 @@ if (typeof module !== 'undefined' && module.exports) {
         validateAndPinTarget,
         isUnixSocket,
         isUnixSocketAllowed,
-        captureInspection, sanitizeInspectionContent, hasEcosystemContent, stepInspectionStorage, sanitizeInspection, recordInspection, observeEcosystem,
+        captureInspection,
+        sanitizeInspectionContent,
+        hasEcosystemContent,
+        stepInspectionStorage,
+        sanitizeInspection,
+        recordInspection,
+        observeEcosystem,
         // Live Monitoring
         WorkflowEventEmitter,
         defaultWorkflowEventEmitter,
@@ -516,9 +528,10 @@ if (typeof module !== 'undefined' && module.exports) {
         isObject,
         stepExecutionHookStorage,
         withStepExecutionHook,
-        getStepExecutionHook
+        getStepExecutionHook,
     });
 }
+/* c8 ignore stop */
 
 export * from './features/events/inspection';
 export type { FlowContextResult } from './features/step';

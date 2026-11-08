@@ -15,7 +15,7 @@ export interface CloudAssetInput {
  * - allSettled(analytics, notification): Non-blocking telemetry collection
  */
 export function createMultiCloudReplicationPipeline() {
-    const getSignal = (param: any) => typeof param.$signal === 'function' ? param.$signal() : param.$signal;
+    const getSignal = (param: any) => (typeof param.$signal === 'function' ? param.$signal() : param.$signal);
 
     // Edge Gateway 1: Primary US Edge (faster simulation)
     const usEdgeGateway = Step.create('usEdgeGateway', async (param: any) => {
@@ -32,7 +32,7 @@ export function createMultiCloudReplicationPipeline() {
         return {
             selectedEdge: 'US_EAST_EDGE',
             edgeLatencyMs: 10,
-            ingressUrl: `https://us-east.edge.cloud/upload/${param.assetId}`
+            ingressUrl: `https://us-east.edge.cloud/upload/${param.assetId}`,
         };
     });
 
@@ -51,7 +51,7 @@ export function createMultiCloudReplicationPipeline() {
         return {
             selectedEdge: 'EU_CENTRAL_EDGE',
             edgeLatencyMs: 80,
-            ingressUrl: `https://eu-central.edge.cloud/upload/${param.assetId}`
+            ingressUrl: `https://eu-central.edge.cloud/upload/${param.assetId}`,
         };
     });
 
@@ -62,9 +62,9 @@ export function createMultiCloudReplicationPipeline() {
                 aws: {
                     bucket: 'prod-media-us-east-1',
                     s3Uri: `s3://prod-media-us-east-1/${param.assetId}/${param.fileName}`,
-                    status: 'SYNCED'
-                }
-            }
+                    status: 'SYNCED',
+                },
+            },
         };
     });
 
@@ -75,9 +75,9 @@ export function createMultiCloudReplicationPipeline() {
                 gcp: {
                     bucket: 'prod-media-europe-west3',
                     gcsUri: `gs://prod-media-europe-west3/${param.assetId}/${param.fileName}`,
-                    status: 'SYNCED'
-                }
-            }
+                    status: 'SYNCED',
+                },
+            },
         };
     });
 
@@ -88,9 +88,9 @@ export function createMultiCloudReplicationPipeline() {
                 azure: {
                     container: 'prodmediaeastus',
                     blobUri: `https://prodmediaeastus.blob.core.windows.net/${param.assetId}/${param.fileName}`,
-                    status: 'SYNCED'
-                }
-            }
+                    status: 'SYNCED',
+                },
+            },
         };
     });
 
@@ -98,7 +98,7 @@ export function createMultiCloudReplicationPipeline() {
     const logReplicationAnalytics = Step.create('logReplicationAnalytics', async (param: any) => {
         return {
             analyticsLogged: true,
-            bytesRecorded: param.byteSize
+            bytesRecorded: param.byteSize,
         };
     });
 
@@ -106,7 +106,7 @@ export function createMultiCloudReplicationPipeline() {
     const pushReplicationAudit = Step.create('pushReplicationAudit', async () => {
         return {
             auditPushed: true,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
     });
 
@@ -116,7 +116,7 @@ export function createMultiCloudReplicationPipeline() {
             pipelineStatus: 'REPLICATED',
             assetId: param.assetId,
             selectedEdge: param.selectedEdge,
-            replicas: param.cloudReplicas
+            replicas: param.cloudReplicas,
         };
     });
 
@@ -126,13 +126,13 @@ export function createMultiCloudReplicationPipeline() {
 
         // 2. Parallel fan-out to 3 clouds with deep merge strategy
         parallel(replicateToS3, replicateToGcs, replicateToAzure, {
-            mergeStrategy: 'deep'
+            mergeStrategy: 'deep',
         }),
 
         // 3. Non-blocking allSettled background hooks
         allSettled([logReplicationAnalytics, pushReplicationAudit]),
 
         // 4. Final verification and receipt
-        assembleReceipt
+        assembleReceipt,
     );
 }

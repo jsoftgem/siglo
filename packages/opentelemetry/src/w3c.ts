@@ -5,7 +5,7 @@ import {
     trace,
     Context,
     defaultTextMapSetter,
-    defaultTextMapGetter
+    defaultTextMapGetter,
 } from '@opentelemetry/api';
 import { W3CTraceHeaders } from './types';
 
@@ -14,7 +14,7 @@ import { W3CTraceHeaders } from './types';
  */
 export function injectTraceContext(
     carrier: Record<string, string> = {},
-    ctx: Context = context.active()
+    ctx: Context = context.active(),
 ): Record<string, string> {
     propagation.inject(ctx, carrier, defaultTextMapSetter);
     return carrier;
@@ -25,7 +25,7 @@ export function injectTraceContext(
  */
 export function extractTraceContext(
     carrier: Record<string, string | undefined>,
-    ctx: Context = context.active()
+    ctx: Context = context.active(),
 ): Context {
     const sanitizedCarrier: Record<string, string> = {};
     for (const [key, val] of Object.entries(carrier)) {

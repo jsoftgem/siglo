@@ -9,7 +9,6 @@ export interface CharterResult {
     errors: string[];
     durationMs?: number;
     invariantsChecked?: number[];
-
 }
 
 /**
@@ -30,14 +29,14 @@ export async function runCombinatorsCharter(iterations: number = 20, seed: numbe
         const generated = fuzzer.generateFlow(`comb_iter_${i}`, depth, {
             errorProbability: 0.05,
             delayProbability: 0.3,
-            timeoutProbability: 0.0
+            timeoutProbability: 0.0,
         });
 
         const initialContext = {
             seed: iterSeed,
             iteration: i,
             canary: undefined,
-            userPayload: rng.jsonPayload(2)
+            userPayload: rng.jsonPayload(2),
         };
         const initialSnapshot = JSON.parse(JSON.stringify(initialContext));
 
@@ -59,7 +58,7 @@ export async function runCombinatorsCharter(iterations: number = 20, seed: numbe
         try {
             // Test map combinator semantics
             const mapRes = await Promise.all(
-                mapItems.map(async (item) => {
+                mapItems.map(async item => {
                     activeWorkers++;
                     if (activeWorkers > highWaterMark) {
                         highWaterMark = activeWorkers;
@@ -67,13 +66,13 @@ export async function runCombinatorsCharter(iterations: number = 20, seed: numbe
                     await new Promise(r => setTimeout(r, rng.nextInt(1, 5)));
                     activeWorkers--;
                     return { item, double: item * 2 };
-                })
+                }),
             );
 
             // High-water mark assertion for simulated bounded queue
             InvariantEvaluator.assertBoundedConcurrency(highWaterMark, maxConcurrency + 10);
             InvariantEvaluator.assertCombinatorSoundness('map', mapRes, {
-                branchCount: mapItems.length
+                branchCount: mapItems.length,
             });
         } catch (err: any) {
             if (err.name === 'InvariantViolation') {
@@ -83,12 +82,12 @@ export async function runCombinatorsCharter(iterations: number = 20, seed: numbe
 
         // Sub-test C: Race Combinator Soundness
         try {
-            const branchA = new Promise((resolve) => setTimeout(() => resolve('A'), rng.nextInt(5, 20)));
-            const branchB = new Promise((resolve) => setTimeout(() => resolve('B'), rng.nextInt(5, 20)));
+            const branchA = new Promise(resolve => setTimeout(() => resolve('A'), rng.nextInt(5, 20)));
+            const branchB = new Promise(resolve => setTimeout(() => resolve('B'), rng.nextInt(5, 20)));
             const raceRes = await Promise.race([branchA, branchB]);
 
             InvariantEvaluator.assertCombinatorSoundness('race', raceRes, {
-                winnerExpected: ['A', 'B']
+                winnerExpected: ['A', 'B'],
             });
         } catch (err: any) {
             if (err.name === 'InvariantViolation') {
@@ -100,6 +99,6 @@ export async function runCombinatorsCharter(iterations: number = 20, seed: numbe
     return {
         passed: errors.length === 0,
         iterations,
-        errors
+        errors,
     };
 }

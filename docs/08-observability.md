@@ -5,9 +5,9 @@ description: "Telemetry, diagram exports, and real-time DevTools in Siglo: OpenT
 
 # Observability
 
-For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](zero-code-apm-dashboards.md).
+For provisioned Jaeger, Grafana, and Prometheus dashboards, follow [Zero-Code APM Dashboards](/zero-code-apm-dashboards).
 
-For a complete HTTP example, follow [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md).
+For a complete HTTP example, follow [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring).
 
 Observability is a first-class citizen in `Siglo`. Workflows can export their topological structure as diagrams, emit telemetry spans to OpenTelemetry collectors, record granular execution traces, and stream real-time events to an interactive React DevTools dashboard.
 
@@ -120,7 +120,7 @@ await myFlow.run({});
 - **Prometheus Metrics**: Live metrics exported on `/metrics` for active workflows, execution duration, and retry counts.
 - **Framework Middleware**: Built-in support for Express, Fastify, and Hono.
 
-See the complete [Live Monitoring Guide](./live-monitoring.md) and [Monitor Adapter Guide](./adapters/monitor.md) for full details.
+See the complete [Live Monitoring Guide](/live-monitoring) and [Monitor Adapter Guide](/adapters/monitor) for full details.
 
 ### Runnable Sample Project
 
@@ -210,8 +210,8 @@ describe('OpenTelemetry Integration Test', () => {
 
 ## API Reference Links
 
-- [Live Monitoring & DevTools Guide](./live-monitoring.md)
-- [Monitor Adapter Guide](./adapters/monitor.md)
-- [OpenTelemetry Adapter Guide](./adapters/opentelemetry.md)
-- [Workflow Graph Architecture](./workflow-graph.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
+- [Live Monitoring & DevTools Guide](/live-monitoring)
+- [Monitor Adapter Guide](/adapters/monitor)
+- [OpenTelemetry Adapter Guide](/adapters/opentelemetry)
+- [Workflow Graph Architecture](/workflow-graph)
+- [Testing & Replay Reference](/09-testing-and-replay)

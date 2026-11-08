@@ -34,7 +34,7 @@ export class RemoteMonitorClient implements MonitorClientInstance {
         this.emitter = new WorkflowEventEmitter(options.namespace);
 
         // Pipe events emitted through this client to the remote server
-        this.emitter.on('*', (event) => {
+        this.emitter.on('*', event => {
             this.queueEvent(event);
         });
     }
@@ -89,7 +89,7 @@ export class RemoteMonitorClient implements MonitorClientInstance {
             try {
                 const headers: Record<string, string> = {
                     'Content-Type': 'application/json',
-                    ...this.customHeaders
+                    ...this.customHeaders,
                 };
 
                 if (this.apiKey && !headers['Authorization'] && !headers['authorization']) {
@@ -99,7 +99,7 @@ export class RemoteMonitorClient implements MonitorClientInstance {
                 const res = await fetch(`${this.baseUrl}/api/events`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify(batch)
+                    body: JSON.stringify(batch),
                 });
                 await res.text();
             } catch {
@@ -151,7 +151,7 @@ export function createMonitorClient(options: MonitorClientOptions = {}): Monitor
  */
 export function attachToMonitorServer(
     target?: string | number | MonitorServerInstance | MonitorClientOptions,
-    clientOptions?: MonitorClientOptions
+    clientOptions?: MonitorClientOptions,
 ): (event: WorkflowExecutionEvent) => void {
     // 1. If target is a MonitorServerInstance in memory
     if (target && typeof target === 'object' && 'emitter' in target) {
@@ -194,7 +194,7 @@ export function attachToMonitorServer(
     // 5. If target is MonitorClientOptions
     const mergedOptions: MonitorClientOptions = {
         ...(target as MonitorClientOptions),
-        ...clientOptions
+        ...clientOptions,
     };
     const client = createMonitorClient(mergedOptions);
     return client.monitor;

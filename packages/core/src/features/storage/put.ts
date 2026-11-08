@@ -5,17 +5,17 @@ export const putChainContext = (
     stepId: string,
     field: string,
     value: any,
-    meta?: PutChainContextMeta | string
+    meta?: PutChainContextMeta | string,
 ): void => {
     let effectiveMeta: PutChainContextMeta | undefined =
-        typeof meta === 'string' ? { stackId: meta } : (meta ? { ...meta } : undefined);
+        typeof meta === 'string' ? { stackId: meta } : meta ? { ...meta } : undefined;
 
     if (!effectiveMeta?.stackId) {
         for (const [sId, stack] of state.stacks.entries()) {
             if (stack.chains && stack.chains.includes(stepId)) {
                 effectiveMeta = Object.assign({}, effectiveMeta, {
                     stackId: sId,
-                    namespace: effectiveMeta?.namespace || stack.namespace
+                    namespace: effectiveMeta?.namespace || stack.namespace,
                 });
                 break;
             }
@@ -36,9 +36,12 @@ export const putChainContext = (
             value instanceof Error ||
             (typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) ||
             (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(value)) ||
-            (value !== null && typeof value === 'object' && (typeof (value as any)[Symbol.asyncIterator] === 'function' || typeof (value as any).pipe === 'function'));
+            (value !== null &&
+                typeof value === 'object' &&
+                (typeof (value as any)[Symbol.asyncIterator] === 'function' ||
+                    typeof (value as any).pipe === 'function'));
 
-        const frozenValue = function(subfield?: string): any {
+        const frozenValue = function (subfield?: string): any {
             if (value && typeof value === 'object' && !Array.isArray(value) && !isNativeOrBinary) {
                 if (subfield !== undefined) {
                     return (value as any)[subfield];
@@ -59,7 +62,7 @@ export const putChainContext = (
 
 export const setPutChainContextPlugin = (
     state: StorageState,
-    plugin: (stepId: string, field: string, getter: () => any, meta?: PutChainContextMeta) => void
+    plugin: (stepId: string, field: string, getter: () => any, meta?: PutChainContextMeta) => void,
 ): void => {
     if (!(plugin instanceof Function)) {
         throw new PutChainTypeException();
@@ -75,5 +78,5 @@ export class PutChainTypeException extends Error {
     constructor() {
         super('Put chain plugin must be a function.');
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

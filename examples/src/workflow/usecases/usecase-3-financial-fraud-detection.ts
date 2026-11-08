@@ -35,28 +35,28 @@ export function createFinancialFraudPipeline() {
             ingestTimestamp: Date.now(),
             idempotencyVerified: true,
             ingestedAmount: amount,
-            ingestedCurrency: currency
+            ingestedCurrency: currency,
         };
     })
-      .spec('transactionId', { require: true })
-      .spec('sourceAccountId', { require: true })
-      .spec('destinationAccountId', { require: true })
-      .spec('amount', {
-          require: true,
-          validator: async (val: number) => {
-              if (typeof val !== 'number' || val <= 0) {
-                  throw new Error('Amount must be a positive number');
-              }
-          }
-      })
-      .spec('currency', {
-          require: true,
-          validator: async (val: string) => {
-              if (!['USD', 'EUR', 'GBP', 'JPY'].includes(val)) {
-                  throw new Error(`Unsupported currency: ${val}`);
-              }
-          }
-      });
+        .spec('transactionId', { require: true })
+        .spec('sourceAccountId', { require: true })
+        .spec('destinationAccountId', { require: true })
+        .spec('amount', {
+            require: true,
+            validator: async (val: number) => {
+                if (typeof val !== 'number' || val <= 0) {
+                    throw new Error('Amount must be a positive number');
+                }
+            },
+        })
+        .spec('currency', {
+            require: true,
+            validator: async (val: string) => {
+                if (!['USD', 'EUR', 'GBP', 'JPY'].includes(val)) {
+                    throw new Error(`Unsupported currency: ${val}`);
+                }
+            },
+        });
 
     // Step 2: Validate KYC Limits
     const validateKycLimits = Step.create('finValidateKycLimits', async (param: any) => {
@@ -70,7 +70,7 @@ export function createFinancialFraudPipeline() {
         return {
             kycVerified: true,
             tier: 'TIER_2',
-            remainingLimit: maxDailyLimit - amount
+            remainingLimit: maxDailyLimit - amount,
         };
     });
 
@@ -92,7 +92,7 @@ export function createFinancialFraudPipeline() {
         return {
             fraudCheckPassed: true,
             riskScore,
-            fraudAssessment: 'LOW_RISK'
+            fraudAssessment: 'LOW_RISK',
         };
     });
 
@@ -107,14 +107,23 @@ export function createFinancialFraudPipeline() {
             journalId,
             entries: [
                 { account: source, type: 'DEBIT', amount, currency },
-                { account: dest, type: 'CREDIT', amount, currency }
-            ]
+                { account: dest, type: 'CREDIT', amount, currency },
+            ],
         };
     });
 
     // Step 5: Emit Audit Log
     const emitAuditLog = Step.create('finEmitAuditLog', async (param: any) => {
-        const { transactionId: txnId, journalId, riskScore, ledgerStatus, idempotencyVerified, kycVerified, fraudCheckPassed, fraudAssessment } = param;
+        const {
+            transactionId: txnId,
+            journalId,
+            riskScore,
+            ledgerStatus,
+            idempotencyVerified,
+            kycVerified,
+            fraudCheckPassed,
+            fraudAssessment,
+        } = param;
 
         return {
             finStatus: 'COMPLETED',
@@ -127,15 +136,9 @@ export function createFinancialFraudPipeline() {
             ledgerStatus,
             journalId,
             riskScore,
-            completedAt: new Date().toISOString()
+            completedAt: new Date().toISOString(),
         };
     });
 
-    return flow(
-        ingestTransaction,
-        validateKycLimits,
-        runMlFraudModel,
-        executeLedgerTransfer,
-        emitAuditLog
-    );
+    return flow(ingestTransaction, validateKycLimits, runMlFraudModel, executeLedgerTransfer, emitAuditLog);
 }

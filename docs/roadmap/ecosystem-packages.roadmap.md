@@ -45,23 +45,23 @@ flowchart TD
     P3 --> P4["Phase 4: DevTools & CLI Integration (Q4)<br/>Ecosystem UI Inspectors & Mock Fixtures"]
 ```
 
-### [Phase 1A: Resilient HTTP Client (`@siglo/http`)](ecosystem-phase-1-http.roadmap.md)
+### [Phase 1A: Resilient HTTP Client (`@siglo/http`)](/roadmap/ecosystem-phase-1-http.roadmap)
 * **Status**: Implemented & Verified
 * **Target Delivery**: Q1
 * **Scope**: Resilient HTTP client step factory with automatic ASL network policy registration, W3C trace header injection (`traceparent`/`tracestate`), smart status-code retry backoffs (`Retry-After` header parsing), Standard Schema response parsing, and two-phase saga rollback compensations (`.compensateWithHttp`).
-* **Detailed Document**: See [`ecosystem-phase-1-http.roadmap.md`](ecosystem-phase-1-http.roadmap.md) for 5-phase lifecycle integration, Undici mocking, and full TypeScript signatures.
+* **Detailed Document**: See [`ecosystem-phase-1-http.roadmap.md`](/roadmap/ecosystem-phase-1-http.roadmap) for 5-phase lifecycle integration, Undici mocking, and full TypeScript signatures.
 
 ---
 
-### [Phase 1B: Webhook Security & Data Confidentiality (`@siglo/crypto`)](ecosystem-phase-1-crypto.roadmap.md)
+### [Phase 1B: Webhook Security & Data Confidentiality (`@siglo/crypto`)](/roadmap/ecosystem-phase-1-crypto.roadmap)
 * **Status**: Implemented & Verified
 * **Target Delivery**: Q1
 * **Scope**: Zero-dependency cryptographic primitives using `node:crypto`. Webhook signature verification (Stripe, GitHub, Shopify, generic HMAC) with constant-time equality (`timingSafeEqual`) and timestamp tolerance replay defense; envelope field encryption/decryption (`aes-256-gcm`) for securing sensitive context across durable checkpoints; and context redaction for DevTools.
-* **Detailed Document**: See [`ecosystem-phase-1-crypto.roadmap.md`](ecosystem-phase-1-crypto.roadmap.md) for AEAD IV management, provider signature formats, and NIST test vector strategies.
+* **Detailed Document**: See [`ecosystem-phase-1-crypto.roadmap.md`](/roadmap/ecosystem-phase-1-crypto.roadmap) for AEAD IV management, provider signature formats, and NIST test vector strategies.
 
 ---
 
-### [Phase 2: Interaction & Resumption (`@siglo/notifications`)](ecosystem-phase-2-notifications.roadmap.md)
+### [Phase 2: Interaction & Resumption (`@siglo/notifications`)](/roadmap/ecosystem-phase-2-notifications.roadmap)
 * **Status**: Specification Complete (Updated for Zero-Trust ASL, Schedulers & Sagas)
 * **Target Delivery**: Q2
 * **Scope**:
@@ -72,11 +72,11 @@ flowchart TD
   * Named Saga Compensation (`registerCompensationHandler('cancelNotification')`) to revoke or update stale interactive cards on workflow failure.
   * Webhook callback adapters for `@siglo/express`, `@siglo/fastify`, and `@siglo/hono`.
   * Idempotency and deduplication integration via `@siglo/core`'s `IdempotencyStore`.
-* **Detailed Document**: See [`ecosystem-phase-2-notifications.roadmap.md`](ecosystem-phase-2-notifications.roadmap.md) for callback architecture, router middleware, and event contracts.
+* **Detailed Document**: See [`ecosystem-phase-2-notifications.roadmap.md`](/roadmap/ecosystem-phase-2-notifications.roadmap) for callback architecture, router middleware, and event contracts.
 
 ---
 
-### [Phase 3: Intelligence & Agents (`@siglo/ai`)](ecosystem-phase-3-ai.roadmap.md)
+### [Phase 3: Intelligence & Agents (`@siglo/ai`)](/roadmap/ecosystem-phase-3-ai.roadmap)
 * **Status**: Implemented & Verified Offline (Provider Runtime, Tools, Repair, Fallbacks & Telemetry)
 * **Target Delivery**: Q3
 * **Scope**:
@@ -87,15 +87,15 @@ flowchart TD
   * Step-as-Tool agentic multi-turn execution loops.
   * OpenTelemetry GenAI Semantic Convention telemetry and token cost accounting in `$steps.<stepName>.aiMetrics`.
   * Integration with Siglo caching (`step.cache()`).
-* **Detailed Document**: See [`ecosystem-phase-3-ai.roadmap.md`](ecosystem-phase-3-ai.roadmap.md) for model cascades, prompt formats, and repair algorithms.
+* **Detailed Document**: See [`ecosystem-phase-3-ai.roadmap.md`](/roadmap/ecosystem-phase-3-ai.roadmap) for model cascades, prompt formats, and repair algorithms.
 
 ---
 
-### [Phase 4: DevTools, CLI & Testing Integration](ecosystem-phase-4-devtools-cli.roadmap.md)
+### [Phase 4: DevTools, CLI & Testing Integration](/roadmap/ecosystem-phase-4-devtools-cli.roadmap)
 * **Status**: Specification Complete
 * **Target Delivery**: Q4
 * **Scope**:
   * Scaffolding CLI commands in `@siglo/cli` (`siglo generate:step --type http | crypto | notification | ai`).
   * Dedicated visual DevTools inspector panels for HTTP headers/cURL, crypto verification, notification previews, and LLM token usage waterfalls.
   * Unified offline deterministic test harnesses and mock fixtures in `@siglo/testing`.
-* **Detailed Document**: See [`ecosystem-phase-4-devtools-cli.roadmap.md`](ecosystem-phase-4-devtools-cli.roadmap.md) for UI designs, CLI flags, and test harness APIs.
+* **Detailed Document**: See [`ecosystem-phase-4-devtools-cli.roadmap.md`](/roadmap/ecosystem-phase-4-devtools-cli.roadmap) for UI designs, CLI flags, and test harness APIs.

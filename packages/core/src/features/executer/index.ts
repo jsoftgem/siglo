@@ -38,7 +38,7 @@ export {
     WorkflowVersionMismatchException,
     GraphValidationException,
     NetworkPolicyViolationException,
-    normalizeError
+    normalizeError,
 } from './exceptions';
 export { RetryConfig, RetryPredicate } from './SingleChain/LifeCycle/OnFail';
 export {
@@ -46,7 +46,7 @@ export {
     StepExecutionHook,
     stepExecutionHookStorage,
     withStepExecutionHook,
-    getStepExecutionHook
+    getStepExecutionHook,
 } from './hooks';
 
 export class Executer {
@@ -66,10 +66,10 @@ export class Executer {
             logInfo,
             logError,
             executeAfter,
-            executeBefore
+            executeBefore,
         ).start(param, chains, options);
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }
 
 export { ArrayChain, Reducer, Runner, StartChain, Util };

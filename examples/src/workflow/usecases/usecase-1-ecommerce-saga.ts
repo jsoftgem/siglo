@@ -48,11 +48,11 @@ export function createEcommerceSagaPipeline() {
         return {
             cartValid: true,
             itemCount: items.length,
-            totalAmount
+            totalAmount,
         };
     })
-      .spec('orderId', { require: true })
-      .spec('cartItems', { require: true });
+        .spec('orderId', { require: true })
+        .spec('cartItems', { require: true });
 
     // Step 2: Reserve Inventory
     const reserveInventory = Step.create('sagaReserveInventory', async (param: any) => {
@@ -64,7 +64,7 @@ export function createEcommerceSagaPipeline() {
         return {
             inventoryReserved: true,
             reservationId,
-            reservedSkus: items.map((i: SagaCartItem) => i.sku)
+            reservedSkus: items.map((i: SagaCartItem) => i.sku),
         };
     });
 
@@ -85,12 +85,12 @@ export function createEcommerceSagaPipeline() {
             paymentStatus: 'CAPTURED',
             transactionId,
             chargedAmount: totalAmount,
-            paymentAttempts
+            paymentAttempts,
         };
     }).onFail({
         maxRetries: 2,
         delay: 10,
-        backoff: 'exponential'
+        backoff: 'exponential',
     });
 
     // Step 4: Create Shipment
@@ -102,7 +102,7 @@ export function createEcommerceSagaPipeline() {
             shipmentCreated: true,
             trackingNumber,
             estimatedDelivery: '3 business days',
-            destinationCity: shippingAddress.city
+            destinationCity: shippingAddress.city,
         };
     });
 
@@ -121,15 +121,9 @@ export function createEcommerceSagaPipeline() {
             trackingNumber,
             confirmationEmailSent: true,
             emailSubject: `Order Confirmation #${orderId}`,
-            summary: `Charged $${totalAmount}, Tracking: ${trackingNumber} sent to customer ${customerId}`
+            summary: `Charged $${totalAmount}, Tracking: ${trackingNumber} sent to customer ${customerId}`,
         };
     });
 
-    return flow(
-        validateCart,
-        reserveInventory,
-        chargePayment,
-        createShipment,
-        sendConfirmationEmail
-    );
+    return flow(validateCart, reserveInventory, chargePayment, createShipment, sendConfirmationEmail);
 }

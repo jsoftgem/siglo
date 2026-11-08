@@ -1,13 +1,5 @@
 import { expect } from 'chai';
-import {
-    SpanStatusCode,
-    Span,
-    Tracer,
-    SpanOptions,
-    Context,
-    SpanContext,
-    TraceFlags
-} from '@opentelemetry/api';
+import { SpanStatusCode, Span, Tracer, SpanOptions, Context, SpanContext, TraceFlags } from '@opentelemetry/api';
 import { Step, flow, branch, when, parallel } from '@siglo/core';
 import {
     SemanticAttributes,
@@ -16,7 +8,7 @@ import {
     createTelemetryStorageAdapter,
     injectTraceContext,
     extractTraceContext,
-    getTraceHeaders
+    getTraceHeaders,
 } from './index';
 
 // Custom mock tracer to inspect recorded spans and attributes
@@ -243,11 +235,7 @@ describe('@siglo/opentelemetry Integration Suite', () => {
                 when((o: any) => o.giftWrap === true, wrapGift),
                 shipOrder,
             );
-            const placedOrder = when(
-                (o: any) => o.amountCents >= 100000,
-                queueReview,
-                fulfillment,
-            );
+            const placedOrder = when((o: any) => o.amountCents >= 100000, queueReview, fulfillment);
             const myWorkflow = flow(
                 branch((e: any) => e.type, {
                     'order.placed': placedOrder,
@@ -366,10 +354,14 @@ describe('@siglo/opentelemetry Integration Suite', () => {
             await instrumented.run({});
 
             // Check that explicitStep only produced ONE span!
-            const explicitSpans = mockTracer.spans.filter(s => s.attributes[SemanticAttributes.STEP_NAME] === 'explicitStep');
+            const explicitSpans = mockTracer.spans.filter(
+                s => s.attributes[SemanticAttributes.STEP_NAME] === 'explicitStep',
+            );
             expect(explicitSpans).to.have.lengthOf(1);
 
-            const normalSpans = mockTracer.spans.filter(s => s.attributes[SemanticAttributes.STEP_NAME] === 'normalStep');
+            const normalSpans = mockTracer.spans.filter(
+                s => s.attributes[SemanticAttributes.STEP_NAME] === 'normalStep',
+            );
             expect(normalSpans).to.have.lengthOf(1);
         });
 
@@ -439,7 +431,9 @@ describe('@siglo/opentelemetry Integration Suite', () => {
             });
             await workflow.run({ record: 1 });
             await workflow.run({ record: 2 });
-            const steps = mockTracer.spans.filter(span => span.attributes[SemanticAttributes.STEP_NAME] === 'handleRecord');
+            const steps = mockTracer.spans.filter(
+                span => span.attributes[SemanticAttributes.STEP_NAME] === 'handleRecord',
+            );
             expect(steps).to.have.length(2);
             for (const step of steps) {
                 expect(step.name).to.equal('step:handleRecord');

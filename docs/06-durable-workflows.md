@@ -199,7 +199,7 @@ describe('Durable Workflows Suite', () => {
 
 ## API Reference Links
 
-- [Storage and Adapters](./07-storage-and-adapters.md)
-- [PostgreSQL Adapter Reference](./adapters/postgres.md)
-- [Testing & Replay Reference](./09-testing-and-replay.md)
-- [TypeScript API Reference](./10-typescript-reference.md)
+- [Storage and Adapters](/07-storage-and-adapters)
+- [PostgreSQL Adapter Reference](/adapters/postgres)
+- [Testing & Replay Reference](/09-testing-and-replay)
+- [TypeScript API Reference](/10-typescript-reference)

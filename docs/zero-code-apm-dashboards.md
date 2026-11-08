@@ -5,7 +5,7 @@ description: "Explore OpenTelemetry traces in Jaeger and Prometheus metrics in p
 
 # Zero-Code APM Dashboards
 
-In [Route Kafka Order Events with `branch` and `when`](kafka-order-routing.md), you published orders to Kafka, let two consumers share the work, and inspected routing decisions in Siglo’s live monitor. Now you’ll use **a separate APM example with its own producer, workers, workflow, PostgreSQL claims, and Redis monitor** to explore traces in Jaeger and metrics in Grafana.
+In [Route Kafka Order Events with `branch` and `when`](/kafka-order-routing), you published orders to Kafka, let two consumers share the work, and inspected routing decisions in Siglo’s live monitor. Now you’ll use **a separate APM example with its own producer, workers, workflow, PostgreSQL claims, and Redis monitor** to explore traces in Jaeger and metrics in Grafana.
 
 You’ll follow a gift order from publication through Kafka to its selected worker, compare fulfillment with review and cancellation, and distinguish a failed workflow from a successfully quarantined Kafka record. The fulfillment operations remain fake; the Kafka, PostgreSQL, and Redis connections are real. The routing model continues the previous tutorial, while all runnable APM code lives in [`examples/zero-code-apm-dashboards`](../examples/zero-code-apm-dashboards). Neither tutorial imports the other’s application code.
 
@@ -105,7 +105,7 @@ The exact nesting includes the selected combinator actions. The standard and gif
 
 Find `wrapGift` and `shipOrder`, then inspect `saveOutcome`. The workflow carries `siglo.workflow.name = KafkaOrderRouting`; step spans carry `siglo.step.name` and `siglo.step.attempt`. These fake operations can finish in milliseconds or less, so zoom into the trace rather than expecting artificial delays.
 
-Read `/results`, find the printed event ID, and compare `handledBy` with the service name on the consumer span. Open the same run in the live monitor to inspect its green routing paths and context. The original [Kafka tutorial’s screenshots](kafka-order-routing.md#4-walk-through-the-decisions-in-the-live-monitor) show those decisions.
+Read `/results`, find the printed event ID, and compare `handledBy` with the service name on the consumer span. Open the same run in the live monitor to inspect its green routing paths and context. The original [Kafka tutorial’s screenshots](/kafka-order-routing#4-walk-through-the-decisions-in-the-live-monitor) show those decisions.
 
 ## 4. Compare Routing and Failure Outcomes
 
@@ -132,7 +132,7 @@ curl -s http://127.0.0.1:3400/dead-letters
 
 In its trace, `workflow:KafkaOrderRouting` and `step:rejectUnsupported` have error status. Inspect the exception event for `Unsupported event type: order.refunded`. The outer **consumer span can still be OK**: the adapter successfully quarantined the record and returned normally. That means record handling finished, not that fulfillment succeeded.
 
-For `invalid`, expect producer and consumer spans, but **no workflow or business-step spans**. The metrics for executed workflows do not count malformed input rejected before execution. Check `/dead-letters` or the real dead-letter topic for the rejected record; see [the Kafka tutorial’s dead-letter walkthrough](kafka-order-routing.md#6-unsupported-events-invalid-input-and-dead-letters).
+For `invalid`, expect producer and consumer spans, but **no workflow or business-step spans**. The metrics for executed workflows do not count malformed input rejected before execution. Check `/dead-letters` or the real dead-letter topic for the rejected record; see [the Kafka tutorial’s dead-letter walkthrough](/kafka-order-routing#6-unsupported-events-invalid-input-and-dead-letters).
 
 Review is a completed decision, not a suspended workflow. Cancellation records a request; it does not refund a previous payment.
 

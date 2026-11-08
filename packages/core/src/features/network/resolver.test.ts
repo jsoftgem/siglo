@@ -14,7 +14,7 @@ describe('Network Policy Resolver Tests', () => {
         const resolved = resolveEffectiveNetworkPolicy(undefined, {
             allowedHosts: ['api.stripe.com'],
             allowLocalhost: true,
-            allowUnixSockets: ['/var/run/docker.sock']
+            allowUnixSockets: ['/var/run/docker.sock'],
         });
         expect(resolved?.enabled).to.be.true;
         expect(resolved?.defaultPolicy).to.equal('deny');
@@ -27,11 +27,14 @@ describe('Network Policy Resolver Tests', () => {
     });
 
     it('resolves step policy when only stepPolicy is provided', () => {
-        const resolved = resolveEffectiveNetworkPolicy({
-            allowedHosts: ['api.github.com'],
-            allowLocalhost: false,
-            allowUnixSockets: ['/var/run/custom.sock']
-        }, undefined);
+        const resolved = resolveEffectiveNetworkPolicy(
+            {
+                allowedHosts: ['api.github.com'],
+                allowLocalhost: false,
+                allowUnixSockets: ['/var/run/custom.sock'],
+            },
+            undefined,
+        );
         expect(resolved?.enabled).to.be.true;
         expect(resolved?.defaultPolicy).to.equal('deny');
         expect(resolved?.allowedHosts).to.deep.equal(['api.github.com']);
@@ -44,10 +47,10 @@ describe('Network Policy Resolver Tests', () => {
 
     it('enforces flow outer perimeter and filters unauthorized step hosts', () => {
         const flowPolicy = {
-            allowedHosts: ['*.stripe.com', 'api.sendgrid.com']
+            allowedHosts: ['*.stripe.com', 'api.sendgrid.com'],
         };
         const stepPolicy = {
-            allowedHosts: ['api.stripe.com', 'api.github.com'] // github.com is not allowed by flow
+            allowedHosts: ['api.stripe.com', 'api.github.com'], // github.com is not allowed by flow
         };
 
         const resolved = resolveEffectiveNetworkPolicy(stepPolicy, flowPolicy);
@@ -78,7 +81,7 @@ describe('Network Policy Resolver Tests', () => {
 
     it('handles step regex patterns against flow regex and string patterns', () => {
         const flowPolicy = {
-            allowedHosts: [/^api\.service\.(internal|local)$/, 'exact.domain.com']
+            allowedHosts: [/^api\.service\.(internal|local)$/, 'exact.domain.com'],
         };
         const stepPolicy = {
             allowedHosts: [
@@ -86,24 +89,24 @@ describe('Network Policy Resolver Tests', () => {
                 /other\.com/,
                 'api.service.internal',
                 'exact.domain.com',
-                'unknown.com'
-            ]
+                'unknown.com',
+            ],
         };
 
         const resolved = resolveEffectiveNetworkPolicy(stepPolicy, flowPolicy);
         expect(resolved!.allowedHosts).to.deep.equal([
             /^api\.service\.(internal|local)$/,
             'api.service.internal',
-            'exact.domain.com'
+            'exact.domain.com',
         ]);
     });
 
     it('allows step to inherit flow allowedHosts when step allowedHosts is undefined', () => {
         const flowPolicy = {
-            allowedHosts: ['api.stripe.com']
+            allowedHosts: ['api.stripe.com'],
         };
         const stepPolicy = {
-            allowLocalhost: false
+            allowLocalhost: false,
         };
 
         const resolved = resolveEffectiveNetworkPolicy(stepPolicy, flowPolicy);
@@ -113,10 +116,10 @@ describe('Network Policy Resolver Tests', () => {
 
     it('allows step to deny all external network calls via denyNetwork (empty array)', () => {
         const flowPolicy = {
-            allowedHosts: ['api.stripe.com', 'api.sendgrid.com']
+            allowedHosts: ['api.stripe.com', 'api.sendgrid.com'],
         };
         const stepPolicy = {
-            allowedHosts: []
+            allowedHosts: [],
         };
 
         const resolved = resolveEffectiveNetworkPolicy(stepPolicy, flowPolicy);
@@ -140,27 +143,27 @@ describe('Network Policy Resolver Tests', () => {
     it('enforces flow outer perimeter for unix domain sockets', () => {
         // Flow allows sockets, step narrows
         const flowPolicy = {
-            allowUnixSockets: ['/var/run/docker.sock', '/tmp/app.sock']
+            allowUnixSockets: ['/var/run/docker.sock', '/tmp/app.sock'],
         };
         const stepPolicy = {
-            allowUnixSockets: ['/var/run/docker.sock', '/tmp/unauthorized.sock']
+            allowUnixSockets: ['/var/run/docker.sock', '/tmp/unauthorized.sock'],
         };
         const resolved = resolveEffectiveNetworkPolicy(stepPolicy, flowPolicy);
         expect(resolved!.allowUnixSockets).to.deep.equal(['/var/run/docker.sock']);
 
         // Step inherits flow unix sockets when step unix sockets is undefined
         const stepWithoutSockets = {
-            allowedHosts: ['api.stripe.com']
+            allowedHosts: ['api.stripe.com'],
         };
         const resolvedInherited = resolveEffectiveNetworkPolicy(stepWithoutSockets, flowPolicy);
         expect(resolvedInherited!.allowUnixSockets).to.deep.equal(['/var/run/docker.sock', '/tmp/app.sock']);
 
         // Flow disallows sockets, step cannot grant access
         const flowWithoutSockets = {
-            allowedHosts: ['api.stripe.com']
+            allowedHosts: ['api.stripe.com'],
         };
         const stepWithSockets = {
-            allowUnixSockets: ['/var/run/docker.sock']
+            allowUnixSockets: ['/var/run/docker.sock'],
         };
         const resolvedBlocked = resolveEffectiveNetworkPolicy(stepWithSockets, flowWithoutSockets);
         expect(resolvedBlocked!.allowUnixSockets).to.be.undefined;

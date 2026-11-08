@@ -15,9 +15,7 @@
       "id": 1,
       "title": "Active Workflows",
       "type": "stat",
-      "targets": [
-        { "expr": "siglo_active_flows", "refId": "A" }
-      ],
+      "targets": [{ "expr": "siglo_active_flows", "refId": "A" }],
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -30,9 +28,7 @@
       "id": 2,
       "title": "Total Completed Flows",
       "type": "stat",
-      "targets": [
-        { "expr": "sum(siglo_flows_total{status=\"completed\"})", "refId": "A" }
-      ],
+      "targets": [{ "expr": "sum(siglo_flows_total{status=\"completed\"})", "refId": "A" }],
       "options": {
         "colorMode": "value",
         "graphMode": "none"
@@ -44,9 +40,7 @@
       "id": 3,
       "title": "Total Failed Flows",
       "type": "stat",
-      "targets": [
-        { "expr": "sum(siglo_flows_total{status=\"failed\"})", "refId": "A" }
-      ],
+      "targets": [{ "expr": "sum(siglo_flows_total{status=\"failed\"})", "refId": "A" }],
       "options": {
         "colorMode": "value",
         "graphMode": "none"
@@ -58,9 +52,7 @@
       "id": 4,
       "title": "Step Retries Total",
       "type": "stat",
-      "targets": [
-        { "expr": "sum(siglo_step_retries_total)", "refId": "A" }
-      ],
+      "targets": [{ "expr": "sum(siglo_step_retries_total)", "refId": "A" }],
       "options": {
         "colorMode": "value",
         "graphMode": "none"

@@ -12,7 +12,7 @@ const unique = () => `siglo-test-${Date.now()}-${Math.random().toString(16).slic
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function eventually(check: () => boolean | Promise<boolean>, ms = 30000) {
     const deadline = Date.now() + ms;
-    while (!await check()) {
+    while (!(await check())) {
         if (Date.now() >= deadline) throw new Error('Timed out waiting for Kafka recovery');
         await pause(50);
     }
@@ -40,7 +40,10 @@ describe('@siglo/kafka live recovery', function () {
         await instance.subscribe({ topic: name, fromBeginning: true });
         return instance;
     }
-    before(async () => { await admin.connect(); await producer.connect(); });
+    before(async () => {
+        await admin.connect();
+        await producer.connect();
+    });
     afterEach(async () => {
         for (const child of children.splice(0)) {
             if (child.exitCode === null && child.signalCode === null) {
@@ -51,9 +54,11 @@ describe('@siglo/kafka live recovery', function () {
         await Promise.all(consumers.splice(0).map(instance => instance.disconnect()));
     });
     after(async () => {
-        try { if (topics.length) await admin.deleteTopics({ topics }); }
-        finally {
-            await producer.disconnect(); await admin.disconnect();
+        try {
+            if (topics.length) await admin.deleteTopics({ topics });
+        } finally {
+            await producer.disconnect();
+            await admin.disconnect();
             rmSync(directory, { recursive: true, force: true });
         }
     });
@@ -62,13 +67,24 @@ describe('@siglo/kafka live recovery', function () {
         const name = await topic();
         const store = new InMemoryIdempotencyStore();
         const received: Record<string, string[]> = { billing: [], analytics: [] };
-        await producer.send({ topic: name, messages: ['created', 'updated'].map(eventId => ({ key: 'order-1', value: JSON.stringify({ eventId }) })) });
+        await producer.send({
+            topic: name,
+            messages: ['created', 'updated'].map(eventId => ({ key: 'order-1', value: JSON.stringify({ eventId }) })),
+        });
         for (const group of Object.keys(received)) {
             const groupId = `${name}-${group}`;
             const instance = await consumer(groupId, name);
-            await instance.run({ eachMessage: createKafkaMessageHandler({ run: async (input: any) => {
-                received[group].push(input.eventId); return {};
-            } } as any, { groupId, idempotencyStore: store }) });
+            await instance.run({
+                eachMessage: createKafkaMessageHandler(
+                    {
+                        run: async (input: any) => {
+                            received[group].push(input.eventId);
+                            return {};
+                        },
+                    } as any,
+                    { groupId, idempotencyStore: store },
+                ),
+            });
         }
         await eventually(() => received.billing.length === 2 && received.analytics.length === 2);
         assert.deepEqual(received.billing, ['created', 'updated']);
@@ -82,17 +98,45 @@ describe('@siglo/kafka live recovery', function () {
         const handled: string[] = [];
         const quarantined: any[] = [];
         const dlqConsumer = await consumer(unique(), dlq);
-        await dlqConsumer.run({ eachMessage: async ({ message }: any) => { quarantined.push(JSON.parse(String(message.value))); } });
+        await dlqConsumer.run({
+            eachMessage: async ({ message }: any) => {
+                quarantined.push(JSON.parse(String(message.value)));
+            },
+        });
         const instance = await consumer(groupId, name);
-        await instance.run({ eachBatchAutoResolve: false, eachBatch: createKafkaBatchHandler({ run: async (input: any) => {
-            handled.push(input.eventId); return {};
-        } } as any, {
-            groupId, idempotencyStore: new InMemoryIdempotencyStore(),
-            deadLetter: async failure => { await producer.send({ topic: dlq, messages: [{ key: failure.recordId, value: JSON.stringify({ recordId: failure.recordId, raw: String(failure.message.value) }) }] }); },
-        }) });
-        await producer.send({ topic: name, messages: [
-            { value: 'invalid-json' }, { value: null }, { value: '{"eventId":"valid"}' },
-        ] });
+        await instance.run({
+            eachBatchAutoResolve: false,
+            eachBatch: createKafkaBatchHandler(
+                {
+                    run: async (input: any) => {
+                        handled.push(input.eventId);
+                        return {};
+                    },
+                } as any,
+                {
+                    groupId,
+                    idempotencyStore: new InMemoryIdempotencyStore(),
+                    deadLetter: async failure => {
+                        await producer.send({
+                            topic: dlq,
+                            messages: [
+                                {
+                                    key: failure.recordId,
+                                    value: JSON.stringify({
+                                        recordId: failure.recordId,
+                                        raw: String(failure.message.value),
+                                    }),
+                                },
+                            ],
+                        });
+                    },
+                },
+            ),
+        });
+        await producer.send({
+            topic: name,
+            messages: [{ value: 'invalid-json' }, { value: null }, { value: '{"eventId":"valid"}' }],
+        });
         await eventually(() => quarantined.length === 1 && handled.length === 1);
         await eventually(async () => {
             const offsets = await admin.fetchOffsets({ groupId, topics: [name] });
@@ -108,18 +152,31 @@ describe('@siglo/kafka live recovery', function () {
         const effectsPath = join(directory, 'effects.json');
         await producer.send({ topic: name, messages: [{ value: '{"eventId":"payment-1"}' }] });
         const start = (mode: string) => {
-            const child = fork(join(__dirname, 'crash-consumer.cjs'), [broker, name, groupId, effectsPath, mode], { execArgv: [], stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+            const child = fork(join(__dirname, 'crash-consumer.cjs'), [broker, name, groupId, effectsPath, mode], {
+                execArgv: [],
+                stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+            });
             children.push(child);
             return child;
         };
-        const effect = (child: ChildProcess) => new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Child did not process Kafka record')), 30000);
-            child.on('message', (message: any) => {
-                if (message.type === 'error') { clearTimeout(timer); reject(new Error(message.error)); }
-                if (message.type === 'effect') { clearTimeout(timer); resolve(); }
+        const effect = (child: ChildProcess) =>
+            new Promise<void>((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error('Child did not process Kafka record')), 30000);
+                child.on('message', (message: any) => {
+                    if (message.type === 'error') {
+                        clearTimeout(timer);
+                        reject(new Error(message.error));
+                    }
+                    if (message.type === 'effect') {
+                        clearTimeout(timer);
+                        resolve();
+                    }
+                });
+                child.once('error', error => {
+                    clearTimeout(timer);
+                    reject(error);
+                });
             });
-            child.once('error', error => { clearTimeout(timer); reject(error); });
-        });
         const first = start('crash');
         await effect(first);
         first.kill('SIGKILL');
@@ -140,26 +197,42 @@ describe('@siglo/kafka live recovery', function () {
         const completed = new Set<string>();
         let started = false;
         let joins = 0;
-        const task = { run: async (input: any, options: any) => {
-            started = true;
-            effects.add(input.eventId); // Simulated provider-level idempotency.
-            await new Promise<void>((resolve, reject) => {
-                const timer = setTimeout(() => { options.signal.removeEventListener('abort', onAbort); resolve(); }, 1500);
-                const onAbort = () => { clearTimeout(timer); reject(options.signal.reason); };
-                options.signal.addEventListener('abort', onAbort, { once: true });
-            });
-            completed.add(input.eventId);
-            return {};
-        } } as any;
+        const task = {
+            run: async (input: any, options: any) => {
+                started = true;
+                effects.add(input.eventId); // Simulated provider-level idempotency.
+                await new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(() => {
+                        options.signal.removeEventListener('abort', onAbort);
+                        resolve();
+                    }, 1500);
+                    const onAbort = () => {
+                        clearTimeout(timer);
+                        reject(options.signal.reason);
+                    };
+                    options.signal.addEventListener('abort', onAbort, { once: true });
+                });
+                completed.add(input.eventId);
+                return {};
+            },
+        } as any;
         const first = await consumer(groupId, name);
-        first.on(first.events.GROUP_JOIN, () => { joins++; });
+        first.on(first.events.GROUP_JOIN, () => {
+            joins++;
+        });
         await first.run({ eachMessage: createKafkaMessageHandler(task, { heartbeatIntervalMs: 100 }) });
-        await producer.send({ topic: name, messages: [
-            { partition: 0, value: '{"eventId":"a"}' }, { partition: 1, value: '{"eventId":"b"}' },
-        ] });
+        await producer.send({
+            topic: name,
+            messages: [
+                { partition: 0, value: '{"eventId":"a"}' },
+                { partition: 1, value: '{"eventId":"b"}' },
+            ],
+        });
         await eventually(() => started);
         const second = await consumer(groupId, name);
-        second.on(second.events.GROUP_JOIN, () => { joins++; });
+        second.on(second.events.GROUP_JOIN, () => {
+            joins++;
+        });
         await second.run({ eachMessage: createKafkaMessageHandler(task, { heartbeatIntervalMs: 100 }) });
         await eventually(() => completed.size === 2 && joins >= 3);
         assert.deepEqual([...effects].sort(), ['a', 'b']);

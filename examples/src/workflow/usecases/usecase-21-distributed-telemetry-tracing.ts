@@ -5,7 +5,7 @@ import {
     injectTraceContext,
     extractTraceContext,
     getTraceHeaders,
-    createTelemetryStorageAdapter
+    createTelemetryStorageAdapter,
 } from '@siglo/opentelemetry';
 
 export interface TelemetryOrderInput {
@@ -25,7 +25,10 @@ export class MockSpan {
     public exceptions: any[] = [];
     public ended = false;
 
-    constructor(public name: string, attributes: Record<string, any> = {}) {
+    constructor(
+        public name: string,
+        attributes: Record<string, any> = {},
+    ) {
         this.attributes = { ...attributes };
     }
 
@@ -51,7 +54,7 @@ export class MockSpan {
         return {
             traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
             spanId: '00f067aa0ba902b7',
-            traceFlags: 1
+            traceFlags: 1,
         };
     }
 
@@ -98,13 +101,15 @@ export function createObservableOrderWorkflow() {
         return {
             orderId,
             trackingNumber: `TRK-${orderId}-EXPRESS`,
-            dispatchStatus: 'DISPATCHED'
+            dispatchStatus: 'DISPATCHED',
         };
     }).onFail({ maxRetries: 2, delay: 5 });
 
     return {
         workflow: flow(validateOrder, dispatchOrder),
-        resetCalls: () => { callCount = 0; }
+        resetCalls: () => {
+            callCount = 0;
+        },
     };
 }
 
@@ -118,7 +123,7 @@ export function setupInstrumentedWorkflow(tracer: MockTracer, options?: { allowN
         tracer: tracer as any,
         workflowName: 'ObservableOrderWorkflow',
         workflowVersion: '2.0.0',
-        allowNamespace: options?.allowNamespace ?? false
+        allowNamespace: options?.allowNamespace ?? false,
     });
 
     // Sanitized Telemetry Storage Adapter with field allowlisting
@@ -129,7 +134,7 @@ export function setupInstrumentedWorkflow(tracer: MockTracer, options?: { allowN
         redactHook: (field, val) => {
             auditEvents.push({ field, val });
             return val;
-        }
+        },
     });
 
     return {
@@ -141,7 +146,7 @@ export function setupInstrumentedWorkflow(tracer: MockTracer, options?: { allowN
             injectTraceContext,
             extractTraceContext,
             getTraceHeaders,
-            SemanticAttributes
-        }
+            SemanticAttributes,
+        },
     };
 }

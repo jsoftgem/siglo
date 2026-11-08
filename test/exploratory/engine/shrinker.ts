@@ -13,10 +13,7 @@ export interface FailureSnapshot {
 }
 
 export class FailureShrinker {
-    static async captureAndSaveFailure(
-        outputDir: string,
-        snapshot: FailureSnapshot
-    ): Promise<string> {
+    static async captureAndSaveFailure(outputDir: string, snapshot: FailureSnapshot): Promise<string> {
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }

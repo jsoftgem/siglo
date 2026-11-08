@@ -40,14 +40,14 @@ function isPatternPermittedByList(pattern: HostPattern, flowAllowedHosts: HostPa
 
 export function resolveEffectiveNetworkPolicy(
     stepPolicy?: NetworkPolicyConfig,
-    flowPolicy?: NetworkPolicyConfig
+    flowPolicy?: NetworkPolicyConfig,
 ): EffectiveNetworkPolicy | undefined {
     if (!stepPolicy && !flowPolicy) {
         return undefined;
     }
 
-    const stepEnabled = stepPolicy?.enabled ?? (stepPolicy !== undefined);
-    const flowEnabled = flowPolicy?.enabled ?? (flowPolicy !== undefined);
+    const stepEnabled = stepPolicy?.enabled ?? stepPolicy !== undefined;
+    const flowEnabled = flowPolicy?.enabled ?? flowPolicy !== undefined;
 
     if (!stepEnabled && !flowEnabled) {
         return undefined;
@@ -60,7 +60,7 @@ export function resolveEffectiveNetworkPolicy(
             defaultPolicy: flowPolicy.defaultPolicy ?? 'deny',
             allowedHosts: flowPolicy.allowedHosts ? [...flowPolicy.allowedHosts] : [],
             allowLocalhost: flowPolicy.allowLocalhost ?? false,
-            allowUnixSockets: flowPolicy.allowUnixSockets ? [...flowPolicy.allowUnixSockets] : undefined
+            allowUnixSockets: flowPolicy.allowUnixSockets ? [...flowPolicy.allowUnixSockets] : undefined,
         };
     }
 
@@ -71,7 +71,7 @@ export function resolveEffectiveNetworkPolicy(
             defaultPolicy: stepPolicy.defaultPolicy ?? 'deny',
             allowedHosts: stepPolicy.allowedHosts ? [...stepPolicy.allowedHosts] : [],
             allowLocalhost: stepPolicy.allowLocalhost ?? false,
-            allowUnixSockets: stepPolicy.allowUnixSockets ? [...stepPolicy.allowUnixSockets] : undefined
+            allowUnixSockets: stepPolicy.allowUnixSockets ? [...stepPolicy.allowUnixSockets] : undefined,
         };
     }
 
@@ -82,7 +82,7 @@ export function resolveEffectiveNetworkPolicy(
         defaultPolicy: flowPolicy!.defaultPolicy ?? 'deny',
         allowedHosts: flowPolicy!.allowedHosts ? [...flowPolicy!.allowedHosts] : [],
         allowLocalhost: flowPolicy!.allowLocalhost ?? false,
-        allowUnixSockets: flowPolicy!.allowUnixSockets ? [...flowPolicy!.allowUnixSockets] : undefined
+        allowUnixSockets: flowPolicy!.allowUnixSockets ? [...flowPolicy!.allowUnixSockets] : undefined,
     };
 
     const resolvedStep: EffectiveNetworkPolicy = {
@@ -90,7 +90,7 @@ export function resolveEffectiveNetworkPolicy(
         defaultPolicy: stepPolicy!.defaultPolicy ?? 'deny',
         allowedHosts: stepPolicy!.allowedHosts ? [...stepPolicy!.allowedHosts] : [],
         allowLocalhost: stepPolicy!.allowLocalhost ?? false,
-        allowUnixSockets: stepPolicy!.allowUnixSockets ? [...stepPolicy!.allowUnixSockets] : undefined
+        allowUnixSockets: stepPolicy!.allowUnixSockets ? [...stepPolicy!.allowUnixSockets] : undefined,
     };
 
     // Effective localhost exemption: flow must allow it AND step must allow it
@@ -100,7 +100,7 @@ export function resolveEffectiveNetworkPolicy(
     let effectiveUnixSockets: string[] | undefined;
     if (resolvedFlow.allowUnixSockets && resolvedStep.allowUnixSockets) {
         effectiveUnixSockets = resolvedStep.allowUnixSockets.filter(s =>
-            isUnixSocketAllowed(s, resolvedFlow.allowUnixSockets)
+            isUnixSocketAllowed(s, resolvedFlow.allowUnixSockets),
         );
     } else if (resolvedFlow.allowUnixSockets) {
         effectiveUnixSockets = [...resolvedFlow.allowUnixSockets];
@@ -111,7 +111,7 @@ export function resolveEffectiveNetworkPolicy(
     let effectiveAllowedHosts: HostPattern[] = [];
     if (stepPolicy!.allowedHosts !== undefined) {
         effectiveAllowedHosts = stepPolicy!.allowedHosts.filter(pat =>
-            isPatternPermittedByList(pat, resolvedFlow.allowedHosts)
+            isPatternPermittedByList(pat, resolvedFlow.allowedHosts),
         );
     } else {
         effectiveAllowedHosts = [...resolvedFlow.allowedHosts];
@@ -124,6 +124,6 @@ export function resolveEffectiveNetworkPolicy(
         allowLocalhost,
         allowUnixSockets: effectiveUnixSockets,
         flowPolicy: resolvedFlow,
-        stepPolicy: resolvedStep
+        stepPolicy: resolvedStep,
     };
 }

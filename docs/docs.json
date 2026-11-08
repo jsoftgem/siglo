@@ -51,6 +51,7 @@
               "distributed-rest-and-live-monitoring",
               "durable-distributed-checkout",
               "kafka-order-routing",
+              "signed-order-intake",
               "zero-code-apm-dashboards"
             ]
           },

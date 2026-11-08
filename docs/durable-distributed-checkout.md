@@ -5,7 +5,7 @@ description: "Suspend a distributed Siglo checkout workflow for human approval, 
 
 # Suspend Checkout for Approval and Resume Across Servers
 
-In [Run Checkout Across Two Servers with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md), both API instances executed orders synchronously from start to finish within a single HTTP request.
+In [Run Checkout Across Two Servers with PostgreSQL and Redis](/distributed-rest-and-live-monitoring), both API instances executed orders synchronously from start to finish within a single HTTP request.
 
 In real e-commerce and B2B systems, workflows often cannot finish in a few hundred milliseconds:
 
@@ -27,7 +27,7 @@ You need a repository checkout, a running Docker daemon, and Docker Compose with
 docker compose -f examples/durable-distributed-checkout/docker-compose.yml up --build -d --wait
 ```
 
-This uses the separate **`siglo-durable-checkout`** Compose project, image, database volume, Redis channel, and host ports. The [previous tutorial](distributed-rest-and-live-monitoring.md) and its `examples/distributed-checkout` stack can keep running unchanged.
+This uses the separate **`siglo-durable-checkout`** Compose project, image, database volume, Redis channel, and host ports. The [previous tutorial](/distributed-rest-and-live-monitoring) and its `examples/distributed-checkout` stack can keep running unchanged.
 
 | Service | Local address |
 |---|---|
@@ -80,7 +80,7 @@ Data survives `down`; add `--volumes` only when you want to reset this example's
 | [monitor.ts](../examples/src/durable-distributed-checkout/monitor.ts) | Central dashboard, Redis subscription, and interactive resumption |
 | [smoke.ts](../examples/src/durable-distributed-checkout/smoke.ts) | Assertions before and after API restarts |
 | [docker-compose.yml](../examples/durable-distributed-checkout/docker-compose.yml) | Isolated two-replica stack |
-| [Example README](../examples/durable-distributed-checkout/README.md) | Commands, ports, and rebuilding after edits |
+| [Example README](https://github.com/jsoftgem/siglo/blob/main/examples/durable-distributed-checkout/README.md) | Commands, ports, and rebuilding after edits |
 
 The stock, payment, and shipping services are fake; no external provider credentials are needed. After trying the example, edit these files and rerun the build command above. The sections below explain how they fit together.
 
@@ -187,7 +187,7 @@ export function createDurableCheckout(services: CheckoutServices) {
 
 ## 3. Wire PostgreSQL Wait Records in Storage
 
-In [Distributed Checkout with PostgreSQL and Redis](distributed-rest-and-live-monitoring.md#3-connect-both-adapters), our storage adapter only forwarded checkpoints and cache operations.
+In [Distributed Checkout with PostgreSQL and Redis](/distributed-rest-and-live-monitoring#3-connect-both-adapters), our storage adapter only forwarded checkpoints and cache operations.
 
 For durable workflows, the storage adapter must expose wait record persistence and distributed locking. [infrastructure.ts](../examples/src/durable-distributed-checkout/infrastructure.ts) serializes checkpoint and wait writes and exposes `flush()`. The submission wrapper drains these writes before acknowledging `202`; the resume path drains them while holding the workflow lock. Compose runs schema initialization once before starting the API replicas and monitor:
 
@@ -589,7 +589,7 @@ Content-Type: application/json; charset=utf-8
 
 ## 6. Live Monitoring and Interactive Resumption
 
-As in [Serve a REST Endpoint and Watch It Run Live](rest-and-live-monitoring.md), a separate dashboard observes checkout execution. This example uses port **4100** to avoid the previous tutorial's monitor port.
+As in [Serve a REST Endpoint and Watch It Run Live](/rest-and-live-monitoring), a separate dashboard observes checkout execution. This example uses port **4100** to avoid the previous tutorial's monitor port.
 
 The monitor registers the checkout workflow and connects to the same PostgreSQL storage as both API replicas. Unlike the previous tutorial's observation-only monitor, this local dashboard enables **interactive resumption**:
 
@@ -778,10 +778,10 @@ When operating durable workflows in production:
 
 | Topic | Document |
 |---|---|
-| Continue with Kafka integration and conditional routing | [Kafka Order Routing with `branch` and `when`](kafka-order-routing.md) |
-| Core durable concepts and wait combinators | [06. Durable Workflows](06-durable-workflows.md) |
-| PostgreSQL checkpoint and wait table contracts | [Storage and Persistence Contract](storage-contract.md) |
-| Distributed storage adapters and multi-tenant namespaces | [Storage and Adapters](07-storage-and-adapters.md) |
-| Production runbooks and background daemons | [Production Best Practices](production-best-practices.md) |
-| Interactive DevTools and SSE telemetry | [Live Monitoring](live-monitoring.md) |
-| Reverse-order rollbacks and saga recovery | [Compensation and Sagas](compensation-and-sagas.md) |
+| Continue with Kafka integration and conditional routing | [Kafka Order Routing with `branch` and `when`](/kafka-order-routing) |
+| Core durable concepts and wait combinators | [06. Durable Workflows](/06-durable-workflows) |
+| PostgreSQL checkpoint and wait table contracts | [Storage and Persistence Contract](/storage-contract) |
+| Distributed storage adapters and multi-tenant namespaces | [Storage and Adapters](/07-storage-and-adapters) |
+| Production runbooks and background daemons | [Production Best Practices](/production-best-practices) |
+| Interactive DevTools and SSE telemetry | [Live Monitoring](/live-monitoring) |
+| Reverse-order rollbacks and saga recovery | [Compensation and Sagas](/compensation-and-sagas) |

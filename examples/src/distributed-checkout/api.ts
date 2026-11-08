@@ -10,10 +10,17 @@ import { channel, connectInfrastructure, namespace, pubsubClient } from './infra
 function isOrder(value: unknown): value is Order {
     if (!value || typeof value !== 'object') return false;
     const order = value as Partial<Order>;
-    return typeof order.orderId === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(order.orderId)
-        && typeof order.sku === 'string' && order.sku.length > 0 && order.sku.length <= 80
-        && Number.isSafeInteger(order.quantity) && order.quantity! > 0
-        && Number.isSafeInteger(order.amountCents) && order.amountCents! > 0;
+    return (
+        typeof order.orderId === 'string' &&
+        /^[a-zA-Z0-9_-]{1,80}$/.test(order.orderId) &&
+        typeof order.sku === 'string' &&
+        order.sku.length > 0 &&
+        order.sku.length <= 80 &&
+        Number.isSafeInteger(order.quantity) &&
+        order.quantity! > 0 &&
+        Number.isSafeInteger(order.amountCents) &&
+        order.amountCents! > 0
+    );
 }
 
 export async function startApi(port = Number(process.env.PORT || 3000)) {
@@ -23,8 +30,13 @@ export async function startApi(port = Number(process.env.PORT || 3000)) {
     new RedisMonitoringAdapter({ publisher: pubsubClient(infra.redis), channel }).attachToEmitter(emitter);
     const app = express();
     app.use(express.json({ limit: '16kb' }));
-    app.use((_req, res, next) => { res.setHeader('X-Instance-Id', instance); next(); });
-    app.get('/health', (_req, res) => { res.json({ instance }); });
+    app.use((_req, res, next) => {
+        res.setHeader('X-Instance-Id', instance);
+        next();
+    });
+    app.get('/health', (_req, res) => {
+        res.json({ instance });
+    });
 
     app.get('/api/checkouts/:stackId', async (req, res) => {
         try {
@@ -59,8 +71,10 @@ export async function startApi(port = Number(process.env.PORT || 3000)) {
                 return;
             }
             if (claim === 'completed') {
-                const saved = await infra.idempotency.getResult(key) as {
-                    fingerprint: string; body: object; stackId: string;
+                const saved = (await infra.idempotency.getResult(key)) as {
+                    fingerprint: string;
+                    body: object;
+                    stackId: string;
                 };
                 if (saved.fingerprint !== fingerprint) {
                     res.status(409).json({ error: 'Order ID already used with different input' });
@@ -105,21 +119,34 @@ export async function startApi(port = Number(process.env.PORT || 3000)) {
         }
     });
     const server = app.listen(port, '0.0.0.0');
-    try { await once(server, 'listening'); }
-    catch (error) { await infra.close(); throw error; }
+    try {
+        await once(server, 'listening');
+    } catch (error) {
+        await infra.close();
+        throw error;
+    }
     console.log(`${instance}: listening on ${port}`);
     return {
         server,
         async close() {
-            await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+            await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
             await infra.close();
-        }
+        },
     };
 }
 
 if (require.main === module) {
-    startApi().then(({ close }) => {
-        process.once('SIGINT', () => { void close(); });
-        process.once('SIGTERM', () => { void close(); });
-    }).catch(error => { console.error(error); process.exitCode = 1; });
+    startApi()
+        .then(({ close }) => {
+            process.once('SIGINT', () => {
+                void close();
+            });
+            process.once('SIGTERM', () => {
+                void close();
+            });
+        })
+        .catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+        });
 }

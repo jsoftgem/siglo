@@ -11,10 +11,11 @@ async function main() {
     const { services } = createDemoServices();
     const checkout = createDurableCheckout(services);
     const monitor = await createMonitorServer({
-        port: Number(process.env.MONITOR_PORT || 4100), host: '0.0.0.0',
+        port: Number(process.env.MONITOR_PORT || 4100),
+        host: '0.0.0.0',
         flow: checkout,
         // Compose binds the dashboard to localhost. Enable controls for this demo.
-        allowRemoteResume: true
+        allowRemoteResume: true,
     });
     new RedisMonitoringAdapter({ subscriber: pubsubClient(subscriber), channel, emitter: monitor.emitter });
     await subscriber.subscribe(channel);
@@ -24,8 +25,15 @@ async function main() {
         await monitor.close();
         await infra.close();
     };
-    process.once('SIGINT', () => { void close(); });
-    process.once('SIGTERM', () => { void close(); });
+    process.once('SIGINT', () => {
+        void close();
+    });
+    process.once('SIGTERM', () => {
+        void close();
+    });
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; });
+main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

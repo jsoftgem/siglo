@@ -13,25 +13,31 @@ export class Transformer {
 
     runTransform(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            new this.SpecFailedException(() => {
-                const { transformer } = this.specData;
-                if (transformer) {
-                    const contextData = this.context.getData();
-                    if (contextData[this.field]) {
-                        transformer(contextData[this.field]())
-                            .then((newValue: any) => {
-                                this.context.set(this.field, newValue);
-                                resolve();
-                            })
-                            .catch((error: any) => { reject({ field: this.field, error }); });
+            new this.SpecFailedException(
+                () => {
+                    const { transformer } = this.specData;
+                    if (transformer) {
+                        const contextData = this.context.getData();
+                        if (contextData[this.field]) {
+                            transformer(contextData[this.field]())
+                                .then((newValue: any) => {
+                                    this.context.set(this.field, newValue);
+                                    resolve();
+                                })
+                                .catch((error: any) => {
+                                    reject({ field: this.field, error });
+                                });
+                        } else {
+                            resolve();
+                        }
                     } else {
                         resolve();
                     }
-                } else {
-                    resolve();
-                }
-            }, this.field, reject);
+                },
+                this.field,
+                reject,
+            );
         });
     }
-/* c8 ignore next */
+    /* c8 ignore next */
 }

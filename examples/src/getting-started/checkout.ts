@@ -19,35 +19,44 @@ export class TemporaryPaymentError extends Error {}
 
 export function createCheckout(services: CheckoutServices) {
     const validateOrder = Step.create('validateOrder', (order: Order) => {
-        if (!order.orderId || !order.sku || !Number.isInteger(order.quantity) || order.quantity < 1
-            || !Number.isSafeInteger(order.amountCents) || order.amountCents < 1) {
+        if (
+            !order.orderId ||
+            !order.sku ||
+            !Number.isInteger(order.quantity) ||
+            order.quantity < 1 ||
+            !Number.isSafeInteger(order.amountCents) ||
+            order.amountCents < 1
+        ) {
             throw new Error('An order needs an ID, SKU, positive quantity, and amount in cents');
         }
         return { validated: true };
     });
 
     const reserveStock = Step.create('reserveStock', async (order: Order) => ({
-        reservationId: await services.reserve(order)
+        reservationId: await services.reserve(order),
     })).compensate(async (output: { reservationId: string }) => {
         await services.release(output.reservationId);
     });
 
     const chargePayment = Step.create('chargePayment', async (order: Order) => ({
-        paymentId: await services.charge(order)
-    })).onFail({
-        maxRetries: 2,
-        delay: 10,
-        backoff: 'exponential',
-        retryIf: (error) => error instanceof TemporaryPaymentError
-    }).compensate(async (output: { paymentId: string }) => {
-        await services.refund(output.paymentId);
-    });
+        paymentId: await services.charge(order),
+    }))
+        .onFail({
+            maxRetries: 2,
+            delay: 10,
+            backoff: 'exponential',
+            retryIf: error => error instanceof TemporaryPaymentError,
+        })
+        .compensate(async (output: { paymentId: string }) => {
+            await services.refund(output.paymentId);
+        });
 
-    const arrangeShipping = Step.create('arrangeShipping', async (
-        order: Order & { reservationId: string; paymentId: string }
-    ) => ({
-        trackingId: await services.ship(order)
-    }));
+    const arrangeShipping = Step.create(
+        'arrangeShipping',
+        async (order: Order & { reservationId: string; paymentId: string }) => ({
+            trackingId: await services.ship(order),
+        }),
+    );
 
     return flow(validateOrder, reserveStock, chargePayment, arrangeShipping);
 }

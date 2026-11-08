@@ -1,12 +1,6 @@
 import { Step, flow, defaultCompensationManager, useStorage } from '@siglo/core';
 import type { StandardSchemaV1 } from '@siglo/http';
-import {
-    aiStep,
-    AiOutputValidationError,
-    AiProviderError,
-    AiRequestTimeoutError,
-    defineAiTool
-} from '@siglo/ai';
+import { aiStep, AiOutputValidationError, AiProviderError, AiRequestTimeoutError, defineAiTool } from '@siglo/ai';
 import { MockAiProvider } from '@siglo/ai/testing';
 import { RandomSource } from '../engine/property-generators';
 import { InvariantEvaluator } from '../engine/invariant-evaluator';
@@ -31,26 +25,23 @@ const testSchema: StandardSchemaV1<unknown, StructuredTestOutput> = {
                 return { value: value as StructuredTestOutput };
             }
             return {
-                issues: [{ message: 'Expected { score: number, decision: string }', path: [] }]
+                issues: [{ message: 'Expected { score: number, decision: string }', path: [] }],
             };
-        }
-    }
+        },
+    },
 };
 
 const jsonSchema = {
     type: 'object',
     properties: {
         score: { type: 'number' },
-        decision: { type: 'string' }
+        decision: { type: 'string' },
     },
     required: ['score', 'decision'],
-    additionalProperties: false
+    additionalProperties: false,
 };
 
-export async function runAiCharter(
-    iterations: number = 15,
-    seed: number = 1010
-): Promise<CharterResult> {
+export async function runAiCharter(iterations: number = 15, seed: number = 1010): Promise<CharterResult> {
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
@@ -73,7 +64,7 @@ export async function runAiCharter(
                 outcomes.push({
                     text: r % 2 === 0 ? 'Malformed JSON string {' : '{"score": "not_a_number"}',
                     promptTokens: 10,
-                    completionTokens: 5
+                    completionTokens: 5,
                 });
             }
 
@@ -81,13 +72,13 @@ export async function runAiCharter(
                 outcomes.push({
                     text: JSON.stringify({ score: rng.nextInt(1, 100), decision: 'APPROVED' }),
                     promptTokens: 12,
-                    completionTokens: 8
+                    completionTokens: 8,
                 });
             } else {
                 outcomes.push({
                     text: '{"unrepairable": true}',
                     promptTokens: 10,
-                    completionTokens: 5
+                    completionTokens: 5,
                 });
             }
 
@@ -98,12 +89,12 @@ export async function runAiCharter(
                 model: {
                     provider: 'openai',
                     model: 'gpt-4o',
-                    adapter: mockProvider
+                    adapter: mockProvider,
                 },
                 schema: testSchema,
                 jsonSchema,
                 maxRepairAttempts: maxRepairs,
-                prompt: (ctx: any) => `Evaluate request for iteration ${i}: ${JSON.stringify(ctx)}`
+                prompt: (ctx: any) => `Evaluate request for iteration ${i}: ${JSON.stringify(ctx)}`,
             });
 
             const initialContext = { iteration: i, canary: undefined };
@@ -118,7 +109,9 @@ export async function runAiCharter(
                 if (willSucceed) {
                     errors.push(`Iteration ${i}: Unexpected AI step failure: ${stepErr.message}`);
                 } else if (!(stepErr instanceof AiOutputValidationError)) {
-                    errors.push(`Iteration ${i}: Expected AiOutputValidationError, got ${stepErr.name}: ${stepErr.message}`);
+                    errors.push(
+                        `Iteration ${i}: Expected AiOutputValidationError, got ${stepErr.name}: ${stepErr.message}`,
+                    );
                 }
             }
 
@@ -131,11 +124,13 @@ export async function runAiCharter(
 
             if (willSucceed && capturedResult) {
                 if (typeof capturedResult.data?.score !== 'number') {
-                    errors.push(`Iteration ${i}: Structured output schema validation bypassed: ${JSON.stringify(capturedResult.data)}`);
+                    errors.push(
+                        `Iteration ${i}: Structured output schema validation bypassed: ${JSON.stringify(capturedResult.data)}`,
+                    );
                 }
                 if (capturedResult.aiMetrics?.repairAttempts !== repairAttempts) {
                     errors.push(
-                        `Iteration ${i}: Repair attempt mismatch! Expected ${repairAttempts}, got ${capturedResult.aiMetrics?.repairAttempts}`
+                        `Iteration ${i}: Repair attempt mismatch! Expected ${repairAttempts}, got ${capturedResult.aiMetrics?.repairAttempts}`,
                     );
                 }
                 if (capturedResult.aiMetrics?.totalTokens <= 0) {
@@ -148,35 +143,37 @@ export async function runAiCharter(
             // =========================================================================
             const primaryFails = rng.nextBoolean(0.5);
             if (primaryFails) {
-                const primaryMock = new MockAiProvider([
-                    new AiProviderError('Rate limit exceeded', 429)
-                ]);
+                const primaryMock = new MockAiProvider([new AiProviderError('Rate limit exceeded', 429)]);
                 const fallbackMock = new MockAiProvider([
-                    { text: 'Fallback response text', promptTokens: 15, completionTokens: 5 }
+                    { text: 'Fallback response text', promptTokens: 15, completionTokens: 5 },
                 ]);
 
                 const fallbackStep = aiStep(`ai_fallback_${i}`, {
                     model: {
                         provider: 'openai',
                         model: 'gpt-4o',
-                        adapter: primaryMock
+                        adapter: primaryMock,
                     },
                     fallbackModels: [
                         {
                             provider: 'anthropic',
                             model: 'claude-3-5-sonnet',
-                            adapter: fallbackMock
-                        }
+                            adapter: fallbackMock,
+                        },
                     ],
-                    prompt: 'Quick prompt'
+                    prompt: 'Quick prompt',
                 });
 
                 const fallbackRes = await fallbackStep.execute({});
                 if (fallbackRes.aiMetrics?.fallbackCount !== 1) {
-                    errors.push(`Iteration ${i}: Fallback count expected 1, got ${fallbackRes.aiMetrics?.fallbackCount}`);
+                    errors.push(
+                        `Iteration ${i}: Fallback count expected 1, got ${fallbackRes.aiMetrics?.fallbackCount}`,
+                    );
                 }
                 if (fallbackRes.aiMetrics?.providerUsed !== 'anthropic') {
-                    errors.push(`Iteration ${i}: Expected providerUsed 'anthropic', got ${fallbackRes.aiMetrics?.providerUsed}`);
+                    errors.push(
+                        `Iteration ${i}: Expected providerUsed 'anthropic', got ${fallbackRes.aiMetrics?.providerUsed}`,
+                    );
                 }
             }
 
@@ -193,8 +190,8 @@ export async function runAiCharter(
                     '~standard': {
                         version: 1,
                         vendor: 'siglo',
-                        validate: (v: any) => ({ value: v })
-                    }
+                        validate: (v: any) => ({ value: v }),
+                    },
                 },
                 step: Step.create('reserve_funds', async () => {
                     toolCallLog.push('reserved');
@@ -202,7 +199,7 @@ export async function runAiCharter(
                 }).compensate(async () => {
                     toolCompensationLog.push('refunded');
                 }),
-                mapInput: (args: any) => args
+                mapInput: (args: any) => args,
             });
 
             const agentMock = new MockAiProvider([
@@ -211,20 +208,20 @@ export async function runAiCharter(
                     text: 'Calling tool',
                     toolCalls: [{ id: 'call_1', name: 'reserve_funds', arguments: { amount: 100 } }],
                     promptTokens: 10,
-                    completionTokens: 5
+                    completionTokens: 5,
                 },
                 // Second turn: model returns final response
                 {
                     text: 'Tool execution complete',
                     promptTokens: 15,
-                    completionTokens: 8
-                }
+                    completionTokens: 8,
+                },
             ]);
 
             const agentStep = aiStep(`agent_step_${i}`, {
                 model: { provider: 'openai', model: 'gpt-4o', adapter: agentMock },
                 tools: [toolDef],
-                prompt: 'Process transaction'
+                prompt: 'Process transaction',
             });
 
             const failingStep = Step.create('post_agent_fail', async () => {
@@ -247,7 +244,6 @@ export async function runAiCharter(
                     errors.push(`Iteration ${i} [Oracle 2]: ${invErr.message}`);
                 }
             }
-
         } catch (charterErr: any) {
             errors.push(`Iteration ${i} Unhandled Exception: ${charterErr.message}`);
         }
@@ -259,6 +255,6 @@ export async function runAiCharter(
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,
         invariantsChecked,
-        errors
+        errors,
     };
 }

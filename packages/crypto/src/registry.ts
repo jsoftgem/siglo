@@ -20,25 +20,25 @@ protocolRegistry.set('generic-hmac', genericHmacProtocol);
  * Registers a global webhook protocol strategy.
  */
 export function registerWebhookProtocol(name: string, protocol: WebhookProtocol): void {
-  protocolRegistry.set(name.toLowerCase(), protocol);
+    protocolRegistry.set(name.toLowerCase(), protocol);
 }
 
 /**
  * Retrieves a registered webhook protocol by name.
  */
 export function getWebhookProtocol(name: string): WebhookProtocol | undefined {
-  return protocolRegistry.get(name.toLowerCase());
+    return protocolRegistry.get(name.toLowerCase());
 }
 
 /**
  * Clears custom registered protocols, resetting to built-ins (useful for test isolation).
  */
 export function resetWebhookProtocols(): void {
-  protocolRegistry.clear();
-  protocolRegistry.set('stripe', stripeProtocol);
-  protocolRegistry.set('github', gitHubProtocol);
-  protocolRegistry.set('shopify', shopifyProtocol);
-  protocolRegistry.set('slack', slackProtocol);
-  protocolRegistry.set('svix', svixProtocol);
-  protocolRegistry.set('generic-hmac', genericHmacProtocol);
+    protocolRegistry.clear();
+    protocolRegistry.set('stripe', stripeProtocol);
+    protocolRegistry.set('github', gitHubProtocol);
+    protocolRegistry.set('shopify', shopifyProtocol);
+    protocolRegistry.set('slack', slackProtocol);
+    protocolRegistry.set('svix', svixProtocol);
+    protocolRegistry.set('generic-hmac', genericHmacProtocol);
 }

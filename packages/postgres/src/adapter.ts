@@ -1,10 +1,18 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { StorageAdapter, SerializedExecutionStack, OptimisticLockException, DuplicateEventException, ExpiredWaitException } from '@siglo/core';
+import {
+    StorageAdapter,
+    SerializedExecutionStack,
+    OptimisticLockException,
+    DuplicateEventException,
+    ExpiredWaitException,
+} from '@siglo/core';
 import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
 
 function validateIdentifier(name: string, paramName: string): string {
     if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
-        throw new Error(`Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`);
+        throw new Error(
+            `Invalid SQL identifier for ${paramName}: "${name}". Must be 1-63 alphanumeric characters or underscores, starting with a letter or underscore.`,
+        );
     }
     return name;
 }
@@ -12,9 +20,16 @@ function validateIdentifier(name: string, paramName: string): string {
 export class PostgresStorageAdapter implements StorageAdapter {
     public readonly name = 'postgres';
     private baseClient: PostgresClientInterface;
-    private scope = new AsyncLocalStorage<{ stackId: string; client: PostgresClientInterface; tail: Promise<unknown>; active: boolean }>();
+    private scope = new AsyncLocalStorage<{
+        stackId: string;
+        client: PostgresClientInterface;
+        tail: Promise<unknown>;
+        active: boolean;
+    }>();
     private directClientBusy = false;
-    private get client(): PostgresClientInterface { return this.scope.getStore()?.active ? this.scope.getStore()!.client : this.baseClient; }
+    private get client(): PostgresClientInterface {
+        return this.scope.getStore()?.active ? this.scope.getStore()!.client : this.baseClient;
+    }
     private checkpointsTable: string;
     private eventsTable: string;
     private waitRecordsTable: string;
@@ -27,7 +42,10 @@ export class PostgresStorageAdapter implements StorageAdapter {
         this.baseClient = options.client;
         this.checkpointsTable = validateIdentifier(options.checkpointsTable || 'siglo_checkpoints', 'checkpointsTable');
         this.eventsTable = validateIdentifier(options.eventsTable || 'siglo_context_events', 'eventsTable');
-        this.waitRecordsTable = validateIdentifier(options.waitRecordsTable || 'siglo_wait_records', 'waitRecordsTable');
+        this.waitRecordsTable = validateIdentifier(
+            options.waitRecordsTable || 'siglo_wait_records',
+            'waitRecordsTable',
+        );
         this.recordContextChanges = options.recordContextChanges ?? true;
     }
 
@@ -101,9 +119,12 @@ export class PostgresStorageAdapter implements StorageAdapter {
         const stateJson = JSON.stringify(checkpoint);
         const namespace = checkpoint.namespace || null;
 
-        const versionToExpect = expectedVersion !== undefined
-            ? expectedVersion
-            : ((checkpoint as any).occVersion !== undefined ? (checkpoint as any).occVersion : undefined);
+        const versionToExpect =
+            expectedVersion !== undefined
+                ? expectedVersion
+                : (checkpoint as any).occVersion !== undefined
+                  ? (checkpoint as any).occVersion
+                  : undefined;
 
         if (versionToExpect !== undefined) {
             const updateRes = await this.client.query(
@@ -111,17 +132,16 @@ export class PostgresStorageAdapter implements StorageAdapter {
                  SET state = CASE WHEN state->>'status' = 'cancelled' THEN jsonb_set($1::jsonb, '{status}', '"cancelled"') ELSE $1::jsonb END, namespace = $2, version = version + 1, updated_at = NOW()
                  WHERE stack_id = $3 AND version = $4
                  RETURNING version`,
-                [stateJson, namespace, checkpoint.stackId, versionToExpect]
+                [stateJson, namespace, checkpoint.stackId, versionToExpect],
             );
 
             if ((updateRes.rowCount || 0) === 0) {
                 const existingRes = await this.client.query(
                     `SELECT version FROM ${this.checkpointsTable} WHERE stack_id = $1`,
-                    [checkpoint.stackId]
+                    [checkpoint.stackId],
                 );
-                const currentVersion = existingRes.rows && existingRes.rows.length > 0
-                    ? Number(existingRes.rows[0].version)
-                    : undefined;
+                const currentVersion =
+                    existingRes.rows && existingRes.rows.length > 0 ? Number(existingRes.rows[0].version) : undefined;
                 throw new OptimisticLockException(checkpoint.stackId, currentVersion, versionToExpect);
             }
             if (updateRes.rows && updateRes.rows.length > 0) {
@@ -135,7 +155,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
             `INSERT INTO ${this.checkpointsTable} (stack_id, namespace, state, version, updated_at)
              VALUES ($1, $2, $3::jsonb, 1, NOW())
              ON CONFLICT (stack_id) DO NOTHING`,
-            [checkpoint.stackId, namespace, stateJson]
+            [checkpoint.stackId, namespace, stateJson],
         );
 
         if ((insertRes.rowCount || 0) > 0) {
@@ -146,7 +166,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
 
         const existingRes = await this.client.query(
             `SELECT version FROM ${this.checkpointsTable} WHERE stack_id = $1`,
-            [checkpoint.stackId]
+            [checkpoint.stackId],
         );
         if (existingRes.rows && existingRes.rows.length > 0) {
             const curr = Number(existingRes.rows[0].version);
@@ -155,14 +175,15 @@ export class PostgresStorageAdapter implements StorageAdapter {
                  SET state = CASE WHEN state->>'status' = 'cancelled' THEN jsonb_set($1::jsonb, '{status}', '"cancelled"') ELSE $1::jsonb END, namespace = $2, version = version + 1, updated_at = NOW()
                  WHERE stack_id = $3 AND version = $4
                  RETURNING version`,
-                [stateJson, namespace, checkpoint.stackId, curr]
+                [stateJson, namespace, checkpoint.stackId, curr],
             );
             if ((updateRes.rowCount || 0) === 0) {
                 const refreshed = await this.client.query(
                     `SELECT version FROM ${this.checkpointsTable} WHERE stack_id = $1`,
-                    [checkpoint.stackId]
+                    [checkpoint.stackId],
                 );
-                const actual = refreshed.rows && refreshed.rows.length > 0 ? Number(refreshed.rows[0].version) : undefined;
+                const actual =
+                    refreshed.rows && refreshed.rows.length > 0 ? Number(refreshed.rows[0].version) : undefined;
                 throw new OptimisticLockException(checkpoint.stackId, actual, curr);
             }
             if (updateRes.rows && updateRes.rows.length > 0) {
@@ -176,10 +197,9 @@ export class PostgresStorageAdapter implements StorageAdapter {
         if (!stackId) {
             return undefined;
         }
-        const res = await this.client.query(
-            `SELECT state, version FROM ${this.checkpointsTable} WHERE stack_id = $1`,
-            [stackId]
-        );
+        const res = await this.client.query(`SELECT state, version FROM ${this.checkpointsTable} WHERE stack_id = $1`, [
+            stackId,
+        ]);
         if (!res.rows || res.rows.length === 0) {
             return undefined;
         }
@@ -205,14 +225,15 @@ export class PostgresStorageAdapter implements StorageAdapter {
             return;
         }
         try {
-            const valJson = typeof entry.value === 'object' && entry.value !== null
-                ? JSON.stringify(entry.value)
-                : JSON.stringify({ value: entry.value });
+            const valJson =
+                typeof entry.value === 'object' && entry.value !== null
+                    ? JSON.stringify(entry.value)
+                    : JSON.stringify({ value: entry.value });
 
             await this.client.query(
                 `INSERT INTO ${this.eventsTable} (stack_id, step_id, namespace, field, value, created_at)
                  VALUES ($1, $2, $3, $4, $5::jsonb, to_timestamp($6 / 1000.0))`,
-                [entry.stackId, entry.stepId, entry.namespace || null, entry.field, valJson, entry.timestamp]
+                [entry.stackId, entry.stepId, entry.namespace || null, entry.field, valJson, entry.timestamp],
             );
         } catch {
             // Non-blocking telemetry stream
@@ -223,7 +244,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
         const res = await this.client.query(
             `DELETE FROM ${this.checkpointsTable} 
              WHERE (state->>'expiresAt') IS NOT NULL 
-               AND (state->>'expiresAt')::bigint <= (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint`
+               AND (state->>'expiresAt')::bigint <= (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint`,
         );
         return res.rowCount || 0;
     }
@@ -267,8 +288,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
                 record.continuationStepIndex || 0,
                 record.version !== undefined ? String(record.version) : null,
                 dataJson,
-                expiresAt
-            ]
+                expiresAt,
+            ],
         );
 
         if (stackId) {
@@ -291,39 +312,76 @@ export class PostgresStorageAdapter implements StorageAdapter {
         let locked = false;
         try {
             client = pooled ? await pool.connect() : pool;
-            const result = await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked', [`siglo:workflow:${stackId}`]);
+            const result = await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked', [
+                `siglo:workflow:${stackId}`,
+            ]);
             locked = result.rows[0]?.locked === true;
             if (!locked) throw new DuplicateEventException(stackId);
             const scope = { stackId, client, tail: Promise.resolve() as Promise<unknown>, active: true };
             return await this.scope.run(scope, async () => {
-                try { return await action(); }
-                finally { try { await scope.tail; } finally { scope.active = false; } }
+                try {
+                    return await action();
+                } finally {
+                    try {
+                        await scope.tail;
+                    } finally {
+                        scope.active = false;
+                    }
+                }
             });
         } finally {
-            try { if (locked) await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [`siglo:workflow:${stackId}`]); }
-            catch (error) { if (pooled) { client?.release(error); client = undefined; } throw error; }
-            finally { if (pooled) client?.release(); else this.directClientBusy = false; }
+            try {
+                if (locked)
+                    await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [
+                        `siglo:workflow:${stackId}`,
+                    ]);
+            } catch (error) {
+                if (pooled) {
+                    client?.release(error);
+                    client = undefined;
+                }
+                throw error;
+            } finally {
+                if (pooled) client?.release();
+                else this.directClientBusy = false;
+            }
         }
     }
 
     async cancelWaitRecord(correlationKey: string): Promise<void> {
-        await this.client.query(`UPDATE ${this.waitRecordsTable} SET status = 'CANCELLED', updated_at = NOW() WHERE correlation_key = $1`, [correlationKey]);
+        await this.client.query(
+            `UPDATE ${this.waitRecordsTable} SET status = 'CANCELLED', updated_at = NOW() WHERE correlation_key = $1`,
+            [correlationKey],
+        );
     }
 
     async cancelWorkflow(stackId: string): Promise<void> {
         // Drain earlier checkpoint/wait writes before setting the cancellation barrier.
         await this.scope.getStore()?.tail;
-        await this.client.query(`UPDATE ${this.waitRecordsTable} SET status = 'CANCELLED', updated_at = NOW() WHERE stack_id = $1`, [stackId]);
-        await this.client.query(`UPDATE ${this.checkpointsTable} SET state = jsonb_set(state, '{status}', '"cancelled"'), version = version + 1 WHERE stack_id = $1`, [stackId]);
+        await this.client.query(
+            `UPDATE ${this.waitRecordsTable} SET status = 'CANCELLED', updated_at = NOW() WHERE stack_id = $1`,
+            [stackId],
+        );
+        await this.client.query(
+            `UPDATE ${this.checkpointsTable} SET state = jsonb_set(state, '{status}', '"cancelled"'), version = version + 1 WHERE stack_id = $1`,
+            [stackId],
+        );
     }
 
     async completeWaitRecord(correlationKey: string, claimantId: string): Promise<void> {
         await this.scope.getStore()?.tail;
-        await this.client.query(`UPDATE ${this.waitRecordsTable} SET status = 'RESUMED', resumed_at = NOW(), resumed_by = $1, updated_at = NOW()
-            WHERE correlation_key = $2 AND status = 'RESUMING' AND locked_by = $1`, [claimantId, correlationKey]);
+        await this.client.query(
+            `UPDATE ${this.waitRecordsTable} SET status = 'RESUMED', resumed_at = NOW(), resumed_by = $1, updated_at = NOW()
+            WHERE correlation_key = $2 AND status = 'RESUMING' AND locked_by = $1`,
+            [claimantId, correlationKey],
+        );
     }
 
-    async claimWaitRecord(correlationKey: string, claimantId: string = 'worker', options?: { allowExpired?: boolean; eventPayload?: any }): Promise<any> {
+    async claimWaitRecord(
+        correlationKey: string,
+        claimantId: string = 'worker',
+        options?: { allowExpired?: boolean; eventPayload?: any },
+    ): Promise<any> {
         if (!correlationKey) {
             throw new Error('claimWaitRecord requires a valid correlationKey.');
         }
@@ -335,7 +393,13 @@ export class PostgresStorageAdapter implements StorageAdapter {
                AND (status = 'WAITING' OR (status = 'RESUMING' AND $5))
                AND (resume_payload IS NOT NULL OR $4 OR expires_at IS NULL OR expires_at > NOW())
              RETURNING *`,
-            [claimantId, correlationKey, JSON.stringify(options?.eventPayload ?? {}), options?.allowExpired === true, this.scope.getStore()?.active === true]
+            [
+                claimantId,
+                correlationKey,
+                JSON.stringify(options?.eventPayload ?? {}),
+                options?.allowExpired === true,
+                this.scope.getStore()?.active === true,
+            ],
         );
         if (!res.rows || res.rows.length === 0) {
             const record = await this.getWaitRecord(correlationKey);
@@ -358,7 +422,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
             expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
             resumedBy: row.resumed_by,
             resumedAt: row.resumed_at ? new Date(row.resumed_at).toISOString() : undefined,
-            createdAt: row.created_at ? new Date(row.created_at).getTime() : undefined
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : undefined,
         };
     }
 
@@ -369,7 +433,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
         const res = await this.client.query(
             `SELECT * FROM ${this.waitRecordsTable} 
              WHERE correlation_key = $1 OR stack_id = $1 LIMIT 1`,
-            [correlationKeyOrStackId]
+            [correlationKeyOrStackId],
         );
         if (res.rows && res.rows.length > 0) {
             const row = res.rows[0];
@@ -379,14 +443,16 @@ export class PostgresStorageAdapter implements StorageAdapter {
                 namespace: row.namespace,
                 eventName: row.event_name,
                 status: row.status,
-                continuationStepIndex: row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
+                continuationStepIndex:
+                    row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
                 version: row.version,
                 data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
-                resumePayload: typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload,
+                resumePayload:
+                    typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload,
                 resumedBy: row.resumed_by,
                 resumedAt: row.resumed_at ? new Date(row.resumed_at).toISOString() : undefined,
                 expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
-                createdAt: row.created_at ? new Date(row.created_at).getTime() : undefined
+                createdAt: row.created_at ? new Date(row.created_at).getTime() : undefined,
             };
         }
 
@@ -395,7 +461,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
              WHERE stack_id = $1 
                 OR state->'metadata'->'waitRecord'->>'correlationKey' = $1 
                 OR state->'metadata'->'waitRecord'->>'stackId' = $1 LIMIT 1`,
-            [correlationKeyOrStackId]
+            [correlationKeyOrStackId],
         );
         if (!cpRes.rows || cpRes.rows.length === 0) {
             return undefined;
@@ -408,7 +474,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
     async cleanupOldCheckpoints(retentionDays: number = 30): Promise<number> {
         const res = await this.client.query(
             `DELETE FROM ${this.checkpointsTable} WHERE updated_at < NOW() - make_interval(days => $1)`,
-            [retentionDays]
+            [retentionDays],
         );
         return res.rowCount || 0;
     }
@@ -416,7 +482,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
     async cleanupOldEvents(retentionDays: number = 30): Promise<number> {
         const res = await this.client.query(
             `DELETE FROM ${this.eventsTable} WHERE created_at < NOW() - make_interval(days => $1)`,
-            [retentionDays]
+            [retentionDays],
         );
         return res.rowCount || 0;
     }
@@ -424,7 +490,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
     async cleanupOldWaitRecords(retentionDays: number = 30): Promise<number> {
         const res = await this.client.query(
             `DELETE FROM ${this.waitRecordsTable} WHERE updated_at < NOW() - make_interval(days => $1)`,
-            [retentionDays]
+            [retentionDays],
         );
         return res.rowCount || 0;
     }

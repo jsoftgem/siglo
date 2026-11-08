@@ -1,11 +1,4 @@
-import {
-    flow,
-    isFlow,
-    StorageAdapter,
-    useStorage,
-    toPOJO,
-    resumeWorkflow
-} from '@siglo/core';
+import { flow, isFlow, StorageAdapter, useStorage, toPOJO, resumeWorkflow } from '@siglo/core';
 
 export interface StepTraceRecord {
     stepName: string;
@@ -144,12 +137,12 @@ const DEFAULT_SECRET_KEYS = new Set([
     'cvv',
     'ssn',
     'privatekey',
-    'private_key'
+    'private_key',
 ]);
 
 export function sanitizeExecutionRecord(
     record: ExecutionRecord,
-    options: { excludeKeys?: string[] } = {}
+    options: { excludeKeys?: string[] } = {},
 ): ExecutionRecord {
     const customExcludes = new Set((options.excludeKeys || []).map(k => k.toLowerCase()));
 
@@ -177,12 +170,12 @@ export function sanitizeExecutionRecord(
         recordedAt: record.recordedAt,
         input: sanitizeVal(record.input),
         output: sanitizeVal(record.output),
-        error: record.error ? (record.error.message || String(record.error)) : undefined,
+        error: record.error ? record.error.message || String(record.error) : undefined,
         trace: record.trace.map(t => ({
             ...t,
             input: sanitizeVal(t.input),
-            output: sanitizeVal(t.output)
-        }))
+            output: sanitizeVal(t.output),
+        })),
     };
 }
 
@@ -247,7 +240,7 @@ export class WorkflowHarness {
                     phase: 'start',
                     timestamp: ts,
                     input: toPOJO(param),
-                    attempt: param?.$attempt || 1
+                    attempt: param?.$attempt || 1,
                 });
 
                 try {
@@ -267,7 +260,7 @@ export class WorkflowHarness {
                         phase: 'complete',
                         timestamp: this.clock.now(),
                         input: toPOJO(param),
-                        output: out
+                        output: out,
                     });
                     return out;
                 } catch (err: any) {
@@ -279,7 +272,7 @@ export class WorkflowHarness {
                         phase: 'fail',
                         timestamp: this.clock.now(),
                         input: toPOJO(param),
-                        error: err?.message || String(err)
+                        error: err?.message || String(err),
                     });
                     throw err;
                 }
@@ -298,13 +291,13 @@ export class WorkflowHarness {
         const instrumented = this.wrapWorkflowSteps();
         const mergedServices = {
             ...(this.options.services || {}),
-            ...(execOptions.services || {})
+            ...(execOptions.services || {}),
         };
 
         const result = await instrumented.run(input, {
             ...execOptions,
             services: mergedServices,
-            pojo: execOptions.pojo !== false
+            pojo: execOptions.pojo !== false,
         });
         this.lastRunResult = result;
         return result;
@@ -318,7 +311,9 @@ export class WorkflowHarness {
         const executions = this.trace.filter(t => t.stepName === stepName && t.phase === 'complete');
         if (times !== undefined) {
             if (executions.length !== times) {
-                throw new Error(`Expected step '${stepName}' to be executed ${times} time(s), but was executed ${executions.length} time(s).`);
+                throw new Error(
+                    `Expected step '${stepName}' to be executed ${times} time(s), but was executed ${executions.length} time(s).`,
+                );
             }
         } else {
             if (executions.length === 0) {
@@ -328,9 +323,13 @@ export class WorkflowHarness {
     }
 
     assertStepRetried(stepName: string, minAttempts: number = 2): void {
-        const attempts = this.trace.filter(t => t.stepName === stepName && (t.phase === 'start' || t.phase === 'retry'));
+        const attempts = this.trace.filter(
+            t => t.stepName === stepName && (t.phase === 'start' || t.phase === 'retry'),
+        );
         if (attempts.length < minAttempts) {
-            throw new Error(`Expected step '${stepName}' to have at least ${minAttempts} attempts, but found ${attempts.length}.`);
+            throw new Error(
+                `Expected step '${stepName}' to have at least ${minAttempts} attempts, but found ${attempts.length}.`,
+            );
         }
     }
 
@@ -345,7 +344,9 @@ export class WorkflowHarness {
                 return errorPattern instanceof RegExp ? errorPattern.test(msg) : msg.includes(errorPattern);
             });
             if (!matched) {
-                throw new Error(`Step '${stepName}' failed, but error did not match expected pattern '${errorPattern}'.`);
+                throw new Error(
+                    `Step '${stepName}' failed, but error did not match expected pattern '${errorPattern}'.`,
+                );
             }
         }
     }
@@ -361,7 +362,7 @@ export class WorkflowHarness {
             output: this.lastRunResult !== undefined ? this.lastRunResult : lastComplete?.output,
             error: lastFail?.error,
             trace: this.trace,
-            recordedAt: new Date(this.clock.now()).toISOString()
+            recordedAt: new Date(this.clock.now()).toISOString(),
         };
 
         return sanitizeExecutionRecord(rawRecord, options);
@@ -388,7 +389,7 @@ function normalizeForComparison(val: any): any {
 export async function replayExecution(
     record: ExecutionRecord,
     workflow: any,
-    options: ReplayOptions = {}
+    options: ReplayOptions = {},
 ): Promise<ReplayResult> {
     const harness = createWorkflowHarness(workflow);
 
@@ -426,6 +427,6 @@ export async function replayExecution(
         matched: discrepancies.length === 0,
         expectedOutput: record.output,
         actualOutput,
-        discrepancies
+        discrepancies,
     };
 }

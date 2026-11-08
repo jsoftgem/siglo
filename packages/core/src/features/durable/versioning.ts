@@ -6,7 +6,7 @@ export function validateWorkflowVersion(
     expectedVersion: any,
     actualVersion: any,
     migrations?: Record<string, StateMigrationFn> | StateMigrationFn,
-    state?: any
+    state?: any,
 ): any {
     if (expectedVersion === undefined || actualVersion === undefined || expectedVersion === actualVersion) {
         return state;

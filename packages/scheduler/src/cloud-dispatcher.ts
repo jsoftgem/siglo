@@ -41,7 +41,9 @@ export function createSchedulerWebhookHandler(options: CloudSchedulerWebhookOpti
                 const stackId = parsed.stackId || parsed.correlationKey;
                 if (!stackId) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Missing required stackId or correlationKey in dispatch payload' }));
+                    res.end(
+                        JSON.stringify({ error: 'Missing required stackId or correlationKey in dispatch payload' }),
+                    );
                     return;
                 }
 
@@ -60,13 +62,18 @@ export function createSchedulerWebhookHandler(options: CloudSchedulerWebhookOpti
                         stepId: 'timer',
                         status: 'waiting',
                         createdAt: Date.now(),
-                        continuationStepIndex: 0
+                        continuationStepIndex: 0,
                     });
                 }
 
-                const result = await resumeWorkflow(flow, stackId, parsed.payload || {
-                    event: { type: 'timer:expired', timestamp: Date.now() }
-                }, { allowExpired: true });
+                const result = await resumeWorkflow(
+                    flow,
+                    stackId,
+                    parsed.payload || {
+                        event: { type: 'timer:expired', timestamp: Date.now() },
+                    },
+                    { allowExpired: true },
+                );
 
                 if (options.onResumed) {
                     await options.onResumed(stackId, result);

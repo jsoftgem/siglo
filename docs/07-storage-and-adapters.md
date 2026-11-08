@@ -88,7 +88,7 @@ useStorage(storage);
 - `@siglo/bullmq`: Resilient Redis background queue job runner.
 - `@siglo/sqs`: AWS SQS batch consumer with partial failure reporting.
 
-See [Ecosystem Adapters Overview](./ecosystem-adapters.md) for full details on each adapter.
+See [Ecosystem Adapters Overview](/ecosystem-adapters) for full details on each adapter.
 
 ---
 
@@ -179,7 +179,7 @@ describe('Storage Adapter Testing', () => {
 
 ## API Reference Links
 
-- [Core Concepts Guide](./02-core-concepts.md)
-- [Ecosystem Adapters Overview](./ecosystem-adapters.md)
-- [PostgreSQL Adapter Reference](./adapters/postgres.md)
-- [Redis Adapter Reference](./adapters/redis.md)
+- [Core Concepts Guide](/02-core-concepts)
+- [Ecosystem Adapters Overview](/ecosystem-adapters)
+- [PostgreSQL Adapter Reference](/adapters/postgres)
+- [Redis Adapter Reference](/adapters/redis)

@@ -3,7 +3,7 @@ import {
     PostgresStorageAdapter,
     PostgresIdempotencyStore,
     PostgresClientInterface,
-    PostgresQueryResult
+    PostgresQueryResult,
 } from './index';
 import { OptimisticLockException, DuplicateEventException } from '@siglo/core';
 
@@ -42,7 +42,10 @@ class MockPostgresClient implements PostgresClientInterface {
             }
             return { rows: [], rowCount: 0 };
         }
-        if (text.startsWith('SELECT STATE, VERSION FROM SIGLO_CHECKPOINTS') || text.startsWith('SELECT STATE FROM SIGLO_CHECKPOINTS')) {
+        if (
+            text.startsWith('SELECT STATE, VERSION FROM SIGLO_CHECKPOINTS') ||
+            text.startsWith('SELECT STATE FROM SIGLO_CHECKPOINTS')
+        ) {
             const [stackIdOrKey] = values || [];
             if (this.checkpoints.has(stackIdOrKey)) {
                 const cp = this.checkpoints.get(stackIdOrKey)!;
@@ -50,7 +53,10 @@ class MockPostgresClient implements PostgresClientInterface {
             }
             for (const cp of this.checkpoints.values()) {
                 const parsed = typeof cp.state === 'string' ? JSON.parse(cp.state) : cp.state;
-                if (parsed?.metadata?.waitRecord?.correlationKey === stackIdOrKey || parsed?.metadata?.waitRecord?.stackId === stackIdOrKey) {
+                if (
+                    parsed?.metadata?.waitRecord?.correlationKey === stackIdOrKey ||
+                    parsed?.metadata?.waitRecord?.stackId === stackIdOrKey
+                ) {
                     return { rows: [{ state: cp.state, version: cp.version } as unknown as T], rowCount: 1 };
                 }
             }
@@ -81,7 +87,7 @@ class MockPostgresClient implements PostgresClientInterface {
                 data,
                 expires_at: expiresAt,
                 created_at: new Date(),
-                updated_at: new Date()
+                updated_at: new Date(),
             });
             return { rows: [], rowCount: 1 };
         }
@@ -100,7 +106,9 @@ class MockPostgresClient implements PostgresClientInterface {
         }
         if (text.startsWith('SELECT * FROM SIGLO_WAIT_RECORDS')) {
             const [keyOrStack] = values || [];
-            const rec = this.waitRecords.get(keyOrStack) || Array.from(this.waitRecords.values()).find(r => r.stack_id === keyOrStack);
+            const rec =
+                this.waitRecords.get(keyOrStack) ||
+                Array.from(this.waitRecords.values()).find(r => r.stack_id === keyOrStack);
             if (rec) {
                 return { rows: [rec as unknown as T], rowCount: 1 };
             }
@@ -126,8 +134,10 @@ class MockPostgresClient implements PostgresClientInterface {
             this.idempotency.set(key, { status: 'in-progress', expires_at: expiresAt, created_at: new Date() });
             return { rows: [], rowCount: 1 };
         }
-        if (text.startsWith('SELECT STATUS, RESULT, EXPIRES_AT, CREATED_AT FROM SIGLO_IDEMPOTENCY') ||
-            text.startsWith('SELECT STATUS, RESULT, EXPIRES_AT FROM SIGLO_IDEMPOTENCY')) {
+        if (
+            text.startsWith('SELECT STATUS, RESULT, EXPIRES_AT, CREATED_AT FROM SIGLO_IDEMPOTENCY') ||
+            text.startsWith('SELECT STATUS, RESULT, EXPIRES_AT FROM SIGLO_IDEMPOTENCY')
+        ) {
             const [key] = values || [];
             const rec = this.idempotency.get(key);
             if (rec) {
@@ -180,29 +190,42 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
         });
 
         it('validates custom table names and rejects SQL injection attempts', () => {
-            expect(() => new PostgresStorageAdapter({
-                client: mockClient,
-                checkpointsTable: 'checkpoints; DROP TABLE users;--'
-            })).to.throw(/Invalid SQL identifier/);
+            expect(
+                () =>
+                    new PostgresStorageAdapter({
+                        client: mockClient,
+                        checkpointsTable: 'checkpoints; DROP TABLE users;--',
+                    }),
+            ).to.throw(/Invalid SQL identifier/);
 
-            expect(() => new PostgresStorageAdapter({
-                client: mockClient,
-                eventsTable: 'events" OR 1=1--'
-            })).to.throw(/Invalid SQL identifier/);
+            expect(
+                () =>
+                    new PostgresStorageAdapter({
+                        client: mockClient,
+                        eventsTable: 'events" OR 1=1--',
+                    }),
+            ).to.throw(/Invalid SQL identifier/);
 
-            expect(() => new PostgresStorageAdapter({
-                client: mockClient,
-                waitRecordsTable: 'wait" OR 1=1--'
-            })).to.throw(/Invalid SQL identifier/);
+            expect(
+                () =>
+                    new PostgresStorageAdapter({
+                        client: mockClient,
+                        waitRecordsTable: 'wait" OR 1=1--',
+                    }),
+            ).to.throw(/Invalid SQL identifier/);
         });
 
         it('initializes table schemas with ensureTables()', async () => {
             const adapter = new PostgresStorageAdapter({ client: mockClient });
             await adapter.ensureTables();
 
-            const createQuery = mockClient.queries.find(q => q.text.includes('CREATE TABLE IF NOT EXISTS siglo_checkpoints'));
+            const createQuery = mockClient.queries.find(q =>
+                q.text.includes('CREATE TABLE IF NOT EXISTS siglo_checkpoints'),
+            );
             expect(createQuery).to.exist;
-            const createWait = mockClient.queries.find(q => q.text.includes('CREATE TABLE IF NOT EXISTS siglo_wait_records'));
+            const createWait = mockClient.queries.find(q =>
+                q.text.includes('CREATE TABLE IF NOT EXISTS siglo_wait_records'),
+            );
             expect(createWait).to.exist;
         });
 
@@ -228,7 +251,7 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
             const checkpoint = {
                 stackId: 'pg-occ-stack',
                 namespace: 'tenant-occ',
-                contexts: { stepA: { status: 'initial' } }
+                contexts: { stepA: { status: 'initial' } },
             };
 
             await adapter.saveCheckpoint(checkpoint as any);
@@ -296,14 +319,14 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
             const adapter = new PostgresStorageAdapter({ client: mockClient });
             const cleaned = await adapter.cleanExpiredCheckpoints();
             expect(cleaned).to.equal(1);
-            expect(mockClient.queries.some(q => q.text.includes("expiresAt"))).to.be.true;
+            expect(mockClient.queries.some(q => q.text.includes('expiresAt'))).to.be.true;
 
             const waitRecord = {
                 stackId: 'pg-wait-stack',
                 correlationKey: 'corr-pg-1',
                 eventName: 'approval',
                 status: 'WAITING',
-                continuationStepIndex: 1
+                continuationStepIndex: 1,
             };
             await adapter.saveWaitRecord(waitRecord);
             const retrievedByStack = await adapter.getWaitRecord('pg-wait-stack');
@@ -324,7 +347,7 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
                 correlationKey: 'claim-corr-1',
                 eventName: 'payment_verified',
                 status: 'WAITING',
-                continuationStepIndex: 2
+                continuationStepIndex: 2,
             };
             await adapter.saveWaitRecord(waitRecord);
 
@@ -350,16 +373,20 @@ describe('@siglo/postgres Storage & Idempotency Adapter Suite', () => {
         });
 
         it('validates custom table names and rejects SQL injection attempts', () => {
-            expect(() => new PostgresIdempotencyStore({
-                client: mockClient,
-                tableName: 'idemp; DROP TABLE accounts;--'
-            })).to.throw(/Invalid SQL identifier/);
+            expect(
+                () =>
+                    new PostgresIdempotencyStore({
+                        client: mockClient,
+                        tableName: 'idemp; DROP TABLE accounts;--',
+                    }),
+            ).to.throw(/Invalid SQL identifier/);
         });
 
         it('creates schema with ensureTable()', async () => {
             const store = new PostgresIdempotencyStore({ client: mockClient });
             await store.ensureTable();
-            expect(mockClient.queries.some(q => q.text.includes('CREATE TABLE IF NOT EXISTS siglo_idempotency'))).to.be.true;
+            expect(mockClient.queries.some(q => q.text.includes('CREATE TABLE IF NOT EXISTS siglo_idempotency'))).to.be
+                .true;
         });
 
         it('manages claim lifecycle: fresh claim -> in-progress -> completed', async () => {
