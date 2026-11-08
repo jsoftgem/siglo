@@ -300,7 +300,7 @@ Run it with Node’s test runner:
 node --import tsx --test checkout.test.ts
 ```
 
-The [complete test file](../examples/src/getting-started/checkout.test.ts) also checks payment recovery, invalid orders, permanent payment failure, and duplicate completed requests. Because services are passed into `createCheckout`, tests can substitute behavior without contacting external APIs.
+The [complete test file](https://github.com/jsoftgem/siglo/tree/main/examples/src/getting-started/checkout.test.ts) also checks payment recovery, invalid orders, permanent payment failure, and duplicate completed requests. Because services are passed into `createCheckout`, tests can substitute behavior without contacting external APIs.
 
 For step spies, recorded traces, and replay tools, continue with [Testing and Replay](/09-testing-and-replay).
 
