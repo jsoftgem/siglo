@@ -4,6 +4,7 @@
 
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
+[![Documentation](https://img.shields.io/badge/docs-siglo.dev-blue.svg)](https://siglo.dev)
 [![NPM Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
@@ -11,6 +12,8 @@
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](<>)
 
 **Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic Sagas, durable checkpoints, and live DevTools without requiring external server daemons or queue clusters.
+
+📘 Complete guides, interactive tutorials, and API documentation are hosted at [**siglo.dev**](https://siglo.dev).
 
 ---
 
@@ -426,6 +429,8 @@ npm install --save-dev @siglo/testing @siglo/cli
 ---
 
 ## 📚 Documentation & Topic Guides
+
+> 🌐 Visit [**siglo.dev**](https://siglo.dev) for searchable documentation, guides, and live examples.
 
 ### 🚀 Interactive Tutorials
 
