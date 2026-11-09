@@ -318,7 +318,7 @@ function patchedHttpsGet(...args: any[]): http.ClientRequest {
 
 function patchedSocketConnect(this: any, ...args: any[]): any {
     const store = networkPolicyStorage.getStore();
-    if (!store || !store.enabled || store.inValidatedScope || this[VALIDATED_SOCKET]) {
+    if (!store || !store.enabled || this[VALIDATED_SOCKET]) {
         return origSocketConnect!.apply(this, args as any);
     }
 
@@ -361,6 +361,39 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
     }
 
     const hostWithPort = port ? `${host}:${port}` : host;
+
+    // Defense-in-depth against DNS rebinding (TOCTOU):
+    // Even if within inValidatedScope, verify that the target host/IP is not
+    // resolving to a private/restricted IP (e.g. AWS metadata 169.254.169.254, loopback 127.0.0.1)
+    // unless explicitly allowed in allowedHosts or allowLocalhost is enabled.
+    const normIp = normalizeIP(host);
+    if (normIp && isPrivateOrRestrictedIP(normIp, store.allowLocalhost)) {
+        const isExplicitlyAllowed = (store.allowedHosts || []).some(pat => {
+            if (typeof pat === 'string') {
+                const normPat = normalizeIP(pat);
+                return normPat === normIp || pat === normIp;
+            }
+            return false;
+        });
+        if (!isExplicitlyAllowed) {
+            const error = new NetworkPolicyViolationException(
+                store.stepName,
+                `tcp://${hostWithPort}`,
+                host,
+                store.allowedHosts,
+                { reason: `Socket destination resolved to restricted IP: ${normIp}` } as any,
+            );
+            process.nextTick(() => {
+                this.destroy(error);
+            });
+            return this;
+        }
+    }
+
+    if (store.inValidatedScope) {
+        return origSocketConnect!.apply(this, args as any);
+    }
+
     if (!isHostAllowed(`tcp://${hostWithPort}`, host, store, port)) {
         const error = new NetworkPolicyViolationException(
             store.stepName,

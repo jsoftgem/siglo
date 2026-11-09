@@ -165,6 +165,18 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     }
     const emitter = options.emitter || new WorkflowEventEmitter(options.namespaceFilter);
 
+    if (
+        (host === '0.0.0.0' || host === '::') &&
+        !options.auth &&
+        typeof process !== 'undefined' &&
+        process.emitWarning
+    ) {
+        process.emitWarning(
+            'Monitor server is listening on a public network interface without authentication. Remote workflow resumption and telemetry may be exposed.',
+            'SecurityWarning',
+        );
+    }
+
     // Normalize auth options
     const authConfig: MonitorServerAuthOptions | undefined =
         typeof options.auth === 'string' ? { apiKey: options.auth } : options.auth;
@@ -559,15 +571,15 @@ function applyCorsHeaders(req: http.IncomingMessage, res: http.ServerResponse, c
     const requestOrigin = req.headers['origin'];
 
     if (!cors || !cors.origin) {
-        if (cors?.credentials) {
-            if (requestOrigin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin)) {
+        if (requestOrigin) {
+            if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin)) {
                 res.setHeader('Access-Control-Allow-Origin', requestOrigin);
             } else {
                 res.setHeader('Access-Control-Allow-Origin', 'null');
             }
-        } else {
-            res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
         }
+    } else if (cors.origin === '*') {
+        res.setHeader('Access-Control-Allow-Origin', '*');
     } else if (typeof cors.origin === 'string') {
         res.setHeader('Access-Control-Allow-Origin', cors.origin);
     } else if (Array.isArray(cors.origin)) {

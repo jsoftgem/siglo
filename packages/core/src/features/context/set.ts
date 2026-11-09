@@ -8,6 +8,9 @@ export function setContextValue(
     if (value instanceof Function) {
         throw new FunctionAsValueException();
     }
+    if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+        return;
+    }
     setChainContext(stepId, name, value, meta);
 }
 

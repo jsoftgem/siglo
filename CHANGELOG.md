@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-11-09
+
+### Security
+
+- **Core Prototype Pollution Defense (`@siglo/core`)**: Blocked `__proto__`, `constructor`, and `prototype` in context resolution, POJO proxy serialization, and storage key assignment (`CORE_RESERVED_KEYS`). Initialized internal context storage maps with prototype-free `Object.create(null)`.
+- **Network Perimeter DNS Rebinding & TOCTOU Defense (`@siglo/core`)**: Hardened low-level socket interception to actively validate destination IP addresses against private and cloud metadata subnets (`169.254.169.254`, RFC1918, loopback) even when requests are pre-validated at the HTTP transport layer.
+- **Client-Controllable Durability Guardrail (`@siglo/express`)**: Added `allowClientDurableToggle` (default: `false`), preventing untrusted HTTP callers from arbitrarily forcing durable execution and storage write amplification via headers or query parameters.
+- **Cryptographic Key Derivation Hardening (`@siglo/crypto`)**: Hardened AES-256-GCM cipher passphrase handling to use salted PBKDF2 (`HMAC-SHA256`, 10,000 iterations) instead of single-round unsalted SHA-256 for non-32-byte passphrases.
+- **Monitor Origin Access Control & Security Warnings (`@siglo/monitor`)**: Restricted default CORS access in the monitoring server to loopback origins (`localhost` / `127.0.0.1`), returning `Access-Control-Allow-Origin: null` for untrusted origins unless explicitly configured, and added process security warnings when binding to `0.0.0.0` without authentication.
+
+### Changed
+
+- Synchronized package, CLI, telemetry, and IDE plugin versions at `1.2.1`.
+
 ## [1.2.0] - 2026-11-08
 
 ### Removed

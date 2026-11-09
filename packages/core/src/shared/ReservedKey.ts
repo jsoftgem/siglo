@@ -79,6 +79,9 @@ const CORE_RESERVED_KEYS = new Set<string>([
     ReservedKey.SIGNAL_KEY,
     ReservedKey.NAMESPACE_KEY,
     ReservedKey.STEP_ID_KEY,
+    '__proto__',
+    'constructor',
+    'prototype',
 ]);
 
 export const isReservedKey = (key: string): key is ReservedKey => {

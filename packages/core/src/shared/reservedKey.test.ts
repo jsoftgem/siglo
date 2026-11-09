@@ -40,6 +40,9 @@ describe('shared.reservedKey.unit.test', () => {
         expect(isReservedKey('signal')).to.be.true;
         expect(isReservedKey('namespace')).to.be.true;
         expect(isReservedKey('stepId')).to.be.true;
+        expect(isReservedKey('__proto__')).to.be.true;
+        expect(isReservedKey('constructor')).to.be.true;
+        expect(isReservedKey('prototype')).to.be.true;
 
         expect(isReservedKey('customField')).to.be.false;
         expect(isReservedKey('item')).to.be.false;

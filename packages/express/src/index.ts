@@ -9,6 +9,8 @@ export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
     onError?: (err: any, req: TReq, res: any, next: (err?: any) => void) => Promise<any> | any;
     correlationIdHeader?: string;
     allowHeaderNamespace?: boolean;
+    /** Whether to allow external clients to activate durable persistence via headers/query (default: false) */
+    allowClientDurableToggle?: boolean;
     exposeErrorDetails?: boolean;
 }
 
@@ -116,9 +118,8 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
             } else if (options.durable !== undefined) {
                 durable = options.durable;
             } else if (
-                req.headers?.['x-durable'] === 'true' ||
-                req.query?.durable === 'true' ||
-                req.body?.durable === true
+                options.allowClientDurableToggle &&
+                (req.headers?.['x-durable'] === 'true' || req.query?.durable === 'true' || req.body?.durable === true)
             ) {
                 durable = true;
             }

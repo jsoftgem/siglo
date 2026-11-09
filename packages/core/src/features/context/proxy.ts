@@ -37,7 +37,10 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
             key === STACK_ID ||
             key === SERVICES ||
             key === DEPENDENCIES ||
-            key === DEPS
+            key === DEPS ||
+            key === '__proto__' ||
+            key === 'constructor' ||
+            key === 'prototype'
         ) {
             continue;
         }

@@ -1,6 +1,6 @@
 {
   "name": "@siglo/cli",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Command-line tools for scaffolding, visualizing, inspecting, and replaying Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

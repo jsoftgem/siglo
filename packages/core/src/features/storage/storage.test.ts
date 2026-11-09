@@ -53,6 +53,14 @@ describe('storage.unit.test', () => {
         expect(getter('missing')).to.be.undefined;
     });
 
+    it('putChainContext ignores dangerous prototype pollution keys', () => {
+        putChainContext('chain_proto', '__proto__', { polluted: true });
+        putChainContext('chain_proto', 'constructor', { polluted: true });
+        putChainContext('chain_proto', 'prototype', { polluted: true });
+        expect(getChainContext('chain_proto', '__proto__')).to.be.undefined;
+        expect((Object.prototype as any).polluted).to.be.undefined;
+    });
+
     it('manages execution stack lifecycle', () => {
         const stackId = createExecutionStack();
         expect(stackId).to.be.a('string');

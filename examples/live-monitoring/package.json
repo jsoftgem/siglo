@@ -1,6 +1,6 @@
 {
   "name": "siglo-live-monitoring-sample",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Turnkey sample project demonstrating Siglo Live Monitoring, DevTools Web UI, and Prometheus metrics",
   "main": "src/index.ts",

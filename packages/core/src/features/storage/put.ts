@@ -25,11 +25,15 @@ export const putChainContext = (
     if (state.plugins.putChainContext) {
         state.plugins.putChainContext(stepId, field, () => value, effectiveMeta);
     } else {
+        if (field === '__proto__' || field === 'constructor' || field === 'prototype') {
+            return;
+        }
         let ctx = state.contexts.get(stepId);
         if (!ctx) {
-            ctx = {};
+            ctx = Object.create(null) as Record<string, any>;
             state.contexts.set(stepId, ctx);
         }
+        const effectiveCtx = ctx!;
         const isNativeOrBinary =
             value instanceof Date ||
             value instanceof RegExp ||
@@ -54,9 +58,9 @@ export const putChainContext = (
             }
             return value;
         };
-        const boundFn: any = frozenValue.bind(ctx);
+        const boundFn: any = frozenValue.bind(effectiveCtx);
         boundFn.val = value;
-        ctx[field] = boundFn;
+        effectiveCtx[field] = boundFn;
     }
 };
 

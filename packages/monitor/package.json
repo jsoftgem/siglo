@@ -1,6 +1,6 @@
 {
   "name": "@siglo/monitor",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Real-time monitoring server and workflow dashboard for Siglo with SSE, WebSocket streaming, and Prometheus metrics.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
