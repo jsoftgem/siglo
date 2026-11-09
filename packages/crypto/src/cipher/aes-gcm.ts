@@ -15,17 +15,19 @@ export function isEncryptedEnvelope(val: unknown): val is EncryptedEnvelope {
     );
 }
 
+const PASSPHRASE_KDF_SALT = Buffer.from('siglo.aes-256-gcm.passphrase.v1', 'utf8');
+
 /**
  * Resolves a 256-bit (32-byte) key buffer from a string or Buffer.
  * Supports raw 32-byte Buffers, 64-char hex strings, 32-char UTF-8 strings,
- * or derives a 32-byte key via SHA-256 for arbitrary passphrases.
+ * or derives a 32-byte key via salted PBKDF2 (HMAC-SHA256, 10,000 rounds) for arbitrary passphrases.
  */
 export function resolveKey(key: string | Buffer): Buffer {
     if (Buffer.isBuffer(key)) {
         if (key.length === 32) {
             return key;
         }
-        return crypto.createHash('sha256').update(key).digest();
+        return crypto.pbkdf2Sync(key, PASSPHRASE_KDF_SALT, 10000, 32, 'sha256');
     }
 
     if (typeof key === 'string') {
@@ -36,7 +38,7 @@ export function resolveKey(key: string | Buffer): Buffer {
         if (utf8Buf.length === 32) {
             return utf8Buf;
         }
-        return crypto.createHash('sha256').update(key).digest();
+        return crypto.pbkdf2Sync(key, PASSPHRASE_KDF_SALT, 10000, 32, 'sha256');
     }
 
     throw new TypeError('Secret key must be a string or Buffer');

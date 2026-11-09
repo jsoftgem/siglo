@@ -554,6 +554,25 @@ describe('Multi-Layer Network Interceptor Tests', () => {
             });
         });
 
+        it('blocks socket connection to restricted IP even when inside inValidatedScope (DNS rebinding defense)', done => {
+            const policy = {
+                enabled: true,
+                defaultPolicy: 'deny' as const,
+                allowedHosts: ['example.com'],
+                allowLocalhost: false,
+                stepName: 'dnsRebindStep',
+            };
+
+            networkPolicyStorage.run({ ...policy, inValidatedScope: true }, () => {
+                const socket = net.connect(80, '169.254.169.254');
+                socket.on('error', (err: any) => {
+                    expect(err.name).to.equal('NetworkPolicyViolationException');
+                    expect(err.message).to.include('Socket destination resolved to restricted IP');
+                    done();
+                });
+            });
+        });
+
         it('supports http.request and https.request called with options object', done => {
             const policy = {
                 enabled: true,

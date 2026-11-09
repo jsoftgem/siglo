@@ -1,6 +1,6 @@
 {
   "name": "@siglo/testing",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Deterministic testing utilities for Siglo TypeScript workflows with mocks, fake timers, execution traces, and failure replay.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

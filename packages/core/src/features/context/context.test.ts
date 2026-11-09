@@ -39,6 +39,16 @@ describe('context.unit.test', () => {
         expect(contextData.sampleField()).to.be.equal('sampleValue');
     });
 
+    it('should ignore dangerous prototype pollution properties', () => {
+        const context = new Context('0002_proto');
+        context.set('__proto__', { polluted: true });
+        context.set('constructor', { polluted: true });
+        context.set('prototype', { polluted: true });
+        expect((Object.prototype as any).polluted).to.be.undefined;
+        const data = context.getData();
+        expect(data.polluted).to.be.undefined;
+    });
+
     it('should throw FunctionAsValueException when setting function as value', () => {
         const context = new Context('0002_fn');
         expect(() => {

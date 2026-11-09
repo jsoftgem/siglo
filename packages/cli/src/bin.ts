@@ -19,7 +19,7 @@ import {
 
 function printHelp(): void {
     console.log(`
-siglo CLI v1.2.0
+siglo CLI v1.2.1
 
 USAGE:
     siglo <command> [arguments] [options]
@@ -97,7 +97,7 @@ async function main(): Promise<void> {
     }
 
     if (args.includes('--version') || args.includes('-v')) {
-        console.log('1.2.0');
+        console.log('1.2.1');
         return;
     }
 

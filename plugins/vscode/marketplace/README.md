@@ -5,7 +5,7 @@
 | Display name | Siglo Workflow Explorer |
 | Installed extension ID | `jsoftgem.siglo-workflow-explorer` |
 | Publisher | `jsoftgem` |
-| Version | Defined in `../package.json` (currently `1.2.0`) |
+| Version | Defined in `../package.json` (currently `1.2.1`) |
 | VS Code target | `^1.90.0` |
 | License | MIT |
 
