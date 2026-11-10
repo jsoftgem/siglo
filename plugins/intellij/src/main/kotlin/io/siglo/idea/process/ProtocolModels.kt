@@ -31,6 +31,8 @@ data class GraphNode(
     val stepKind: String,
     val location: SourceRange,
     val declarationRange: SourceRange,
+    val sourceUri: String? = null,
+    val sourceLocation: SourceRange? = null,
     val executionConfig: ExecutionConfig? = null,
     val properties: Map<String, String>? = null,
     val specs: List<StepSpec>? = null
@@ -61,6 +63,8 @@ data class UnresolvedNode(
 
 data class WorkflowGraph(
     val name: String,
+    val uri: String? = null,
+    val location: SourceRange? = null,
     val nodes: List<GraphNode> = emptyList(),
     val edges: List<GraphEdge> = emptyList(),
     val unresolved: List<UnresolvedNode> = emptyList(),
@@ -72,6 +76,7 @@ data class GraphDocument(
     val uri: String,
     val documentVersion: Int,
     val workflowName: String,
+    val location: SourceRange? = null,
     val nodes: List<GraphNode> = emptyList(),
     val edges: List<GraphEdge> = emptyList(),
     val unresolved: List<UnresolvedNode> = emptyList(),

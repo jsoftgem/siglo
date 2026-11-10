@@ -1,30 +1,63 @@
+import fs from 'fs';
+import path from 'path';
 import ts from 'typescript';
-import type { GraphDocument, GraphNode, GraphEdge, UnresolvedNode, Diagnostic } from '@siglo/ide-protocol';
-import { getSourceRange, generateDeterministicNodeId } from '../mapper';
+import type { GraphDocument, GraphNode, GraphEdge, UnresolvedNode, Diagnostic, SourceRange } from '@siglo/ide-protocol';
+import { getSourceRange, generateDeterministicNodeId, toFilePath, normalizeUri } from '../mapper';
 import { detectStepFromExpression, DetectedStep, extractDisplayProperties } from './step-detector';
+import {
+    ModuleMetadata,
+    ExportTarget,
+    collectModuleMetadata,
+    resolveRelativeImportPath,
+    findLexicalDeclaration,
+    extractFunctionReturnExpressions,
+} from './module-resolver';
+
+interface SubflowData {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    unresolved?: UnresolvedNode[];
+    properties?: Record<string, string>;
+}
+
+interface ParseSession {
+    fileContexts: Map<string, WorkflowParseContext>;
+    resolvingKeys: Set<string>;
+    depth: number;
+}
 
 interface WorkflowParseContext {
     sourceFile: ts.SourceFile;
     uri: string;
+    filePath: string;
     documentVersion: number;
     stepDefinitions: Map<string, GraphNode>;
-    flowDefinitions: Map<string, { nodes: GraphNode[]; edges: GraphEdge[]; properties?: Record<string, string> }>;
+    flowDefinitions: Map<string, SubflowData>;
+    metadata: ModuleMetadata;
+    session: ParseSession;
 }
+
+const MAX_RESOLVE_DEPTH = 10;
+const FLOW_CHAIN_METHODS = new Set(['then', 'parallel', 'branch', 'fallback', 'compensate']);
+const FLOW_CONFIG_METHODS = new Set(['timeout', 'version', 'networkPolicy', 'monitor']);
 
 export function analyzeWorkflowsInSourceFile(
     sourceFile: ts.SourceFile,
     uri: string,
     documentVersion = 1,
 ): GraphDocument[] {
-    const ctx: WorkflowParseContext = {
-        sourceFile,
-        uri,
-        documentVersion,
-        stepDefinitions: new Map(),
-        flowDefinitions: new Map(),
+    const filePath = toFilePath(uri);
+    const session: ParseSession = {
+        fileContexts: new Map(),
+        resolvingKeys: new Set(),
+        depth: 0,
     };
+    const ctx = createWorkflowContext(sourceFile, uri, filePath, documentVersion, session);
+    if (filePath) {
+        session.fileContexts.set(path.resolve(filePath), ctx);
+    }
 
-    // Phase 1: Collect top-level step variable declarations
+    // Phase 1: Collect step variable declarations
     collectStepDefinitions(sourceFile, ctx);
 
     // Phase 2: Find workflow declarations and chains
@@ -48,6 +81,7 @@ export function analyzeWorkflowsInSourceFile(
             uri,
             documentVersion,
             workflowName: 'defaultWorkflow',
+            ...(nodes[0]?.location ? { location: nodes[0].location } : {}),
             nodes,
             edges,
             unresolved: [],
@@ -56,6 +90,59 @@ export function analyzeWorkflowsInSourceFile(
     }
 
     return workflows;
+}
+
+function createWorkflowContext(
+    sourceFile: ts.SourceFile,
+    uri: string,
+    filePath: string,
+    documentVersion: number,
+    session: ParseSession,
+): WorkflowParseContext {
+    return {
+        sourceFile,
+        uri,
+        filePath,
+        documentVersion,
+        stepDefinitions: new Map(),
+        flowDefinitions: new Map(),
+        metadata: collectModuleMetadata(sourceFile),
+        session,
+    };
+}
+
+function getScriptKindForFile(filePath: string): ts.ScriptKind {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.tsx') return ts.ScriptKind.TSX;
+    if (ext === '.jsx') return ts.ScriptKind.JSX;
+    if (ext === '.js' || ext === '.mjs' || ext === '.cjs') return ts.ScriptKind.JS;
+    return ts.ScriptKind.TS;
+}
+
+function getOrLoadFileContext(filePath: string, session: ParseSession): WorkflowParseContext | null {
+    const resolved = path.resolve(filePath);
+    const cached = session.fileContexts.get(resolved);
+    if (cached) return cached;
+
+    let content: string;
+    try {
+        content = fs.readFileSync(resolved, 'utf-8');
+    } catch {
+        return null;
+    }
+
+    const sourceFile = ts.createSourceFile(
+        resolved,
+        content,
+        ts.ScriptTarget.Latest,
+        true,
+        getScriptKindForFile(resolved),
+    );
+    const ctx = createWorkflowContext(sourceFile, normalizeUri(resolved), resolved, 1, session);
+    session.fileContexts.set(resolved, ctx);
+    collectStepDefinitions(sourceFile, ctx);
+    walkForWorkflows(sourceFile, ctx, []);
+    return ctx;
 }
 
 function collectStepDefinitions(sourceFile: ts.SourceFile, ctx: WorkflowParseContext) {
@@ -244,6 +331,157 @@ interface MethodCall {
     callExpr: ts.CallExpression;
 }
 
+function unwrapTransparent(expr: ts.Expression): ts.Expression {
+    let curr = expr;
+    while (
+        ts.isParenthesizedExpression(curr) ||
+        ts.isAsExpression(curr) ||
+        ts.isTypeAssertionExpression(curr) ||
+        ts.isNonNullExpression(curr) ||
+        ts.isSatisfiesExpression(curr)
+    ) {
+        curr = curr.expression;
+    }
+    return curr;
+}
+
+function resolveFunctionLikeFromDecl(
+    node: ts.FunctionDeclaration | ts.VariableDeclaration | ts.Expression,
+): ts.FunctionLikeDeclaration | null {
+    if (ts.isFunctionDeclaration(node)) return node;
+    const expr = ts.isVariableDeclaration(node) ? node.initializer : node;
+    if (!expr) return null;
+    const unwrapped = unwrapTransparent(expr);
+    if (ts.isArrowFunction(unwrapped) || ts.isFunctionExpression(unwrapped)) {
+        return unwrapped;
+    }
+    return null;
+}
+
+function resolveExportTarget(
+    targetCtx: WorkflowParseContext,
+    exportName: string,
+    session: ParseSession,
+    visitedExports = new Set<string>(),
+): { ctx: WorkflowParseContext; target: ExportTarget } | null {
+    const key = `${targetCtx.filePath}::${exportName}`;
+    if (visitedExports.has(key)) return null;
+    visitedExports.add(key);
+
+    const direct = targetCtx.metadata.exports.get(exportName);
+    if (direct) {
+        if (direct.kind === 'local') {
+            const decl = targetCtx.metadata.declarations.get(direct.localName);
+            return decl ? { ctx: targetCtx, target: { kind: 'declaration', node: decl } } : null;
+        }
+        if (direct.kind === 'reexport') {
+            const nextPath = resolveRelativeImportPath(targetCtx.filePath, direct.specifier);
+            const nextCtx = nextPath ? getOrLoadFileContext(nextPath, session) : null;
+            return nextCtx ? resolveExportTarget(nextCtx, direct.importedName, session, visitedExports) : null;
+        }
+        return { ctx: targetCtx, target: direct };
+    }
+
+    for (const specifier of targetCtx.metadata.starExports) {
+        const nextPath = resolveRelativeImportPath(targetCtx.filePath, specifier);
+        const nextCtx = nextPath ? getOrLoadFileContext(nextPath, session) : null;
+        if (nextCtx) {
+            const found = resolveExportTarget(nextCtx, exportName, session, visitedExports);
+            if (found) return found;
+        }
+    }
+
+    return null;
+}
+
+function remapSubflowToCallSite(
+    subflow: SubflowData,
+    callSiteRange: SourceRange,
+    targetCtx: WorkflowParseContext,
+    callerCtx: WorkflowParseContext,
+): SubflowData {
+    if (targetCtx.filePath === callerCtx.filePath) {
+        return subflow;
+    }
+    const relPath =
+        path.relative(path.dirname(callerCtx.filePath), targetCtx.filePath).replace(/\\/g, '/') ||
+        path.basename(targetCtx.filePath);
+    const idMap = new Map<string, string>();
+    const usedIds = new Set<string>();
+
+    const nextUniqueId = (baseId: string): string => {
+        let candidate = baseId;
+        let counter = 2;
+        while (usedIds.has(candidate)) {
+            candidate = `${baseId}_${counter++}`;
+        }
+        usedIds.add(candidate);
+        return candidate;
+    };
+
+    const nodes: GraphNode[] = subflow.nodes.map(node => {
+        const baseId = generateDeterministicNodeId(node.name, callSiteRange);
+        const newId = nextUniqueId(baseId);
+        idMap.set(node.id, newId);
+        return {
+            ...node,
+            id: newId,
+            location: callSiteRange,
+            declarationRange: callSiteRange,
+            sourceUri: node.sourceUri || targetCtx.uri,
+            sourceLocation: node.sourceLocation || node.location,
+            properties: {
+                ...node.properties,
+                importedFrom: node.properties?.importedFrom || `${relPath}:${node.location.start.line + 1}`,
+            },
+        };
+    });
+
+    const unresolved: UnresolvedNode[] = (subflow.unresolved || []).map(un => {
+        const baseId = `unresolved_L${callSiteRange.start.line + 1}_C${callSiteRange.start.character + 1}`;
+        const newId = nextUniqueId(baseId);
+        idMap.set(un.id, newId);
+        return {
+            ...un,
+            id: newId,
+            location: callSiteRange,
+        };
+    });
+
+    const edges: GraphEdge[] = subflow.edges.map(edge => ({
+        ...edge,
+        from: idMap.get(edge.from) || edge.from,
+        to: idMap.get(edge.to) || edge.to,
+    }));
+
+    return {
+        nodes,
+        edges,
+        ...(unresolved.length ? { unresolved } : {}),
+    };
+}
+
+function resolveSubflowEntryAndExitIds(subflow: SubflowData): { entryIds: string[]; exitIds: string[] } {
+    const allIds = [...subflow.nodes.map(n => n.id), ...(subflow.unresolved || []).map(u => u.id)];
+    if (allIds.length === 0) return { entryIds: [], exitIds: [] };
+    const idSet = new Set(allIds);
+    const hasIncoming = new Set<string>();
+    const hasOutgoing = new Set<string>();
+    for (const edge of subflow.edges) {
+        if (edge.type === 'compensation') continue;
+        if (idSet.has(edge.from) && idSet.has(edge.to)) {
+            hasIncoming.add(edge.to);
+            hasOutgoing.add(edge.from);
+        }
+    }
+    const entryIds = allIds.filter(id => !hasIncoming.has(id));
+    const exitIds = allIds.filter(id => !hasOutgoing.has(id));
+    return {
+        entryIds: entryIds.length > 0 ? entryIds : [allIds[0]],
+        exitIds: exitIds.length > 0 ? exitIds : [allIds[allIds.length - 1]],
+    };
+}
+
 function parseWorkflowChain(
     outerCall: ts.CallExpression,
     rootFlow: { call: ts.CallExpression; name: string },
@@ -273,28 +511,70 @@ function parseWorkflowChain(
         }
     }
 
-    const properties: Record<string, string> = {};
-    const nodes: GraphNode[] = [];
-    const edges: GraphEdge[] = [];
-    const unresolved: UnresolvedNode[] = [];
-    let currentHeadIds: string[] = [];
+    return buildWorkflowDocument(
+        rootFlow.name,
+        Array.from(rootFlow.call.arguments).filter(
+            arg =>
+                !ts.isStringLiteral(arg) &&
+                !ts.isNoSubstitutionTemplateLiteral(arg) &&
+                !ts.isObjectLiteralExpression(arg),
+        ),
+        chain,
+        ctx,
+        undefined,
+        getSourceRange(ctx.sourceFile, outerCall),
+    );
+}
 
-    function addNode(detected: DetectedStep): string {
+function buildWorkflowDocument(
+    workflowName: string,
+    initialExpressions: ts.Expression[],
+    chain: MethodCall[],
+    ctx: WorkflowParseContext,
+    seedSubflow?: SubflowData,
+    workflowLocation?: SourceRange,
+): GraphDocument {
+    const properties: Record<string, string> = { ...(seedSubflow?.properties || {}) };
+    const nodes: GraphNode[] = [...(seedSubflow?.nodes || [])];
+    const edges: GraphEdge[] = [...(seedSubflow?.edges || [])];
+    const unresolved: UnresolvedNode[] = [...(seedSubflow?.unresolved || [])];
+    let currentHeadIds: string[] = seedSubflow ? resolveSubflowEntryAndExitIds(seedSubflow).exitIds : [];
+
+    function addNode(detected: DetectedStep, usageNode?: ts.Node): string {
         if (detected.kind === 'node') {
             let nodeToAdd = detected.node;
-            // If referencing a known definition, merge definition range
-            if (detected.variableName && ctx.stepDefinitions.has(detected.variableName)) {
-                const def = ctx.stepDefinitions.get(detected.variableName)!;
-                nodeToAdd = {
-                    ...nodeToAdd,
-                    name: def.name,
-                    stepKind: def.stepKind,
-                    location: def.location,
-                    declarationRange: def.declarationRange,
-                    executionConfig: { ...def.executionConfig, ...nodeToAdd.executionConfig },
-                    properties: { ...def.properties, ...nodeToAdd.properties },
-                    specs: [...(def.specs || []), ...(nodeToAdd.specs || [])],
-                };
+            // If referencing a known definition, merge definition range (preferring lexical scope)
+            if (detected.variableName) {
+                let def: GraphNode | undefined;
+                if (usageNode) {
+                    const lexical = findLexicalDeclaration(detected.variableName, usageNode, ctx.metadata.declarations);
+                    if (lexical && ts.isVariableDeclaration(lexical) && lexical.initializer) {
+                        const enclosingRange = getSourceRange(ctx.sourceFile, lexical);
+                        const lexicalDetected = detectStepFromExpression(
+                            lexical.initializer,
+                            ctx.sourceFile,
+                            enclosingRange,
+                        );
+                        if (lexicalDetected?.kind === 'node') {
+                            def = { ...lexicalDetected.node, declarationRange: enclosingRange };
+                        }
+                    }
+                }
+                if (!def) {
+                    def = ctx.stepDefinitions.get(detected.variableName);
+                }
+                if (def) {
+                    nodeToAdd = {
+                        ...nodeToAdd,
+                        name: def.name,
+                        stepKind: def.stepKind,
+                        location: def.location,
+                        declarationRange: def.declarationRange,
+                        executionConfig: { ...def.executionConfig, ...nodeToAdd.executionConfig },
+                        properties: { ...def.properties, ...nodeToAdd.properties },
+                        specs: [...(def.specs || []), ...(nodeToAdd.specs || [])],
+                    };
+                }
             }
             // Check if already in nodes
             const existing = nodes.find(n => n.id === nodeToAdd.id);
@@ -308,12 +588,18 @@ function parseWorkflowChain(
         }
     }
 
-    function appendSubflow(subflow: { nodes: GraphNode[]; edges: GraphEdge[] }) {
-        if (subflow.nodes.length === 0) return;
+    function appendSubflow(subflow: SubflowData) {
+        const subUnresolved = subflow.unresolved || [];
+        if (subflow.nodes.length === 0 && subUnresolved.length === 0) return;
 
         for (const n of subflow.nodes) {
             if (!nodes.some(existing => existing.id === n.id)) {
                 nodes.push(n);
+            }
+        }
+        for (const u of subUnresolved) {
+            if (!unresolved.some(existing => existing.id === u.id)) {
+                unresolved.push(u);
             }
         }
         for (const e of subflow.edges) {
@@ -322,19 +608,19 @@ function parseWorkflowChain(
             }
         }
 
-        const entryId = subflow.nodes[0].id;
-        const exitId = subflow.nodes[subflow.nodes.length - 1].id;
-
+        const { entryIds, exitIds } = resolveSubflowEntryAndExitIds(subflow);
         for (const headId of currentHeadIds) {
-            edges.push({
-                id: `edge_${headId}_to_${entryId}_${edges.length}`,
-                from: headId,
-                to: entryId,
-                type: 'sequential',
-            });
+            for (const entryId of entryIds) {
+                edges.push({
+                    id: `edge_${headId}_to_${entryId}_${edges.length}`,
+                    from: headId,
+                    to: entryId,
+                    type: 'sequential',
+                });
+            }
         }
 
-        currentHeadIds = [exitId];
+        currentHeadIds = exitIds;
     }
 
     function connect(from: string[], to: string, type: GraphEdge['type'] = 'sequential', label?: string) {
@@ -357,8 +643,24 @@ function parseWorkflowChain(
 
     // Expand combinators before step detection: their arguments are graph fragments,
     // and options objects are metadata rather than executable steps.
-    function appendExpression(expr: ts.Expression, resolving = new Set<string>()) {
-        if (ts.isParenthesizedExpression(expr)) return appendExpression(expr.expression, resolving);
+    function appendExpression(rawExpr: ts.Expression, resolving = new Set<string>()) {
+        const expr = unwrapTransparent(rawExpr);
+        const exprRange = getSourceRange(ctx.sourceFile, rawExpr);
+
+        if (ts.isSpreadElement(expr)) {
+            const subflow = resolveExpandableExpression(expr.expression, ctx, exprRange, resolving, false);
+            if (subflow) {
+                appendSubflow(subflow);
+                return;
+            }
+        }
+        if (ts.isPropertyAccessExpression(expr) && expr.name.text === 'steps') {
+            const subflow = resolveExpandableExpression(expr.expression, ctx, exprRange, resolving, false);
+            if (subflow) {
+                appendSubflow(subflow);
+                return;
+            }
+        }
         if (ts.isIdentifier(expr)) {
             const definition = findCombinatorDefinition(expr.text);
             if (definition && !resolving.has(expr.text)) {
@@ -367,6 +669,11 @@ function parseWorkflowChain(
             }
             if (ctx.flowDefinitions.has(expr.text)) {
                 appendSubflow(ctx.flowDefinitions.get(expr.text)!);
+                return;
+            }
+            const subflow = resolveExpandableExpression(expr, ctx, exprRange, resolving, false);
+            if (subflow) {
+                appendSubflow(subflow);
                 return;
             }
         }
@@ -394,7 +701,31 @@ function parseWorkflowChain(
                 if (kind === 'map') forkNode.properties.items = expr.arguments[0]?.getText(ctx.sourceFile) || 'unknown';
                 connect(currentHeadIds, fork);
                 const exits: string[] = [];
-                const alternatives: { expression: ts.Expression; label?: string }[] = [];
+                const alternatives: { expression?: ts.Expression; subflow?: SubflowData; label?: string }[] = [];
+                const pushParallelChild = (child: ts.Expression) => {
+                    const unwrappedChild = unwrapTransparent(child);
+                    if (ts.isSpreadElement(unwrappedChild)) {
+                        const spreadSubflow = resolveExpandableExpression(
+                            unwrappedChild.expression,
+                            ctx,
+                            getSourceRange(ctx.sourceFile, unwrappedChild),
+                            resolving,
+                            false,
+                        );
+                        if (spreadSubflow) {
+                            const onlySequential = spreadSubflow.edges.every(e => e.type === 'sequential');
+                            if (onlySequential && spreadSubflow.nodes.length > 0 && !spreadSubflow.unresolved?.length) {
+                                for (const stepNode of spreadSubflow.nodes) {
+                                    alternatives.push({ subflow: { nodes: [stepNode], edges: [] } });
+                                }
+                            } else {
+                                alternatives.push({ subflow: spreadSubflow });
+                            }
+                            return;
+                        }
+                    }
+                    alternatives.push({ expression: child });
+                };
                 if (kind === 'branch') {
                     const mapIndex = expr.arguments[0] && ts.isObjectLiteralExpression(expr.arguments[0]) ? 0 : 1;
                     const map = expr.arguments[mapIndex];
@@ -421,13 +752,17 @@ function parseWorkflowChain(
                     for (const arg of expr.arguments) {
                         if (ts.isObjectLiteralExpression(arg)) continue;
                         for (const child of ts.isArrayLiteralExpression(arg) ? arg.elements : [arg])
-                            alternatives.push({ expression: child });
+                            pushParallelChild(child);
                     }
                 }
                 for (const alternative of alternatives) {
                     currentHeadIds = [fork];
                     const edgeStart = edges.length;
-                    appendExpression(alternative.expression, resolving);
+                    if (alternative.subflow) {
+                        appendSubflow(alternative.subflow);
+                    } else if (alternative.expression) {
+                        appendExpression(alternative.expression, resolving);
+                    }
                     for (const edge of edges.slice(edgeStart))
                         if (edge.from === fork) {
                             edge.type = kind === 'branch' || kind === 'when' ? 'branch' : 'parallel';
@@ -447,10 +782,22 @@ function parseWorkflowChain(
                 }
                 return;
             }
+            const resolvedCall = resolveExpandableExpression(expr, ctx, exprRange, resolving, false);
+            if (resolvedCall) {
+                appendSubflow(resolvedCall);
+                return;
+            }
+        }
+        if (ts.isPropertyAccessExpression(expr)) {
+            const resolvedProp = resolveExpandableExpression(expr, ctx, exprRange, resolving, false);
+            if (resolvedProp) {
+                appendSubflow(resolvedProp);
+                return;
+            }
         }
         const detected = detectStepFromExpression(expr, ctx.sourceFile);
         if (detected) {
-            const id = addNode(detected);
+            const id = addNode(detected, expr);
             connect(currentHeadIds, id);
             currentHeadIds = [id];
         }
@@ -482,9 +829,8 @@ function parseWorkflowChain(
         return result;
     }
 
-    for (const arg of rootFlow.call.arguments) {
-        if (!ts.isStringLiteral(arg) && !ts.isNoSubstitutionTemplateLiteral(arg) && !ts.isObjectLiteralExpression(arg))
-            appendExpression(arg);
+    for (const arg of initialExpressions) {
+        appendExpression(arg);
     }
 
     // 2. Process chained methods (.then, .parallel, .branch, .fallback, .compensate)
@@ -507,24 +853,25 @@ function parseWorkflowChain(
                             for (const e of sub.edges) {
                                 if (!edges.some(existing => existing.id === e.id)) edges.push(e);
                             }
-                            const entryId = sub.nodes[0].id;
-                            const exitId = sub.nodes[sub.nodes.length - 1].id;
+                            const { entryIds, exitIds } = resolveSubflowEntryAndExitIds(sub);
                             for (const headId of currentHeadIds) {
-                                edges.push({
-                                    id: `edge_${headId}_to_${entryId}_parallel`,
-                                    from: headId,
-                                    to: entryId,
-                                    type: 'parallel',
-                                });
+                                for (const entryId of entryIds) {
+                                    edges.push({
+                                        id: `edge_${headId}_to_${entryId}_parallel`,
+                                        from: headId,
+                                        to: entryId,
+                                        type: 'parallel',
+                                    });
+                                }
                             }
-                            nextHeadIds.push(exitId);
+                            nextHeadIds.push(...exitIds);
                         }
                         continue;
                     }
 
                     const detected = detectStepFromExpression(el, ctx.sourceFile);
                     if (detected) {
-                        const nextId = addNode(detected);
+                        const nextId = addNode(detected, el);
                         nextHeadIds.push(nextId);
                         for (const headId of currentHeadIds) {
                             edges.push({
@@ -550,7 +897,7 @@ function parseWorkflowChain(
             if (trueArg) {
                 const detected = detectStepFromExpression(trueArg, ctx.sourceFile);
                 if (detected) {
-                    const trueId = addNode(detected);
+                    const trueId = addNode(detected, trueArg);
                     nextHeadIds.push(trueId);
                     for (const headId of currentHeadIds) {
                         edges.push({
@@ -567,7 +914,7 @@ function parseWorkflowChain(
             if (falseArg) {
                 const detected = detectStepFromExpression(falseArg, ctx.sourceFile);
                 if (detected) {
-                    const falseId = addNode(detected);
+                    const falseId = addNode(detected, falseArg);
                     nextHeadIds.push(falseId);
                     for (const headId of currentHeadIds) {
                         edges.push({
@@ -589,7 +936,7 @@ function parseWorkflowChain(
             if (arg) {
                 const detected = detectStepFromExpression(arg, ctx.sourceFile);
                 if (detected) {
-                    const fallbackId = addNode(detected);
+                    const fallbackId = addNode(detected, arg);
                     for (const headId of currentHeadIds) {
                         edges.push({
                             id: `edge_${headId}_to_${fallbackId}_fallback`,
@@ -606,7 +953,7 @@ function parseWorkflowChain(
             if (arg) {
                 const detected = detectStepFromExpression(arg, ctx.sourceFile);
                 if (detected) {
-                    const compId = addNode(detected);
+                    const compId = addNode(detected, arg);
                     for (const headId of currentHeadIds) {
                         edges.push({
                             id: `edge_${headId}_to_${compId}_comp`,
@@ -642,13 +989,294 @@ function parseWorkflowChain(
     return {
         uri: ctx.uri,
         documentVersion: ctx.documentVersion,
-        workflowName: rootFlow.name,
+        workflowName,
+        ...(workflowLocation ? { location: workflowLocation } : {}),
         properties,
         nodes,
         edges: normalizedEdges,
         unresolved,
         diagnostics,
     };
+}
+
+function resolveExpressionToSingleStep(expr: ts.Expression, ctx: WorkflowParseContext): SubflowData | null {
+    const detected = detectStepFromExpression(expr, ctx.sourceFile);
+    if (detected?.kind === 'node') {
+        return { nodes: [detected.node], edges: [] };
+    }
+    return null;
+}
+
+function resolveExportedTargetToSubflow(
+    targetCtx: WorkflowParseContext,
+    target: ExportTarget,
+    callSiteRange: SourceRange,
+    callerCtx: WorkflowParseContext,
+    resolving: Set<string>,
+): SubflowData | null {
+    if (target.kind === 'expression') {
+        const subflow = resolveExpandableExpression(
+            target.expr,
+            targetCtx,
+            getSourceRange(targetCtx.sourceFile, target.expr),
+            resolving,
+            true,
+        );
+        return subflow ? remapSubflowToCallSite(subflow, callSiteRange, targetCtx, callerCtx) : null;
+    }
+    if (target.kind === 'declaration') {
+        if (ts.isVariableDeclaration(target.node) && target.node.initializer) {
+            const subflow = resolveExpandableExpression(
+                target.node.initializer,
+                targetCtx,
+                getSourceRange(targetCtx.sourceFile, target.node.initializer),
+                resolving,
+                true,
+            );
+            return subflow ? remapSubflowToCallSite(subflow, callSiteRange, targetCtx, callerCtx) : null;
+        }
+    }
+    return null;
+}
+
+function resolveFunctionCallToSubflow(
+    fn: ts.FunctionLikeDeclaration,
+    targetCtx: WorkflowParseContext,
+    callSiteRange: SourceRange,
+    callerCtx: WorkflowParseContext,
+): SubflowData | null {
+    const { session } = callerCtx;
+    if (session.depth >= MAX_RESOLVE_DEPTH) return null;
+    const key = `fn:${targetCtx.filePath}:${fn.pos}`;
+    if (session.resolvingKeys.has(key)) return null;
+
+    session.resolvingKeys.add(key);
+    session.depth += 1;
+    try {
+        const returns = extractFunctionReturnExpressions(fn);
+        for (let i = returns.length - 1; i >= 0; i--) {
+            const retExpr = returns[i];
+            const retRange = getSourceRange(targetCtx.sourceFile, retExpr);
+            const subflow = resolveExpandableExpression(retExpr, targetCtx, retRange, new Set(), true);
+            if (subflow && (subflow.nodes.length > 0 || (subflow.unresolved?.length ?? 0) > 0)) {
+                return remapSubflowToCallSite(subflow, callSiteRange, targetCtx, callerCtx);
+            }
+        }
+        return null;
+    } finally {
+        session.depth -= 1;
+        session.resolvingKeys.delete(key);
+    }
+}
+
+function resolveExpandableExpression(
+    rawExpr: ts.Expression,
+    ctx: WorkflowParseContext,
+    callSiteRange: SourceRange,
+    resolving: Set<string>,
+    allowSingleStep = false,
+): SubflowData | null {
+    const expr = unwrapTransparent(rawExpr);
+
+    if (ts.isPropertyAccessExpression(expr) && expr.name.text === 'steps') {
+        return resolveExpandableExpression(expr.expression, ctx, callSiteRange, resolving, allowSingleStep);
+    }
+
+    if (ts.isArrayLiteralExpression(expr)) {
+        const doc = buildWorkflowDocument('array', Array.from(expr.elements), [], ctx);
+        return doc.nodes.length > 0 || doc.unresolved.length > 0
+            ? { nodes: doc.nodes, edges: doc.edges, unresolved: doc.unresolved }
+            : null;
+    }
+
+    if (ts.isIdentifier(expr)) {
+        if (ctx.flowDefinitions.has(expr.text)) {
+            return ctx.flowDefinitions.get(expr.text)!;
+        }
+        const localDecl = findLexicalDeclaration(expr.text, expr, ctx.metadata.declarations);
+        if (localDecl) {
+            if (ts.isVariableDeclaration(localDecl) && localDecl.initializer) {
+                const key = `var:${ctx.filePath}:${localDecl.pos}`;
+                if (resolving.has(key)) return null;
+                if (
+                    !allowSingleStep &&
+                    detectStepFromExpression(localDecl.initializer, ctx.sourceFile)?.kind === 'node'
+                ) {
+                    return null;
+                }
+                const nextResolving = new Set(resolving);
+                nextResolving.add(key);
+                return resolveExpandableExpression(
+                    localDecl.initializer,
+                    ctx,
+                    callSiteRange,
+                    nextResolving,
+                    allowSingleStep,
+                );
+            }
+            return null;
+        }
+        const binding = ctx.metadata.imports.get(expr.text);
+        if (binding && !binding.isNamespace && ctx.session.depth < MAX_RESOLVE_DEPTH) {
+            const importPath = resolveRelativeImportPath(ctx.filePath, binding.specifier);
+            const targetCtx = importPath ? getOrLoadFileContext(importPath, ctx.session) : null;
+            if (targetCtx) {
+                const resolved = resolveExportTarget(targetCtx, binding.importedName, ctx.session);
+                if (resolved) {
+                    ctx.session.depth += 1;
+                    try {
+                        return resolveExportedTargetToSubflow(
+                            resolved.ctx,
+                            resolved.target,
+                            callSiteRange,
+                            ctx,
+                            new Set(),
+                        );
+                    } finally {
+                        ctx.session.depth -= 1;
+                    }
+                }
+            }
+        }
+        return allowSingleStep ? resolveExpressionToSingleStep(expr, ctx) : null;
+    }
+
+    if (ts.isPropertyAccessExpression(expr)) {
+        const base = unwrapTransparent(expr.expression);
+        if (ts.isIdentifier(base)) {
+            const binding = ctx.metadata.imports.get(base.text);
+            if (binding?.isNamespace && ctx.session.depth < MAX_RESOLVE_DEPTH) {
+                const importPath = resolveRelativeImportPath(ctx.filePath, binding.specifier);
+                const targetCtx = importPath ? getOrLoadFileContext(importPath, ctx.session) : null;
+                if (targetCtx) {
+                    const resolved = resolveExportTarget(targetCtx, expr.name.text, ctx.session);
+                    if (resolved) {
+                        ctx.session.depth += 1;
+                        try {
+                            return resolveExportedTargetToSubflow(
+                                resolved.ctx,
+                                resolved.target,
+                                callSiteRange,
+                                ctx,
+                                new Set(),
+                            );
+                        } finally {
+                            ctx.session.depth -= 1;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    if (ts.isCallExpression(expr)) {
+        const rootFlow = findRootFlowCall(expr, ctx.sourceFile);
+        if (rootFlow) {
+            const doc = parseWorkflowChain(expr, rootFlow, ctx);
+            return doc ? { nodes: doc.nodes, edges: doc.edges, unresolved: doc.unresolved } : null;
+        }
+
+        // Unwrap chained flow configuration or composition calls onto a resolved base flow.
+        if (ts.isPropertyAccessExpression(expr.expression)) {
+            const methodChain: MethodCall[] = [];
+            let receiver: ts.Expression = expr;
+            while (ts.isCallExpression(receiver) && ts.isPropertyAccessExpression(receiver.expression)) {
+                const methodName = receiver.expression.name.text;
+                if (!FLOW_CHAIN_METHODS.has(methodName) && !FLOW_CONFIG_METHODS.has(methodName)) {
+                    break;
+                }
+                methodChain.unshift({
+                    methodName,
+                    args: Array.from(receiver.arguments),
+                    callExpr: receiver,
+                });
+                receiver = receiver.expression.expression;
+            }
+            if (methodChain.length > 0 && receiver !== expr) {
+                const baseSubflow = resolveExpandableExpression(
+                    receiver,
+                    ctx,
+                    callSiteRange,
+                    resolving,
+                    allowSingleStep,
+                );
+                if (baseSubflow) {
+                    const hasWorkflowChain = methodChain.some(m => FLOW_CHAIN_METHODS.has(m.methodName));
+                    if (!hasWorkflowChain) return baseSubflow;
+                    const doc = buildWorkflowDocument('subflow', [], methodChain, ctx, baseSubflow);
+                    return { nodes: doc.nodes, edges: doc.edges, unresolved: doc.unresolved };
+                }
+            }
+        }
+
+        const callee = unwrapTransparent(expr.expression);
+        const calleeKind = ts.isIdentifier(callee)
+            ? callee.text
+            : ts.isPropertyAccessExpression(callee) &&
+                ['Step', 'Func', 'Chain'].includes(callee.expression.getText(ctx.sourceFile))
+              ? callee.name.text
+              : '';
+        if (['parallel', 'all', 'race', 'allSettled', 'branch', 'when', 'map'].includes(calleeKind)) {
+            const doc = buildWorkflowDocument(calleeKind, [expr], [], ctx);
+            return { nodes: doc.nodes, edges: doc.edges, unresolved: doc.unresolved };
+        }
+
+        // Resolve call to a local or imported factory function.
+        if (ts.isIdentifier(callee)) {
+            const localDecl = findLexicalDeclaration(callee.text, expr, ctx.metadata.declarations);
+            if (localDecl) {
+                const fn = resolveFunctionLikeFromDecl(localDecl);
+                if (fn) {
+                    return resolveFunctionCallToSubflow(fn, ctx, callSiteRange, ctx);
+                }
+            }
+            const binding = ctx.metadata.imports.get(callee.text);
+            if (binding && !binding.isNamespace && ctx.session.depth < MAX_RESOLVE_DEPTH) {
+                const importPath = resolveRelativeImportPath(ctx.filePath, binding.specifier);
+                const targetCtx = importPath ? getOrLoadFileContext(importPath, ctx.session) : null;
+                if (targetCtx) {
+                    const resolved = resolveExportTarget(targetCtx, binding.importedName, ctx.session);
+                    if (resolved) {
+                        const fn =
+                            resolved.target.kind === 'declaration'
+                                ? resolveFunctionLikeFromDecl(resolved.target.node)
+                                : resolved.target.kind === 'expression'
+                                  ? resolveFunctionLikeFromDecl(resolved.target.expr)
+                                  : null;
+                        if (fn) {
+                            return resolveFunctionCallToSubflow(fn, resolved.ctx, callSiteRange, ctx);
+                        }
+                    }
+                }
+            }
+        } else if (ts.isPropertyAccessExpression(callee)) {
+            const obj = unwrapTransparent(callee.expression);
+            if (ts.isIdentifier(obj)) {
+                const binding = ctx.metadata.imports.get(obj.text);
+                if (binding?.isNamespace && ctx.session.depth < MAX_RESOLVE_DEPTH) {
+                    const importPath = resolveRelativeImportPath(ctx.filePath, binding.specifier);
+                    const targetCtx = importPath ? getOrLoadFileContext(importPath, ctx.session) : null;
+                    if (targetCtx) {
+                        const resolved = resolveExportTarget(targetCtx, callee.name.text, ctx.session);
+                        if (resolved) {
+                            const fn =
+                                resolved.target.kind === 'declaration'
+                                    ? resolveFunctionLikeFromDecl(resolved.target.node)
+                                    : resolved.target.kind === 'expression'
+                                      ? resolveFunctionLikeFromDecl(resolved.target.expr)
+                                      : null;
+                            if (fn) {
+                                return resolveFunctionCallToSubflow(fn, resolved.ctx, callSiteRange, ctx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return allowSingleStep ? resolveExpressionToSingleStep(expr, ctx) : null;
 }
 
 export function runDiagnostics(nodes: GraphNode[], edges: GraphEdge[]): Diagnostic[] {

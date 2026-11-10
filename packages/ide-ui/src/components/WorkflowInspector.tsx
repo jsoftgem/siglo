@@ -1,6 +1,6 @@
 import React from 'react';
 import type { GraphNode, WorkflowGraph } from '@siglo/ide-protocol';
-import { Layers, Clock, Shield, GitBranch } from 'lucide-react';
+import { Layers, Clock, Shield, GitBranch, FileCode } from 'lucide-react';
 
 function Property({ label, value, fallback = 'Not configured' }: { label: string; value?: string; fallback?: string }) {
     return (
@@ -16,11 +16,27 @@ function Property({ label, value, fallback = 'Not configured' }: { label: string
 export function WorkflowInspector({
     workflow,
     onSelectNode,
+    onOpenRelatedFile,
 }: {
     workflow: WorkflowGraph;
     onSelectNode: (node: GraphNode) => void;
+    onOpenRelatedFile?: (uri: string) => void;
 }): React.ReactElement {
     const properties = workflow.properties || {};
+    const relatedFiles = Array.from(
+        workflow.nodes
+            .reduce((map, node) => {
+                if (node.sourceUri && node.sourceUri !== workflow.uri && !map.has(node.sourceUri)) {
+                    const label =
+                        node.properties?.importedFrom?.replace(/:\d+$/, '') ||
+                        node.sourceUri.split('/').pop() ||
+                        node.sourceUri;
+                    map.set(node.sourceUri, label);
+                }
+                return map;
+            }, new Map<string, string>())
+            .entries(),
+    );
     const networkLabels: Record<string, string> = {
         enabled: 'Network policy',
         defaultPolicy: 'Default policy',
@@ -83,6 +99,26 @@ export function WorkflowInspector({
                         <p className="text-[11px] text-[#9da0a8]">No flow policy configured.</p>
                     )}
                 </section>
+                {relatedFiles.length > 0 && onOpenRelatedFile && (
+                    <section>
+                        <h3 className="flex items-center gap-1.5 font-semibold text-[#bcbec4] mb-3">
+                            <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                            Related files
+                        </h3>
+                        <div className="space-y-1">
+                            {relatedFiles.map(([uri, label]) => (
+                                <button
+                                    key={uri}
+                                    onClick={() => onOpenRelatedFile(uri)}
+                                    className="block w-full text-left truncate rounded px-2 py-2 text-sky-400 hover:bg-[#393b40] focus-visible:outline focus-visible:outline-sky-400"
+                                    title={uri}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                )}
                 <section>
                     <h3 className="flex items-center gap-1.5 font-semibold text-[#bcbec4] mb-3">
                         <GitBranch className="w-3.5 h-3.5 text-purple-400" />

@@ -103,6 +103,20 @@ class IdeBridge {
             stepKind: node.stepKind,
         });
     }
+
+    public notifyWorkflowSelected(workflowName: string) {
+        this.sendToHost({
+            type: 'workflowSelected',
+            workflowName,
+        });
+    }
+
+    public notifyOpenRelatedFile(uri: string) {
+        this.sendToHost({
+            type: 'openRelatedFile',
+            uri,
+        });
+    }
 }
 
 export const bridge = new IdeBridge();

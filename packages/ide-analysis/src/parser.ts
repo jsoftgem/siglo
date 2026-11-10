@@ -51,6 +51,8 @@ export function parseWorkflowFile(options: ParseOptions): GraphDocument {
 
     const workflowSummaries: WorkflowGraph[] = workflows.map(w => ({
         name: w.workflowName,
+        uri: w.uri,
+        ...(w.location ? { location: w.location } : {}),
         properties: w.properties,
         nodes: w.nodes,
         edges: w.edges,

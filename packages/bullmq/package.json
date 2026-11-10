@@ -1,6 +1,6 @@
 {
   "name": "@siglo/bullmq",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "BullMQ job queue consumer and worker adapter for TypeScript workflows with Siglo.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AnalyzerClient } from './client';
-import { WorkflowViews } from './webview';
+import { NavigationTarget, WorkflowViews } from './webview';
 import { GraphDocument, GraphNode, PROTOCOL_METHODS, SourceRange } from '@siglo/ide-protocol';
 
 const languages = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact']);
@@ -70,16 +70,56 @@ export function activate(context: vscode.ExtensionContext): void {
         trackSelection();
     }
 
-    async function navigate(nodeId: string): Promise<void> {
-        if (!graph || !active || graph.uri !== active.uri.toString() || graph.documentVersion !== active.version)
+    async function openTarget(targetUri?: string, targetRange?: SourceRange): Promise<void> {
+        if (!active) return;
+        const selection = targetRange ? range(targetRange) : undefined;
+        if (!targetUri || targetUri === active.uri.toString() || targetUri === graph?.uri) {
+            await vscode.window.showTextDocument(active, {
+                ...(selection ? { selection } : {}),
+                viewColumn: vscode.ViewColumn.One,
+                preview: false,
+            });
             return;
-        const node = nodes(graph).find(candidate => candidate.id === nodeId);
-        if (!node) return;
-        await vscode.window.showTextDocument(active, {
-            selection: range(node.location),
+        }
+        const parsed = vscode.Uri.parse(targetUri);
+        if (parsed.scheme !== 'file') return;
+        const targetDoc = await vscode.workspace.openTextDocument(parsed);
+        await vscode.window.showTextDocument(targetDoc, {
+            ...(selection ? { selection } : {}),
             viewColumn: vscode.ViewColumn.One,
             preview: false,
         });
+    }
+
+    async function navigate(target: NavigationTarget): Promise<void> {
+        if (!graph || !active || graph.uri !== active.uri.toString() || graph.documentVersion !== active.version)
+            return;
+        if (target.kind === 'node') {
+            const node = nodes(graph).find(candidate => candidate.id === target.nodeId);
+            if (!node) return;
+            await openTarget(node.sourceUri, node.sourceLocation ?? node.location);
+            return;
+        }
+        if (target.kind === 'workflow') {
+            const wf = graph.workflows?.find(candidate => candidate.name === target.workflowName);
+            const fallbackMatch = graph.workflowName === target.workflowName ? graph : undefined;
+            if (!wf && !fallbackMatch) return;
+            const targetUri = wf?.uri ?? fallbackMatch?.uri;
+            const targetRange =
+                wf?.location ?? fallbackMatch?.location ?? wf?.nodes[0]?.location ?? fallbackMatch?.nodes[0]?.location;
+            await openTarget(targetUri, targetRange);
+            return;
+        }
+        if (target.kind === 'file') {
+            // Only permit URIs actually present in the host's trusted graph.
+            const matchingNode = nodes(graph).find(candidate => candidate.sourceUri === target.uri);
+            const matchingWorkflow = graph.workflows?.find(candidate => candidate.uri === target.uri);
+            const isMainDoc = graph.uri === target.uri;
+            if (!matchingNode && !matchingWorkflow && !isMainDoc) return;
+            const targetRange =
+                matchingNode?.sourceLocation ?? matchingWorkflow?.location ?? matchingNode?.location ?? graph.location;
+            await openTarget(target.uri, targetRange);
+        }
     }
 
     function trackSelection(): void {

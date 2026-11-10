@@ -325,12 +325,46 @@ class SigloToolWindowPanel(
                         ?: currentDocument?.workflows?.flatMap { it.nodes }?.find { it.id == nodeId }
                     if (node != null) {
                         navigateToNodeInEditor(node)
-                    } else if (json.has("location")) {
-                        val locObj = json.getAsJsonObject("location")
-                        val start = locObj.getAsJsonObject("start")
-                        val line = start.get("line")?.asInt ?: 0
-                        val char = start.get("character")?.asInt ?: 0
-                        navigateToLocation(line, char)
+                    }
+                }
+                "workflowSelected" -> {
+                    val workflowName = json.get("workflowName")?.asString
+                    val doc = currentDocument
+                    if (doc != null && workflowName != null) {
+                        val wf = doc.workflows.find { it.name == workflowName }
+                        val targetUri = wf?.uri ?: doc.uri
+                        val targetLoc = wf?.location
+                            ?: (if (doc.workflowName == workflowName) doc.location else null)
+                            ?: wf?.nodes?.firstOrNull()?.location
+                            ?: doc.nodes.firstOrNull()?.location
+                        if (wf != null || doc.workflowName == workflowName) {
+                            navigateToLocation(
+                                targetLoc?.start?.line ?: 0,
+                                targetLoc?.start?.character ?: 0,
+                                targetUri
+                            )
+                        }
+                    }
+                }
+                "openRelatedFile" -> {
+                    val targetUri = json.get("uri")?.asString
+                    val doc = currentDocument
+                    if (doc != null && targetUri != null) {
+                        val allNodes = doc.nodes + doc.workflows.flatMap { it.nodes }
+                        val matchingNode = allNodes.find { it.sourceUri == targetUri }
+                        val matchingWf = doc.workflows.find { it.uri == targetUri }
+                        val isCurrentDoc = doc.uri == targetUri
+                        if (matchingNode != null || matchingWf != null || isCurrentDoc) {
+                            val targetLoc = matchingNode?.sourceLocation
+                                ?: matchingWf?.location
+                                ?: matchingNode?.location
+                                ?: doc.location
+                            navigateToLocation(
+                                targetLoc?.start?.line ?: 0,
+                                targetLoc?.start?.character ?: 0,
+                                targetUri
+                            )
+                        }
                     }
                 }
             }
@@ -354,12 +388,14 @@ class SigloToolWindowPanel(
     }
 
     fun navigateToNodeInEditor(node: GraphNode) {
-        navigateToLocation(node.location.start.line, node.location.start.character)
+        val targetUri = node.sourceUri ?: currentDocument?.uri
+        val targetRange = node.sourceLocation ?: node.location
+        navigateToLocation(targetRange.start.line, targetRange.start.character, targetUri)
     }
 
-    private fun navigateToLocation(line: Int, character: Int) {
+    private fun navigateToLocation(line: Int, character: Int, targetUri: String? = currentDocument?.uri) {
         ApplicationManager.getApplication().invokeLater {
-            val uri = currentDocument?.uri ?: return@invokeLater
+            val uri = targetUri ?: return@invokeLater
             val virtualFile = findVirtualFileByUri(uri) ?: return@invokeLater
 
             val descriptor = OpenFileDescriptor(project, virtualFile, line, character)

@@ -341,3 +341,221 @@ describe('workflow-level configuration', () => {
         expect(doc.properties!['network.defaultPolicy']).to.equal('deny');
     });
 });
+
+describe('spread, .steps, factory, and relative import resolution', () => {
+    it('resolves distributed-checkout/api.ts including ...createCheckout(services).steps without unresolved nodes', () => {
+        const apiPath = path.resolve(__dirname, '../../../examples/src/distributed-checkout/api.ts');
+        const doc = parseWorkflowFile({ uri: apiPath });
+
+        expect(doc.workflowName).to.equal('checkout');
+        expect(doc.unresolved).to.have.lengthOf(0);
+        expect(doc.diagnostics).to.have.lengthOf(0);
+        expect(doc.nodes.map(n => n.name)).to.deep.equal([
+            'loadCatalog',
+            'validateOrder',
+            'reserveStock',
+            'chargePayment',
+            'arrangeShipping',
+        ]);
+        expect(doc.edges).to.have.lengthOf(4);
+        expect(doc.edges.every(e => e.type === 'sequential')).to.equal(true);
+        expect(doc.edges.map(e => [e.from, e.to])).to.have.deep.members([
+            [doc.nodes[0].id, doc.nodes[1].id],
+            [doc.nodes[1].id, doc.nodes[2].id],
+            [doc.nodes[2].id, doc.nodes[3].id],
+            [doc.nodes[3].id, doc.nodes[4].id],
+        ]);
+
+        const reserveStock = doc.nodes.find(n => n.name === 'reserveStock')!;
+        expect(reserveStock.executionConfig?.hasCompensation).to.equal(true);
+        expect(reserveStock.properties?.importedFrom).to.equal('../getting-started/checkout.ts:35');
+        // Imported node locations point to the spread/call expression in api.ts so editor navigation stays in-file,
+        // while sourceUri/sourceLocation point to the actual definition in checkout.ts for click-to-open navigation.
+        expect(reserveStock.location.start.line).to.equal(95);
+        expect(reserveStock.sourceUri).to.match(/examples\/src\/getting-started\/checkout\.ts$/);
+        expect(reserveStock.sourceLocation?.start.line).to.equal(34);
+        expect(doc.location?.start.line).to.equal(95);
+        expect(doc.workflows?.[0].uri).to.equal(doc.uri);
+        expect(doc.workflows?.[0].location?.start.line).to.equal(95);
+
+        const resolved = resolveLocationInDocument(doc, reserveStock.location.start);
+        expect(resolved.nodeId).to.equal(doc.nodes[1].id);
+    });
+
+    it('expands local factory calls, .steps spreads, step arrays, and parallel spreads', () => {
+        const doc = parseWorkflowFile({
+            uri: '/local-factories.ts',
+            content: `
+      import { Step, flow, parallel } from '@siglo/core';
+      function buildCore() {
+          const validate = Step.create('validate', () => {});
+          const persist = Step.create('persist', () => {});
+          return flow(validate, persist);
+      }
+      const makeTail = () => {
+          const f = flow(Step.create('notify', () => {}));
+          return f.then(Step.create('audit', () => {}));
+      };
+      const extraSteps = [Step.create('enrich', () => {}), Step.create('score', () => {})];
+      const pipeline = flow(
+          Step.create('start', () => {}),
+          ...buildCore().steps,
+          ...extraSteps,
+          parallel(...makeTail().steps),
+      );
+    `,
+        });
+
+        expect(doc.workflowName).to.equal('pipeline');
+        expect(doc.unresolved).to.have.lengthOf(0);
+        expect(doc.nodes.map(n => n.name)).to.deep.equal([
+            'start',
+            'validate',
+            'persist',
+            'enrich',
+            'score',
+            'parallel',
+            'notify',
+            'audit',
+            'parallel join',
+        ]);
+        expect(doc.edges.filter(e => e.type === 'parallel')).to.have.lengthOf(2);
+    });
+
+    it('resolves named, aliased, default, namespace, and re-exported relative imports safely without executing code', () => {
+        const tmpDir = fs.mkdtempSync(path.join(__dirname, '.tmp-import-test-'));
+        try {
+            const canaryFile = path.join(tmpDir, 'canary.txt');
+            const stepsFile = path.join(tmpDir, 'steps.ts');
+            const barrelFile = path.join(tmpDir, 'index.ts');
+            const entryFile = path.join(tmpDir, 'main.ts');
+
+            fs.writeFileSync(
+                stepsFile,
+                `
+if (typeof process !== 'undefined') { require('fs').writeFileSync(${JSON.stringify(canaryFile)}, 'ran'); }
+import { Step, flow } from '@siglo/core';
+export function createInner() {
+    const a = Step.create('innerA', () => {});
+    const b = Step.create('innerB', () => {});
+    return flow(a, b);
+}
+export default function createDefault() {
+    return flow(Step.create('defaultStep', () => {}));
+}
+export const sharedStep = Step.create('sharedStep', () => {});
+`,
+            );
+            fs.writeFileSync(
+                barrelFile,
+                `
+export { createInner as makeInner } from './steps';
+export * from './steps';
+`,
+            );
+            fs.writeFileSync(
+                entryFile,
+                `
+import { Step, flow } from '@siglo/core';
+import defaultFactory, { makeInner, sharedStep } from './index';
+import * as ns from './steps';
+import { missing } from 'external-package';
+export const main = flow(
+    ...makeInner().steps,
+    defaultFactory(),
+    sharedStep,
+    ...ns.createInner().steps,
+    ...missing().steps,
+);
+`,
+            );
+
+            const doc = parseWorkflowFile({ uri: entryFile });
+            expect(fs.existsSync(canaryFile), 'Imported file must NEVER be executed').to.be.false;
+            expect(doc.nodes.map(n => n.name)).to.deep.equal([
+                'innerA',
+                'innerB',
+                'defaultStep',
+                'sharedStep',
+                'innerA',
+                'innerB',
+            ]);
+            // Distinct call sites produce distinct deterministic IDs
+            expect(new Set(doc.nodes.map(n => n.id)).size).to.equal(6);
+            // External package spread remains unresolved rather than silently dropped
+            expect(doc.unresolved).to.have.lengthOf(1);
+            expect(doc.unresolved[0].expressionSnippet).to.equal('...missing().steps');
+        } finally {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it('guards against circular relative imports without infinite recursion', () => {
+        const tmpDir = fs.mkdtempSync(path.join(__dirname, '.tmp-cycle-test-'));
+        try {
+            const aPath = path.join(tmpDir, 'a.ts');
+            const bPath = path.join(tmpDir, 'b.ts');
+            fs.writeFileSync(
+                aPath,
+                `
+import { flow } from '@siglo/core';
+import { makeB } from './b';
+export function makeA() { return flow(makeB()); }
+`,
+            );
+            fs.writeFileSync(
+                bPath,
+                `
+import { flow } from '@siglo/core';
+import { makeA } from './a';
+export function makeB() { return flow(makeA()); }
+`,
+            );
+            const doc = parseWorkflowFile({ uri: aPath });
+            expect(doc.workflowName).to.equal('flow(makeB())');
+        } finally {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it('parses all Siglo-related files under examples/src without unresolved expressions or diagnostics', () => {
+        const examplesSrcDir = path.resolve(__dirname, '../../../examples/src');
+        const allFiles: string[] = [];
+        const walk = (dir: string) => {
+            for (const entry of fs
+                .readdirSync(dir, { withFileTypes: true })
+                .sort((a, b) => a.name.localeCompare(b.name))) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) walk(full);
+                else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) allFiles.push(full);
+            }
+        };
+        walk(examplesSrcDir);
+
+        const sigloFiles = allFiles.filter(file => {
+            const src = fs.readFileSync(file, 'utf-8');
+            return src.includes('@siglo/') || src.includes('flow(') || src.includes('Step.');
+        });
+        expect(sigloFiles.length).to.be.greaterThan(30);
+
+        const expectedWorkflowFiles = [
+            'distributed-checkout/api.ts',
+            'durable-distributed-checkout/checkout-durable.ts',
+            'getting-started/checkout.ts',
+            'kafka-order-routing/workflow.ts',
+            'signed-order-intake/routing.ts',
+            'signed-order-intake/workflow.ts',
+            'workflow/order-pipeline.ts',
+        ];
+
+        for (const file of sigloFiles) {
+            const rel = path.relative(examplesSrcDir, file).replace(/\\/g, '/');
+            const doc = parseWorkflowFile({ uri: file });
+            expect(doc.unresolved, `${rel} should have no unresolved expressions`).to.have.lengthOf(0);
+            expect(doc.diagnostics, `${rel} should have no static diagnostics`).to.have.lengthOf(0);
+            if (expectedWorkflowFiles.includes(rel) || rel.startsWith('workflow/usecases/usecase-')) {
+                expect(doc.nodes.length, `${rel} should resolve workflow nodes`).to.be.greaterThan(0);
+            }
+        }
+    });
+});
