@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] - 2026-11-10
+
+### Fixed
+
+- **IDE Static Analysis (`@siglo/ide-analysis`, `@siglo/vscode`, IntelliJ Plugin)**: Added pure static AST resolution for `SpreadElement` (`...`), `.steps` flow properties, local/imported flow & step factories, and relative ES/CommonJS imports (named, aliased, default, namespace, re-exports) without executing application code. Fixes `Unresolved expression` on `...createCheckout(services).steps` in `examples/src/distributed-checkout/api.ts`.
+- **Cross-File Workflow Navigation (`@siglo/ide-protocol`, `@siglo/ide-ui`, `@siglo/vscode`, IntelliJ Plugin)**: Clicking imported steps, workflow titles, or related files in the workflow view opens the corresponding source file at its definition range while preserving in-file cursor tracking.
+- **VS Code Marketplace Icon (`@siglo/vscode`)**: Added `media/siglo-logo-128.png` and declared `"icon"` in `plugins/vscode/package.json`.
+
+### Changed
+
+- Synchronized package, CLI, telemetry, and IDE plugin versions at `1.2.2`.
+
 ## [1.2.1] - 2026-11-09
 
 ### Security

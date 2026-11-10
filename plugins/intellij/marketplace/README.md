@@ -6,7 +6,7 @@
 
 **Vendor:** Siglo
 
-**Version:** Defined in `../build.gradle.kts` (currently `1.2.1`).
+**Version:** Defined in `../build.gradle.kts` (currently `1.2.2`).
 
 **Short summary:** Visualize Siglo workflows, inspect step contracts and settings, and jump from graph nodes to source in IntelliJ IDEA.
 

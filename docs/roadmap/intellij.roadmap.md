@@ -1,8 +1,8 @@
 # IntelliJ IDEA Plugin Roadmap: Siglo Workflow Explorer & DevTools
 
-> **Status: Milestone 1 Completed — Ready for Milestone 2 Development (2026-11-05)**<br>
+> **Status: Milestone 1 Completed — Ready for Milestone 2 Development (2026-11-10)**<br>
 > Targets IntelliJ IDEA (Community & Ultimate 2024.1+ / Build 241.x to 243.x / 262.x).<br>
-> Final product delivered in Milestone 1: Distributable plugin package (`siglo-intellij-plugin-1.0.0.zip`), shared JSON-RPC stdio protocol, zero-execution AST daemon, longest-path SVG graph renderer, structured step specs inspector, and workflow property badging.
+> Final product delivered in Milestone 1: Distributable plugin package (`siglo-intellij-plugin-1.2.2.zip`), shared JSON-RPC stdio protocol, zero-execution AST daemon with spread and factory resolution, longest-path SVG graph renderer, structured step specs inspector, cross-file navigation, and workflow property badging.
 
 ---
 
@@ -54,6 +54,10 @@ A formal JSON-RPC 2.0 stdio protocol (`@siglo/ide-protocol`) standardizes commun
 
 Every node, edge, combinator hub, and spec is tagged with Unicode-normalized `SourceRange` coordinates. Clicking cards navigates IntelliJ editor tabs via `OpenFileDescriptor`; buffer typing refreshes the graph debounced at 250ms with monotonic version tracking.
 
+### 3.4 Cross-File Navigation & Spread Evaluation
+
+Workflows frequently reuse steps, spread expressions (`...createCheckout(services).steps`), or import flows across files. The analyzer resolves spread elements, `.steps` property accessors, factory calls, and relative ES/CommonJS imports statically. In IntelliJ, clicking imported steps navigates across files to the origin definition via `OpenFileDescriptor` using `sourceUri` and `sourceLocation`.
+
 ---
 
 ## 4. Architecture: IntelliJ IDEA Plugin
@@ -86,6 +90,7 @@ Every node, edge, combinator hub, and spec is tagged with Unicode-normalized `So
 │   • Package steps: httpStep, aiStep, sendNotificationStep, crypto steps     │
 │   • Structured spec extraction: .spec(...) & .schema(...) rules             │
 │   • Workflow properties: .timeout(...), .version(...), .networkPolicy(...)  │
+│   • SpreadElement (...) & .steps factory & relative module resolution       │
 │   • Subflow stitching and route normalization (SUBPRIME / default)          │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
@@ -112,6 +117,8 @@ The language analysis service runs as an independent Node.js process exposing JS
 - Ecosystem steps: `httpStep`, `aiStep`, `sendNotificationStep`, `sendInteractiveApprovalStep`, `verifyWebhookStep`, `encryptFieldsStep`, `decryptFieldsStep`, `maskFieldsStep`.
 - Structured specs: Preserves repeated `.spec(...)` calls in order, rule normalization (`default`, `validate`, `transform`, `translate`), and whole-input `$root$` schemas.
 - Workflow properties: `.timeout(...)` (deadlines), `.version(...)` (schema versions), `.networkPolicy(...)`, `.monitor(...)`.
+- Dynamic syntax & factory resolution: Statically expands `SpreadElement` (`...`), `.steps` properties, local and imported factory functions without code execution.
+- Cross-file relative module resolution: Recursively resolves imported steps and workflows across relative TypeScript/JavaScript files (named, default, aliased, namespace, and re-exports) with circular dependency protection.
 
 ### 4.2 IntelliJ IDEA Host Adapter (`plugins/intellij`)
 
@@ -158,6 +165,10 @@ The language analysis service runs as an independent Node.js process exposing JS
     - Accurately parses sequential, parallel, race, allSettled, branch, when, and map combinators into layered DAG structures.
     - Generates explicit visual hubs for forks and joins with differentiated SVG connections.
     - Derives clean edge labels for shared routes (e.g. `SUBPRIME / default`).
+- [x] **Spread Element & Cross-File AST Resolution**:
+    - Statically resolves spread expressions (`...`), `.steps` properties, local/imported step factories, and relative module imports.
+    - Preserves zero-application-execution guarantee and guards against circular references.
+    - Supports cross-file definition navigation via `sourceUri` and `sourceLocation`.
 - [x] **Ecosystem Recognition**: Identifies `httpStep`, `aiStep`, `sendNotificationStep`, `sendInteractiveApprovalStep`, `verifyWebhookStep`, and crypto steps, mapping operational properties and retry policies without executing code.
 - [x] **Structured Step Input Contracts**:
     - Extracts repeated `.spec(...)` and `.schema(...)` rules in declaration order.
@@ -169,8 +180,9 @@ The language analysis service runs as an independent Node.js process exposing JS
 - [x] **Multi-Workflow Support**:
     - Files defining multiple workflows can be viewed individually or collectively in "All Flows" mode.
     - Each workflow in "All Flows" renders in an isolated, labeled canvas with unique SVG marker IDs.
-- [x] **Bidirectional Navigation**:
+- [x] **Bidirectional & Cross-File Navigation**:
     - Clicking any graph card or hub navigates editor cursor to the exact line/character coordinates via `OpenFileDescriptor`.
+    - Clicking imported steps or definitions navigates cross-file to the target file.
     - Switching editor tabs immediately switches the active workflow graph.
 - [x] **Live Edit Refresh**:
     - Updates graph AST within `< 200ms` upon buffer typing via `DocumentListener` (250ms debounce).
@@ -178,8 +190,8 @@ The language analysis service runs as an independent Node.js process exposing JS
 - [x] **Graceful Swing Fallback**:
     - Automatically switches to Swing `JBTree` when JCEF is disabled or running headless/remote, maintaining full click-to-navigation functionality.
 - [x] **Packaged Distribution**:
-    - `siglo-intellij-plugin-1.0.0.zip` built and verified locally on IntelliJ IDEA 2024.1+ (Build 241+).
-    - Automated tests pass across TypeScript packages (19 analysis tests, 5 protocol tests) and Kotlin plugin (4 Gradle unit tests).
+    - `siglo-intellij-plugin-1.2.2.zip` built and verified locally on IntelliJ IDEA 2024.1+ (Build 241+).
+    - Automated tests pass across TypeScript packages (24 analysis tests, 5 protocol tests) and Kotlin plugin (4 Gradle unit tests).
 
 ---
 
@@ -264,9 +276,9 @@ fluid-func/
 │   │   ├── src/
 │   │   │   ├── bin.ts             # CLI entry point (stdio JSON-RPC runner)
 │   │   │   ├── parser.ts          # ts.createSourceFile traversal engine
-│   │   │   ├── patterns/          # AST matchers (workflow-detector, step-detector)
+│   │   │   ├── patterns/          # AST matchers (workflow-detector, step-detector, module-resolver)
 │   │   │   └── mapper.ts          # Source range & position calculators
-│   │   ├── test/                  # AST parsing & safety tests (19 passing)
+│   │   ├── test/                  # AST parsing & safety tests (24 passing)
 │   │   └── package.json
 │   │
 │   └── ide-ui/                    # Host-neutral graph & inspector UI micro-bundle
@@ -309,7 +321,7 @@ cd plugins/intellij
 ./gradlew test buildPlugin
 ```
 
-Latest distributable package: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.0.0.zip`.
+Latest distributable package: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.2.zip`.
 
 ---
 

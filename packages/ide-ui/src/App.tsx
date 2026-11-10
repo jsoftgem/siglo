@@ -100,6 +100,8 @@ export const App: React.FC = () => {
 
     const activeWorkflow = currentWorkflow || {
         name: doc.workflowName,
+        uri: doc.uri,
+        location: doc.location,
         properties: doc.properties,
         nodes: doc.nodes,
         edges: doc.edges,
@@ -113,6 +115,7 @@ export const App: React.FC = () => {
     const inspectWorkflow = (name: string) => {
         setSelectedNodeId(null);
         setInspectedWorkflowName(name);
+        bridge.notifyWorkflowSelected(name);
     };
 
     const selectedNode = displayNodes.find(n => n.id === selectedNodeId) || null;
@@ -279,7 +282,11 @@ export const App: React.FC = () => {
                     )}
                 </main>
                 {inspectedWorkflow ? (
-                    <WorkflowInspector workflow={inspectedWorkflow} onSelectNode={handleSelectNode} />
+                    <WorkflowInspector
+                        workflow={inspectedWorkflow}
+                        onSelectNode={handleSelectNode}
+                        onOpenRelatedFile={uri => bridge.notifyOpenRelatedFile(uri)}
+                    />
                 ) : (
                     <InspectorPanel selectedNode={selectedNode} diagnostics={displayDiagnostics} />
                 )}

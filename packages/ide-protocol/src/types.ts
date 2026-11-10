@@ -24,8 +24,10 @@ export interface GraphNode {
     id: string; // Deterministic AST node ID (e.g. "step_callStripe_L14_C5")
     name: string; // Display label
     stepKind: 'generic' | 'http' | 'crypto' | 'notification' | 'ai' | 'custom';
-    location: SourceRange; // Precise definition range in source
+    location: SourceRange; // Precise definition range in source (or call/spread site in active document)
     declarationRange: SourceRange; // Outer enclosing statement range
+    sourceUri?: string; // Target file URI when defined in a related file
+    sourceLocation?: SourceRange; // Precise definition range inside sourceUri
     specs?: StepSpec[];
     properties?: Record<string, string>; // Static, displayable configuration (never evaluated)
     executionConfig?: {
@@ -60,6 +62,8 @@ export interface UnresolvedNode {
 
 export interface WorkflowGraph {
     name: string;
+    uri?: string;
+    location?: SourceRange;
     properties?: Record<string, string>;
     nodes: GraphNode[];
     edges: GraphEdge[];
@@ -71,6 +75,7 @@ export interface GraphDocument {
     uri: string;
     documentVersion: number;
     workflowName: string;
+    location?: SourceRange;
     properties?: Record<string, string>;
     nodes: GraphNode[];
     edges: GraphEdge[];

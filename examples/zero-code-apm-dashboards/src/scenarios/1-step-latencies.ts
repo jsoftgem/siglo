@@ -64,7 +64,7 @@ export async function runStepLatenciesScenario(options: { silent?: boolean; emit
     const monitoredFlow = instrumentWorkflow(orderPipeline, {
         tracer,
         workflowName: 'OrderFulfillmentPipeline',
-        workflowVersion: '1.2.1',
+        workflowVersion: '1.2.2',
     });
 
     const rawResult = await monitoredFlow.run({ orderId: 'ORD-1001', amount: 100.0 });

@@ -24,6 +24,9 @@ interface Surface {
     autoReload: boolean;
 }
 
+export type NavigationTarget =
+    { kind: 'node'; nodeId: string } | { kind: 'workflow'; workflowName: string } | { kind: 'file'; uri: string };
+
 export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposable {
     private surfaces = new Set<Surface>();
     private panel?: vscode.WebviewPanel;
@@ -33,7 +36,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly refresh: () => Promise<void>,
-        private readonly navigate: (nodeId: string) => Promise<void>,
+        private readonly navigate: (target: NavigationTarget) => Promise<void>,
         private readonly report: (error: unknown) => void,
     ) {}
 
@@ -67,7 +70,13 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
         webview.options = { enableScripts: true, localResourceRoots: [] };
         const receiver = webview.onDidReceiveMessage((message: unknown) => {
             if (!message || typeof message !== 'object' || !('type' in message)) return;
-            const msg = message as { type: unknown; nodeId?: unknown; enabled?: unknown };
+            const msg = message as {
+                type: unknown;
+                nodeId?: unknown;
+                workflowName?: unknown;
+                uri?: unknown;
+                enabled?: unknown;
+            };
             if (msg.type === 'ready') {
                 surface.ready = true;
                 if (this.document) void webview.postMessage({ type: 'setGraph', document: this.document });
@@ -76,7 +85,11 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
                 void this.refresh().catch(this.report);
             } else if (msg.type === 'nodeSelected' && typeof msg.nodeId === 'string') {
                 // Resolve IDs against the host's current graph, never trust a webview-supplied URI/range.
-                void this.navigate(msg.nodeId).catch(this.report);
+                void this.navigate({ kind: 'node', nodeId: msg.nodeId }).catch(this.report);
+            } else if (msg.type === 'workflowSelected' && typeof msg.workflowName === 'string') {
+                void this.navigate({ kind: 'workflow', workflowName: msg.workflowName }).catch(this.report);
+            } else if (msg.type === 'openRelatedFile' && typeof msg.uri === 'string') {
+                void this.navigate({ kind: 'file', uri: msg.uri }).catch(this.report);
             } else if (msg.type === 'setAutoReload' && typeof msg.enabled === 'boolean') {
                 surface.autoReload = msg.enabled;
                 if (msg.enabled) void this.refresh().catch(this.report);

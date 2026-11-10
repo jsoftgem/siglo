@@ -2,8 +2,9 @@
   "name": "@siglo/vscode",
   "displayName": "Siglo Workflow Explorer",
   "description": "Visualize Siglo workflows, inspect step contracts and settings, and navigate between graphs and source.",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "publisher": "jsoftgem",
+  "icon": "media/siglo-logo-128.png",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,19 +1,19 @@
 # VS Code Extension Roadmap: Siglo Workflow Explorer & DevTools
 
-> **Status: M0/M1 Implemented — Automated Checks Passing; VS Code Smoke Test Pending (2026-11-05)**<br>
+> **Status: M0/M1 Implemented — Automated Checks Passing; VS Code Smoke Test Pending (2026-11-10)**<br>
 > Targets Visual Studio Code (1.90+ Desktop; Web/Remote architectures gated separately).<br>
-> Leverages completed shared packages: `@siglo/ide-protocol` (v1.0.0), `@siglo/ide-analysis` (v1.0.0, 19 passing tests), and `@siglo/ide-ui` (v1.0.0 with dual JCEF / `acquireVsCodeApi` host bridge).
+> Leverages completed shared packages: `@siglo/ide-protocol` (v1.2.2), `@siglo/ide-analysis` (v1.2.2, 24 passing tests), and `@siglo/ide-ui` (v1.2.2 with dual JCEF / `acquireVsCodeApi` host bridge).
 
 ---
 
-## Implementation Verification (2026-11-05)
+## Implementation Verification (2026-11-10)
 
-`plugins/vscode` now implements M0/M1: bundled stdio analyzer with timeout and crash recovery, trust gating, sidebar and editor webviews, nonce-based CSP, validated node navigation, cursor tracking, revision filtering, 250 ms edit refresh, per-view auto-reload, bounded multi-root discovery, and VSIX packaging. The shared UI stacks the inspector below the graph in narrow views.
+`plugins/vscode` now implements M0/M1: bundled stdio analyzer with timeout and crash recovery, trust gating, sidebar and editor webviews, nonce-based CSP, validated node navigation, cross-file definition navigation via `sourceUri`, cursor tracking, revision filtering, 250 ms edit refresh, per-view auto-reload, bounded multi-root discovery, and VSIX packaging. The shared UI stacks the inspector below the graph in narrow views.
 
 - Extension tests: **10 passing** (real bundled analyzer transport, mocked VS Code host, and bundled-JavaScript integrity checks after CSP injection).
-- Shared tests: **5 protocol + 19 analysis passing**; UI typecheck/build passes.
-- Small-workflow stress check: **1,000 edit cycles**, sampled peak analyzer RSS approximately **124 MB** on this machine. Larger fixtures and other platforms remain unmeasured; no cross-platform RSS watchdog is implemented.
-- Distribution: `plugins/vscode/siglo-workflow-explorer-1.0.0.vsix` (approximately **1.1 MB**). The staged manifest uses `siglo-workflow-explorer`; the npm workspace remains `@siglo/vscode`.
+- Shared tests: **5 protocol + 24 analysis passing**; UI typecheck/build passes.
+- Small-workflow stress check: **1,000 edit cycles**, sampled peak analyzer RSS approximately **131.7 MB** on this machine (bounded under the 150 MB RSS limit).
+- Distribution: `plugins/vscode/siglo-workflow-explorer-1.2.2.vsix` (approximately **1.48 MB**). Declared official marketplace icon `media/siglo-logo-128.png`. The staged manifest uses `siglo-workflow-explorer`; the npm workspace remains `@siglo/vscode`.
 - **Gate still open:** clean-install manual smoke test of rendering, click navigation, workspace trust, sidebar layout, and Electron daemon recovery. Remote-host behavior is implemented through the workspace extension model but has not been exercised. Acceptance checkboxes below record implemented functionality, not completed visual/manual verification.
 
 Follow-up fix: nonce injection now matches complete script/style elements and preserves their contents. Previously it rewrote a `"<script>"` string inside React, causing a JavaScript syntax error and a blank webview. An isolated macOS VS Code Extension Development Host running the rebuilt VSIX successfully started the analyzer and rendered all five steps in `usecase-2-ai-rag-pipeline.ts`. Full manual acceptance checks above remain open.
@@ -47,11 +47,11 @@ Phase 4 (CLI Scaffolding, Live DevTools & Ecosystem Telemetry) and the IntelliJ 
 | Monorepo Component           | Status               | Relationship to VS Code Extension                                                                                                                                       |
 | ---------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Shared IDE Protocol**      | **Completed (M1)**   | `@siglo/ide-protocol` defines wire types (`GraphDocument`, `GraphNode`, `StepSpec`, `WorkflowGraph`). Reused directly via npm workspace dependency.                     |
-| **Static Analyzer Daemon**   | **Completed (M1)**   | `@siglo/ide-analysis` (19 passing unit tests) runs as an out-of-process Node daemon (`bin.ts`) over stdio JSON-RPC. Evaluates zero user code.                           |
+| **Static Analyzer Daemon**   | **Completed (M1)**   | `@siglo/ide-analysis` (24 passing unit tests) runs as an out-of-process Node daemon (`bin.ts`) over stdio JSON-RPC. Evaluates zero user code.                           |
 | **Shared Webview UI**        | **Completed (M1)**   | `@siglo/ide-ui` (`dist/index.html`) includes longest-path layout, multi-flow canvases, structured spec inspector, and a host bridge pre-wired for `acquireVsCodeApi()`. |
 | **Ecosystem CLI Generators** | Completed (Phase 4A) | Scaffolding commands in VS Code share pure generation templates (`createStepFileContents`). Invokes pure template functions directly without parsing console stdout.    |
 | **Fail-Closed Telemetry**    | Completed (Phase 4B) | The runtime's `EcosystemInspection` metadata contract is consumed directly for runtime inspectors (M4). Zero raw payloads, secrets, or cURL secrets are leaked.         |
-| **Offline Test Fixtures**    | Completed (Phase 4D) | Canonical test fixtures in `packages/ide-analysis/test/fixtures` validate zero-eval safety and edge parsing.                                                            |
+| **Offline Test Fixtures**    | Completed (Phase 4D) | Canonical test fixtures in `packages/ide-analysis/test/fixtures` validate zero-eval safety, edge parsing, and cross-file spread/factory resolution.                     |
 
 The extension strictly reuses Siglo runtime semantics, schemas, and redaction policies; it **never** implements independent execution engines, custom retry loops, or ad-hoc event formats.
 
@@ -67,11 +67,11 @@ The extension strictly reuses Siglo runtime semantics, schemas, and redaction po
 
 The formal JSON-RPC 2.0 stdio protocol (`@siglo/ide-protocol`) ensures identical behavior between IntelliJ and VS Code hosts.
 
-### 3.3 Source-to-Graph Bidirectional Mapping
+### 3.3 Source-to-Graph Bidirectional Mapping & Cross-File Navigation
 
 Every node and edge carries Unicode-safe `SourceRange` coordinates:
 
-- **Click-to-Definition**: Clicking a card sends a `nodeSelected` message to VS Code, navigating the active editor via `vscode.window.showTextDocument` with an active selection range.
+- **Click-to-Definition**: Clicking a card sends a `nodeSelected` message to VS Code, navigating the active editor via `vscode.window.showTextDocument` with an active selection range. When a step is defined in a related imported file, navigation targets `sourceUri` at `sourceLocation`.
 - **Cursor Tracking**: Moving the editor cursor debounces and posts a `selectNode` message to the webview.
 
 ---
@@ -105,6 +105,7 @@ Every node and edge carries Unicode-safe `SourceRange` coordinates:
 │   • Package steps: httpStep, aiStep, sendNotificationStep, crypto steps     │
 │   • Structured spec extraction: .spec(...) & .schema(...) rules             │
 │   • Workflow properties: .timeout(...), .version(...), .networkPolicy(...)  │
+│   • SpreadElement (...) & .steps factory & relative module resolution       │
 │   • Subflow stitching and route normalization (SUBPRIME / default)          │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
@@ -126,7 +127,7 @@ The language analysis service is already built and packaged. It runs as a backgr
 
 - Spawns via `child_process.spawn(process.execPath, [binPath], { stdio: ['pipe', 'pipe', 'pipe'] })`.
 - Exposes `siglo/initialize`, `siglo/discoverWorkflows`, `siglo/getGraph`, `siglo/resolveLocation`, and `siglo/shutdown`.
-- Tested across 19 unit test cases proving zero-execution safety, combinator recursion, structured specs, and property badging.
+- Tested across 24 unit test cases proving zero-execution safety, combinator recursion, structured specs, property badging, spread/factory resolution, and relative imports.
 
 ### 4.2 VS Code Host Adapter (`plugins/vscode`)
 
@@ -136,7 +137,7 @@ The language analysis service is already built and packaged. It runs as a backgr
     - Registers command `siglo.openVisualizer` for a dedicated editor tab (`vscode.window.createWebviewPanel`).
     - Serves `packages/ide-ui/dist/index.html` with strict CSP nonces and local resource roots.
 - **Bidirectional Synchronization**:
-    - Webview $\rightarrow$ Editor: When webview sends `nodeSelected`, calls `vscode.window.showTextDocument` focusing the target line and column.
+    - Webview $\rightarrow$ Editor: When webview sends `nodeSelected`, calls `vscode.window.showTextDocument` focusing the target line and column (or opening `sourceUri` if defined in another file).
     - Editor $\rightarrow$ Webview: Listens to `vscode.workspace.onDidChangeTextDocument` (debounced at 250ms) and `vscode.window.onDidChangeActiveTextEditor` to push updated ASTs via `webview.postMessage({ type: 'setGraph', document })`.
 - **Security & Sandboxing**:
     - Gated behind `vscode.workspace.isTrusted`. In untrusted workspaces, daemon launch is blocked.
@@ -165,7 +166,7 @@ The language analysis service is already built and packaged. It runs as a backgr
 #### Actionable Developer Tasks
 
 - [x] **Task M0.1**: Scaffold `@siglo/ide-protocol` with TypeScript types for JSON-RPC messages (Completed in shared foundation).
-- [x] **Task M0.2**: Scaffold `@siglo/ide-analysis` with stdio daemon `bin.ts` (Completed in shared foundation, 19 passing tests).
+- [x] **Task M0.2**: Scaffold `@siglo/ide-analysis` with stdio daemon `bin.ts` (Completed in shared foundation, 24 passing tests).
 - [x] **Task M0.3**: Equip `@siglo/ide-ui/src/bridge.ts` with `acquireVsCodeApi()` integration (Completed in shared UI bundle).
 - [x] **Task M0.4**: Scaffold `plugins/vscode` directory, `package.json` extension manifest with `contributes.viewsContainers`, `contributes.views`, and `contributes.commands`.
 - [x] **Task M0.5**: Implement `client.ts` in `plugins/vscode` to manage the Node.js daemon lifecycle (`siglo/initialize`, `siglo/getGraph`, `siglo/shutdown`).
@@ -189,16 +190,18 @@ The language analysis service is already built and packaged. It runs as a backgr
 
 - [x] **Workflow Discovery**: Automatically detects workflows containing `flow(...)`, `pipe(...)`, or `workflow(...)` in open files and workspace scans (ignoring `node_modules`, `dist`, `.git`).
 - [x] **Topology Parsing & Longest-Path Layering**: Accurately renders DAG layouts, fork/join combinator hubs, and styled SVG connections.
+- [x] **Spread Element & Factory Resolution**: Statically resolves spread expressions (`...`), `.steps` accessors, local/imported step factories, and relative imports without code execution.
 - [x] **Ecosystem Recognition**: Identifies `httpStep`, `aiStep`, `sendNotificationStep`, and crypto steps with operational configurations.
 - [x] **Structured Step Input Contracts**: Displays field-grouped spec cards, required asterisks, defaults, and validator expressions.
 - [x] **Workflow Configuration Badges**: Displays deadline and version badges; clicking header opens `WorkflowInspector`.
 - [x] **Multi-Workflow Support**: Supports "All Flows" multi-canvas rendering and individual workflow switcher.
-- [x] **Bidirectional Navigation**:
+- [x] **Bidirectional & Cross-File Navigation**:
     - Clicking card jumps to editor line/character.
+    - Resolves external step definitions via `sourceUri`.
     - Active editor tab changes switch the active workflow graph.
 - [x] **Live Edit Refresh**: Debounced typing updates (250ms) push updated ASTs with monotonic version filtering.
 - [x] **Multi-Root Support**: Correctly handles multi-folder VS Code workspaces.
-- [x] **Packaged Distribution**: Produces valid `.vsix` archive via `vsce package`.
+- [x] **Packaged Distribution**: Produces valid `.vsix` archive via `vsce package` (`siglo-workflow-explorer-1.2.2.vsix`).
 
 #### Exit Criteria
 
@@ -283,9 +286,9 @@ fluid-func/
 │   │   ├── src/
 │   │   │   ├── bin.ts             # CLI entry point (stdio JSON-RPC runner)
 │   │   │   ├── parser.ts          # ts.createSourceFile traversal engine
-│   │   │   ├── patterns/          # AST pattern matchers (workflow-detector, step-detector)
+│   │   │   ├── patterns/          # AST pattern matchers (workflow-detector, step-detector, module-resolver)
 │   │   │   └── mapper.ts          # Source range & position calculators
-│   │   ├── test/                  # AST parsing & safety tests (19 passing)
+│   │   ├── test/                  # AST parsing & safety tests (24 passing)
 │   │   └── package.json
 │   │
 │   └── ide-ui/                    # Host-neutral graph & inspector UI micro-bundle

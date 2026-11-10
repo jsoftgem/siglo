@@ -143,6 +143,14 @@ test('host handles ready, trusted launch, live edits, background tabs, and valid
     opened = undefined;
     receiver({ type: 'nodeSelected', nodeId: 'forged' });
     assert.equal(opened, undefined);
+    receiver({ type: 'workflowSelected', workflowName: graph.workflowName });
+    await waitFor(() => opened);
+    assert.equal(opened.document, doc);
+    assert.equal(opened.options.selection.start.line, graph.location.start.line);
+    opened = undefined;
+    receiver({ type: 'openRelatedFile', uri: 'file:///etc/passwd' });
+    await new Promise(r => setTimeout(r, 50));
+    assert.equal(opened, undefined);
     doc.version = 2;
     handlers.edit({ document: doc, contentChanges: [{}] });
     await waitFor(() => messages.some(msg => msg.document?.documentVersion === 2));
