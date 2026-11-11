@@ -26,9 +26,7 @@ interface Surface {
 }
 
 export type NavigationTarget =
-    | { kind: 'node'; nodeId: string }
-    | { kind: 'workflow'; workflowName: string }
-    | { kind: 'file'; uri: string };
+    { kind: 'node'; nodeId: string } | { kind: 'workflow'; workflowName: string } | { kind: 'file'; uri: string };
 
 export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposable {
     private surfaces = new Set<Surface>();
@@ -155,7 +153,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             const parsed = JSON.parse(text);
             const fileName = targetUri.path.split('/').pop() || 'recording.json';
             const sanitized = sanitizeTelemetryDocument(parsed, fileName);
-            if (!sanitized) throw new Error("Invalid or unsupported telemetry recording document");
+            if (!sanitized) throw new Error('Invalid or unsupported telemetry recording document');
             await this.postTelemetry(sanitized);
             void vscode.window.showInformationMessage(
                 `Siglo: Imported ${sanitized.records.length} telemetry records from ${fileName}.`,

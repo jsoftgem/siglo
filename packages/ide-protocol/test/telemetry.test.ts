@@ -231,12 +231,15 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
         };
 
         it('matches unambiguously by workflow name, version, and step id', () => {
-            expect(matchTelemetryRecord(record, 'checkoutWorkflow', '1.0.0', 'step_chargeStripe_L10_C2', 'chargeStripe')).to.be.true;
+            expect(
+                matchTelemetryRecord(record, 'checkoutWorkflow', '1.0.0', 'step_chargeStripe_L10_C2', 'chargeStripe'),
+            ).to.be.true;
         });
 
         it('matches by step name if stepIdentity equals step name', () => {
             const nameRecord = { ...record, stepIdentity: 'chargeStripe' };
-            expect(matchTelemetryRecord(nameRecord, 'checkoutWorkflow', '1.0.0', 'some_ast_id', 'chargeStripe')).to.be.true;
+            expect(matchTelemetryRecord(nameRecord, 'checkoutWorkflow', '1.0.0', 'some_ast_id', 'chargeStripe')).to.be
+                .true;
         });
 
         it('rejects mismatch on workflow name', () => {
@@ -248,7 +251,8 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
         });
 
         it('rejects mismatch on step identity', () => {
-            expect(matchTelemetryRecord(record, 'checkoutWorkflow', '1.0.0', 'different_step', 'otherName')).to.be.false;
+            expect(matchTelemetryRecord(record, 'checkoutWorkflow', '1.0.0', 'different_step', 'otherName')).to.be
+                .false;
         });
     });
 });

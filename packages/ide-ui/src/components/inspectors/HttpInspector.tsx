@@ -37,12 +37,24 @@ export const HttpInspector: React.FC<HttpInspectorProps> = ({ config, telemetry 
     const getStatusBadge = (status?: number) => {
         if (!status) return null;
         if (status >= 200 && status < 300) {
-            return <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">{status} OK</span>;
+            return (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                    {status} OK
+                </span>
+            );
         }
         if (status >= 400 && status < 500) {
-            return <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800/60">{status} Client Error</span>;
+            return (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800/60">
+                    {status} Client Error
+                </span>
+            );
         }
-        return <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/80 text-rose-400 border border-rose-800/60">{status} Error</span>;
+        return (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/80 text-rose-400 border border-rose-800/60">
+                {status} Error
+            </span>
+        );
     };
 
     return (
@@ -112,7 +124,11 @@ export const HttpInspector: React.FC<HttpInspectorProps> = ({ config, telemetry 
                         <span className="text-[#868a98]">Retry On Status:</span>
                         <span className="font-mono text-[#dfe1e5]">
                             {config?.retryOnStatus ? (
-                                Array.isArray(config.retryOnStatus) ? config.retryOnStatus.join(', ') : String(config.retryOnStatus)
+                                Array.isArray(config.retryOnStatus) ? (
+                                    config.retryOnStatus.join(', ')
+                                ) : (
+                                    String(config.retryOnStatus)
+                                )
                             ) : (
                                 <span className="text-[#868a98] italic">Default (5xx, 429)</span>
                             )}
@@ -121,7 +137,11 @@ export const HttpInspector: React.FC<HttpInspectorProps> = ({ config, telemetry 
                     <div className="flex items-center justify-between">
                         <span className="text-[#868a98]">Timeout:</span>
                         <span className="font-mono text-[#dfe1e5]">
-                            {config?.timeoutMs !== undefined ? `${config.timeoutMs}ms` : <span className="text-[#868a98] italic">Default</span>}
+                            {config?.timeoutMs !== undefined ? (
+                                `${config.timeoutMs}ms`
+                            ) : (
+                                <span className="text-[#868a98] italic">Default</span>
+                            )}
                         </span>
                     </div>
                     {config?.allowNotFound !== undefined && (
@@ -152,29 +172,33 @@ export const HttpInspector: React.FC<HttpInspectorProps> = ({ config, telemetry 
                         <>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Outcome:</span>
-                                <span className={`font-mono font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
-                                    telemetry.outcome === 'success' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60' : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
-                                }`}>
+                                <span
+                                    className={`font-mono font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
+                                        telemetry.outcome === 'success'
+                                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                                            : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
+                                    }`}
+                                >
                                     {telemetry.outcome}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Duration:</span>
                                 <span className="font-mono text-[#dfe1e5]">
-                                    {telemetry.durationMs !== undefined ? `${telemetry.durationMs}ms` : <span className="text-[#868a98] italic">Unavailable</span>}
+                                    {telemetry.durationMs !== undefined ? (
+                                        `${telemetry.durationMs}ms`
+                                    ) : (
+                                        <span className="text-[#868a98] italic">Unavailable</span>
+                                    )}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Request Attempt:</span>
-                                <span className="font-mono text-[#dfe1e5]">
-                                    {telemetry.requestAttempt ?? 1}
-                                </span>
+                                <span className="font-mono text-[#dfe1e5]">{telemetry.requestAttempt ?? 1}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Retries Observed:</span>
-                                <span className="font-mono text-[#dfe1e5]">
-                                    {telemetry.retryAttempts ?? 0}
-                                </span>
+                                <span className="font-mono text-[#dfe1e5]">{telemetry.retryAttempts ?? 0}</span>
                             </div>
                             {telemetry.retryDelayMs !== undefined && (
                                 <div className="flex items-center justify-between">

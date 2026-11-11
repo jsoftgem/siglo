@@ -68,7 +68,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         telemetryDocument &&
         workflowName &&
         telemetryRecords.length > 0 &&
-        telemetryRecords.every(r => r.workflowName !== workflowName)
+        telemetryRecords.every(r => r.workflowName !== workflowName),
     );
 
     return (
@@ -88,7 +88,10 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                         {hasMatchedTelemetry ? (
                             <span className="text-emerald-400 font-medium">Telemetry recording linked</span>
                         ) : isWorkflowMismatch ? (
-                            <span className="text-amber-400/90 italic" title={`Recording is for "${telemetryRecords[0]?.workflowName}". Active workflow is "${workflowName}".`}>
+                            <span
+                                className="text-amber-400/90 italic"
+                                title={`Recording is for "${telemetryRecords[0]?.workflowName}". Active workflow is "${workflowName}".`}
+                            >
                                 Recording is for &quot;{telemetryRecords[0]?.workflowName}&quot;
                             </span>
                         ) : (
@@ -101,10 +104,15 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             {hasTelemetryDocument && isWorkflowMismatch && (
                 <div className="mx-4 mt-3 p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed">
                     <span className="font-semibold block mb-0.5">Workflow Mismatch</span>
-                    Recording <span className="font-mono text-amber-200">{telemetryDocument.fileName}</span> is for workflow{' '}
-                    <code className="text-amber-200 bg-amber-950/40 px-1 py-0.5 rounded">{telemetryRecords[0]?.workflowName}</code>, but the active flow is{' '}
+                    Recording <span className="font-mono text-amber-200">{telemetryDocument.fileName}</span> is for
+                    workflow{' '}
+                    <code className="text-amber-200 bg-amber-950/40 px-1 py-0.5 rounded">
+                        {telemetryRecords[0]?.workflowName}
+                    </code>
+                    , but the active flow is{' '}
                     <code className="text-amber-200 bg-amber-950/40 px-1 py-0.5 rounded">{workflowName}</code>. Open{' '}
-                    <span className="font-semibold underline">{telemetryRecords[0]?.workflowName}.workflow.ts</span> to view runtime traces.
+                    <span className="font-semibold underline">{telemetryRecords[0]?.workflowName}.workflow.ts</span> to
+                    view runtime traces.
                 </div>
             )}
 

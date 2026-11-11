@@ -70,9 +70,13 @@ export const AiInspector: React.FC<AiInspectorProps> = ({ config, telemetry }) =
                         Recorded Inference
                     </h4>
                     {telemetry ? (
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                            telemetry.outcome === 'success' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60' : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
-                        }`}>
+                        <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                telemetry.outcome === 'success'
+                                    ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                                    : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
+                            }`}
+                        >
                             {telemetry.outcome}
                         </span>
                     ) : (
@@ -85,7 +89,9 @@ export const AiInspector: React.FC<AiInspectorProps> = ({ config, telemetry }) =
                         <>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Inference Phase:</span>
-                                <span className="font-mono capitalize text-[#dfe1e5]">{telemetry.phase || 'completion'}</span>
+                                <span className="font-mono capitalize text-[#dfe1e5]">
+                                    {telemetry.phase || 'completion'}
+                                </span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Latency:</span>
@@ -105,11 +111,15 @@ export const AiInspector: React.FC<AiInspectorProps> = ({ config, telemetry }) =
                                 </div>
                                 <div className="flex items-center justify-between font-mono text-[11px]">
                                     <span className="text-[#868a98]">Completion:</span>
-                                    <span className="text-[#dfe1e5]">{telemetry.completionTokens ?? 'Unavailable'}</span>
+                                    <span className="text-[#dfe1e5]">
+                                        {telemetry.completionTokens ?? 'Unavailable'}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between font-mono text-[11px] pt-1 border-t border-[#393b40]">
                                     <span className="text-[#868a98] font-semibold">Total Tokens:</span>
-                                    <span className="text-emerald-400 font-semibold">{telemetry.totalTokens ?? 'Unavailable'}</span>
+                                    <span className="text-emerald-400 font-semibold">
+                                        {telemetry.totalTokens ?? 'Unavailable'}
+                                    </span>
                                 </div>
                             </div>
 
@@ -121,15 +131,11 @@ export const AiInspector: React.FC<AiInspectorProps> = ({ config, telemetry }) =
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Self-Repair Attempts:</span>
-                                <span className="font-mono text-[#dfe1e5]">
-                                    {telemetry.repairAttempts ?? 0}
-                                </span>
+                                <span className="font-mono text-[#dfe1e5]">{telemetry.repairAttempts ?? 0}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Fallback Activations:</span>
-                                <span className="font-mono text-[#dfe1e5]">
-                                    {telemetry.fallbackCount ?? 0}
-                                </span>
+                                <span className="font-mono text-[#dfe1e5]">{telemetry.fallbackCount ?? 0}</span>
                             </div>
                         </>
                     ) : (

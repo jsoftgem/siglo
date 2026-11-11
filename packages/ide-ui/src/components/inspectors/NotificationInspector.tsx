@@ -1,5 +1,9 @@
 import React from 'react';
-import type { NotificationEcosystemConfig, NotificationTelemetryRecord, EcosystemInspectionData } from '@siglo/ide-protocol';
+import type {
+    NotificationEcosystemConfig,
+    NotificationTelemetryRecord,
+    EcosystemInspectionData,
+} from '@siglo/ide-protocol';
 import { Bell, CheckSquare, Clock, Mail, MessageSquare, AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface NotificationInspectorProps {
@@ -57,7 +61,8 @@ export const NotificationInspector: React.FC<NotificationInspectorProps> = ({ co
     const getChannelIcon = (ch: string) => {
         const c = ch.toLowerCase();
         if (c.includes('email') || c.includes('mail')) return <Mail className="w-3.5 h-3.5 text-sky-400" />;
-        if (c.includes('slack') || c.includes('discord') || c.includes('chat')) return <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />;
+        if (c.includes('slack') || c.includes('discord') || c.includes('chat'))
+            return <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />;
         return <Bell className="w-3.5 h-3.5 text-amber-400" />;
     };
 
@@ -109,9 +114,13 @@ export const NotificationInspector: React.FC<NotificationInspectorProps> = ({ co
                         Recorded Delivery
                     </h4>
                     {telemetry ? (
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                            telemetry.outcome === 'success' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60' : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
-                        }`}>
+                        <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                telemetry.outcome === 'success'
+                                    ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                                    : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
+                            }`}
+                        >
                             {telemetry.outcome}
                         </span>
                     ) : (
@@ -158,13 +167,17 @@ export const NotificationInspector: React.FC<NotificationInspectorProps> = ({ co
                                     {telemetry.contentPreview.recipientMasked && (
                                         <div className="flex items-center justify-between font-mono text-[10px]">
                                             <span className="text-[#868a98]">Recipient:</span>
-                                            <span className="text-[#dfe1e5]">{telemetry.contentPreview.recipientMasked}</span>
+                                            <span className="text-[#dfe1e5]">
+                                                {telemetry.contentPreview.recipientMasked}
+                                            </span>
                                         </div>
                                     )}
                                     {telemetry.contentPreview.subject && (
                                         <div className="flex items-center justify-between font-mono text-[10px]">
                                             <span className="text-[#868a98]">Subject:</span>
-                                            <span className="text-[#dfe1e5] truncate max-w-[150px]">{telemetry.contentPreview.subject}</span>
+                                            <span className="text-[#dfe1e5] truncate max-w-[150px]">
+                                                {telemetry.contentPreview.subject}
+                                            </span>
                                         </div>
                                     )}
                                     {telemetry.contentPreview.bodySnippet && (

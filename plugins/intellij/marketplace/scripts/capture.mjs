@@ -164,12 +164,14 @@ try {
                     requestAttempt: 2,
                     retryDelayMs: 200,
                     policy: 'allowed',
-                    traceId: 'tr_pay_7721'
-                }
-            }
-        ]
+                    traceId: 'tr_pay_7721',
+                },
+            },
+        ],
     };
-    await evaluate(`const sel = document.querySelector('select'); if (sel) { sel.value = 'checkoutWorkflow'; sel.dispatchEvent(new Event('change', {bubbles:true})); }`);
+    await evaluate(
+        `const sel = document.querySelector('select'); if (sel) { sel.value = 'checkoutWorkflow'; sel.dispatchEvent(new Event('change', {bubbles:true})); }`,
+    );
     await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'setTelemetry', document:${JSON.stringify(telemetryDoc)}})`);
     await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(payment.id)}})`);
     await screenshot('05-ecosystem-telemetry.png');

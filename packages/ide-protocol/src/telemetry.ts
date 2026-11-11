@@ -45,14 +45,7 @@ export interface NotificationTelemetryRecord {
     approval?: boolean;
     approvalExpiresAt?: number;
     approvalState?:
-        | 'requested'
-        | 'approved'
-        | 'rejected'
-        | 'forbidden'
-        | 'cancelled'
-        | 'expired'
-        | 'conflict'
-        | 'failed';
+        'requested' | 'approved' | 'rejected' | 'forbidden' | 'cancelled' | 'expired' | 'conflict' | 'failed';
     tokenStatus?: 'issued' | 'unavailable';
     contentPreview?: {
         subject?: string;
@@ -158,7 +151,7 @@ export function sanitizeOriginUrl(rawUrl?: string): string | undefined {
  */
 export function formatOriginCurl(method?: string, url?: string): string {
     const origin = sanitizeOriginUrl(url) || 'https://unknown-host';
-    const cleanMethod = (method && ALLOWED_HTTP_METHODS.has(method.toUpperCase())) ? method.toUpperCase() : 'GET';
+    const cleanMethod = method && ALLOWED_HTTP_METHODS.has(method.toUpperCase()) ? method.toUpperCase() : 'GET';
     return `curl -X ${cleanMethod} ${origin}`;
 }
 
@@ -283,13 +276,21 @@ export function sanitizeTelemetryInspection(val: any): EcosystemInspectionData |
         if (typeof val.promptTokens === 'number' && Number.isInteger(val.promptTokens) && val.promptTokens >= 0) {
             clean.promptTokens = val.promptTokens;
         }
-        if (typeof val.completionTokens === 'number' && Number.isInteger(val.completionTokens) && val.completionTokens >= 0) {
+        if (
+            typeof val.completionTokens === 'number' &&
+            Number.isInteger(val.completionTokens) &&
+            val.completionTokens >= 0
+        ) {
             clean.completionTokens = val.completionTokens;
         }
         if (typeof val.totalTokens === 'number' && Number.isInteger(val.totalTokens) && val.totalTokens >= 0) {
             clean.totalTokens = val.totalTokens;
         }
-        if (typeof val.estimatedCostUsd === 'number' && Number.isFinite(val.estimatedCostUsd) && val.estimatedCostUsd >= 0) {
+        if (
+            typeof val.estimatedCostUsd === 'number' &&
+            Number.isFinite(val.estimatedCostUsd) &&
+            val.estimatedCostUsd >= 0
+        ) {
             clean.estimatedCostUsd = val.estimatedCostUsd;
         }
         if (typeof val.repairAttempts === 'number' && Number.isInteger(val.repairAttempts) && val.repairAttempts >= 0) {
@@ -333,10 +334,7 @@ export function sanitizeTelemetryEnvelope(val: any): EcosystemTelemetryEnvelope 
  * - A raw array of telemetry envelopes `[...]`
  * Rejects unsupported versions and invalid records fail-closed.
  */
-export function sanitizeTelemetryDocument(
-    raw: unknown,
-    fileName?: string,
-): TelemetryRecordingDocument | undefined {
+export function sanitizeTelemetryDocument(raw: unknown, fileName?: string): TelemetryRecordingDocument | undefined {
     if (!raw) return undefined;
 
     let recordsRaw: unknown[] | undefined;
@@ -389,7 +387,7 @@ export function matchTelemetryRecord(
     nodeName?: string,
 ): boolean {
     const id = typeof nodeOrId === 'string' ? nodeOrId : nodeOrId?.id;
-    const name = typeof nodeOrId === 'string' ? nodeName : (nodeOrId?.name || nodeName);
+    const name = typeof nodeOrId === 'string' ? nodeName : nodeOrId?.name || nodeName;
     if (record.workflowName !== workflowName) return false;
 
     if (

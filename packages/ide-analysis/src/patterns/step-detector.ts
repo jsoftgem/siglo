@@ -105,7 +105,10 @@ export function detectStepFromExpression(
                     for (const prop of expr.arguments[0].properties) {
                         if (ts.isPropertyAssignment(prop)) {
                             const pName = prop.name.getText(sourceFile).replace(/['"]/g, '');
-                            if ((pName === 'maxRetries' || pName === 'retries') && ts.isNumericLiteral(prop.initializer)) {
+                            if (
+                                (pName === 'maxRetries' || pName === 'retries') &&
+                                ts.isNumericLiteral(prop.initializer)
+                            ) {
                                 config.retries = Number(prop.initializer.text);
                             }
                         }

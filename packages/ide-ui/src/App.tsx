@@ -59,9 +59,7 @@ export const App: React.FC = () => {
             } else if (msg.type === 'clearSelection') {
                 setSelectedNodeId(null);
             } else if (msg.type === 'setTelemetry') {
-                const sanitized = msg.document
-                    ? sanitizeTelemetryDocument(msg.document, msg.document.fileName)
-                    : null;
+                const sanitized = msg.document ? sanitizeTelemetryDocument(msg.document, msg.document.fileName) : null;
                 setTelemetryDoc(sanitized || null);
             } else if (msg.type === 'clearTelemetry') {
                 setTelemetryDoc(null);
@@ -135,11 +133,11 @@ export const App: React.FC = () => {
         telemetryWorkflowName &&
         activeWorkflow.name &&
         telemetryRecords.length > 0 &&
-        telemetryRecords.every(r => r.workflowName !== activeWorkflow.name)
+        telemetryRecords.every(r => r.workflowName !== activeWorkflow.name),
     );
     const telemetryMatchedCount = telemetryDoc
         ? (activeWorkflow.nodes || []).filter(node =>
-              telemetryRecords.some(rec => matchTelemetryRecord(rec, activeWorkflow.name, undefined, node))
+              telemetryRecords.some(rec => matchTelemetryRecord(rec, activeWorkflow.name, undefined, node)),
           ).length
         : 0;
 
@@ -214,9 +212,7 @@ export const App: React.FC = () => {
                                     value={selectedFlowName || doc.workflowName}
                                     onChange={e => {
                                         setSelectedFlowName(e.target.value);
-                                        setInspectedWorkflowName(
-                                            e.target.value === '__ALL__' ? null : e.target.value,
-                                        );
+                                        setInspectedWorkflowName(e.target.value === '__ALL__' ? null : e.target.value);
                                         setSelectedNodeId(null);
                                     }}
                                     className="w-full bg-[#1e1f22] text-[#dfe1e5] border border-[#393b40] rounded pl-2 pr-6 py-0.5 text-xs cursor-pointer focus:outline-none focus:border-[#3574f0] focus:ring-1 focus:ring-[#3574f0] appearance-none truncate [color-scheme:dark]"
@@ -266,7 +262,9 @@ export const App: React.FC = () => {
                                     : 'border-emerald-800/60 text-[#dfe1e5]'
                             }`}
                         >
-                            <Database className={`w-3.5 h-3.5 ${isTelemetryWorkflowMismatch ? 'text-amber-400' : 'text-emerald-400'}`} />
+                            <Database
+                                className={`w-3.5 h-3.5 ${isTelemetryWorkflowMismatch ? 'text-amber-400' : 'text-emerald-400'}`}
+                            />
                             <span
                                 className="truncate max-w-[150px] font-mono text-[10px]"
                                 title={
@@ -365,7 +363,9 @@ export const App: React.FC = () => {
                                         key={workflow.name}
                                         workflowName={workflow.name}
                                         workflowProperties={workflow.properties}
-                                        workflowVersion={workflow.properties?.workflowVersion || workflow.properties?.version}
+                                        workflowVersion={
+                                            workflow.properties?.workflowVersion || workflow.properties?.version
+                                        }
                                         telemetryDocument={telemetryDoc}
                                         onSelectWorkflow={() => inspectWorkflow(workflow.name)}
                                         nodes={workflow.nodes}
@@ -381,7 +381,9 @@ export const App: React.FC = () => {
                         <GraphCanvas
                             workflowName={displayTitle}
                             workflowProperties={activeWorkflow.properties}
-                            workflowVersion={activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version}
+                            workflowVersion={
+                                activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version
+                            }
                             telemetryDocument={telemetryDoc}
                             onSelectWorkflow={() => inspectWorkflow(displayTitle)}
                             nodes={displayNodes}
@@ -403,7 +405,9 @@ export const App: React.FC = () => {
                         selectedNode={selectedNode}
                         diagnostics={displayDiagnostics}
                         workflowName={activeWorkflow.name}
-                        workflowVersion={activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version}
+                        workflowVersion={
+                            activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version
+                        }
                         telemetryDocument={telemetryDoc}
                     />
                 )}

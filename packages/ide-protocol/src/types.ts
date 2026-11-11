@@ -61,10 +61,7 @@ export interface AiEcosystemConfig {
 }
 
 export type EcosystemConfig =
-    | HttpEcosystemConfig
-    | CryptoEcosystemConfig
-    | NotificationEcosystemConfig
-    | AiEcosystemConfig;
+    HttpEcosystemConfig | CryptoEcosystemConfig | NotificationEcosystemConfig | AiEcosystemConfig;
 
 export interface GraphNode {
     id: string; // Deterministic AST node ID (e.g. "step_callStripe_L14_C5")

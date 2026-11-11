@@ -153,39 +153,39 @@ test('host handles ready, trusted launch, live edits, background tabs, and valid
     activate({ subscriptions, asAbsolutePath: name => path.resolve(__dirname, '..', name) });
     try {
         await receiver({ type: 'ready' });
-    await waitFor(() => messages.some(msg => msg.document));
-    const initial = messages.filter(msg => msg.document).at(-1);
-    const graph = initial.document;
-    const firstNode = graph.nodes[0];
-    receiver({ type: 'nodeSelected', nodeId: firstNode.id });
-    await waitFor(() => opened);
-    assert.equal(opened.document, doc);
-    assert.equal(opened.options.selection.start.line, graph.location.start.line);
-    opened = undefined;
-    receiver({ type: 'openRelatedFile', uri: 'file:///etc/passwd' });
-    await new Promise(r => setTimeout(r, 50));
-    assert.equal(opened, undefined);
-    doc.version = 2;
-    handlers.edit({ document: doc, contentChanges: [{}] });
-    await waitFor(() => messages.some(msg => msg.document?.documentVersion === 2));
-    const count = messages.length;
-    handlers.edit({ document: { ...doc }, contentChanges: [{}] });
-    await new Promise(r => setTimeout(r, 300));
-    assert.equal(messages.length, count);
-    receiver({ type: 'setAutoReload', enabled: false });
-    doc.version = 3;
-    handlers.edit({ document: doc, contentChanges: [{}] });
-    await new Promise(r => setTimeout(r, 400));
-    assert.equal(messages.filter(msg => msg.document).at(-1).document.documentVersion, 2);
-    receiver({ type: 'reload' });
-    await waitFor(() => messages.some(msg => msg.document?.documentVersion === 3));
-    doc.version = 4;
-    handlers.edit({ document: doc, contentChanges: [{}] });
-    const other = { ...doc, uri: { scheme: 'file', toString: () => 'file:///tmp/other.ts' } };
-    handlers.active({ document: other });
-    await waitFor(() => messages.some(msg => msg.document?.uri === 'file:///tmp/other.ts'));
-    await new Promise(r => setTimeout(r, 350));
-    assert.equal(messages.filter(msg => msg.document).at(-1).document.uri, 'file:///tmp/other.ts');
+        await waitFor(() => messages.some(msg => msg.document));
+        const initial = messages.filter(msg => msg.document).at(-1);
+        const graph = initial.document;
+        const firstNode = graph.nodes[0];
+        receiver({ type: 'nodeSelected', nodeId: firstNode.id });
+        await waitFor(() => opened);
+        assert.equal(opened.document, doc);
+        assert.equal(opened.options.selection.start.line, graph.location.start.line);
+        opened = undefined;
+        receiver({ type: 'openRelatedFile', uri: 'file:///etc/passwd' });
+        await new Promise(r => setTimeout(r, 50));
+        assert.equal(opened, undefined);
+        doc.version = 2;
+        handlers.edit({ document: doc, contentChanges: [{}] });
+        await waitFor(() => messages.some(msg => msg.document?.documentVersion === 2));
+        const count = messages.length;
+        handlers.edit({ document: { ...doc }, contentChanges: [{}] });
+        await new Promise(r => setTimeout(r, 300));
+        assert.equal(messages.length, count);
+        receiver({ type: 'setAutoReload', enabled: false });
+        doc.version = 3;
+        handlers.edit({ document: doc, contentChanges: [{}] });
+        await new Promise(r => setTimeout(r, 400));
+        assert.equal(messages.filter(msg => msg.document).at(-1).document.documentVersion, 2);
+        receiver({ type: 'reload' });
+        await waitFor(() => messages.some(msg => msg.document?.documentVersion === 3));
+        doc.version = 4;
+        handlers.edit({ document: doc, contentChanges: [{}] });
+        const other = { ...doc, uri: { scheme: 'file', toString: () => 'file:///tmp/other.ts' } };
+        handlers.active({ document: other });
+        await waitFor(() => messages.some(msg => msg.document?.uri === 'file:///tmp/other.ts'));
+        await new Promise(r => setTimeout(r, 350));
+        assert.equal(messages.filter(msg => msg.document).at(-1).document.uri, 'file:///tmp/other.ts');
     } finally {
         for (const d of subscriptions) d.dispose();
     }
@@ -235,12 +235,13 @@ test('M2: host surfaces static diagnostics into DiagnosticCollection with precis
         uri: { scheme: 'file', toString: () => 'file:///tmp/diag-test.ts' },
         languageId: 'typescript',
         version: 1,
-        getText: () => [
-            "import { flow, Step } from '@siglo/core';",
-            "const stepA1 = Step.create('dupStep', () => {});",
-            "const stepA2 = Step.create('dupStep', () => {});",
-            "export const duplicateFlow = flow('duplicateFlow', stepA1, stepA2);"
-        ].join('\n'),
+        getText: () =>
+            [
+                "import { flow, Step } from '@siglo/core';",
+                "const stepA1 = Step.create('dupStep', () => {});",
+                "const stepA2 = Step.create('dupStep', () => {});",
+                "export const duplicateFlow = flow('duplicateFlow', stepA1, stepA2);",
+            ].join('\n'),
         offsetAt: p => p.character,
     };
     handlers.active({ document: diagDoc });

@@ -38,7 +38,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     if (telemetryDocument && workflowName) {
         for (const node of nodes) {
             const hasRecord = telemetryDocument.records.some(rec =>
-                matchTelemetryRecord(rec, workflowName, workflowVersion, node)
+                matchTelemetryRecord(rec, workflowName, workflowVersion, node),
             );
             if (hasRecord) {
                 recordedNodeIds.add(node.id);
@@ -181,7 +181,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                         <marker id={markerId} markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
                             <path d="M0 0L8 3L0 6Z" fill="context-stroke" />
                         </marker>
-                        <marker id={recordedMarkerId} markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto">
+                        <marker
+                            id={recordedMarkerId}
+                            markerWidth="9"
+                            markerHeight="7"
+                            refX="7.5"
+                            refY="3.5"
+                            orient="auto"
+                        >
                             <path d="M0 0L9 3.5L0 7Z" fill="#10b981" />
                         </marker>
                     </defs>
@@ -225,7 +232,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                                               ? '6 3'
                                               : undefined
                                     }
-                                    markerEnd={isRecordedPath && !active ? `url(#${recordedMarkerId})` : `url(#${markerId})`}
+                                    markerEnd={
+                                        isRecordedPath && !active ? `url(#${recordedMarkerId})` : `url(#${markerId})`
+                                    }
                                 />
                                 {edge.label && (
                                     <text x={(x1 + x2) / 2 + 8} y={(y1 + y2) / 2} fill={color} fontSize="11">

@@ -1,12 +1,7 @@
 import * as vscode from 'vscode';
 import { AnalyzerClient } from './client';
 import { WorkflowViews, type NavigationTarget } from './webview';
-import {
-    PROTOCOL_METHODS,
-    type GraphDocument,
-    type GraphNode,
-    type SourceRange,
-} from '@siglo/ide-protocol';
+import { PROTOCOL_METHODS, type GraphDocument, type GraphNode, type SourceRange } from '@siglo/ide-protocol';
 
 function range(location: SourceRange): vscode.Range {
     return new vscode.Range(location.start.line, location.start.character, location.end.line, location.end.character);
@@ -25,7 +20,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const output = vscode.window.createOutputChannel('Siglo');
     const diagnosticsCollection = vscode.languages.createDiagnosticCollection('siglo');
     const report = (error: unknown): void => {
-        const message = error instanceof Error ? error.stack ?? error.message : String(error);
+        const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
         output.appendLine(message);
     };
 
@@ -79,10 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
         await views.post(result);
         trackSelection();
 
-        const allDiags = [
-            ...(result.diagnostics || []),
-            ...((result.workflows || []).flatMap(w => w.diagnostics || [])),
-        ];
+        const allDiags = [...(result.diagnostics || []), ...(result.workflows || []).flatMap(w => w.diagnostics || [])];
         const seen = new Set<string>();
         const vscodeDiagnostics: vscode.Diagnostic[] = [];
         for (const d of allDiags) {

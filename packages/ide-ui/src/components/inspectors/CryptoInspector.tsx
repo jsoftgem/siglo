@@ -140,9 +140,13 @@ export const CryptoInspector: React.FC<CryptoInspectorProps> = ({ config, teleme
                         <>
                             <div className="flex items-center justify-between">
                                 <span className="text-[#868a98]">Outcome:</span>
-                                <span className={`font-mono font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
-                                    telemetry.outcome === 'success' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60' : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
-                                }`}>
+                                <span
+                                    className={`font-mono font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded ${
+                                        telemetry.outcome === 'success'
+                                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                                            : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
+                                    }`}
+                                >
                                     {telemetry.outcome}
                                 </span>
                             </div>

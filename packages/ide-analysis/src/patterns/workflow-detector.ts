@@ -1443,9 +1443,7 @@ export function runDiagnostics(
     const isDurableWorkflow = durableNodes.length > 0 || properties?.durable === 'true';
     if (isDurableWorkflow) {
         // Check for branch forks lacking a default or fallback route
-        const branchForks = nodes.filter(
-            n => n.name === 'branch fork' || n.properties?.operation === 'branch',
-        );
+        const branchForks = nodes.filter(n => n.name === 'branch fork' || n.properties?.operation === 'branch');
         for (const fork of branchForks) {
             const outEdges = edges.filter(e => e.from === fork.id);
             const hasDefault = outEdges.some(
@@ -1462,9 +1460,7 @@ export function runDiagnostics(
         }
 
         // Check for when forks lacking an else / fallback route
-        const whenForks = nodes.filter(
-            n => n.name === 'when fork' || n.properties?.operation === 'when',
-        );
+        const whenForks = nodes.filter(n => n.name === 'when fork' || n.properties?.operation === 'when');
         for (const fork of whenForks) {
             const outEdges = edges.filter(e => e.from === fork.id);
             const hasElse = outEdges.some(
