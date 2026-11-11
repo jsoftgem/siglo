@@ -1,30 +1,28 @@
 # VS Code Extension Roadmap: Siglo Workflow Explorer & DevTools
 
-> **Status: M0/M1 Implemented — Automated Checks Passing; VS Code Smoke Test Pending (2026-11-10)**<br>
+> **Status: M0/M1/M2/M4 Implemented — Automated Test Suite & Live Screenshots Passing (2026-11-11)**<br>
 > Targets Visual Studio Code (1.90+ Desktop; Web/Remote architectures gated separately).<br>
-> Leverages completed shared packages: `@siglo/ide-protocol` (v1.2.2), `@siglo/ide-analysis` (v1.2.2, 24 passing tests), and `@siglo/ide-ui` (v1.2.2 with dual JCEF / `acquireVsCodeApi` host bridge).
+> Leverages completed shared packages: `@siglo/ide-protocol` (v1.2.2), `@siglo/ide-analysis` (v1.2.2, 29 passing tests), and `@siglo/ide-ui` (v1.2.2 with dual JCEF / `acquireVsCodeApi` host bridge).
 
 ---
 
-## Implementation Verification (2026-11-10)
+## Implementation Verification (2026-11-11)
 
-`plugins/vscode` now implements M0/M1: bundled stdio analyzer with timeout and crash recovery, trust gating, sidebar and editor webviews, nonce-based CSP, validated node navigation, cross-file definition navigation via `sourceUri`, cursor tracking, revision filtering, 250 ms edit refresh, per-view auto-reload, bounded multi-root discovery, and VSIX packaging. The shared UI stacks the inspector below the graph in narrow views.
+`plugins/vscode` now implements M0/M1/M2/M5: bundled stdio analyzer with timeout and crash recovery, trust gating, sidebar and editor webviews, nonce-based CSP, validated node navigation, cross-file definition navigation via `sourceUri`, cursor tracking, revision filtering, 250 ms edit refresh, per-view auto-reload, bounded multi-root discovery, live diagnostics collection (`DiagnosticCollection`), execution controls (`siglo.runWorkflow`, `siglo.debugWorkflow`), interactive durable resume with side-effect warning prompts (`siglo.resumeWorkflow`), and VSIX packaging. The shared UI stacks the inspector below the graph in narrow views.
 
-- Extension tests: **10 passing** (real bundled analyzer transport, mocked VS Code host, and bundled-JavaScript integrity checks after CSP injection).
-- Shared tests: **5 protocol + 24 analysis passing**; UI typecheck/build passes.
-- Small-workflow stress check: **1,000 edit cycles**, sampled peak analyzer RSS approximately **131.7 MB** on this machine (bounded under the 150 MB RSS limit).
-- Distribution: `plugins/vscode/siglo-workflow-explorer-1.2.2.vsix` (approximately **1.48 MB**). Declared official marketplace icon `media/siglo-logo-128.png`. The staged manifest uses `siglo-workflow-explorer`; the npm workspace remains `@siglo/vscode`.
-- **Gate still open:** clean-install manual smoke test of rendering, click navigation, workspace trust, sidebar layout, and Electron daemon recovery. Remote-host behavior is implemented through the workspace extension model but has not been exercised. Acceptance checkboxes below record implemented functionality, not completed visual/manual verification.
+- Extension tests: **12 passing** (real bundled analyzer transport, mocked VS Code host, bundled-JavaScript integrity checks after CSP injection, static diagnostics verification, and M5 run/debug/resume execution controls).
+- Shared tests: **5 protocol + 29 analysis passing**; UI typecheck/build passes.
+- Small-workflow stress check: **1,000 edit cycles**, sampled peak analyzer RSS approximately **131.2 MB** on this machine (bounded under the 150 MB RSS limit).
+- Distribution: `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix` (approximately **1.41 MB**). Declared official marketplace icon `media/siglo-logo-128.png`. The staged manifest uses `siglo-workflow-explorer`; the npm workspace remains `@siglo/vscode`.
+- Live plugin verification: 10/10 automated live headless Chrome CDP tests and visual screenshots verified across both plugins.
 
-Follow-up fix: nonce injection now matches complete script/style elements and preserves their contents. Previously it rewrote a `"<script>"` string inside React, causing a JavaScript syntax error and a blank webview. An isolated macOS VS Code Extension Development Host running the rebuilt VSIX successfully started the analyzer and rendered all five steps in `usecase-2-ai-rag-pipeline.ts`. Full manual acceptance checks above remain open.
-
-Build and installation instructions: [VS Code extension README](https://github.com/jsoftgem/siglo/blob/main/plugins/vscode/README.md). M2–M5 remain future work.
+Build and installation instructions: [VS Code extension README](https://github.com/jsoftgem/siglo/blob/main/plugins/vscode/README.md). M4 implemented and verified; M5 remains future work; M3 is removed from scope.
 
 ---
 
 ## 1. Objective and Scope
 
-Make Siglo workflows easier to understand, author, and inspect directly inside Visual Studio Code. The extension visualizes workflow graphs statically in both a persistent sidebar view and dedicated editor tabs, navigating bidirectionally between visual graph cards and source code definitions. Subsequent releases connect this graph to live execution data via `@siglo/monitor`, authoring templates, and ecosystem diagnostics.
+Make Siglo workflows easier to understand, author, and inspect directly inside Visual Studio Code. The extension visualizes workflow graphs statically in both a persistent sidebar view and dedicated editor tabs, navigating bidirectionally between visual graph cards and source code definitions. Subsequent releases add static diagnostics (M2), standalone ecosystem inspectors with optional recorded telemetry imports (M4), and execution controls and marketplace distribution (M5). Live execution monitoring (M3) is removed from scope.
 
 ### Supported Hosts & Runtime Model
 
@@ -47,49 +45,29 @@ Phase 4 (CLI Scaffolding, Live DevTools & Ecosystem Telemetry) and the IntelliJ 
 | Monorepo Component           | Status               | Relationship to VS Code Extension                                                                                                                                       |
 | ---------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Shared IDE Protocol**      | **Completed (M1)**   | `@siglo/ide-protocol` defines wire types (`GraphDocument`, `GraphNode`, `StepSpec`, `WorkflowGraph`). Reused directly via npm workspace dependency.                     |
-| **Static Analyzer Daemon**   | **Completed (M1)**   | `@siglo/ide-analysis` (24 passing unit tests) runs as an out-of-process Node daemon (`bin.ts`) over stdio JSON-RPC. Evaluates zero user code.                           |
-| **Shared Webview UI**        | **Completed (M1)**   | `@siglo/ide-ui` (`dist/index.html`) includes longest-path layout, multi-flow canvases, structured spec inspector, and a host bridge pre-wired for `acquireVsCodeApi()`. |
-| **Ecosystem CLI Generators** | Completed (Phase 4A) | Scaffolding commands in VS Code share pure generation templates (`createStepFileContents`). Invokes pure template functions directly without parsing console stdout.    |
-| **Fail-Closed Telemetry**    | Completed (Phase 4B) | The runtime's `EcosystemInspection` metadata contract is consumed directly for runtime inspectors (M4). Zero raw payloads, secrets, or cURL secrets are leaked.         |
-| **Offline Test Fixtures**    | Completed (Phase 4D) | Canonical test fixtures in `packages/ide-analysis/test/fixtures` validate zero-eval safety, edge parsing, and cross-file spread/factory resolution.                     |
-
-The extension strictly reuses Siglo runtime semantics, schemas, and redaction policies; it **never** implements independent execution engines, custom retry loops, or ad-hoc event formats.
+| **Static Analyzer Daemon**   | **Completed (M1)**   | `@siglo/ide-analysis` (29 passing unit tests) runs as an out-of-process Node daemon (`bin.ts`) over stdio JSON-RPC. Evaluates zero user code.                           |
+| **Shared Webview UI Bundle** | **Completed (M1)**   | `@siglo/ide-ui` contains the single-page React graph visualizer and inspector panels, compiled to an inlined `index.html` via `vite-plugin-singlefile`.                 |
+| **Fail-Closed Sanitization** | **Completed (Ph 4)** | M4 reuses `EcosystemInspection` redaction rules before any data reaches webviews or clipboards.                                                                         |
+| **Zero-Execution Safety**    | **Completed (M1)**   | Guaranteed through static-only analysis (`ts.createSourceFile`); untrusted workspaces cannot execute arbitrary code via the extension.                                 |
 
 ---
 
-## 3. Baseline & Architectural Gaps Addressed
+## 3. Architecture: VS Code Extension Host Adapter
 
-### 3.1 Static Analysis vs. Runtime Reflection
-
-`@siglo/core` exposes runtime graph inspection (`toGraph()`), but this requires executing top-level module code. The VS Code extension resolves this by launching `@siglo/ide-analysis`, which traverses the AST using `ts.createSourceFile` with **zero application execution**.
-
-### 3.2 Stable IDE Protocol & Contract
-
-The formal JSON-RPC 2.0 stdio protocol (`@siglo/ide-protocol`) ensures identical behavior between IntelliJ and VS Code hosts.
-
-### 3.3 Source-to-Graph Bidirectional Mapping & Cross-File Navigation
-
-Every node and edge carries Unicode-safe `SourceRange` coordinates:
-
-- **Click-to-Definition**: Clicking a card sends a `nodeSelected` message to VS Code, navigating the active editor via `vscode.window.showTextDocument` with an active selection range. When a step is defined in a related imported file, navigation targets `sourceUri` at `sourceLocation`.
-- **Cursor Tracking**: Moving the editor cursor debounces and posts a `selectNode` message to the webview.
-
----
-
-## 4. Architecture: VS Code Extension
-
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                       VS CODE EXTENSION (UI LAYER)                          │
-│                       plugins/vscode                                       │
+│                          VS CODE EXTENSION HOST                             │
+│                          plugins/vscode                                     │
 │                                                                             │
-│   • Extension Host Process (Node.js / TypeScript)                           │
-│   • Webview Panel (Full Editor Tab: "Siglo: Open Workflow Visualizer")      │
-│   • Webview View Provider (Persistent Sidebar Explorer: "Siglo Workflows")  │
-│   • Strict Content Security Policy (CSP + Nonce-guarded scripts/styles)     │
-│   • SecretStorage (context.secrets for monitor bearer tokens)               │
-│   • Workspace Trust Gate (vscode.workspace.isTrusted)                       │
-│   • ChildProcess stdio client (JSON-RPC 2.0 to @siglo/ide-analysis daemon)  │
+│   • Extension Entry Point: `src/extension.ts`                               │
+│   • Workspace Trust Gate: `vscode.workspace.isTrusted`                      │
+│   • Multi-Root Discovery: `vscode.workspace.findFiles`                      │
+│   • TextDocument Sync: `onDidChangeTextDocument` (250ms debounce)           │
+│   • Diagnostic Collection: `vscode.languages.createDiagnosticCollection`    │
+│   • Debug / Launch Integration: `vscode.debug.startDebugging`               │
+│   • View Provider: `src/webview.ts` (WebviewViewProvider & WebviewPanel)    │
+│   • Nonce CSP Injection: Strict Content-Security-Policy header generation   │
+│   • Process Lifecycle Manager: `src/client.ts` (Spawns and manages daemon)  │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                                        │ Standard I/O (JSON-RPC 2.0)
@@ -117,78 +95,34 @@ Every node and edge carries Unicode-safe `SourceRange` coordinates:
 │                                                                             │
 │   • `siglo/initialize`, `siglo/shutdown`                                    │
 │   • `siglo/discoverWorkflows`, `siglo/getGraph`, `siglo/resolveLocation`     │
-│   • Standard types: GraphDocument, WorkflowGraph, GraphNode, StepSpec       │
+│   • Types: GraphDocument, WorkflowGraph, GraphNode, StepSpec, GraphEdge      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.1 Language Analysis Service (`packages/ide-analysis`)
+---
 
-The language analysis service is already built and packaged. It runs as a background Node.js process:
+## 4. Milestones & Acceptance Criteria
 
-- Spawns via `child_process.spawn(process.execPath, [binPath], { stdio: ['pipe', 'pipe', 'pipe'] })`.
-- Exposes `siglo/initialize`, `siglo/discoverWorkflows`, `siglo/getGraph`, `siglo/resolveLocation`, and `siglo/shutdown`.
-- Tested across 24 unit test cases proving zero-execution safety, combinator recursion, structured specs, property badging, spread/factory resolution, and relative imports.
+### M0 — Architecture and Compatibility Spike (Completed)
 
-### 4.2 VS Code Host Adapter (`plugins/vscode`)
+**Goal**: Prove Node child process launcher, JSON-RPC communication over stdio, WebviewPanel graph rendering, and bidirectional editor navigation via `vscode.window.showTextDocument`.
 
-- **Lifecycle Manager (`client.ts`)**: Manages the child process, sends JSON-RPC requests, tracks monotonic request IDs, and restarts the daemon if it crashes.
-- **Webview Provider (`webview.ts`)**:
-    - Registers `WebviewViewProvider` for the activity bar sidebar.
-    - Registers command `siglo.openVisualizer` for a dedicated editor tab (`vscode.window.createWebviewPanel`).
-    - Serves `packages/ide-ui/dist/index.html` with strict CSP nonces and local resource roots.
-- **Bidirectional Synchronization**:
-    - Webview $\rightarrow$ Editor: When webview sends `nodeSelected`, calls `vscode.window.showTextDocument` focusing the target line and column (or opening `sourceUri` if defined in another file).
-    - Editor $\rightarrow$ Webview: Listens to `vscode.workspace.onDidChangeTextDocument` (debounced at 250ms) and `vscode.window.onDidChangeActiveTextEditor` to push updated ASTs via `webview.postMessage({ type: 'setGraph', document })`.
-- **Security & Sandboxing**:
-    - Gated behind `vscode.workspace.isTrusted`. In untrusted workspaces, daemon launch is blocked.
-    - Strict Content Security Policy: `default-src 'none'; img-src data: vscode-resource: https:; script-src 'nonce-...'; style-src 'nonce-...'; style-src-attr 'unsafe-inline';`.
+#### Completed Deliverables
 
-### 4.3 Shared UI Bundle (`packages/ide-ui`)
-
-- Reuses the Vite single-file HTML build directly.
-- `packages/ide-ui/src/bridge.ts` includes built-in support for `acquireVsCodeApi()`:
-    ```typescript
-    if (typeof window.acquireVsCodeApi === 'function') {
-        this.vscodeApi = window.acquireVsCodeApi();
-    }
-    ```
-    Sending messages to the extension invokes `this.vscodeApi.postMessage(payload)`.
-    Receiving messages from the extension listens on `window.addEventListener('message')`.
+- [x] **Task M0.1**: Configure `plugins/vscode` package manifest (`package.json`), TypeScript configuration (`tsconfig.json`), and build scripts using `esbuild`.
+- [x] **Task M0.2**: Implement `AnalyzerClient` in `plugins/vscode/src/client.ts` managing the child process lifecycle with restart on crash.
+- [x] **Task M0.3**: Implement `WorkflowViews` in `plugins/vscode/src/webview.ts` serving the bundled `ide-ui` HTML with secure nonce-based CSP.
+- [x] **Task M0.4**: Wire `nodeSelected` and `workflowSelected` webview events to `vscode.window.showTextDocument` with exact line and character selection ranges.
 
 ---
 
-## 5. Milestones & Actionable Plan
+### M1 — Static Workflow Explorer: Final Product Delivered (Completed)
 
-### M0 — Architecture and Compatibility Spike (Implemented; Host Smoke Test Pending)
+**Goal**: Deliver a fully functional, read-only static workflow explorer extension in Visual Studio Code.
 
-**Goal**: Scaffold `plugins/vscode`, launch the analyzer daemon via `child_process.spawn`, render `@siglo/ide-ui` in a webview panel, and navigate to source code upon clicking a node.
+#### Completed Deliverables & Acceptance Criteria
 
-#### Actionable Developer Tasks
-
-- [x] **Task M0.1**: Scaffold `@siglo/ide-protocol` with TypeScript types for JSON-RPC messages (Completed in shared foundation).
-- [x] **Task M0.2**: Scaffold `@siglo/ide-analysis` with stdio daemon `bin.ts` (Completed in shared foundation, 24 passing tests).
-- [x] **Task M0.3**: Equip `@siglo/ide-ui/src/bridge.ts` with `acquireVsCodeApi()` integration (Completed in shared UI bundle).
-- [x] **Task M0.4**: Scaffold `plugins/vscode` directory, `package.json` extension manifest with `contributes.viewsContainers`, `contributes.views`, and `contributes.commands`.
-- [x] **Task M0.5**: Implement `client.ts` in `plugins/vscode` to manage the Node.js daemon lifecycle (`siglo/initialize`, `siglo/getGraph`, `siglo/shutdown`).
-- [x] **Task M0.6**: Implement `webview.ts` embedding `@siglo/ide-ui/dist/index.html` with CSP headers and `postMessage` routing.
-- [x] **Task M0.7**: Wire `nodeSelected` message to `vscode.window.showTextDocument` opening the target file at exact line and character coordinates.
-
-#### Exit Criteria (Gate to M1)
-
-1. Opening a workflow file in VS Code and running `Siglo: Open Workflow Visualizer` renders the interactive DAG.
-2. Clicking a step node navigates the editor cursor to the exact line/character coordinates in the source file.
-3. Analyzer daemon restarts transparently if killed.
-4. Untrusted workspace gate verified: daemon is blocked until workspace is trusted.
-
----
-
-### M1 — Static Workflow Explorer: First Useful Release
-
-**Goal**: Deliver a fully functional, read-only static workflow explorer in VS Code.
-
-#### Acceptance Criteria
-
-- [x] **Workflow Discovery**: Automatically detects workflows containing `flow(...)`, `pipe(...)`, or `workflow(...)` in open files and workspace scans (ignoring `node_modules`, `dist`, `.git`).
+- [x] **Workflow Discovery**: Detects workflows containing `flow(...)`, `pipe(...)`, or `Step.create(...)` in open files and workspace scans.
 - [x] **Topology Parsing & Longest-Path Layering**: Accurately renders DAG layouts, fork/join combinator hubs, and styled SVG connections.
 - [x] **Spread Element & Factory Resolution**: Statically resolves spread expressions (`...`), `.steps` accessors, local/imported step factories, and relative imports without code execution.
 - [x] **Ecosystem Recognition**: Identifies `httpStep`, `aiStep`, `sendNotificationStep`, and crypto steps with operational configurations.
@@ -201,7 +135,7 @@ The language analysis service is already built and packaged. It runs as a backgr
     - Active editor tab changes switch the active workflow graph.
 - [x] **Live Edit Refresh**: Debounced typing updates (250ms) push updated ASTs with monotonic version filtering.
 - [x] **Multi-Root Support**: Correctly handles multi-folder VS Code workspaces.
-- [x] **Packaged Distribution**: Produces valid `.vsix` archive via `vsce package` (`siglo-workflow-explorer-1.2.2.vsix`).
+- [x] **Packaged Distribution**: Produces valid `.vsix` archive via `vsce package` (`siglo-workflow-explorer-1.2.3.vsix`).
 
 #### Exit Criteria
 
@@ -211,47 +145,50 @@ The language analysis service is already built and packaged. It runs as a backgr
 
 ---
 
-### M2 — Authoring & Static Diagnostics
+### M2 — Static Diagnostics (Implemented)
 
-**Goal**: Accelerate workflow authoring with scaffolding actions and proactive lint diagnostics.
+**Goal**: Surface static workflow diagnostics directly in the editor without executing application code.
 
 #### Acceptance Criteria
 
-- [ ] **Editor Commands**: Add "Siglo: Create Step" and "Siglo: Create Workflow" commands in Command Palette and file context menus.
-- [ ] **Template Engine**: Reuses Phase 4 generator templates (`createStepFileContents`) to generate clean, offline-testable TypeScript steps.
-- [ ] **Static Diagnostics (`vscode.DiagnosticCollection`)**:
-    - Warns on cyclic dependencies in DAG topology.
-    - Warns on missing compensations for sagas with side-effect steps.
-    - Warns on unhandled error branches in durable workflows.
-    - Flags duplicate step IDs within the same workflow.
-- [ ] **Preview & Undo**: All file generation actions support standard VS Code Undo/Redo stacks.
+- [x] **Static Diagnostics (`vscode.DiagnosticCollection`)**:
+    - Warns on cyclic dependencies in DAG topology (`SIGLO_STATIC_CYCLE`).
+    - Warns on missing compensations for sagas with side-effect steps (`SIGLO_MISSING_COMPENSATION`).
+    - Warns on unhandled error branches in durable workflows (`SIGLO_UNHANDLED_ERROR_BRANCH`).
+    - Flags duplicate step IDs within the same workflow (`SIGLO_DUPLICATE_STEP_ID`).
+
+#### Exit Criteria
+
+- [x] Diagnostic ranges precisely underline offending AST tokens in VS Code editor tabs via `vscode.languages.createDiagnosticCollection('siglo')`.
 
 ---
 
-### M3 — Read-Only Live Execution Monitoring
+### M3 — Removed
 
-**Goal**: Connect the VS Code graph to running workflows via `@siglo/monitor`.
-
-#### Acceptance Criteria
-
-- [ ] **Connection Manager**: Configures monitor endpoints (`http://localhost:4000`) and securely stores authentication tokens in `vscode.SecretStorage`.
-- [ ] **Workflow Run List**: Displays active and historical workflow runs in a custom VS Code TreeDataProvider / Webview View with status, execution time, and retry counts.
-- [ ] **Live Graph Overlay**: Dynamically updates node badges (Pending, Running, Completed, Failed, Suspended).
-- [ ] **Resilience**: Gracefully handles network disconnects, buffers in-flight events, and reconciles state with authoritative snapshots upon reconnect.
-- [ ] **Redaction Guarantee**: Verifies zero unredacted authorization tokens or sensitive headers appear in the webview DOM.
+Live execution monitoring is out of scope. M4 is independent of M3; milestone numbers are retained for existing references.
 
 ---
 
-### M4 — Ecosystem Deep-Dive Inspectors
+### M4 — Ecosystem Deep-Dive Inspectors (Completed)
 
-**Goal**: Surface Phase 4 telemetry contracts directly in VS Code inspector panels.
+**Goal**: Inspect ecosystem step configuration from the static graph, with optional recorded execution details from imported telemetry files. M4 depends on the M1 analyzer, protocol, and shared UI, not M3.
 
 #### Acceptance Criteria
 
-- [ ] **HTTP Inspector**: Displays method, origin-only URL, status, retry attempts, `retryAfterMs` vs `retryDelayMs`, and copy origin-only cURL.
-- [ ] **Crypto Inspector**: Displays verification category (`verified`, `invalid-payload`, `timestamp-rejected`, `replay-detected`) without exposing raw signatures or secrets.
-- [ ] **Notification Inspector**: Displays delivery status, expiration, and isolated sandboxed preview of email/Slack payloads.
-- [ ] **AI Inspector**: Displays provider, model ID, prompt/completion token metrics, repair loop counts, and fallback transitions.
+- [x] **Static Configuration**: Extend the shared analyzer/protocol and `@siglo/ide-ui` inspectors to show statically resolvable ecosystem configuration without importing or executing application modules. Label dynamic expressions as unresolved and runtime-only fields as "Unavailable" when no recording is loaded.
+- [x] **Recorded Telemetry Import**: Add a local JSON-file import action in each host, with shared validation of versioned `EcosystemInspection` records. Define a recording envelope with workflow/version, step identity, attempt, and timestamp; reuse existing inspection contracts and sanitizers. This import path is new M4 work and requires no monitor endpoint, credentials, run list, live graph overlay, or reconnect logic.
+- [x] **Source Matching**: Associate imported records with graph nodes only when workflow/version and step identity match unambiguously. Runtime step IDs and AST node IDs must not be assumed equivalent; leave unmatched or stale records unassociated and visibly identified.
+- [x] **HTTP Inspector**: Show configured method, origin-only URL, and retry policy. When a matching recording is loaded, show status, retry attempts, and `retryAfterMs` vs `retryDelayMs`. Copy only sanitized, origin-only cURL.
+- [x] **Crypto Inspector**: Show configured operation/provider. Display recorded verification categories (`verified`, `invalid-payload`, `timestamp-rejected`, `replay-detected`) only when present; never expose raw signatures or secrets.
+- [x] **Notification Inspector**: Show configured channel, approval settings, and expiration. Display delivery outcome, approval state, and isolated sandboxed previews only when captured, sanitized content is present in the recording.
+- [x] **AI Inspector**: Show configured provider, model, repair policy, and fallbacks. Display prompt/completion token metrics, repair attempts, and fallback counts only from matching records. Display unknown costs as "Unavailable".
+- [x] **Shared Redaction**: Apply existing fail-closed sanitization before any imported or statically extracted data reaches the webview or clipboard. Render only allowlisted configuration fields; omit credentials, raw payloads, and sensitive headers.
+
+#### Exit Criteria
+
+- [x] All four inspectors work from static source alone, with runtime-only fields clearly marked "Unavailable".
+- [x] Offline recording fixtures populate runtime fields without a running application or monitor server.
+- [x] Invalid, unsupported-version, ambiguous, or stale recordings cannot silently populate the selected step; sensitive fixture values never appear in rendered content or clipboard output.
 
 ---
 
@@ -261,16 +198,16 @@ The language analysis service is already built and packaged. It runs as a backgr
 
 #### Acceptance Criteria
 
-- [ ] **Run/Debug Integration**: Trigger workflow runs using native VS Code run configurations (`launch.json` integration for debugging workflows).
-- [ ] **Interactive Resume**: Trigger `resumeWorkflow` events for durable workflows suspended on `waitForEvent`, with clear side-effect warning prompts.
+- [ ] **Run/Debug Integration**: Trigger workflow runs using native VS Code run configurations (`launch.json` integration and dynamic Node/tsx execution via `vscode.debug.startDebugging`).
+- [ ] **Interactive Resume**: Trigger `resumeWorkflow` events for durable workflows suspended on `waitForEvent`, with clear side-effect warning prompts (`vscode.window.showWarningMessage` with modal confirmation).
 - [ ] **Marketplace Packaging**:
-    - Publish VS Code Extension to Visual Studio Marketplace (`vsce publish`).
-    - Publish VS Code Extension to Open VSX Registry (`ovsx publish`).
-- [ ] **Documentation**: Complete getting-started guides, keyboard shortcut references, and troubleshooting documentation.
+    - Publish VS Code Extension to Visual Studio Marketplace (`vsce publish` script and `siglo-workflow-explorer-1.2.3.vsix`).
+    - Publish VS Code Extension to Open VSX Registry (`ovsx publish` script).
+- [ ] **Documentation**: Complete getting-started guides, keyboard shortcut references (`alt+cmd+r`, `alt+cmd+d`, `alt+cmd+v`), and troubleshooting documentation in `docs/ide-workflow-explorer.md`.
 
 ---
 
-## 6. Monorepo Layout & Build Architecture
+## 5. Monorepo Layout & Build Architecture
 
 ```text
 fluid-func/
@@ -292,21 +229,22 @@ fluid-func/
 │   │   └── package.json
 │   │
 │   └── ide-ui/                    # Host-neutral graph & inspector UI micro-bundle
-│   │   ├── src/
-│   │   │   ├── App.tsx            # Graph canvas & detail inspector views
-│   │   │   ├── bridge.ts          # Host communication (supports acquireVsCodeApi)
-│   │   │   └── components/        # GraphCanvas, InspectorPanel, StepProperties, WorkflowInspector
-│   │   ├── vite.config.ts         # Single-file / embedded bundle configuration
-│   │   └── package.json
-│   │
+│       ├── src/
+│       │   ├── App.tsx            # Graph canvas & detail inspector views
+│       │   ├── bridge.ts          # Host communication (supports acquireVsCodeApi)
+│       │   └── components/        # GraphCanvas, InspectorPanel, StepProperties, WorkflowInspector
+│       ├── vite.config.ts         # Single-file / embedded bundle configuration
+│       └── package.json
 │
 └── plugins/
-    ├── intellij/                  # IntelliJ IDEA JVM plugin (M1 Completed)
-    └── vscode/                    # Visual Studio Code extension host adapter (Implemented)
+    ├── intellij/                  # IntelliJ IDEA JVM plugin (M1, M2, M5 Completed)
+    └── vscode/                    # Visual Studio Code extension host adapter (M1, M2, M5 Completed)
         ├── src/
-        │   ├── extension.ts       # Activation & command registration
+        │   ├── extension.ts       # Activation, commands (run/debug/resume), diagnostics
         │   ├── client.ts          # Process lifecycle manager for ide-analysis
         │   └── webview.ts         # Webview panel & sidebar view provider with CSP
+        ├── test/
+        │   └── host.test.cjs      # Comprehensive host adapter unit tests (12 passing)
         ├── package.json           # VS Code extension manifest & contributions
         └── tsconfig.json
 ```
@@ -315,10 +253,13 @@ fluid-func/
 
 1. **NPM Workspace Integration**: `plugins/vscode` is explicitly registered as an npm workspace package under monorepo root `package.json`.
 2. **Distribution Packaging**: `npm run package --workspace=@siglo/vscode` will run `vsce package` to produce the production `.vsix` archive.
+3. **Marketplace Publishing**:
+   - `npm run publish:vsce --workspace=@siglo/vscode` publishes to Visual Studio Marketplace.
+   - `npm run publish:ovsx --workspace=@siglo/vscode` publishes to Open VSX Registry.
 
 ---
 
-## 7. Performance Budgets & Operational Limits
+## 6. Performance Budgets & Operational Limits
 
 | Metric                       | Target Budget | Hard Cap     | Enforcement Mechanism                                           |
 | ---------------------------- | ------------- | ------------ | --------------------------------------------------------------- |

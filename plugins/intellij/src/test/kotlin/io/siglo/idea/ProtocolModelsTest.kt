@@ -1,9 +1,11 @@
 package io.siglo.idea
 
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import io.siglo.idea.process.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class ProtocolModelsTest {
     private val gson = Gson()
@@ -110,5 +112,27 @@ class ProtocolModelsTest {
         if (nodeExecutable != null) {
             assertTrue(nodeExecutable.contains("node"))
         }
+    }
+
+    @Test
+    fun testM4TelemetryRecordingDocumentParsing() {
+        val fixtureFile = File("../../fixtures/telemetry/sample-order-recording.json")
+        assertTrue(fixtureFile.exists(), "Telemetry fixture file should exist")
+        val content = fixtureFile.readText(Charsets.UTF_8)
+        val jsonObject = gson.fromJson(content, JsonObject::class.java)
+
+        assertEquals(1, jsonObject.get("version").asInt)
+        assertEquals("sample-order-recording.json", jsonObject.get("fileName").asString)
+        val records = jsonObject.getAsJsonArray("records")
+        assertEquals(4, records.size())
+
+        val httpRecord = records.map { it.asJsonObject }.find { it.getAsJsonObject("inspection").get("kind").asString == "http" }
+        assertNotNull(httpRecord)
+        assertEquals("chargeCard", httpRecord!!.get("stepIdentity").asString)
+        assertEquals(200, httpRecord.getAsJsonObject("inspection").get("status").asInt)
+
+        val cryptoRecord = records.map { it.asJsonObject }.find { it.getAsJsonObject("inspection").get("kind").asString == "crypto" }
+        assertNotNull(cryptoRecord)
+        assertEquals("verified", cryptoRecord!!.getAsJsonObject("inspection").get("category").asString)
     }
 }

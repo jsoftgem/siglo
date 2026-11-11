@@ -1,14 +1,14 @@
 ---
 title: 'Siglo Workflow Explorer & IDE Tooling'
-description: 'Visual static graph inspection, live-typing feedback, and bidirectional source code navigation for Siglo workflows in IntelliJ IDEA and VS Code.'
+description: 'Visual static graph inspection, live-typing feedback, bidirectional source code navigation, developer execution controls, and static diagnostics for Siglo workflows in IntelliJ IDEA and VS Code.'
 ---
 
-The **Siglo Workflow Explorer** provides developers with visual static graph inspection, live-typing feedback, and bidirectional source code navigation for Siglo workflows directly inside their IDE.
+The **Siglo Workflow Explorer** provides developers with visual static graph inspection, live-typing feedback, bidirectional source code navigation, static diagnostics, and native developer execution controls for Siglo workflows directly inside their IDE.
 
 Supported IDEs:
 
 - **IntelliJ IDEA**: 2024.1+ (Community & Ultimate editions) available on the [JetBrains Marketplace](https://plugins.jetbrains.com/) as **Siglo Workflows** (`io.siglo.idea`).
-- **Visual Studio Code**: 1.90+ (Desktop & Remote Workspace hosts) available on the [VS Code Marketplace](https://marketplace.visualstudio.com/) as **Siglo Workflow Explorer** (`jsoftgem.siglo-workflow-explorer`).
+- **Visual Studio Code**: 1.90+ (Desktop & Remote Workspace hosts) available on the [VS Code Marketplace](https://marketplace.visualstudio.com/) and [Open VSX Registry](https://open-vsx.org/) as **Siglo Workflow Explorer** (`jsoftgem.siglo-workflow-explorer`).
 
 > [!NOTE]
 > **Static IDE Explorer vs. Live DevTools**: The IDE Workflow Explorer performs **pure static AST analysis** of your TypeScript/JavaScript source code without running your application or connecting to external services. For runtime execution streaming, event waterfall timelines, and interactive replay, see [Live Monitoring & DevTools](/live-monitoring).
@@ -26,12 +26,14 @@ flowchart TD
         PluginService["IDE Plugin Host Service<br/>(Process Manager & Listeners)"]
         WebviewView["Webview Container<br/>(JCEF / VS Code Webview)"]
         SwingFallback["IntelliJ Swing Fallback<br/>(JBTree AST Inspector)"]
+        RunConfigs["Execution Controls<br/>(Run / Debug / Interactive Resume)"]
     end
 
     subgraph Daemon["Isolated Background Daemon (@siglo/ide-analysis)"]
         RpcServer["JSON-RPC 2.0 stdio Server<br/>(bin.ts)"]
         AstParser["TypeScript Compiler API<br/>(ts.createSourceFile)"]
         TopologyEngine["Pattern Detectors & Topologies<br/>(Steps, Combinators, Contracts)"]
+        Diagnostics["Static Diagnostics<br/>(Cycles, Missing Sagas, Unhandled Errors)"]
     end
 
     subgraph UIAsset["Embedded Webview UI (@siglo/ide-ui)"]
@@ -40,10 +42,11 @@ flowchart TD
 
     Editor -->|"Buffer change (250ms debounce)"| PluginService
     PluginService <-->|"JSON-RPC 2.0 (stdio)"| RpcServer
-    RpcServer --> AstParser --> TopologyEngine
+    RpcServer --> AstParser --> TopologyEngine --> Diagnostics
     TopologyEngine -->|"Topology & Specs Payload"| RpcServer
     PluginService -->|"Host Bridge (cefQuery / vsCodeApi)"| WebviewView
     WebviewView --> ReactApp
+    ReactApp -->|"Run / Debug / Resume Events"| RunConfigs
     PluginService -.->|"If JCEF Unavailable"| SwingFallback
 ```
 
@@ -202,7 +205,7 @@ export const checkoutWorkflow = flow(
 
 1. Open IntelliJ IDEA → **Settings / Preferences** (`⌘,` on macOS, `Ctrl+Alt+S` on Linux/Windows).
 2. Go to **Plugins** → Click ⚙️ (Gear Icon) → **Install Plugin from Disk...**.
-3. Select `siglo-intellij-plugin-1.2.0.zip` (located in `plugins/intellij/build/distributions/`).
+3. Select `siglo-intellij-plugin-1.2.3.zip` (located in `plugins/intellij/build/distributions/`).
 4. Click **Restart IDE**.
 5. Access the **Siglo Workflows** tool window from the right-hand stripe.
 
@@ -224,7 +227,7 @@ cd plugins/intellij
 ./gradlew test buildPlugin
 ```
 
-The distributable zip will be generated at `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.0.zip`.
+The distributable zip will be generated at `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.3.zip`.
 
 ---
 
@@ -254,7 +257,7 @@ code --install-extension jsoftgem.siglo-workflow-explorer
 1. Open VS Code → Go to the **Extensions** view (`⇧⌘X` on macOS, `Ctrl+Shift+X` on Linux/Windows).
 2. Click **Views and More Actions** (`…`) at the top of the Extensions view.
 3. Select **Install from VSIX…**.
-4. Choose `plugins/vscode/siglo-workflow-explorer-1.2.0.vsix`.
+4. Choose `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix`.
 5. When prompted, trust the workspace folder to activate the extension.
 
 ### Option C: Building from Source (Monorepo)
@@ -266,17 +269,59 @@ From the repository root:
 npm run package --workspace=@siglo/vscode
 ```
 
-The packaged extension is generated at `plugins/vscode/siglo-workflow-explorer-1.2.0.vsix`.
-
-### Usage & Contributed Commands:
-
-- **Sidebar Explorer**: Click the **Siglo** icon in the Activity Bar to reveal the persistent **Siglo Workflows** sidebar webview.
-- **Editor Tab Visualizer**: Open the Command Palette (`⇧⌘P` / `Ctrl+Shift+P`) and run **`Siglo: Open Workflow Visualizer`** to inspect the active workflow side-by-side with your code.
-- **Discover Workspace Workflows**: Run **`Siglo: Discover Workspace Workflows`** to scan up to 100 TypeScript/JavaScript files across your workspace folders and jump directly into any declared flow.
+The packaged extension is generated at `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix`.
 
 ---
 
-## 6. Troubleshooting & Diagnostics
+## 6. Developer Execution Controls & Interactive Resume
+
+Milestone 5 introduces native developer execution controls and interactive durable resumes directly within both IDEs:
+
+### 1. Run & Debug Workflow Integration
+
+Trigger workflow runs directly from editor context menus, top-bar visualizer buttons, or keyboard shortcuts:
+
+- **In IntelliJ IDEA**:
+  - Automatically creates a native **Siglo Workflow** Run Configuration (`io.siglo.idea.run.SigloRunConfigurationType`).
+  - Configures the Node executable, `--import tsx` parameters, working directory, and environment.
+  - Supports both **Run** and **Debug** (attaching breakpoints within step functions).
+- **In VS Code**:
+  - Triggers via `vscode.debug.startDebugging` utilizing existing `.vscode/launch.json` configurations or dynamically spinning up a Node/tsx terminal session with step breakpoint support.
+
+### 2. Interactive Durable Resume
+
+Durable workflows paused at `wait` or `waitForEvent` steps can be resumed interactively:
+
+1. Select a durable step in the visual graph.
+2. In the **Inspector Panel**, click **Resume Workflow...** under the **Interactive Resume** section.
+3. Supply the custom event name (e.g. `order.approved`) and optional JSON payload.
+4. Review the **Side-Effect Warning**:
+   > ⚠️ **Side-Effect Warning**: Resuming a suspended durable workflow triggers downstream execution, external side effects, and state mutations. Verify that target test environments are prepared.
+5. Click **Confirm & Resume** to dispatch the resume event to the workflow runtime.
+
+### 3. Keyboard Shortcuts Reference
+
+| Action | VS Code (macOS) | VS Code (Linux/Win) | IntelliJ (macOS) | IntelliJ (Linux/Win) |
+| --- | --- | --- | --- | --- |
+| **Open Workflow Visualizer** | `⌥⌘V` | `Ctrl+Alt+V` | `⌃⌥V` | `Ctrl+Alt+V` |
+| **Run Siglo Workflow** | `⌥⌘R` | `Ctrl+Alt+R` | `⌃⌥R` | `Ctrl+Alt+R` |
+| **Debug Siglo Workflow** | `⌥⌘D` | `Ctrl+Alt+D` | `⌃⌥D` | `Ctrl+Alt+D` |
+| **Discover Workflows** | Command Palette | Command Palette | Project Tool Window | Project Tool Window |
+
+### 4. Marketplace Publishing Procedures
+
+- **JetBrains Marketplace**:
+  - Task: `./gradlew publishPlugin` (configured with `JETBRAINS_TOKEN` environment variable).
+  - Artifact: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.3.zip`.
+- **VS Code Marketplace**:
+  - Command: `npm run publish:vsce --workspace=@siglo/vscode` (configured with `VSCE_PAT`).
+  - Artifact: `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix`.
+- **Open VSX Registry**:
+  - Command: `npm run publish:ovsx --workspace=@siglo/vscode` (configured with `OVSX_PAT`).
+
+---
+
+## 7. Troubleshooting & Diagnostics
 
 ### Node.js Runtime Discovery
 
@@ -307,7 +352,7 @@ If the visualizer displays a blank screen or prompts that analysis is paused, ch
 
 ---
 
-## 7. Related Documentation
+## 8. Related Documentation
 
 - [Live Monitoring & DevTools](/live-monitoring) — Real-time execution streaming, latency waterfalls, and interactive replay.
 - [Execution Semantics Contract](/execution-semantics) — Formal runtime execution semantics, lifecycle phases, and context accumulation.

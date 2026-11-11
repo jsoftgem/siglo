@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.3] - 2026-11-12
+
+### Added
+
+- **IDE Static Diagnostics (Milestone 2 - `@siglo/ide-analysis`, `@siglo/vscode`, IntelliJ Plugin)**:
+  - Surface in-editor diagnostic annotations and warnings without executing application code:
+    - DAG cyclic dependency detection (`SIGLO_STATIC_CYCLE`).
+    - Missing compensation warnings for sagas with side-effect steps (`SIGLO_MISSING_COMPENSATION`).
+    - Unhandled error branch warnings in durable workflows (`SIGLO_UNHANDLED_ERROR_BRANCH`).
+    - Duplicate step ID validation within the same workflow (`SIGLO_DUPLICATE_STEP_ID`).
+  - Integrated via `DiagnosticCollection` in VS Code and `SigloWorkflowInspection` (`LocalInspectionTool`) / `SigloWorkflowAnnotator` (`ExternalAnnotator`) in IntelliJ IDEA.
+
+- **Ecosystem Deep-Dive Inspectors & Offline Telemetry (Milestone 4 - `@siglo/ide-protocol`, `@siglo/ide-ui`, `@siglo/vscode`, IntelliJ Plugin)**:
+  - Dedicated inspector panels for HTTP, Crypto, Notification, and AI ecosystem steps.
+  - Offline local JSON telemetry recording import (`Siglo: Import Telemetry Recording...` in VS Code and `Import Siglo Telemetry Recording...` in IntelliJ).
+  - Unambiguous workflow/version and step identity source matching with fail-closed secret redaction (credentials, raw payloads, and authorization headers never touch the webview DOM or clipboard).
+
+### Changed
+
+- Synchronized monorepo package, CLI, telemetry, and IDE plugin distributions at `1.2.3`.
+- Updated plugin README guides, documentation, and marketplace listing assets with new screenshot `05-ecosystem-telemetry.png` and diagnostic/telemetry capabilities.
+
 ## [1.2.2] - 2026-11-10
 
 ### Fixed

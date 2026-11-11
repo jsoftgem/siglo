@@ -1,6 +1,6 @@
 {
   "name": "@siglo/postgres",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "PostgreSQL persistence adapter for Siglo TypeScript workflows with durable checkpoints, event auditing, and idempotency.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@siglo/crypto",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Cryptographic steps for Siglo TypeScript workflows: webhook signature verification, field encryption, and context redaction.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

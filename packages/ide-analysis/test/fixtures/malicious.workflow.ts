@@ -6,5 +6,6 @@ throw new Error('Evaluated top-level application code!');
 
 import { flow, Step } from '@siglo/core';
 
-export const safeFlow = flow('safeWorkflow')
-  .then(Step.create('safeStep', async () => 'ok'));
+export const safeWorkflow = flow(
+  Step.create('safeStep', async () => 'ok'),
+);

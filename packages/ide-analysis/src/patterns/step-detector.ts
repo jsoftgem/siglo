@@ -1,5 +1,16 @@
 import ts from 'typescript';
-import type { GraphNode, UnresolvedNode, StepSpec, StepSpecRule } from '@siglo/ide-protocol';
+import type {
+    GraphNode,
+    UnresolvedNode,
+    StepSpec,
+    StepSpecRule,
+    EcosystemConfig,
+    HttpEcosystemConfig,
+    CryptoEcosystemConfig,
+    NotificationEcosystemConfig,
+    AiEcosystemConfig,
+} from '@siglo/ide-protocol';
+import { sanitizeOriginUrl } from '@siglo/ide-protocol';
 import { getSourceRange, generateDeterministicNodeId } from '../mapper';
 
 export type DetectedStep =
@@ -90,7 +101,22 @@ export function detectStepFromExpression(
                 const config = { ...base.node.executionConfig };
                 if (method === 'timeout' && expr.arguments[0] && ts.isNumericLiteral(expr.arguments[0]))
                     config.timeoutMs = Number(expr.arguments[0].text);
-                if (method === 'compensate' || method === 'compensateWithHttp') config.hasCompensation = true;
+                if (method === 'onFail' && expr.arguments[0] && ts.isObjectLiteralExpression(expr.arguments[0])) {
+                    for (const prop of expr.arguments[0].properties) {
+                        if (ts.isPropertyAssignment(prop)) {
+                            const pName = prop.name.getText(sourceFile).replace(/['"]/g, '');
+                            if ((pName === 'maxRetries' || pName === 'retries') && ts.isNumericLiteral(prop.initializer)) {
+                                config.retries = Number(prop.initializer.text);
+                            }
+                        }
+                    }
+                }
+                if (method === 'compensate' || method === 'compensateWithHttp') {
+                    config.hasCompensation = true;
+                    if (expr.arguments[0]) {
+                        properties.compensationStep = expr.arguments[0].getText(sourceFile);
+                    }
+                }
                 return {
                     ...base,
                     node: { ...base.node, location: loc, declarationRange, properties, executionConfig: config },
@@ -113,7 +139,7 @@ export function detectStepFromExpression(
         };
     }
 
-    // Pattern: Step.create(...)
+    // Pattern: Step.create(...) or ecosystem steps
     if (ts.isCallExpression(expr) || ts.isNewExpression(expr)) {
         const args = expr.arguments || [];
         const callee = expr.expression;
@@ -239,6 +265,15 @@ export function detectStepFromExpression(
                   }
                 : undefined;
 
+        const calleeText = ts.isIdentifier(callee)
+            ? callee.text
+            : ts.isPropertyAccessExpression(callee)
+              ? callee.name.text
+              : (callee as ts.Node).getText(sourceFile);
+        const ecosystemConfig = isEcosystemStepCallee(calleeText)
+            ? extractEcosystemConfig(calleeText, stepKind, args, sourceFile)
+            : undefined;
+
         return {
             kind: 'node',
             node: {
@@ -249,6 +284,7 @@ export function detectStepFromExpression(
                 declarationRange,
                 properties,
                 ...(executionConfig ? { executionConfig } : {}),
+                ...(ecosystemConfig ? { ecosystemConfig } : {}),
             },
         };
     }
@@ -310,6 +346,198 @@ function extractObjectConfig(
     }
 
     cb(name, retries, timeoutMs, hasCompensation);
+}
+
+function extractStringOrSnippet(expr: ts.Expression, sourceFile: ts.SourceFile): { value: string; isDynamic: boolean } {
+    if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
+        return { value: expr.text, isDynamic: false };
+    }
+    return { value: expr.getText(sourceFile), isDynamic: true };
+}
+
+function extractNumberOrSnippet(expr: ts.Expression, sourceFile: ts.SourceFile): number | string {
+    if (ts.isNumericLiteral(expr)) {
+        return Number(expr.text);
+    }
+    return expr.getText(sourceFile);
+}
+
+function extractBooleanOrSnippet(expr: ts.Expression, sourceFile: ts.SourceFile): boolean | string {
+    if (expr.kind === ts.SyntaxKind.TrueKeyword) return true;
+    if (expr.kind === ts.SyntaxKind.FalseKeyword) return false;
+    return expr.getText(sourceFile);
+}
+
+export function extractEcosystemConfig(
+    calleeName: string,
+    stepKind: GraphNode['stepKind'],
+    args: readonly ts.Expression[],
+    sourceFile: ts.SourceFile,
+): EcosystemConfig | undefined {
+    let optionsObj: ts.ObjectLiteralExpression | undefined;
+    for (const arg of args) {
+        if (ts.isObjectLiteralExpression(arg)) {
+            optionsObj = arg;
+            break;
+        }
+    }
+
+    if (stepKind === 'http') {
+        const config: HttpEcosystemConfig = { kind: 'http', method: 'GET' };
+        if (optionsObj) {
+            for (const prop of optionsObj.properties) {
+                if (ts.isPropertyAssignment(prop)) {
+                    const name = prop.name.getText(sourceFile).replace(/['"]/g, '');
+                    if (name === 'method') {
+                        if (ts.isStringLiteral(prop.initializer)) {
+                            config.method = prop.initializer.text.toUpperCase();
+                        } else {
+                            config.method = prop.initializer.getText(sourceFile);
+                        }
+                    } else if (name === 'url') {
+                        const extracted = extractStringOrSnippet(prop.initializer, sourceFile);
+                        if (!extracted.isDynamic) {
+                            const origin = sanitizeOriginUrl(extracted.value);
+                            config.url = origin || extracted.value;
+                            config.isDynamicUrl = false;
+                        } else {
+                            config.url = extracted.value;
+                            config.isDynamicUrl = true;
+                        }
+                    } else if (name === 'maxRetries' || name === 'retries') {
+                        config.maxRetries = extractNumberOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'retryOnStatus') {
+                        if (ts.isArrayLiteralExpression(prop.initializer)) {
+                            config.retryOnStatus = prop.initializer.elements.map(e =>
+                                ts.isNumericLiteral(e) ? Number(e.text) : e.getText(sourceFile),
+                            ) as any;
+                        } else {
+                            config.retryOnStatus = prop.initializer.getText(sourceFile);
+                        }
+                    } else if (name === 'timeoutMs' || name === 'timeout') {
+                        config.timeoutMs = extractNumberOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'allowNotFound') {
+                        config.allowNotFound = extractBooleanOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'responseType') {
+                        config.responseType = prop.initializer.getText(sourceFile).replace(/['"]/g, '');
+                    }
+                }
+            }
+        }
+        return config;
+    }
+
+    if (stepKind === 'crypto') {
+        let op = 'verifyWebhook';
+        if (calleeName.includes('encrypt') || calleeName.includes('Encrypt')) op = 'encryptFields';
+        else if (calleeName.includes('decrypt') || calleeName.includes('Decrypt')) op = 'decryptFields';
+        else if (calleeName.includes('mask') || calleeName.includes('Mask')) op = 'maskFields';
+
+        const config: CryptoEcosystemConfig = { kind: 'crypto', operation: op };
+        if (optionsObj) {
+            for (const prop of optionsObj.properties) {
+                if (ts.isPropertyAssignment(prop)) {
+                    const name = prop.name.getText(sourceFile).replace(/['"]/g, '');
+                    if (name === 'provider') {
+                        if (ts.isStringLiteral(prop.initializer)) config.provider = prop.initializer.text;
+                        else config.provider = prop.initializer.getText(sourceFile);
+                    } else if (name === 'algorithm') {
+                        if (ts.isStringLiteral(prop.initializer)) config.algorithm = prop.initializer.text;
+                        else config.algorithm = prop.initializer.getText(sourceFile);
+                    } else if (name === 'toleranceSeconds') {
+                        config.toleranceSeconds = extractNumberOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'fields') {
+                        if (ts.isArrayLiteralExpression(prop.initializer)) {
+                            config.fields = prop.initializer.elements.map(e =>
+                                ts.isStringLiteral(e) ? e.text : e.getText(sourceFile),
+                            );
+                        } else {
+                            config.fields = prop.initializer.getText(sourceFile);
+                        }
+                    }
+                }
+            }
+        }
+        return config;
+    }
+
+    if (stepKind === 'notification') {
+        const isApproval = calleeName.toLowerCase().includes('approval');
+        const config: NotificationEcosystemConfig = { kind: 'notification', isApproval };
+        if (optionsObj) {
+            for (const prop of optionsObj.properties) {
+                if (ts.isPropertyAssignment(prop)) {
+                    const name = prop.name.getText(sourceFile).replace(/['"]/g, '');
+                    if (name === 'channel') {
+                        if (ts.isStringLiteral(prop.initializer)) config.channel = prop.initializer.text;
+                        else config.channel = prop.initializer.getText(sourceFile);
+                    } else if (name === 'subject') {
+                        if (ts.isStringLiteral(prop.initializer)) config.subject = prop.initializer.text;
+                        else config.subject = prop.initializer.getText(sourceFile);
+                    } else if (name === 'template') {
+                        if (ts.isStringLiteral(prop.initializer)) config.template = prop.initializer.text;
+                        else config.template = prop.initializer.getText(sourceFile);
+                    } else if (name === 'approvalExpiresIn' || name === 'approvalExpiresAt' || name === 'timeout') {
+                        config.approvalExpiresIn = extractStringOrSnippet(prop.initializer, sourceFile).value;
+                    } else if (name === 'approval') {
+                        if (prop.initializer.kind === ts.SyntaxKind.TrueKeyword) config.isApproval = true;
+                    }
+                }
+            }
+        }
+        return config;
+    }
+
+    if (stepKind === 'ai') {
+        const config: AiEcosystemConfig = { kind: 'ai' };
+        if (optionsObj) {
+            for (const prop of optionsObj.properties) {
+                if (ts.isPropertyAssignment(prop)) {
+                    const name = prop.name.getText(sourceFile).replace(/['"]/g, '');
+                    if (name === 'provider') {
+                        if (ts.isStringLiteral(prop.initializer)) config.provider = prop.initializer.text;
+                        else config.provider = prop.initializer.getText(sourceFile);
+                    } else if (name === 'model') {
+                        if (ts.isStringLiteral(prop.initializer)) {
+                            config.model = prop.initializer.text;
+                        } else if (ts.isObjectLiteralExpression(prop.initializer)) {
+                            for (const modelProp of prop.initializer.properties) {
+                                if (ts.isPropertyAssignment(modelProp)) {
+                                    const mKey = modelProp.name.getText(sourceFile).replace(/['"]/g, '');
+                                    if (mKey === 'provider') {
+                                        config.provider = ts.isStringLiteral(modelProp.initializer)
+                                            ? modelProp.initializer.text
+                                            : modelProp.initializer.getText(sourceFile);
+                                    } else if (mKey === 'model') {
+                                        config.model = ts.isStringLiteral(modelProp.initializer)
+                                            ? modelProp.initializer.text
+                                            : modelProp.initializer.getText(sourceFile);
+                                    }
+                                }
+                            }
+                        } else {
+                            config.model = prop.initializer.getText(sourceFile);
+                        }
+                    } else if (name === 'maxRepairAttempts') {
+                        config.maxRepairAttempts = extractNumberOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'temperature') {
+                        config.temperature = extractNumberOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'maxTokens') {
+                        config.maxTokens = extractNumberOrSnippet(prop.initializer, sourceFile);
+                    } else if (name === 'fallbackModels') {
+                        if (ts.isArrayLiteralExpression(prop.initializer)) {
+                            config.fallbackModels = prop.initializer.elements.map(e => e.getText(sourceFile));
+                        } else {
+                            config.fallbackModels = prop.initializer.getText(sourceFile);
+                        }
+                    }
+                }
+            }
+        }
+        return config;
+    }
+
+    return undefined;
 }
 
 // Deliberately show operational options only; credentials and request payloads

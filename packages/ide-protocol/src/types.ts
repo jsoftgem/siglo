@@ -20,6 +20,52 @@ export interface StepSpec {
     rules: StepSpecRule[];
 }
 
+export interface HttpEcosystemConfig {
+    kind: 'http';
+    method?: string;
+    url?: string;
+    isDynamicUrl?: boolean;
+    maxRetries?: number | string;
+    retryOnStatus?: number[] | string;
+    timeoutMs?: number | string;
+    allowNotFound?: boolean | string;
+    responseType?: string;
+}
+
+export interface CryptoEcosystemConfig {
+    kind: 'crypto';
+    operation?: string;
+    provider?: string;
+    algorithm?: string;
+    fields?: string[] | string;
+    toleranceSeconds?: number | string;
+}
+
+export interface NotificationEcosystemConfig {
+    kind: 'notification';
+    channel?: string;
+    isApproval?: boolean;
+    approvalExpiresIn?: string | number;
+    subject?: string;
+    template?: string;
+}
+
+export interface AiEcosystemConfig {
+    kind: 'ai';
+    provider?: string;
+    model?: string;
+    maxRepairAttempts?: number | string;
+    fallbackModels?: string[] | string;
+    temperature?: number | string;
+    maxTokens?: number | string;
+}
+
+export type EcosystemConfig =
+    | HttpEcosystemConfig
+    | CryptoEcosystemConfig
+    | NotificationEcosystemConfig
+    | AiEcosystemConfig;
+
 export interface GraphNode {
     id: string; // Deterministic AST node ID (e.g. "step_callStripe_L14_C5")
     name: string; // Display label
@@ -35,6 +81,7 @@ export interface GraphNode {
         timeoutMs?: number;
         hasCompensation?: boolean;
     };
+    ecosystemConfig?: EcosystemConfig;
 }
 
 export interface GraphEdge {

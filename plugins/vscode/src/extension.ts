@@ -1,25 +1,34 @@
 import * as vscode from 'vscode';
 import { AnalyzerClient } from './client';
-import { NavigationTarget, WorkflowViews } from './webview';
-import { GraphDocument, GraphNode, PROTOCOL_METHODS, SourceRange } from '@siglo/ide-protocol';
+import { WorkflowViews, type NavigationTarget } from './webview';
+import {
+    PROTOCOL_METHODS,
+    type GraphDocument,
+    type GraphNode,
+    type SourceRange,
+} from '@siglo/ide-protocol';
 
-const languages = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact']);
-const supported = (document: vscode.TextDocument) =>
-    languages.has(document.languageId) && ['file', 'untitled'].includes(document.uri.scheme);
-const range = (location: SourceRange) =>
-    new vscode.Range(location.start.line, location.start.character, location.end.line, location.end.character);
-const nodes = (graph: GraphDocument): GraphNode[] => [
-    ...new Map(
-        [...graph.nodes, ...(graph.workflows ?? []).flatMap(workflow => workflow.nodes)].map(node => [node.id, node]),
-    ).values(),
-];
+function range(location: SourceRange): vscode.Range {
+    return new vscode.Range(location.start.line, location.start.character, location.end.line, location.end.character);
+}
+
+function nodes(document?: GraphDocument): GraphNode[] {
+    if (!document) return [];
+    const direct = document.nodes;
+    const embedded = (document.workflows ?? []).flatMap(workflow => workflow.nodes);
+    return [...direct, ...embedded];
+}
+
+const SUPPORTED = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact']);
 
 export function activate(context: vscode.ExtensionContext): void {
-    const output = vscode.window.createOutputChannel('Siglo Workflow Explorer');
-    const report = (error: unknown) => {
-        output.appendLine(String(error));
-        void vscode.window.showWarningMessage(`Siglo: ${error instanceof Error ? error.message : String(error)}`);
+    const output = vscode.window.createOutputChannel('Siglo');
+    const diagnosticsCollection = vscode.languages.createDiagnosticCollection('siglo');
+    const report = (error: unknown): void => {
+        const message = error instanceof Error ? error.stack ?? error.message : String(error);
+        output.appendLine(message);
     };
+
     let active = vscode.window.activeTextEditor?.document;
     let graph: GraphDocument | undefined;
     let generation = 0;
@@ -40,11 +49,12 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     async function refresh(automatic = false): Promise<void> {
-        const ticket = ++generation;
         const document = active;
-        if (!vscode.workspace.isTrusted || !document || !supported(document)) {
+        const ticket = ++generation;
+        if (!document || !SUPPORTED.has(document.languageId) || !vscode.workspace.isTrusted) {
             graph = undefined;
-            views.setGraph({
+            diagnosticsCollection.clear();
+            await views.post({
                 uri: '',
                 documentVersion: 0,
                 workflowName: vscode.workspace.isTrusted
@@ -66,8 +76,32 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         if (ticket !== generation || active !== document || document.version !== version) return;
         graph = result;
-        views.setGraph(result, automatic);
+        await views.post(result);
         trackSelection();
+
+        const allDiags = [
+            ...(result.diagnostics || []),
+            ...((result.workflows || []).flatMap(w => w.diagnostics || [])),
+        ];
+        const seen = new Set<string>();
+        const vscodeDiagnostics: vscode.Diagnostic[] = [];
+        for (const d of allDiags) {
+            const key = `${d.code}:${d.range.start.line}:${d.range.start.character}:${d.range.end.line}:${d.range.end.character}:${d.message}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const r = range(d.range);
+            const severity =
+                d.severity === 'error'
+                    ? vscode.DiagnosticSeverity.Error
+                    : d.severity === 'info'
+                      ? vscode.DiagnosticSeverity.Information
+                      : vscode.DiagnosticSeverity.Warning;
+            const vsDiag = new vscode.Diagnostic(r, d.message, severity);
+            vsDiag.code = d.code;
+            vsDiag.source = 'Siglo';
+            vscodeDiagnostics.push(vsDiag);
+        }
+        diagnosticsCollection.set(document.uri, vscodeDiagnostics);
     }
 
     async function openTarget(targetUri?: string, targetRange?: SourceRange): Promise<void> {
@@ -139,15 +173,23 @@ export function activate(context: vscode.ExtensionContext): void {
                 editor.document.offsetAt(range(a.location).start) -
                 (editor.document.offsetAt(range(b.location).end) - editor.document.offsetAt(range(b.location).start)),
         );
-        views.selectNode(candidates[0]?.id);
+        if (candidates[0]?.id) {
+            void views.select(candidates[0].id).catch(report);
+        }
     }
 
     const views = new WorkflowViews(context, refresh, navigate, report);
+
     context.subscriptions.push(
         output,
         client,
         views,
+        diagnosticsCollection,
+        vscode.workspace.onDidCloseTextDocument(closed => {
+            diagnosticsCollection.delete(closed.uri);
+        }),
         vscode.window.registerWebviewViewProvider('siglo.workflows', views),
+        vscode.commands.registerCommand('siglo.importTelemetry', () => views.importTelemetry()),
         vscode.commands.registerCommand('siglo.openVisualizer', () => {
             views.open();
             void refresh().catch(report);
@@ -225,7 +267,11 @@ export function activate(context: vscode.ExtensionContext): void {
             ++generation;
             clearTimeout(edits);
             edits = setTimeout(() => {
-                if (event.document === active) void refresh(true).catch(report);
+                if (event.document === active) {
+                    if (views.isAutoReloadEnabled()) {
+                        void refresh(true).catch(report);
+                    }
+                }
             }, 250);
         }),
         vscode.window.onDidChangeTextEditorSelection(event => {

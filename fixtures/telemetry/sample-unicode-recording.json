@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "fileName": "sample-unicode-recording.json",
+  "importedAt": "2026-11-11T12:00:00.000Z",
+  "records": [
+    {
+      "version": 1,
+      "workflowName": "unicodeFlow",
+      "stepIdentity": "⚡_fast_track",
+      "attempt": 1,
+      "timestamp": "2026-11-11T12:00:00.500Z",
+      "inspection": {
+        "version": 1,
+        "kind": "http",
+        "outcome": "success",
+        "durationMs": 85,
+        "method": "GET",
+        "url": "https://api.example.jp/v1/telemetry",
+        "status": 200,
+        "retryAttempts": 0,
+        "policy": "allowed",
+        "traceId": "trace_unicode_7731"
+      }
+    }
+  ]
+}

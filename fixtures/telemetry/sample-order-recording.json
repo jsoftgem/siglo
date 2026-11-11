@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "fileName": "sample-order-recording.json",
+  "importedAt": "2026-11-11T12:00:00.000Z",
+  "records": [
+    {
+      "version": 1,
+      "workflowName": "orderWorkflow",
+      "stepIdentity": "chargeCard",
+      "attempt": 2,
+      "timestamp": "2026-11-11T12:00:01.120Z",
+      "inspection": {
+        "version": 1,
+        "kind": "http",
+        "outcome": "success",
+        "durationMs": 342,
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/charges",
+        "status": 200,
+        "retryAttempts": 1,
+        "requestAttempt": 2,
+        "retryDelayMs": 250,
+        "retryDelaySource": "backoff",
+        "policy": "allowed",
+        "traceId": "trace_991823abce"
+      }
+    },
+    {
+      "version": 1,
+      "workflowName": "orderWorkflow",
+      "stepIdentity": "sendReceipt",
+      "attempt": 1,
+      "timestamp": "2026-11-11T12:00:01.500Z",
+      "inspection": {
+        "version": 1,
+        "kind": "notification",
+        "outcome": "success",
+        "durationMs": 128,
+        "channel": "email",
+        "notificationId": "notif_98765",
+        "approval": false,
+        "contentPreview": {
+          "subject": "Order Confirmation #10492",
+          "recipientMasked": "j***@example.com",
+          "bodySnippet": "Thank you for your order! Your receipt is attached."
+        }
+      }
+    },
+    {
+      "version": 1,
+      "workflowName": "orderWorkflow",
+      "stepIdentity": "analyzeFraud",
+      "attempt": 1,
+      "timestamp": "2026-11-11T12:00:01.750Z",
+      "inspection": {
+        "version": 1,
+        "kind": "ai",
+        "outcome": "success",
+        "durationMs": 820,
+        "provider": "openai",
+        "model": "gpt-4o",
+        "phase": "completion",
+        "promptTokens": 420,
+        "completionTokens": 88,
+        "totalTokens": 508,
+        "estimatedCostUsd": 0.0035,
+        "repairAttempts": 0,
+        "fallbackCount": 0
+      }
+    },
+    {
+      "version": 1,
+      "workflowName": "orderWorkflow",
+      "stepIdentity": "verifyOrderSignature",
+      "attempt": 1,
+      "timestamp": "2026-11-11T12:00:00.050Z",
+      "inspection": {
+        "version": 1,
+        "kind": "crypto",
+        "outcome": "success",
+        "durationMs": 15,
+        "provider": "stripe",
+        "category": "verified",
+        "timestampCheck": "passed",
+        "replayCheck": "passed",
+        "payloadBytes": 1420
+      }
+    }
+  ]
+}

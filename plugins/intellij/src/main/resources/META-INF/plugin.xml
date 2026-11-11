@@ -18,6 +18,18 @@
 
         <!-- Project Service managing the background Node analyzer daemon -->
         <projectService serviceImplementation="io.siglo.idea.process.SigloAnalyzerService"/>
+
+        <!-- Milestone 2: Static Diagnostics Inspection & Annotator -->
+        <localInspection language="any"
+                         shortName="SigloWorkflowInspection"
+                         displayName="Siglo workflow static diagnostics"
+                         groupDisplayName="Siglo"
+                         enabledByDefault="true"
+                         level="WARNING"
+                         implementationClass="io.siglo.idea.inspection.SigloWorkflowInspection"/>
+
+        <externalAnnotator language="any"
+                           implementationClass="io.siglo.idea.inspection.SigloWorkflowAnnotator"/>
     </extensions>
 
     <actions>
@@ -27,6 +39,13 @@
                 description="Open static graph visualization for the current Siglo workflow"
                 icon="io.siglo.idea.SigloIcons.TOOL_WINDOW">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        <action id="io.siglo.idea.ImportTelemetryAction"
+                class="io.siglo.idea.actions.ImportTelemetryAction"
+                text="Import Siglo Telemetry Recording..."
+                description="Import an offline telemetry recording to inspect recorded executions"
+                icon="io.siglo.idea.SigloIcons.TOOL_WINDOW">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="io.siglo.idea.OpenWorkflowGraph"/>
         </action>
     </actions>
 </idea-plugin>

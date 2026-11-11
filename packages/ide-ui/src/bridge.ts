@@ -1,4 +1,4 @@
-import type { GraphDocument, GraphNode } from '@siglo/ide-protocol';
+import type { GraphDocument, GraphNode, TelemetryRecordingDocument } from '@siglo/ide-protocol';
 
 interface VsCodeApi {
     postMessage: (msg: unknown) => void;
@@ -21,7 +21,11 @@ declare global {
 }
 
 export type HostMessage =
-    { type: 'setGraph'; document: GraphDocument } | { type: 'selectNode'; nodeId: string } | { type: 'clearSelection' };
+    | { type: 'setGraph'; document: GraphDocument }
+    | { type: 'selectNode'; nodeId: string }
+    | { type: 'clearSelection' }
+    | { type: 'setTelemetry'; document: TelemetryRecordingDocument | null }
+    | { type: 'clearTelemetry' };
 
 type MessageHandler = (msg: HostMessage) => void;
 
@@ -115,6 +119,12 @@ class IdeBridge {
         this.sendToHost({
             type: 'openRelatedFile',
             uri,
+        });
+    }
+
+    public notifyImportTelemetry() {
+        this.sendToHost({
+            type: 'importTelemetry',
         });
     }
 }

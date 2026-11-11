@@ -1,6 +1,7 @@
 import React from 'react';
-import type { GraphNode, GraphEdge, UnresolvedNode } from '@siglo/ide-protocol';
-import { Globe, KeyRound, Bell, Sparkles, Cog, AlertTriangle, Clock, GitFork, List } from 'lucide-react';
+import type { GraphNode, GraphEdge, UnresolvedNode, TelemetryRecordingDocument } from '@siglo/ide-protocol';
+import { matchTelemetryRecord } from '@siglo/ide-protocol';
+import { Globe, KeyRound, Bell, Sparkles, Cog, AlertTriangle, Clock, GitFork, List, Database } from 'lucide-react';
 
 interface GraphCanvasProps {
     nodes: GraphNode[];
@@ -12,6 +13,8 @@ interface GraphCanvasProps {
     embedded?: boolean;
     selectedNodeId: string | null;
     onSelectNode: (node: GraphNode) => void;
+    telemetryDocument?: TelemetryRecordingDocument | null;
+    workflowVersion?: number | string;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -24,8 +27,34 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     workflowProperties,
     onSelectWorkflow,
     embedded = false,
+    telemetryDocument,
+    workflowVersion,
 }) => {
     const markerId = `graph-arrow-${React.useId().replace(/:/g, '')}`;
+    const recordedMarkerId = `graph-arrow-recorded-${React.useId().replace(/:/g, '')}`;
+
+    // Set of node IDs that have recorded telemetry
+    const recordedNodeIds = new Set<string>();
+    if (telemetryDocument && workflowName) {
+        for (const node of nodes) {
+            const hasRecord = telemetryDocument.records.some(rec =>
+                matchTelemetryRecord(rec, workflowName, workflowVersion, node)
+            );
+            if (hasRecord) {
+                recordedNodeIds.add(node.id);
+            }
+        }
+    }
+
+    // Set of edge IDs on the recorded telemetry path (both source and target have telemetry)
+    const recordedEdgeIds = new Set<string>();
+    if (recordedNodeIds.size > 0) {
+        for (const edge of edges) {
+            if (recordedNodeIds.has(edge.from) && recordedNodeIds.has(edge.to)) {
+                recordedEdgeIds.add(edge.id);
+            }
+        }
+    }
     const headerSpace = workflowName
         ? workflowProperties?.timeoutMs !== undefined || workflowProperties?.workflowVersion !== undefined
             ? 72
@@ -152,6 +181,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                         <marker id={markerId} markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
                             <path d="M0 0L8 3L0 6Z" fill="context-stroke" />
                         </marker>
+                        <marker id={recordedMarkerId} markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto">
+                            <path d="M0 0L9 3.5L0 7Z" fill="#10b981" />
+                        </marker>
                     </defs>
                     {edges.map(edge => {
                         const a = positions.get(edge.from),
@@ -165,24 +197,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                             x2 = b.x + W / 2,
                             y2 = b.y;
                         const active = selectedNodeId === edge.from || selectedNodeId === edge.to;
+                        const isRecordedPath = recordedEdgeIds.has(edge.id);
                         const color = active
                             ? '#3574f0'
-                            : edge.type === 'parallel'
-                              ? '#a78bfa'
-                              : edge.type === 'branch'
-                                ? '#38bdf8'
-                                : edge.type === 'compensation'
-                                  ? '#34d399'
-                                  : edge.type === 'fallback'
-                                    ? '#fbbf24'
-                                    : '#6c707e';
+                            : isRecordedPath
+                              ? '#10b981'
+                              : edge.type === 'parallel'
+                                ? '#a78bfa'
+                                : edge.type === 'branch'
+                                  ? '#38bdf8'
+                                  : edge.type === 'compensation'
+                                    ? '#34d399'
+                                    : edge.type === 'fallback'
+                                      ? '#fbbf24'
+                                      : '#6c707e';
                         return (
                             <g key={edge.id}>
                                 <path
                                     d={`M${x1},${y1} C${x1},${y1 + GY / 2} ${x2},${y2 - GY / 2} ${x2},${y2}`}
                                     fill="none"
                                     stroke={color}
-                                    strokeWidth={active ? 2 : 1.5}
+                                    strokeWidth={active ? 2.5 : isRecordedPath ? 2.5 : 1.5}
                                     strokeDasharray={
                                         edge.type === 'fallback'
                                             ? '4 4'
@@ -190,7 +225,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                                               ? '6 3'
                                               : undefined
                                     }
-                                    markerEnd={`url(#${markerId})`}
+                                    markerEnd={isRecordedPath && !active ? `url(#${recordedMarkerId})` : `url(#${markerId})`}
                                 />
                                 {edge.label && (
                                     <text x={(x1 + x2) / 2 + 8} y={(y1 + y2) / 2} fill={color} fontSize="11">
@@ -204,13 +239,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 {nodes.map(node => {
                     const p = positions.get(node.id)!;
                     const selected = selectedNodeId === node.id;
+                    const hasTelemetry = recordedNodeIds.has(node.id);
                     return (
                         <button
                             key={node.id}
                             onClick={() => onSelectNode(node)}
                             title={node.name}
                             style={{ left: p.x, top: p.y, width: W, height: H }}
-                            className={`absolute text-left rounded-lg border p-3 shadow-md transition-colors ${selected ? 'border-[#3574f0] bg-[#2e3748] ring-2 ring-[#3574f0]/40' : 'border-[#393b40] bg-[#2b2d30] hover:border-[#6c707e]'}`}
+                            className={`absolute text-left rounded-lg border p-3 shadow-md transition-all ${
+                                selected
+                                    ? 'border-[#3574f0] bg-[#2e3748] ring-2 ring-[#3574f0]/40'
+                                    : hasTelemetry
+                                      ? 'border-emerald-500/80 bg-[#1e2a24] shadow-emerald-950/30 ring-1 ring-emerald-500/40 hover:border-emerald-400'
+                                      : 'border-[#393b40] bg-[#2b2d30] hover:border-[#6c707e]'
+                            }`}
                         >
                             <span className="flex items-center gap-2 min-w-0">
                                 <span>
@@ -227,11 +269,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                                         : node.stepKind}
                                 </span>
                             </span>
-                            <span className="mt-2 flex justify-between gap-2 text-[10px] text-[#9da0a8]">
+                            <span className="mt-2 flex justify-between items-center gap-2 text-[10px] text-[#9da0a8]">
                                 <span>
                                     L{node.location.start.line + 1}:C{node.location.start.character + 1}
                                 </span>
-                                <span>
+                                <span className="flex items-center gap-1.5">
+                                    {hasTelemetry && (
+                                        <span
+                                            title="Runtime telemetry recorded for this step"
+                                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-600/40 text-emerald-400 font-mono text-[9px] font-semibold"
+                                        >
+                                            <Database className="w-2.5 h-2.5" />
+                                            <span>RECORDED</span>
+                                        </span>
+                                    )}
                                     {node.executionConfig?.retries !== undefined
                                         ? `${node.executionConfig.retries} retries`
                                         : node.executionConfig?.timeoutMs

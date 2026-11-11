@@ -139,6 +139,40 @@ try {
         `const selector = document.querySelector('select'); selector.value = '__ALL__'; selector.dispatchEvent(new Event('change', {bubbles:true}));`,
     );
     await screenshot('04-all-workflows.png');
+
+    // 05-ecosystem-telemetry: Load telemetry recording and inspect authorizePayment with matched recorded execution
+    const telemetryDoc = {
+        version: 1,
+        fileName: 'checkout-telemetry.json',
+        importedAt: '2026-11-11T12:00:00.000Z',
+        records: [
+            {
+                version: 1,
+                workflowName: 'checkoutWorkflow',
+                stepIdentity: 'authorizePayment',
+                attempt: 2,
+                timestamp: '2026-11-11T12:00:01.000Z',
+                inspection: {
+                    version: 1,
+                    kind: 'http',
+                    outcome: 'success',
+                    durationMs: 245,
+                    method: 'POST',
+                    url: 'https://api.payments.example.com/v1/charge',
+                    status: 200,
+                    retryAttempts: 1,
+                    requestAttempt: 2,
+                    retryDelayMs: 200,
+                    policy: 'allowed',
+                    traceId: 'tr_pay_7721'
+                }
+            }
+        ]
+    };
+    await evaluate(`const sel = document.querySelector('select'); if (sel) { sel.value = 'checkoutWorkflow'; sel.dispatchEvent(new Event('change', {bubbles:true})); }`);
+    await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'setTelemetry', document:${JSON.stringify(telemetryDoc)}})`);
+    await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(payment.id)}})`);
+    await screenshot('05-ecosystem-telemetry.png');
 } finally {
     socket?.close();
     browser.kill();

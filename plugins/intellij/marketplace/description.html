@@ -21,6 +21,13 @@
     </li>
     <li>Review workflow deadlines, schema versions, network policies, and monitor expressions.</li>
     <li>Recognize core steps and supported HTTP, AI, notification, crypto, and durable wait patterns.</li>
+    <li>Deep-dive into ecosystem steps with optional offline telemetry recording imports and fail-closed secret redaction.</li>
+</ul>
+<h3>Static code diagnostics</h3>
+<ul>
+    <li>Detect DAG cycles (<code>SIGLO_STATIC_CYCLE</code>) and duplicate step IDs (<code>SIGLO_DUPLICATE_STEP_ID</code>).</li>
+    <li>Flag missing compensations on side-effect sagas (<code>SIGLO_MISSING_COMPENSATION</code>).</li>
+    <li>Warn on unhandled error branches in durable workflows (<code>SIGLO_UNHANDLED_ERROR_BRANCH</code>).</li>
 </ul>
 <h3>Static analysis</h3>
 <p>
@@ -40,6 +47,7 @@
         open <b>View → Tool Windows → Siglo Workflows</b>.
     </li>
     <li>Select a workflow or click a step to explore its settings and source.</li>
+    <li>Optionally choose <b>Import Siglo Telemetry Recording...</b> to inspect recorded execution metrics offline.</li>
 </ol>
 <p>
     Targets IntelliJ Platform 2024.1 and newer (build 241+). The interactive graph uses JCEF; when JCEF is unavailable,
