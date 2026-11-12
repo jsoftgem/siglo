@@ -163,5 +163,5 @@ console.log(result.$steps.agentResolution.$ai);
 npm install @siglo/core @siglo/ai zod
 ```
 
-- **AI Adapter Documentation**: [`docs/adapters/ai.md`](../adapters/ai.md)
+- **AI Adapter Documentation**: [AI & Agentic Inference](/adapters/ai)
 - **Source Code**: [`packages/ai/src/`](https://github.com/jsoftgem/siglo/tree/main/packages/ai/src)

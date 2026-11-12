@@ -160,4 +160,4 @@ When you drop an `aiStep` into a `flow()`, `StandardSchemaV1.InferOutput<S>` bec
 ## Explore the Code
 
 - **Type definitions in `@siglo/core`**: [`packages/core/src/features/step/index.ts`](https://github.com/jsoftgem/siglo/blob/main/packages/core/src/features/step/index.ts)
-- **TypeScript Reference Guide**: [`docs/10-typescript-reference.md`](../10-typescript-reference.md)
+- **TypeScript Reference Guide**: [TypeScript Reference](/10-typescript-reference)

@@ -163,5 +163,5 @@ npm install @siglo/core
 ```
 
 - **GitHub Repository**: [github.com/jsoftgem/siglo](https://github.com/jsoftgem/siglo)
-- **Incremental Adoption Guide**: [Migrate 1 Endpoint in 5 Minutes](../migrate-one-endpoint.md)
+- **Incremental Adoption Guide**: [Migrate 1 Endpoint in 5 Minutes](/migrate-one-endpoint)
 - **Documentation**: [siglo.dev](https://siglo.dev)

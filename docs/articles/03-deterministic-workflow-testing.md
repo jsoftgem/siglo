@@ -199,5 +199,5 @@ it('reproduces and verifies the fix against the recorded trace', async () => {
 npm install @siglo/core @siglo/testing
 ```
 
-- **Testing & Replay Guide**: [`docs/09-testing-and-replay.md`](../09-testing-and-replay.md)
+- **Testing & Replay Guide**: [Testing and Replay](/09-testing-and-replay)
 - **Source Code**: [`packages/testing/src/index.ts`](https://github.com/jsoftgem/siglo/blob/main/packages/testing/src/index.ts)

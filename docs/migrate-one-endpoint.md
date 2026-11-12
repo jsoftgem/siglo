@@ -3,15 +3,15 @@ title: 'Migrate 1 Endpoint in 5 Minutes'
 description: 'Incremental adoption guide: wrap existing TypeScript service functions in Siglo steps without rewriting your codebase.'
 ---
 
-# Migrate 1 Endpoint in 5 Minutes
-
 You do not need to re-architect your application, deploy new infrastructure, or rewrite your existing business logic to adopt **Siglo**. Because Siglo runs in-process as a standard TypeScript library, the fastest path to adoption is migrating **one brittle endpoint**—such as checkout, user onboarding, or webhook processing—in under 5 minutes.
 
-> 💻 **Run Locally**: A self-contained runnable comparison of this guide lives in [`examples/src/migrate-one-endpoint/migrate-one-endpoint.ts`](../examples/src/migrate-one-endpoint/migrate-one-endpoint.ts). Execute it directly from the repository root with:
->
-> ```bash
-> npx tsx examples/src/migrate-one-endpoint/migrate-one-endpoint.ts
-> ```
+**Running from this repository?** A self-contained runnable comparison of this guide lives in [`examples/src/migrate-one-endpoint/migrate-one-endpoint.ts`](https://github.com/jsoftgem/siglo/blob/main/examples/src/migrate-one-endpoint/migrate-one-endpoint.ts). Execute it directly from the repository root with:
+
+```bash
+npm run demo:migrate-endpoint --workspace=siglo-examples
+# or directly via tsx:
+npx tsx examples/src/migrate-one-endpoint/migrate-one-endpoint.ts
+```
 
 ---
 
@@ -59,12 +59,16 @@ router.post('/api/checkout', async (req, res, next) => {
         if (paymentId) {
             try {
                 await paymentService.refund(paymentId);
-            } catch {}
+            } catch {
+                // ignore rollback failure
+            }
         }
         if (reservationId) {
             try {
                 await inventoryService.release(reservationId);
-            } catch {}
+            } catch {
+                // ignore rollback failure
+            }
         }
         return next(err);
     }
@@ -168,5 +172,5 @@ By migrating that single endpoint:
 
 1. **Guaranteed LIFO Rollbacks**: If `createShipment` fails, `chargeCustomer` refunds the payment first, and `reserveStock` releases the inventory second.
 2. **Instant Architecture Diagrams in PRs**: Run `npx @siglo/cli export workflows/checkout.workflow.ts --format=mermaid` to generate an up-to-date Mermaid diagram with retry, timeout, and saga badges.
-3. **Deterministic Unit Tests in `<5ms`**: Test retries and rollbacks deterministically without hitting real APIs or waiting on real timers using `@siglo/testing` (`createWorkflowHarness`, `FakeClock`, `mockStep`).
-4. **Drop-In Observability**: Add `@siglo/monitor` for a live local DevTools waterfall (`http://localhost:4000`) or `@siglo/opentelemetry` for automatic step-level spans in Jaeger, Grafana, or Datadog.
+3. **Deterministic Unit Tests in `<5ms`**: Test retries and rollbacks deterministically without hitting real APIs or waiting on real timers using [`@siglo/testing`](/09-testing-and-replay) (`createWorkflowHarness`, `FakeClock`, `mockStep`).
+4. **Drop-In Observability**: Add [`@siglo/monitor`](/live-monitoring) for a live local DevTools waterfall (`http://localhost:4000`) or [`@siglo/opentelemetry`](/08-observability) for automatic step-level spans in Jaeger, Grafana, or Datadog.
