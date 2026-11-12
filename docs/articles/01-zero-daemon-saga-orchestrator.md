@@ -1,6 +1,9 @@
-# Why We Built a Zero-Daemon Saga Orchestrator in Pure TypeScript
-
 ---
+title: 'Why We Built a Zero-Daemon Saga Orchestrator in Pure TypeScript'
+description: 'Architectural comparison of in-process orchestration and PostgreSQL Optimistic Concurrency Control vs. external cluster engines.'
+---
+
+# Why We Built a Zero-Daemon Saga Orchestrator in Pure TypeScript
 
 Every backend service starts with a clean, linear async function:
 

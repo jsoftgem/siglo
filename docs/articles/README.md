@@ -1,3 +1,8 @@
+---
+title: 'Siglo Engineering Launch Articles'
+description: 'Technical deep dives on zero-daemon Saga orchestration, TypeScript context accumulation, deterministic testing, and self-healing AI workflows.'
+---
+
 # Siglo Engineering Launch Articles
 
 High-signal technical deep dives and launch posts for Hacker News (`Show HN`), `r/typescript`, `r/node`, and Dev.to:
@@ -8,7 +13,7 @@ High-signal technical deep dives and launch posts for Hacker News (`Show HN`), `
 2. [**How TypeScript Accumulates Step Types Across Pipelines**](02-type-level-context-accumulation.md)
     - _Focus_: Type-level walkthrough of `Step<TInput, TOutput, TName>`, `MergeStepContext<TAcc, TOut>`, `$steps` history inference, and `StandardSchemaV1` integration.
     - _Channels_: `r/typescript`, Dev.to, Hacker News.
-3. [**Testing Retries, Timeouts, and Sagas in <5ms with Virtual Clocks (`@siglo/testing`)**](03-deterministic-workflow-testing.md)
+3. [**Testing Retries, Timeouts, and Sagas in `<5ms` with Virtual Clocks (`@siglo/testing`)**](03-deterministic-workflow-testing.md)
     - _Focus_: Deterministic workflow testing with `createWorkflowHarness`, `FakeClock`, `spyStep`, `injectEvent`, and PII-redacted `replayExecution`.
     - _Channels_: `r/node`, `r/typescript`, Dev.to.
 4. [**Self-Healing Structured Outputs and Saga-Backed Tool Calls for LLMs with `@siglo/ai`**](04-self-healing-ai-and-saga-tools.md)

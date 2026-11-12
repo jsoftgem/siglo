@@ -1,6 +1,9 @@
-# Self-Healing Structured Outputs and Saga-Backed Tool Calls for LLMs with `@siglo/ai`
-
 ---
+title: 'Self-Healing Structured Outputs and Saga-Backed Tool Calls for LLMs'
+description: 'Bounded schema repair loops, multi-provider failover cascades, Step-as-Tool LIFO Saga compensations, and zero-trust network egress sandboxing with @siglo/ai.'
+---
+
+# Self-Healing Structured Outputs and Saga-Backed Tool Calls for LLMs with `@siglo/ai`
 
 Shipping an LLM feature in a prototype takes 20 lines of `fetch()`. Shipping that same LLM feature in a transactional backend service immediately hits four reliability walls:
 

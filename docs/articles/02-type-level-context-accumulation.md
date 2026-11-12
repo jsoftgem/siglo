@@ -1,6 +1,9 @@
-# How TypeScript Accumulates Step Types Across Pipelines
-
 ---
+title: 'How TypeScript Accumulates Step Types Across Pipelines'
+description: 'Type-level walkthrough of Step<TInput, TOutput, TName>, MergeStepContext<TAcc, TOut>, $steps history inference, and StandardSchemaV1 integration.'
+---
+
+# How TypeScript Accumulates Step Types Across Pipelines
 
 One of the oldest ergonomics problems in TypeScript pipeline libraries is **context typing across independent steps**.
 

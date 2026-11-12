@@ -1,6 +1,9 @@
-# Testing Retries, Timeouts, and Sagas in <5ms with Virtual Clocks (`@siglo/testing`)
-
 ---
+title: 'Testing Retries, Timeouts, and Sagas in Under 5ms with Virtual Clocks'
+description: 'Deterministic workflow testing with createWorkflowHarness, FakeClock, spyStep, injectEvent, and PII-redacted replayExecution in @siglo/testing.'
+---
+
+# Testing Retries, Timeouts, and Sagas in `<5ms` with Virtual Clocks (`@siglo/testing`)
 
 Why do most backend teams skip testing their retry loops, webhook suspensions, and Saga rollback handlers?
 

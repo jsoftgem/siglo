@@ -19,7 +19,7 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["index", "01-getting-started", "02-core-concepts"]
+            "pages": ["index", "01-getting-started", "migrate-one-endpoint", "02-core-concepts"]
           },
           {
             "group": "Workflow Patterns",
@@ -54,6 +54,15 @@
           {
             "group": "Developer Tools",
             "pages": ["ide-workflow-explorer", "live-monitoring", "ecosystem-devtools"]
+          },
+          {
+            "group": "Engineering Deep Dives",
+            "pages": [
+              "articles/01-zero-daemon-saga-orchestrator",
+              "articles/02-type-level-context-accumulation",
+              "articles/03-deterministic-workflow-testing",
+              "articles/04-self-healing-ai-and-saga-tools"
+            ]
           }
         ]
       },
