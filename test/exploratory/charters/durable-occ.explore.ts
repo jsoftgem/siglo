@@ -18,15 +18,21 @@ export async function runDurableOccCharter(iterations: number = 20, seed: number
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
+    const evidence: unknown[] = [];
     const invariantsChecked = [3];
 
     for (let i = 0; i < iterations; i++) {
+        const errorCount = errors.length;
         defaultDurableManager.clear();
         const fakeStorage = new InMemoryStorageFake();
-        const chaosProxy = new ChaosStorageProxy(fakeStorage, {
-            conflictRate: 0.1,
-            maxLatencyMs: 5,
-        });
+        const chaosProxy = new ChaosStorageProxy(
+            fakeStorage,
+            {
+                conflictRate: 0.1,
+                maxLatencyMs: 5,
+            },
+            rng,
+        );
         useStorage(chaosProxy);
 
         const correlationKey = `corr_${i}_${rng.string(6)}`;
@@ -102,6 +108,8 @@ export async function runDurableOccCharter(iterations: number = 20, seed: number
         } catch (err: any) {
             errors.push(`Iteration ${i} Invariant Violation: ${err.message}`);
         }
+        if (errors.length > errorCount)
+            evidence.push({ iteration: i, correlationKey, stackId, faultSchedule: chaosProxy.faultSchedule });
     }
 
     return {
@@ -111,5 +119,6 @@ export async function runDurableOccCharter(iterations: number = 20, seed: number
         durationMs: Date.now() - startTime,
         invariantsChecked,
         errors,
+        evidence,
     };
 }

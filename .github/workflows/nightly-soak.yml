@@ -40,11 +40,10 @@ jobs:
 
       redis:
         image: redis:7-alpine
-        command: ["redis-server", "--requirepass", "redispassword"]
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli -a redispassword ping"
+          --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
 
     steps:
@@ -66,22 +65,19 @@ jobs:
       - name: Run Core unit test coverage gate
         run: npm test
 
-      - name: Run Automated Exploratory Soak Suite (12 Charters)
+      - name: Run Automated Exploratory Soak Suite (15 Charters)
         run: |
-          ITERATIONS="${{ github.event.inputs.iterations || '200' }}"
-          SEED="${{ github.event.inputs.seed || '42' }}"
-          CHARTER="${{ github.event.inputs.charter || '' }}"
-          
-          CMD="npm run explore -- --iterations=$ITERATIONS --seed=$SEED"
-          if [ -n "$CHARTER" ]; then
-            CMD="$CMD --charter=$CHARTER"
+          if [ -n "$EXPLORE_CHARTER" ]; then
+            npm run explore -- --integration "--iterations=$EXPLORE_ITERATIONS" "--seed=$EXPLORE_SEED" "--charter=$EXPLORE_CHARTER"
+          else
+            npm run explore -- --integration "--iterations=$EXPLORE_ITERATIONS" "--seed=$EXPLORE_SEED"
           fi
-          
-          echo "Executing: $CMD"
-          eval $CMD
         env:
+          EXPLORE_ITERATIONS: ${{ github.event.inputs.iterations || '200' }}
+          EXPLORE_SEED: ${{ github.event.inputs.seed || '42' }}
+          EXPLORE_CHARTER: ${{ github.event.inputs.charter || '' }}
           SIGLO_TEST_POSTGRES_URL: postgres://siglo:siglo_test@localhost:5432/siglo_soak_test
-          SIGLO_TEST_REDIS_URL: redis://:redispassword@localhost:6379
+          SIGLO_TEST_REDIS_URL: redis://localhost:6379
 
       - name: Run Stryker Mutation Testing Score Evaluation
         run: npm run test:mutation

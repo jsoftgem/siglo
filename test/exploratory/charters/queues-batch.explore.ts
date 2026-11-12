@@ -1,3 +1,8 @@
+import assert from 'node:assert/strict';
+import { assertExactIds } from '../engine/assertions';
+import { createBullMQProcessor } from '@siglo/bullmq';
+import { createKafkaBatchHandler } from '@siglo/kafka';
+import { InMemoryIdempotencyStore } from '@siglo/core';
 import { flow } from '@siglo/core';
 import { step } from '../engine/step-helper';
 import { createSqsBatchHandler, SigloSqsRecord } from '@siglo/sqs';
@@ -9,7 +14,7 @@ export async function runQueuesBatchCharter(iterations: number = 20, seed: numbe
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
-    const invariantsChecked = [7];
+    const invariantsChecked = [3, 7];
 
     for (let i = 0; i < iterations; i++) {
         const batchSize = rng.nextInt(5, 20);
@@ -63,12 +68,62 @@ export async function runQueuesBatchCharter(iterations: number = 20, seed: numbe
             // Verify Oracle 7: Batch Partitioning
             InvariantEvaluator.assertBatchPartition(allMessageIds, ackedIds, nackedIds);
 
-            // Verify that reported failures match expected poison messages
-            if (nackedIds.length !== expectedFailedIds.length) {
-                errors.push(
-                    `Iteration ${i}: Failure count mismatch! Expected ${expectedFailedIds.length}, got ${nackedIds.length}`,
-                );
-            }
+            assertExactIds(nackedIds, expectedFailedIds);
+
+            const offsets: string[] = [];
+            const deadLetters: string[] = [];
+            const kafka = createKafkaBatchHandler(batchWorkflow, {
+                input: message => ({ body: String(message.value) }),
+                deadLetter: async ({ message }) => {
+                    deadLetters.push(message.offset);
+                },
+            });
+            await kafka({
+                batch: {
+                    topic: 'exploratory',
+                    partition: 0,
+                    messages: records.map((r, index) => ({ offset: String(index), value: Buffer.from(r.body!) })),
+                },
+                isRunning: () => true,
+                isStale: () => false,
+                heartbeat: async () => {},
+                resolveOffset: offset => {
+                    offsets.push(offset);
+                },
+                commitOffsetsIfNecessary: async () => {},
+            });
+            assert.deepEqual(
+                offsets,
+                records.map((_r, index) => String(index)),
+            );
+            assert.deepEqual(
+                deadLetters,
+                records.flatMap((r, index) => (expectedFailedIds.includes(r.messageId) ? [String(index)] : [])),
+            );
+
+            let effects = 0;
+            const processor = createBullMQProcessor(
+                flow(
+                    step('jobEffect', async (ctx: any) => {
+                        if (ctx.shouldFail) throw new Error('poison');
+                        effects++;
+                        return { done: true };
+                    }),
+                ),
+                { idempotencyStore: new InMemoryIdempotencyStore() },
+            );
+            const jobs = records.map(r => ({ id: r.messageId, data: JSON.parse(r.body!) }));
+            const jobOutcomes = await Promise.allSettled(jobs.map(job => processor(job)));
+            assert.deepEqual(
+                jobs
+                    .filter((_job, index) => jobOutcomes[index].status === 'rejected')
+                    .map(job => job.id)
+                    .sort(),
+                [...expectedFailedIds].sort(),
+            );
+            const successful = jobs.filter(job => !job.data.shouldFail);
+            await Promise.all(successful.map(job => processor(job)));
+            assert.equal(effects, successful.length);
         } catch (invErr: any) {
             errors.push(`Iteration ${i} Invariant Violation: ${invErr.message}`);
         }

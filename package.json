@@ -21,7 +21,7 @@
     "test:live": "node tests/live-plugin-screenshots.test.mjs",
     "test:examples": "npm run test --workspace=siglo-examples",
     "test:all": "npm test && npm run test:packages && npm run test:ide && npm run test:examples",
-    "test:exploratory": "mocha -r tsx test/exploratory/exploratory.test.ts test/exploratory/engine/invariant-evaluator.test.ts",
+    "test:exploratory": "tsc -p test/exploratory/tsconfig.json && mocha -r tsx 'test/exploratory/**/*.test.ts'",
     "test:mutation": "stryker run",
     "explore": "tsx test/exploratory/runner.ts",
     "publish:core": "npm publish --workspace=@siglo/core --registry https://registry.npmjs.org/",

@@ -115,6 +115,7 @@ export async function runLiveMonitoringSample(): Promise<{
             {
                 durable: true,
                 monitor: ev => {
+                    monitor.emitter.emit(ev);
                     if (ev.type === 'flow:start') {
                         suspendedStackId = ev.stackId;
                     }

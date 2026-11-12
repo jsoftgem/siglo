@@ -51,3 +51,19 @@ test('a rejected approval refunds the charge and releases the reservation before
     assert.deepEqual(events.slice(-2), ['refund payment', 'release stock']);
     assert.ok(!events.includes('arrange shipping'));
 });
+
+test('competing approval deliveries ship once and preserve the accepted decision', async () => {
+    const { services, events } = createDemoServices();
+    const workflow = createDurableCheckout(services);
+    const waiting = (await workflow.run(sampleOrder, { durable: true, pojo: true })) as unknown as {
+        correlationKey: string;
+    };
+    const deliveries = await Promise.allSettled([
+        resumeWorkflow(workflow, waiting.correlationKey, { approved: true, approverId: 'first' }, { pojo: true }),
+        resumeWorkflow(workflow, waiting.correlationKey, { approved: true, approverId: 'duplicate' }, { pojo: true }),
+    ]);
+    assert.equal(deliveries.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(deliveries.filter(result => result.status === 'rejected').length, 1);
+    assert.equal(events.filter(event => event === 'arrange shipping').length, 1);
+    assert.equal(events.filter(event => event === 'charge attempt 2').length, 1);
+});

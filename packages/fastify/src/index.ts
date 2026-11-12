@@ -1,3 +1,4 @@
+import { requestCancellation } from './disconnect';
 import { Flow, ExecutionOptions } from '@siglo/core';
 
 export interface SigloFastifyOptions<TReq = any, TInput = any, TOutput = any> {
@@ -81,6 +82,7 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
     options: SigloFastifyOptions<TReq, TInput, TOutput> = {},
 ) {
     return async (request: any, reply: any): Promise<any> => {
+        const cancellation = requestCancellation(request.raw || request, reply.raw || reply, request.raw?.signal);
         try {
             // Correlation ID handling
             const corrHeader = (options.correlationIdHeader || 'x-correlation-id').toLowerCase();
@@ -107,7 +109,7 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 namespace = request.headers['x-namespace'];
             }
 
-            const abortSignal = request.raw?.signal;
+            const abortSignal = cancellation.signal;
 
             const execOptions: ExecutionOptions = {
                 signal: abortSignal,
@@ -147,6 +149,8 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 errorMessage = 'Internal workflow execution error';
             }
             return reply.status(status).send({ error: errorMessage });
+        } finally {
+            cancellation.cleanup();
         }
     };
 }

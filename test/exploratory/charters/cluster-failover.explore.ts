@@ -22,6 +22,10 @@ class SimulatedClusterRedisClient implements RedisClientInterface {
     public ttls = new Map<string, number>();
     public networkPartitionedNodes = new Set<string>();
 
+    async hset(): Promise<number> {
+        throw new Error('Hash operations are not used by this lock double');
+    }
+
     async get(key: string): Promise<string | null> {
         return this.storage.has(key) ? this.storage.get(key)! : null;
     }
@@ -70,21 +74,28 @@ export async function runClusterFailoverCharter(iterations: number = 15, seed: n
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
+    const evidence: unknown[] = [];
     const invariantsChecked = [2, 3, 5];
 
     for (let i = 0; i < iterations; i++) {
         defaultDurableManager.clear();
         defaultCompensationManager.clear();
 
+        let chaosProxy: ChaosStorageProxy | undefined;
+        const errorCount = errors.length;
         try {
             // =========================================================================
             // Sub-test A: Split-Brain & Stale Resume Barrier Under Network Partition
             // =========================================================================
             const fakeStorage = new InMemoryStorageFake();
-            const chaosProxy = new ChaosStorageProxy(fakeStorage, {
-                conflictRate: 0.0,
-                maxLatencyMs: 2,
-            });
+            chaosProxy = new ChaosStorageProxy(
+                fakeStorage,
+                {
+                    conflictRate: 0.0,
+                    maxLatencyMs: 2,
+                },
+                rng,
+            );
             useStorage(chaosProxy);
 
             const correlationKey = `split_corr_${i}_${rng.string(6)}`;
@@ -285,6 +296,7 @@ export async function runClusterFailoverCharter(iterations: number = 15, seed: n
         } catch (charterErr: any) {
             errors.push(`Iteration ${i} Unhandled Exception: ${charterErr.message}`);
         }
+        if (errors.length > errorCount) evidence.push({ iteration: i, faultSchedule: chaosProxy?.faultSchedule });
     }
 
     return {
@@ -294,5 +306,6 @@ export async function runClusterFailoverCharter(iterations: number = 15, seed: n
         durationMs: Date.now() - startTime,
         invariantsChecked,
         errors,
+        evidence,
     };
 }

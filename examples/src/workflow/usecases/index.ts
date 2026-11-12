@@ -22,3 +22,4 @@ export * from './usecase-21-distributed-telemetry-tracing';
 export * from './usecase-22-saas-billing-ledger';
 export * from './usecase-23-live-workflow-monitoring';
 export * from './usecase-24-order-intake-specs';
+export * from './usecase-25-offline-telemetry-investigation';

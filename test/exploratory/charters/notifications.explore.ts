@@ -16,7 +16,7 @@ export async function runNotificationsCharter(iterations: number = 15, seed: num
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
-    const invariantsChecked = [1, 3, 7];
+    const invariantsChecked = [3];
 
     for (let i = 0; i < iterations; i++) {
         try {
@@ -183,7 +183,7 @@ export async function runNotificationsCharter(iterations: number = 15, seed: num
     }
 
     return {
-        charterName: 'Charter 11: Notification Dispatch Cascades & Provider Failover',
+        charterName: 'Charter 11: Notification Deduplication, Token Tampering & Approval Races',
         iterations,
         passed: errors.length === 0,
         durationMs: Date.now() - startTime,

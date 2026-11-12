@@ -163,13 +163,15 @@ export class FlowAstGenerator {
                 case 'when': {
                     const thenStep = buildNode(`${currName}_then`, currDepth - 1);
                     const elseStep = buildNode(`${currName}_else`, currDepth - 1);
-                    const condition = (ctx: any) => Boolean(ctx && Math.random() > 0.5);
+                    const selected = this.rng.nextBoolean();
+                    const condition = () => selected;
                     return when(condition, thenStep, elseStep);
                 }
                 case 'branch': {
                     const branchA = buildNode(`${currName}_ba`, currDepth - 1);
                     const branchB = buildNode(`${currName}_bb`, currDepth - 1);
-                    const selector = () => (Math.random() > 0.5 ? 'optA' : 'optB');
+                    const selected = this.rng.pick(['optA', 'optB']);
+                    const selector = () => selected;
                     return branch(selector, { optA: branchA, optB: branchB });
                 }
                 case 'sequence':

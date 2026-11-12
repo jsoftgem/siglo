@@ -659,9 +659,20 @@ test('Phase 3 Use Cases Integration Suite', async t => {
     });
     await t.test('Use Case 23: Live Workflow Monitoring & DevTools Server', async () => {
         const { monitor, metricsText } = await runLiveMonitoringSample();
-        assert.ok(monitor.port > 0);
-        assert.ok(metricsText.includes('siglo_active_flows'));
-        await monitor.close();
+        try {
+            assert.ok(monitor.port > 0);
+            assert.ok(metricsText.includes('siglo_active_flows'));
+            const response = await fetch(`http://127.0.0.1:${monitor.port}/api/workflows`);
+            assert.equal(response.status, 200);
+            const workflows = await response.json();
+            assert.ok(workflows.length > 0);
+            const details = await fetch(`http://127.0.0.1:${monitor.port}/api/workflows/${workflows[0].stackId}`);
+            const snapshot = await details.text();
+            assert.equal(snapshot.includes('super-secret-jwt-token'), false);
+            assert.ok(snapshot.includes('[REDACTED]'));
+        } finally {
+            await monitor.close();
+        }
     });
 });
 

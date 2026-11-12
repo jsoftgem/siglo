@@ -1,88 +1,113 @@
-import { flow, CancellationException } from '@siglo/core';
-import { step } from '../engine/step-helper';
-import { InvariantEvaluator } from '../engine/invariant-evaluator';
-import { RandomSource } from '../engine/property-generators';
-import { CharterResult } from './combinators.explore';
+import { within } from '../engine/deadline';
+import assert from 'node:assert/strict';
+import { EventEmitter, getEventListeners } from 'node:events';
+import { flow, Step } from '@siglo/core';
+import { sigloExpressMiddleware } from '@siglo/express';
+import { sigloFastifyHandler } from '@siglo/fastify';
+import { sigloMiddleware } from '@siglo/hono';
+import { exploreCases } from '../engine/charter';
 
-export async function runHttpAbortCharter(iterations: number = 20, seed: number = 6006): Promise<CharterResult> {
-    const startTime = Date.now();
-    const rng = new RandomSource(seed);
-    const errors: string[] = [];
-    const invariantsChecked = [4, 10];
-
-    for (let i = 0; i < iterations; i++) {
-        const executedSteps: string[] = [];
-        const controller = new AbortController();
-
-        const s1 = step('step_pre_abort', async () => {
-            executedSteps.push('step_pre_abort');
-            return { s1: true };
-        });
-
-        const s2 = step('step_during_abort', async () => {
-            executedSteps.push('step_during_abort');
-            // Delay to allow abort to fire mid-flight
-            await new Promise((resolve, reject) => {
-                const timer = setTimeout(resolve, 60);
-                if (controller.signal.aborted) {
-                    clearTimeout(timer);
-                    reject(new CancellationException('Aborted'));
-                } else {
-                    controller.signal.addEventListener(
-                        'abort',
-                        () => {
-                            clearTimeout(timer);
-                            reject(new CancellationException('Aborted'));
-                        },
-                        { once: true },
-                    );
-                }
-            });
-            return { s2: true };
-        });
-
-        const s3 = step('step_post_abort_1', async () => {
-            executedSteps.push('step_post_abort_1');
-            return { s3: true };
-        });
-
-        const s4 = step('step_post_abort_2', async () => {
-            executedSteps.push('step_post_abort_2');
-            return { s4: true };
-        });
-
-        const testFlow = flow(s1, s2, s3, s4);
-
-        // Schedule abort after step 1 finishes and step 2 starts
-        const abortDelay = rng.nextInt(5, 20);
-        const abortTimer = setTimeout(() => {
-            controller.abort(new CancellationException('Client connection closed by peer'));
-        }, abortDelay);
-
-        try {
-            await testFlow.run({}, { signal: controller.signal, pojo: true });
-            clearTimeout(abortTimer);
-            errors.push(`Iteration ${i}: Expected workflow to be cancelled, but it completed successfully!`);
-        } catch (err: any) {
-            clearTimeout(abortTimer);
-            try {
-                // Verify Oracle 4: Cooperative cancellation halts downstream steps
-                InvariantEvaluator.assertCancellationPromptness('step_during_abort', executedSteps, [
-                    'step_post_abort_1',
-                    'step_post_abort_2',
-                ]);
-            } catch (invErr: any) {
-                errors.push(`Iteration ${i} Invariant Violation: ${invErr.message}`);
-            }
-        }
-    }
-
-    return {
-        charterName: 'Charter 6: Web / Edge Adapter Disconnects & Abort Propagation',
+export async function runHttpAbortCharter(iterations = 20, seed = 6006) {
+    return exploreCases(
+        'Charter 6: Web adapter disconnects and cleanup',
         iterations,
-        passed: errors.length === 0,
-        durationMs: Date.now() - startTime,
-        invariantsChecked,
-        errors,
-    };
+        seed,
+        [4, 10],
+        async (rng, i, record) => {
+            for (const adapter of ['express', 'fastify', 'hono']) {
+                for (const cancelled of [true, false]) {
+                    const request = Object.assign(new EventEmitter(), { headers: {}, body: {}, complete: true });
+                    const response = Object.assign(new EventEmitter(), {
+                        writableFinished: false,
+                        statusCode: 200,
+                        status(code: number) {
+                            this.statusCode = code;
+                            return this;
+                        },
+                        code(code: number) {
+                            this.statusCode = code;
+                            return this;
+                        },
+                        json(_value: unknown) {
+                            return this;
+                        },
+                        send(_value: unknown) {
+                            return this;
+                        },
+                    });
+                    const controller = new AbortController();
+                    const fetchRequest = new Request('http://localhost/', { signal: controller.signal });
+                    let started!: () => void;
+                    const ready = new Promise<void>(resolve => {
+                        started = resolve;
+                    });
+                    let downstream = 0;
+                    let activeTimers = 0;
+                    const workflow = flow(
+                        Step.create(`blocking_${i}`, async (ctx: any) => {
+                            const signal: AbortSignal = ctx.$signal();
+                            started();
+                            await new Promise<void>((resolve, reject) => {
+                                activeTimers++;
+                                const cleanup = () => {
+                                    clearTimeout(timer);
+                                    activeTimers--;
+                                    signal.removeEventListener('abort', abort);
+                                };
+                                const abort = () => {
+                                    cleanup();
+                                    reject(signal.reason);
+                                };
+                                const timer = setTimeout(
+                                    () => {
+                                        cleanup();
+                                        resolve();
+                                    },
+                                    cancelled ? 500 : 1,
+                                );
+                                signal.addEventListener('abort', abort, { once: true });
+                                if (signal.aborted) abort();
+                            });
+                            return { ok: true };
+                        }),
+                        Step.create(`after_${i}`, async () => {
+                            downstream++;
+                            return {};
+                        }),
+                    );
+                    let run: Promise<any>;
+                    if (adapter === 'express')
+                        run = sigloExpressMiddleware(workflow)(request, response, error => {
+                            if (error) throw error;
+                        });
+                    else if (adapter === 'fastify') run = sigloFastifyHandler(workflow)({ raw: request }, response);
+                    else
+                        run = sigloMiddleware(workflow)({
+                            req: { raw: fetchRequest, header: () => 'application/json', json: async () => ({}) },
+                            json: (_body: unknown, status?: number) => {
+                                response.statusCode = status ?? 200;
+                            },
+                        });
+                    await within(ready, 2000, `${adapter}: workflow did not start`);
+                    // A completed request body is not a disconnected client.
+                    request.emit('close');
+                    if (cancelled) {
+                        const event = rng.pick(['aborted', 'response-close']);
+                        record({ adapter, cancelled, event });
+                        if (adapter === 'hono') controller.abort();
+                        else if (event === 'aborted') request.emit('aborted');
+                        else response.emit('close');
+                    }
+                    await within(run, 2000, `${adapter}: request did not settle`);
+                    assert.equal(downstream, cancelled ? 0 : 1, adapter);
+                    if (cancelled) assert.equal(response.statusCode, 499, adapter);
+                    assert.equal(activeTimers, 0, adapter);
+                    assert.equal(request.listenerCount('aborted'), 0);
+                    assert.equal(request.listenerCount('close'), 0);
+                    assert.equal(response.listenerCount('close'), 0);
+                    assert.equal(getEventListeners(fetchRequest.signal, 'abort').length, 0);
+                }
+            }
+        },
+    );
 }

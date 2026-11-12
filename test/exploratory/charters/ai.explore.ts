@@ -48,7 +48,7 @@ export async function runAiCharter(iterations: number = 15, seed: number = 1010)
     const invariantsChecked = [1, 2, 4];
 
     for (let i = 0; i < iterations; i++) {
-        useStorage();
+        useStorage(undefined as any);
         defaultCompensationManager.clear();
 
         try {
@@ -98,6 +98,7 @@ export async function runAiCharter(iterations: number = 15, seed: number = 1010)
             });
 
             const initialContext = { iteration: i, canary: undefined };
+            const initialSnapshot = { ...initialContext };
             let capturedResult: any;
 
             try {
@@ -117,7 +118,7 @@ export async function runAiCharter(iterations: number = 15, seed: number = 1010)
 
             // Verify Oracle 1: Context Immutability
             try {
-                InvariantEvaluator.assertContextImmutability(initialContext, initialContext);
+                InvariantEvaluator.assertContextImmutability(initialSnapshot, initialContext);
             } catch (invErr: any) {
                 errors.push(`Iteration ${i} [Oracle 1]: ${invErr.message}`);
             }

@@ -1,3 +1,4 @@
+import { requestCancellation } from './disconnect';
 import { Flow, ExecutionOptions } from '@siglo/core';
 
 export interface SigloExpressOptions<TReq = any, TInput = any, TOutput = any> {
@@ -86,6 +87,7 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
     options: SigloExpressOptions<TReq, TInput, TOutput> = {},
 ) {
     return async (req: any, res: any, next: (err?: any) => void): Promise<any> => {
+        const cancellation = requestCancellation(req, res, req.signal || req.raw?.signal);
         try {
             // Correlation ID handling
             const corrHeader = (options.correlationIdHeader || 'x-correlation-id').toLowerCase();
@@ -124,7 +126,7 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
                 durable = true;
             }
 
-            const abortSignal = req.signal || req.raw?.signal;
+            const abortSignal = cancellation.signal;
 
             const execOptions: ExecutionOptions = {
                 signal: abortSignal,
@@ -171,6 +173,8 @@ export function sigloExpressMiddleware<TInput = any, TOutput = any, TReq = any>(
                 return res.status(status).json({ error: errorMessage });
             }
             return next(err);
+        } finally {
+            cancellation.cleanup();
         }
     };
 }

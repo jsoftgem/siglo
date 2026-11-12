@@ -17,7 +17,7 @@ export async function runGraphAstCharter(iterations: number = 25, seed: number =
     const startTime = Date.now();
     const rng = new RandomSource(seed);
     const errors: string[] = [];
-    const invariantsChecked = [7, 8, 9];
+    const invariantsChecked = [6];
 
     for (let i = 0; i < iterations; i++) {
         try {

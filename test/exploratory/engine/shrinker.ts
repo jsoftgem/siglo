@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,10 +19,10 @@ export class FailureShrinker {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        const fileName = `failure_${snapshot.charterName}_seed${snapshot.seed}_iter${snapshot.iteration}_${Date.now()}.json`;
+        const fileName = `failure_${snapshot.charterName}_seed${snapshot.seed}_iter${snapshot.iteration}_${Date.now()}_${randomUUID().slice(0, 8)}.json`;
         const filePath = path.join(outputDir, fileName);
 
-        fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
+        fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), { encoding: 'utf-8', flag: 'wx' });
         return filePath;
     }
 

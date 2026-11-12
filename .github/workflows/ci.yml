@@ -65,6 +65,14 @@ jobs:
       - name: Run Automated Exploratory & Chaos test suite
         run: npm run test:exploratory
 
+      - name: Upload exploratory failure fixtures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exploratory-failure-fixtures-node-${{ matrix.node-version }}
+          path: test/fixtures/
+          if-no-files-found: ignore
+
   notification-postgres:
     runs-on: ubuntu-latest
     services:

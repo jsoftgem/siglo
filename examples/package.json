@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "tsx --test 'src/**/*.test.ts'"
+    "test": "tsx --test 'src/**/*.test.ts'",
+    "demo:telemetry": "tsx src/offline-telemetry.ts"
   },
   "dependencies": {
     "@siglo/bullmq": "^1.0.0",
@@ -25,9 +26,11 @@
     "@siglo/monitor": "^1.0.0",
     "pg": "^8.23.1",
     "kafkajs": "^2.2.4",
-    "@siglo/crypto": "^1.0.0"
+    "@siglo/crypto": "^1.0.0",
+    "@siglo/ide-protocol": "^1.0.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.23.1"
+    "@types/pg": "^8.23.1",
+    "@siglo/ide-analysis": "^1.0.0"
   }
 }
