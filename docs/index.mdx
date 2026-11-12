@@ -7,7 +7,7 @@ description: 'Zero-daemon, in-process workflow orchestration with durable checkp
     <img src="/assets/siglo-logo.png" alt="Siglo Logo" width="300" style={{ borderRadius: '16px' }} />
 </p>
 
-**Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic Sagas, durable checkpoints, and live visual DevTools without external infrastructure.
+**Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic LIFO Sagas, durable checkpoints, and live visual DevTools without external infrastructure.
 
 ---
 
@@ -17,11 +17,17 @@ description: 'Zero-daemon, in-process workflow orchestration with durable checkp
     <Card title="Getting Started" icon="play" href="/01-getting-started">
         Build a resilient checkout workflow that handles failure, retries, and compensation.
     </Card>
+    <Card title="Migrate 1 Endpoint in 5 Minutes" icon="bolt" href="/migrate-one-endpoint">
+        Wrap existing TypeScript service functions in Siglo steps without rewriting your codebase.
+    </Card>
+    <Card title="IDE Workflow Explorer" icon="diagram-project" href="/ide-workflow-explorer">
+        Bi-directional code & visual AST graph sync in VS Code and JetBrains IntelliJ IDEA.
+    </Card>
     <Card title="Live DevTools" icon="desktop" href="/live-monitoring">
-        Inspect execution DAGs, real-time latency waterfalls, and state diffs.
+        Inspect execution DAGs, real-time latency waterfalls, and state diffs at localhost:4000.
     </Card>
     <Card title="Ecosystem Adapters" icon="plug" href="/ecosystem-adapters">
-        PostgreSQL, Redis, BullMQ, Kafka, OpenTelemetry, Express, Fastify, and AI steps.
+        PostgreSQL, Redis, BullMQ, Kafka, OpenTelemetry, Express, Fastify, Hono, and AI steps.
     </Card>
     <Card title="API Reference" icon="code" href="/api/overview">
         Complete TypeScript signatures, option tables, and combinator reference.
@@ -30,9 +36,43 @@ description: 'Zero-daemon, in-process workflow orchestration with durable checkp
 
 ---
 
+## Live DevTools & IDE Workflow Visualizer
+
+<p align="center">
+    <img
+        src="/assets/hero-split-screen.gif"
+        alt="Siglo Split-Screen Demo: Live IDE Workflow Visualizer alongside @siglo/monitor Saga Rollback Waterfall"
+        width="100%"
+        style={{ borderRadius: '8px' }}
+    />
+</p>
+
+### Bi-Directional Code & IDE Visual Inspector Sync
+
+As you author workflows in TypeScript, the **Siglo IDE Visual Inspector** (`@siglo/ide-ui` for VS Code & JetBrains) stays synchronized with your code in real time:
+
+- **Add Steps & Policies in Code -> Instant Graph Update**: Adding `.step(...)`, `.retry(...)`, `.compensate(...)`, or `.timeout(...)` in your workflow file automatically updates the visual DAG and Policy Inspector via `Auto-Reload`.
+- **Select a Step in the Visual Tool -> Jump to Code & Open Step File**: Clicking any step node in the visual canvas jumps directly to its `.step()` definition and opens the related step implementation file (`steps/*.step.ts`) alongside its Saga `.compensate()` handler.
+- **Place Cursor in Code -> Highlights Visual Node**: Moving your editor cursor inside a step highlights the corresponding node and its active resilience policies in the inspector.
+
+<p align="center">
+    <img
+        src="/assets/ide-code-sync.gif"
+        alt="Siglo Bi-Directional Code and IDE Visual Inspector Sync: Adding steps updates the graph, and selecting a step opens its source file"
+        width="100%"
+        style={{ borderRadius: '8px' }}
+    />
+</p>
+
+---
+
 ## 30-Second Quickstart
 
 ```bash
+# Scaffold an interactive runnable project with a deterministic test suite
+npm exec --package=@siglo/cli -- siglo init
+
+# Or install directly into an existing service
 npm install @siglo/core
 ```
 
@@ -41,11 +81,11 @@ import { Step, flow } from '@siglo/core';
 
 // 1. Define modular steps with input/output contracts
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
-    return { name: 'Alice', tier: 'PRO' };
+    return { name: 'Alice', tier: 'PRO' as const };
 });
 
 // 2. Accumulated Context: calculateDiscount automatically receives "tier" produced by fetchUser!
-const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: string }) => {
+const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: 'FREE' | 'PRO' }) => {
     const discount = param.tier === 'PRO' ? 0.2 : 0.05;
     return { discountPercentage: discount };
 });
@@ -67,11 +107,25 @@ main();
 
 ---
 
-## Why Siglo?
+## Why Siglo? (Comparison Matrix)
 
-| Dimension         | `Siglo`                                                                                                                                                                  | Distributed Engines (Temporal, Inngest)                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| **Architecture**  | Lightweight, zero-infrastructure in-process library                                                                                                                      | Heavy multi-cluster / external orchestrator daemon              |
-| **Latency**       | Microsecond direct async function invocation                                                                                                                             | Millisecond-to-second RPC / polling overhead                    |
-| **Footprint**     | Zero external dependencies, pure TypeScript                                                                                                                              | Requires persistent workers, queue servers, and databases       |
-| **Primary Focus** | Modular workflows, parallel fan-out/fan-in, bounded worker mapping, request-scoped sagas, idempotency, durable event waits, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows across clusters |
+| Capability                       | **Siglo (`@siglo/*`)**                                         | Imperative `try/catch` | Temporal                   | Inngest / Trigger.dev       | Effect (`effect-ts`)             |
+| :------------------------------- | :------------------------------------------------------------- | :--------------------- | :------------------------- | :-------------------------- | :------------------------------- |
+| **External Daemons Required**    | **None** (in-process library; uses your existing DB/Redis)     | None                   | Temporal Server + Workers  | Cloud / Self-hosted Server  | None                             |
+| **Step Dispatch Latency**        | **Microseconds** (direct in-memory function call)              | Microseconds           | Milliseconds (gRPC hops)   | Milliseconds–Seconds (HTTP) | Microseconds                     |
+| **TypeScript Learning Curve**    | **Standard `async/await`** (`Step.create`, `flow`)             | Standard `async/await` | Deterministic V8 isolate   | Custom step SDK             | Steep FP (`Effect<A, E, R>`)     |
+| **Automatic Context Inference**  | **Built-in** (flat accumulated context + typed `$steps`)       | Manual variables       | Manual activity args       | Manual step return wiring   | Generator / pipe wiring          |
+| **Declarative LIFO Sagas**       | **Built-in** (`.compensate()` + crash reconciliation)          | Manual reverse `try`   | Manual compensation code   | Manual compensation code    | `Effect.acquireRelease`          |
+| **Durable Checkpoints & Waits**  | **Opt-in** (`@siglo/postgres`, `@siglo/redis`, `waitForEvent`) | None                   | Mandatory event sourcing   | Mandatory step replay       | Third-party (`@effect/workflow`) |
+| **Static AST & PR Diagrams**     | **Built-in** (`.toMermaid()`, `.toDot()`, VS Code / JetBrains) | None                   | Runtime-only UI            | Runtime-only UI             | None                             |
+| **Deterministic `<5ms` Testing** | **Built-in** (`@siglo/testing`, `FakeClock`, `spyStep`)        | Manual Sinon/Vitest    | Heavy test server download | Local dev server required   | `TestClock`                      |
+
+### When to Use Siglo vs. Alternatives
+
+- **Choose Siglo when**:
+    - You want resilient multi-step workflows, automatic LIFO Saga rollbacks, retries, idempotency, and durable `waitForEvent` suspensions **inside your existing Node.js/TypeScript services** (Express, Fastify, Hono, Next.js, Kafka, BullMQ, SQS) using the Postgres or Redis you already run.
+    - You want **static workflow graph extraction** (Mermaid/Graphviz diagrams in PRs, VS Code & IntelliJ visualizers) and **sub-5ms unit tests** without booting local orchestration containers.
+- **Choose Temporal / Inngest when**:
+    - You are orchestrating workflows across **polyglot microservices** (e.g., Go -> Python -> Java) or need a dedicated, centrally managed orchestration cluster for multi-month workflows across hundreds of worker fleets.
+- **Choose Effect when**:
+    - Your team wants a full functional-programming standard library (`Fiber`, `Layer`, `Schema`, `Stream`) across your entire codebase rather than a focused workflow/Saga orchestrator.
