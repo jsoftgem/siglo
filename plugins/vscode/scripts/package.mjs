@@ -10,7 +10,7 @@ const staging = await mkdtemp(join(tmpdir(), 'siglo-vscode-'));
 try {
     const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
     // npm accepts scopes; VS Code's extension identifier must be unscoped.
-    manifest.name = 'siglo-workflow-explorer';
+    manifest.name = 'siglo-workflows';
     manifest.files = ['dist/**', 'media/**', 'marketplace/**', 'README.md', 'LICENSE'];
     delete manifest.devDependencies;
     delete manifest.scripts;
@@ -30,7 +30,7 @@ try {
             '--baseImagesUrl',
             'https://github.com/jsoftgem/siglo/raw/HEAD/plugins/vscode/',
             '-o',
-            join(root, `siglo-workflow-explorer-${manifest.version}.vsix`),
+            join(root, `${manifest.name}-${manifest.version}.vsix`),
         ],
         { cwd: staging, stdio: 'inherit' },
     );

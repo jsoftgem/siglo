@@ -1,4 +1,4 @@
-# VS Code Extension Roadmap: Siglo Workflow Explorer & DevTools
+# VS Code Extension Roadmap: Siglo Workflows & DevTools
 
 > **Status: M0/M1/M2/M4 Implemented — Automated Test Suite & Live Screenshots Passing (2026-11-11)**<br>
 > Targets Visual Studio Code (1.90+ Desktop; Web/Remote architectures gated separately).<br>
@@ -13,7 +13,7 @@
 - Extension tests: **12 passing** (real bundled analyzer transport, mocked VS Code host, bundled-JavaScript integrity checks after CSP injection, static diagnostics verification, and M5 run/debug/resume execution controls).
 - Shared tests: **5 protocol + 29 analysis passing**; UI typecheck/build passes.
 - Small-workflow stress check: **1,000 edit cycles**, sampled peak analyzer RSS approximately **131.2 MB** on this machine (bounded under the 150 MB RSS limit).
-- Distribution: `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix` (approximately **1.41 MB**). Declared official marketplace icon `media/siglo-logo-128.png`. The staged manifest uses `siglo-workflow-explorer`; the npm workspace remains `@siglo/vscode`.
+- Distribution: `plugins/vscode/siglo-workflows-1.2.3.vsix` (approximately **1.41 MB**). Declared official marketplace icon `media/siglo-logo-128.png`. The staged manifest uses `siglo-workflows`; the npm workspace remains `@siglo/vscode`.
 - Live plugin verification: 10/10 automated live headless Chrome CDP tests and visual screenshots verified across both plugins.
 
 Build and installation instructions: [VS Code extension README](https://github.com/jsoftgem/siglo/blob/main/plugins/vscode/README.md). M4 implemented and verified; M5 remains future work; M3 is removed from scope.
@@ -135,7 +135,7 @@ Phase 4 (CLI Scaffolding, Live DevTools & Ecosystem Telemetry) and the IntelliJ 
     - Active editor tab changes switch the active workflow graph.
 - [x] **Live Edit Refresh**: Debounced typing updates (250ms) push updated ASTs with monotonic version filtering.
 - [x] **Multi-Root Support**: Correctly handles multi-folder VS Code workspaces.
-- [x] **Packaged Distribution**: Produces valid `.vsix` archive via `vsce package` (`siglo-workflow-explorer-1.2.3.vsix`).
+- [x] **Packaged Distribution**: Produces valid `.vsix` archive via `vsce package` (`siglo-workflows-1.2.3.vsix`).
 
 #### Exit Criteria
 
@@ -201,7 +201,7 @@ Live execution monitoring is out of scope. M4 is independent of M3; milestone nu
 - [ ] **Run/Debug Integration**: Trigger workflow runs using native VS Code run configurations (`launch.json` integration and dynamic Node/tsx execution via `vscode.debug.startDebugging`).
 - [ ] **Interactive Resume**: Trigger `resumeWorkflow` events for durable workflows suspended on `waitForEvent`, with clear side-effect warning prompts (`vscode.window.showWarningMessage` with modal confirmation).
 - [ ] **Marketplace Packaging**:
-    - Publish VS Code Extension to Visual Studio Marketplace (`vsce publish` script and `siglo-workflow-explorer-1.2.3.vsix`).
+    - Publish VS Code Extension to Visual Studio Marketplace (`vsce publish` script and `siglo-workflows-1.2.3.vsix`).
     - Publish VS Code Extension to Open VSX Registry (`ovsx publish` script).
 - [ ] **Documentation**: Complete getting-started guides, keyboard shortcut references (`alt+cmd+r`, `alt+cmd+d`, `alt+cmd+v`), and troubleshooting documentation in `docs/ide-workflow-explorer.md`.
 

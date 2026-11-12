@@ -1,14 +1,14 @@
 ---
-title: 'Siglo Workflow Explorer & IDE Tooling'
+title: 'Siglo Workflows & IDE Tooling'
 description: 'Visual static graph inspection, live-typing feedback, bidirectional source code navigation, developer execution controls, and static diagnostics for Siglo workflows in IntelliJ IDEA and VS Code.'
 ---
 
-The **Siglo Workflow Explorer** provides developers with visual static graph inspection, live-typing feedback, bidirectional source code navigation, static diagnostics, and native developer execution controls for Siglo workflows directly inside their IDE.
+**Siglo Workflows** provides developers with visual static graph inspection, live-typing feedback, bidirectional source code navigation, static diagnostics, and native developer execution controls for Siglo workflows directly inside their IDE.
 
 Supported IDEs:
 
 - **IntelliJ IDEA**: 2024.1+ (Community & Ultimate editions) available on the [JetBrains Marketplace](https://plugins.jetbrains.com/) as **Siglo Workflows** (`io.siglo.idea`).
-- **Visual Studio Code**: 1.90+ (Desktop & Remote Workspace hosts) available on the [VS Code Marketplace](https://marketplace.visualstudio.com/) and [Open VSX Registry](https://open-vsx.org/) as **Siglo Workflow Explorer** (`jsoftgem.siglo-workflow-explorer`).
+- **Visual Studio Code**: 1.90+ (Desktop & Remote Workspace hosts) available on the [VS Code Marketplace](https://marketplace.visualstudio.com/) and [Open VSX Registry](https://open-vsx.org/) as **Siglo Workflows** (`Jsoftgem.siglo-workflows`).
 
 > [!NOTE]
 > **Static IDE Explorer vs. Live DevTools**: The IDE Workflow Explorer performs **pure static AST analysis** of your TypeScript/JavaScript source code without running your application or connecting to external services. For runtime execution streaming, event waterfall timelines, and interactive replay, see [Live Monitoring & DevTools](/live-monitoring).
@@ -17,7 +17,7 @@ Supported IDEs:
 
 ## 1. Zero-Execution Static Architecture
 
-Unlike traditional runtime reflection tools that dynamically evaluate or `import()` user code, the Siglo Workflow Explorer operates on an out-of-process, **zero-execution AST analyzer** (`@siglo/ide-analysis`):
+Unlike traditional runtime reflection tools that dynamically evaluate or `import()` user code, Siglo Workflows operates on an out-of-process, **zero-execution AST analyzer** (`@siglo/ide-analysis`):
 
 ```mermaid
 flowchart TD
@@ -242,14 +242,14 @@ The distributable zip will be generated at `plugins/intellij/build/distributions
 ### Option A: Installing from VS Code Marketplace (Recommended)
 
 1. Open VS Code → Go to the **Extensions** view (`⇧⌘X` on macOS, `Ctrl+Shift+X` on Linux/Windows).
-2. Search for **`Siglo Workflow Explorer`** (or extension ID `jsoftgem.siglo-workflow-explorer`).
+2. Search for **`Siglo Workflows`** (or extension ID `Jsoftgem.siglo-workflows`).
 3. Click **Install**.
 4. Open your project folder and trust the workspace when prompted.
 
 _Alternatively, install directly via the command line:_
 
 ```bash
-code --install-extension jsoftgem.siglo-workflow-explorer
+code --install-extension Jsoftgem.siglo-workflows
 ```
 
 ### Option B: Installing from Prebuilt VSIX
@@ -257,7 +257,7 @@ code --install-extension jsoftgem.siglo-workflow-explorer
 1. Open VS Code → Go to the **Extensions** view (`⇧⌘X` on macOS, `Ctrl+Shift+X` on Linux/Windows).
 2. Click **Views and More Actions** (`…`) at the top of the Extensions view.
 3. Select **Install from VSIX…**.
-4. Choose `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix`.
+4. Choose `plugins/vscode/siglo-workflows-1.2.3.vsix`.
 5. When prompted, trust the workspace folder to activate the extension.
 
 ### Option C: Building from Source (Monorepo)
@@ -269,7 +269,7 @@ From the repository root:
 npm run package --workspace=@siglo/vscode
 ```
 
-The packaged extension is generated at `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix`.
+The packaged extension is generated at `plugins/vscode/siglo-workflows-1.2.3.vsix`.
 
 ---
 
@@ -315,7 +315,7 @@ Durable workflows paused at `wait` or `waitForEvent` steps can be resumed intera
   - Artifact: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.3.zip`.
 - **VS Code Marketplace**:
   - Command: `npm run publish:vsce --workspace=@siglo/vscode` (configured with `VSCE_PAT`).
-  - Artifact: `plugins/vscode/siglo-workflow-explorer-1.2.3.vsix`.
+  - Artifact: `plugins/vscode/siglo-workflows-1.2.3.vsix`.
 - **Open VSX Registry**:
   - Command: `npm run publish:ovsx --workspace=@siglo/vscode` (configured with `OVSX_PAT`).
 

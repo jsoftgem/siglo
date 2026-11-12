@@ -1,10 +1,10 @@
-# Siglo Workflow Explorer listing assets
+# Siglo Workflows listing assets
 
 | Field | Value |
 | --- | --- |
-| Display name | Siglo Workflow Explorer |
-| Installed extension ID | `jsoftgem.siglo-workflow-explorer` |
-| Publisher | `jsoftgem` |
+| Display name | Siglo Workflows |
+| Installed extension ID | `Jsoftgem.siglo-workflows` |
+| Publisher | `Jsoftgem` |
 | Version | Defined in `../package.json` (currently `1.2.3`) |
 | VS Code target | `^1.90.0` |
 | License | MIT |
@@ -13,13 +13,13 @@
 
 ## Description and setup
 
-The extension's [README](../README.md) supplies its Marketplace description and is included in the VSIX together with these assets. It covers features, screenshots, installation, commands, requirements, and static-analysis limitations. The short description and search keywords are defined in [package.json](../package.json).
+The extension's [README](../README.md) supplies its Marketplace description and is included in the VSIX together with these assets. It covers features, screenshots, installation, commands, requirements, and static-analysis limitations. The short description and search keywords are defined in [package.json](../package.json). See [Development](../DEVELOPMENT.md) for build, packaging, publishing, and host debugging instructions.
 
 Packaging rewrites README links and image URLs to the repository's `plugins/vscode` directory. Push these files to the repository before publishing so those hosted images and links are available.
 
 Install the VSIX, open a trusted workspace, then run **Siglo: Open Workflow Visualizer** with a workflow source file open. Use **Siglo: Discover Workspace Workflows** to choose a workflow across workspace folders. The analyzer is bundled with the extension and uses the extension host runtime; users do not need a separate Node.js installation or analyzer package.
 
-Desktop and remote workspace hosts are supported targets. Browser-only VS Code and virtual workspaces are unsupported. See the main README for the scope of completed verification.
+Desktop and remote workspace hosts are supported targets. Browser-only VS Code and virtual workspaces are unsupported. See [Development](../DEVELOPMENT.md#verification) for verification guidance.
 
 ## Screenshots and captions
 
