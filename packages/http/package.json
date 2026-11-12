@@ -1,6 +1,6 @@
 {
   "name": "@siglo/http",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "HTTP client steps for Siglo TypeScript workflows with retries, trace propagation, network policies, and saga compensation.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

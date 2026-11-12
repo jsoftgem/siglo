@@ -1,6 +1,6 @@
 {
   "name": "@siglo/express",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Express middleware and route handler adapter for running Siglo TypeScript workflows in Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

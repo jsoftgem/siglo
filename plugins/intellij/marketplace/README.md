@@ -6,7 +6,7 @@
 
 **Vendor:** Siglo
 
-**Version:** Defined in `../build.gradle.kts` (currently `1.2.2`).
+**Version:** Defined in `../build.gradle.kts` (currently `1.2.3`).
 
 **Short summary:** Visualize Siglo workflows, inspect step contracts and settings, and jump from graph nodes to source in IntelliJ IDEA.
 
@@ -26,6 +26,7 @@ These PNGs capture the plugin's actual bundled webview in headless Chrome, with 
 | [02-step-input-contracts.png](screenshots/02-step-input-contracts.png) | Inspect required inputs, transforms, default values, and validation rules from source. |
 | [03-workflow-settings.png](screenshots/03-workflow-settings.png) | Review workflow deadlines, schema versions, and allowed network hosts. |
 | [04-all-workflows.png](screenshots/04-all-workflows.png) | Compare multiple workflows from the same file in the All Flows view. |
+| [05-ecosystem-telemetry.png](screenshots/05-ecosystem-telemetry.png) | Inspect runtime telemetry with imported offline recordings (HTTP, Crypto, Notifications, AI) and fail-closed sanitization. |
 
 Images are 1440 × 1080 pixels. Upload them in the order above when preparing the Marketplace listing. No listing has been published by adding these files.
 

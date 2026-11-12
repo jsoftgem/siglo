@@ -1,40 +1,43 @@
 {
   "name": "@siglo/vscode",
   "displayName": "Siglo Workflow Explorer",
-  "description": "Visualize Siglo workflows, inspect step contracts and settings, and navigate between graphs and source.",
-  "version": "1.2.2",
-  "publisher": "jsoftgem",
-  "icon": "media/siglo-logo-128.png",
+  "description": "Interactive workflow graph visualization and diagnostics for Siglo workflows.",
+  "version": "1.2.3",
+  "publisher": "siglo",
+  "icon": "media/siglo.png",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/jsoftgem/siglo.git",
     "directory": "plugins/vscode"
   },
+  "galleryBanner": {
+    "color": "#1e1f22",
+    "theme": "dark"
+  },
+  "keywords": [
+    "workflow",
+    "graph",
+    "visualization",
+    "siglo",
+    "typescript"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
     "Visualization",
+    "Programming Languages",
     "Other"
   ],
-  "keywords": [
-    "siglo",
-    "workflow",
-    "graph",
-    "static analysis",
-    "visualizer"
-  ],
-  "extensionKind": [
-    "workspace"
-  ],
-  "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
     "onLanguage:javascript",
-    "onLanguage:javascriptreact"
+    "onLanguage:javascriptreact",
+    "onView:siglo.workflows"
   ],
+  "main": "./dist/extension.js",
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
@@ -45,14 +48,45 @@
   "contributes": {
     "commands": [
       {
+        "command": "siglo.importTelemetry",
+        "title": "Siglo: Import Telemetry Recording...",
+        "icon": "$(database)"
+      },
+      {
         "command": "siglo.openVisualizer",
-        "title": "Siglo: Open Workflow Visualizer"
+        "title": "Siglo: Open Workflow Visualizer",
+        "icon": "$(graph)"
       },
       {
         "command": "siglo.discoverWorkflows",
-        "title": "Siglo: Discover Workspace Workflows"
+        "title": "Siglo: Discover Workspace Workflows",
+        "icon": "$(search)"
       }
     ],
+    "keybindings": [
+      {
+        "command": "siglo.openVisualizer",
+        "key": "alt+cmd+v",
+        "mac": "alt+cmd+v",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "siglo.openVisualizer",
+          "group": "siglo@1",
+          "when": "resourceLangId =~ /^(typescript|typescriptreact|javascript|javascriptreact)$/"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "siglo.openVisualizer",
+          "when": "view == siglo.workflows",
+          "group": "navigation@1"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -78,6 +112,8 @@
     "test": "npm run build && node --test test/*.test.cjs",
     "vscode:prepublish": "npm run build",
     "package": "npm run build && node scripts/package.mjs",
+    "publish:vsce": "vsce publish",
+    "publish:ovsx": "ovsx publish",
     "screenshots": "npm run build && node ../intellij/marketplace/scripts/capture.mjs vscode"
   },
   "devDependencies": {

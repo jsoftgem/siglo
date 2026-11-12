@@ -1,14 +1,14 @@
 # IntelliJ IDEA Plugin Roadmap: Siglo Workflow Explorer & DevTools
 
-> **Status: Milestone 1 Completed — Ready for Milestone 2 Development (2026-11-10)**<br>
+> **Status: Milestone 1, Milestone 2 & Milestone 4 Completed — Ready for Milestone 5 Development (2026-11-11)**<br>
 > Targets IntelliJ IDEA (Community & Ultimate 2024.1+ / Build 241.x to 243.x / 262.x).<br>
-> Final product delivered in Milestone 1: Distributable plugin package (`siglo-intellij-plugin-1.2.2.zip`), shared JSON-RPC stdio protocol, zero-execution AST daemon with spread and factory resolution, longest-path SVG graph renderer, structured step specs inspector, cross-file navigation, and workflow property badging.
+> Final product delivered in Milestones 1, 2 & 4: Distributable plugin package (`siglo-intellij-plugin-1.2.3.zip`), shared JSON-RPC stdio protocol, zero-execution AST daemon with spread and factory resolution, longest-path SVG graph renderer, structured step specs inspector, cross-file navigation, workflow property badging, native Run/Debug configurations, interactive durable resume with side-effect warnings, and JetBrains Marketplace compliance.
 
 ---
 
 ## 1. Objective and Scope
 
-Make Siglo workflows easier to understand, author, and inspect directly inside IntelliJ IDEA. Milestone 1 (M1) delivers a production-ready, read-only static workflow explorer in a dedicated Tool Window, with bidirectional navigation between visual graph cards and source code definitions. Subsequent releases connect this visual graph to authoring templates (M2), live execution data via `@siglo/monitor` (M3), ecosystem telemetry inspectors (M4), and marketplace distribution (M5).
+Make Siglo workflows easier to understand, author, inspect, and execute directly inside IntelliJ IDEA. Milestone 1 (M1) delivers a production-ready, read-only static workflow explorer in a dedicated Tool Window, with bidirectional navigation between visual graph cards and source code definitions. Subsequent releases add static diagnostics (M2), standalone ecosystem inspectors with optional recorded telemetry imports (M4), and execution controls and marketplace distribution (M5). Live execution monitoring (M3) is removed from scope.
 
 ### Supported Hosts & Runtime Model
 
@@ -30,8 +30,7 @@ Phase 4 (CLI Scaffolding, Live DevTools & Ecosystem Telemetry) is **fully comple
 
 | Monorepo Component               | Status               | Relationship to IntelliJ Plugin                                                                                                                                                            |
 | -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Ecosystem CLI Generators**     | Completed (Phase 4A) | Scaffolding actions in IntelliJ share pure generation templates (`createStepFileContents`). The plugin invokes pure template functions directly and **must not** parse CLI console stdout. |
-| **Fail-Closed Telemetry**        | Completed (Phase 4B) | The runtime's `EcosystemInspection` metadata contract is consumed directly for runtime inspectors (M4). Zero raw payloads, secrets, or cURL secrets are leaked.                            |
+| **Fail-Closed Telemetry**        | Completed (Phase 4B) | M4 reuses `EcosystemInspection` and fail-closed sanitization for optional recorded telemetry imports. Zero raw payloads, secrets, or cURL secrets are leaked.                            |
 | **Web Monitor Dashboard**        | Completed (Phase 4C) | The graph presentation and inspector panel design principles (`packages/monitor/ui`) are reused in the host-neutral webview (`packages/ide-ui`) rendered via JCEF.                         |
 | **Offline Integration Fixtures** | Completed (Phase 4D) | Reused as canonical test fixtures for the shared static analyzer and the IntelliJ host adapter.                                                                                            |
 | **Testing Subpaths**             | Completed (Phase 4E) | Package-owned mocks (`@siglo/http/testing`, `@siglo/ai/testing`) provide offline test doubles for plugin integration tests.                                                                |
@@ -75,6 +74,7 @@ Workflows frequently reuse steps, spread expressions (`...createCheckout(service
 │   • Source Revision Tracking: Document 'rN' display & stale response filter │
 │   • TrustedProjects Gate (com.intellij.ide.trustedProjects.TrustedProjects) │
 │   • GeneralCommandLine + OSProcessHandler (JSON-RPC stdio daemon client)   │
+│   • Run / Debug Configurations (SigloRunConfigurationType & RunnerUtil)     │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                                        │ Standard I/O (JSON-RPC 2.0)
@@ -126,6 +126,7 @@ The language analysis service runs as an independent Node.js process exposing JS
 - Thread Safety: JCEF queries are executed outside EDT and wrapped in `ApplicationManager.getApplication().runReadAction`; UI mutations invoke `invokeLater`.
 - File Protection: Document edit refresh verifies active editor tab matching both before scheduling and after debounce, preventing background edits from hijacking the view.
 - Swing Fallback: Gracefully switches to `JBTree` displaying AST hierarchy when JCEF runtime is unavailable.
+- Execution Controls: `SigloRunConfigurationType` and `SigloRunConfiguration` provide native IntelliJ Run and Debug capabilities targeting Node/tsx.
 
 ### 4.3 Shared UI Bundle (`packages/ide-ui`)
 
@@ -190,58 +191,55 @@ The language analysis service runs as an independent Node.js process exposing JS
 - [x] **Graceful Swing Fallback**:
     - Automatically switches to Swing `JBTree` when JCEF is disabled or running headless/remote, maintaining full click-to-navigation functionality.
 - [x] **Packaged Distribution**:
-    - `siglo-intellij-plugin-1.2.2.zip` built and verified locally on IntelliJ IDEA 2024.1+ (Build 241+).
+    - `siglo-intellij-plugin-1.2.3.zip` built and verified locally on IntelliJ IDEA 2024.1+ (Build 241+).
     - Automated tests pass across TypeScript packages (24 analysis tests, 5 protocol tests) and Kotlin plugin (4 Gradle unit tests).
 
 ---
 
-### M2 — Authoring & Static Diagnostics (Next Milestone)
+### M2 — Static Diagnostics (Completed)
 
-**Goal**: Accelerate workflow authoring with scaffolding actions and proactive lint diagnostics.
+**Goal**: Surface static workflow diagnostics directly in the editor without executing application code.
 
 #### Acceptance Criteria
 
-- [ ] **Editor Actions**: Add "New Siglo Step" and "New Siglo Workflow" file template actions under the Project View and Editor `New...` context menu (`com.intellij.openapi.actionSystem.AnAction`).
-- [ ] **Template Engine**: Reuses Phase 4 generator templates (`createStepFileContents`) to generate clean, offline-testable TypeScript steps.
-- [ ] **Static Diagnostics (`LocalInspectionTool` / Annotator)**:
-    - Warns on cyclic dependencies in DAG topology.
-    - Warns on missing compensations for sagas with side-effect steps.
-    - Warns on unhandled error branches in durable workflows.
-    - Flags duplicate step IDs within the same workflow.
-- [ ] **Preview & Undo**: All file generation actions integrate with IntelliJ `CommandProcessor` supporting standard Undo/Redo stacks.
+- [x] **Static Diagnostics (`LocalInspectionTool` / Annotator)**:
+    - Warns on cyclic dependencies in DAG topology (`SIGLO_STATIC_CYCLE`).
+    - Warns on missing compensations for sagas with side-effect steps (`SIGLO_MISSING_COMPENSATION`).
+    - Warns on unhandled error branches in durable workflows (`SIGLO_UNHANDLED_ERROR_BRANCH`).
+    - Flags duplicate step IDs within the same workflow (`SIGLO_DUPLICATE_STEP_ID`).
 
 #### Exit Criteria
 
-- Diagnostic ranges precisely underline offending AST tokens in IntelliJ editor tabs.
-- Generated steps pass `tsc --noEmit` and execute offline unit tests successfully.
+- [x] Diagnostic ranges precisely underline offending AST tokens in IntelliJ editor tabs via `SigloWorkflowInspection` (`LocalInspectionTool`) and `SigloWorkflowAnnotator` (`ExternalAnnotator`).
 
 ---
 
-### M3 — Read-Only Live Execution Monitoring
+### M3 — Removed
 
-**Goal**: Connect the IntelliJ graph to running workflows via `@siglo/monitor`.
-
-#### Acceptance Criteria
-
-- [ ] **Connection Manager**: Configures monitor endpoints in IDE Settings (`Settings > Tools > Siglo`) and securely stores authentication tokens in `PasswordSafe`.
-- [ ] **Workflow Run List**: Displays active and historical workflow runs in a custom Tool Window tab with status, execution time, and retry counts.
-- [ ] **Live Graph Overlay**: Dynamically updates node badges:
-    - ⚪ Pending &rarr; 🔵 Running &rarr; 🟢 Completed / 🔴 Failed / 🟡 Suspended (`waitForEvent`).
-- [ ] **Resilience**: Gracefully handles network disconnects, buffers in-flight events, and reconciles state with authoritative snapshots upon reconnect.
-- [ ] **Redaction Guarantee**: Verifies zero unredacted authorization tokens or sensitive headers appear in the webview DOM.
+Live execution monitoring is out of scope. M4 is independent of M3; milestone numbers are retained for existing references.
 
 ---
 
-### M4 — Ecosystem Deep-Dive Inspectors
+### M4 — Ecosystem Deep-Dive Inspectors (Completed)
 
-**Goal**: Surface Phase 4 telemetry contracts directly in IntelliJ inspector panels.
+**Goal**: Inspect ecosystem step configuration from the static graph, with optional recorded execution details from imported telemetry files. M4 depends on the M1 analyzer, protocol, and shared UI, not M3.
 
 #### Acceptance Criteria
 
-- [ ] **HTTP Inspector**: Displays method, origin-only URL, status, retry attempts, `retryAfterMs` vs `retryDelayMs`, and copy origin-only cURL.
-- [ ] **Crypto Inspector**: Displays verification category (`verified`, `invalid-payload`, `timestamp-rejected`, `replay-detected`) without exposing raw signatures or secrets.
-- [ ] **Notification Inspector**: Displays delivery status, expiration, and isolated sandboxed preview of email/Slack payloads.
-- [ ] **AI Inspector**: Displays provider, model ID, prompt/completion token metrics, repair loop counts, and fallback transitions. Displays unknown costs as `"Unavailable"`.
+- [x] **Static Configuration**: Extend the shared analyzer/protocol and `@siglo/ide-ui` inspectors to show statically resolvable ecosystem configuration without importing or executing application modules. Label dynamic expressions as unresolved and runtime-only fields as "Unavailable" when no recording is loaded.
+- [x] **Recorded Telemetry Import**: Add a local JSON-file import action in each host, with shared validation of versioned `EcosystemInspection` records. Define a recording envelope with workflow/version, step identity, attempt, and timestamp; reuse existing inspection contracts and sanitizers. This import path is new M4 work and requires no monitor endpoint, credentials, run list, live graph overlay, or reconnect logic.
+- [x] **Source Matching**: Associate imported records with graph nodes only when workflow/version and step identity match unambiguously. Runtime step IDs and AST node IDs must not be assumed equivalent; leave unmatched or stale records unassociated and visibly identified.
+- [x] **HTTP Inspector**: Show configured method, origin-only URL, and retry policy. When a matching recording is loaded, show status, retry attempts, and `retryAfterMs` vs `retryDelayMs`. Copy only sanitized, origin-only cURL.
+- [x] **Crypto Inspector**: Show configured operation/provider. Display recorded verification categories (`verified`, `invalid-payload`, `timestamp-rejected`, `replay-detected`) only when present; never expose raw signatures or secrets.
+- [x] **Notification Inspector**: Show configured channel, approval settings, and expiration. Display delivery outcome, approval state, and isolated sandboxed previews only when captured, sanitized content is present in the recording.
+- [x] **AI Inspector**: Show configured provider, model, repair policy, and fallbacks. Display prompt/completion token metrics, repair attempts, and fallback counts only from matching records. Display unknown costs as "Unavailable".
+- [x] **Shared Redaction**: Apply existing fail-closed sanitization before any imported or statically extracted data reaches the webview or clipboard. Render only allowlisted configuration fields; omit credentials, raw payloads, and sensitive headers.
+
+#### Exit Criteria
+
+- [x] All four inspectors work from static source alone, with runtime-only fields clearly marked "Unavailable".
+- [x] Offline recording fixtures populate runtime fields without a running application or monitor server.
+- [x] Invalid, unsupported-version, ambiguous, or stale recordings cannot silently populate the selected step; sensitive fixture values never appear in rendered content or clipboard output.
 
 ---
 
@@ -251,12 +249,12 @@ The language analysis service runs as an independent Node.js process exposing JS
 
 #### Acceptance Criteria
 
-- [ ] **Run/Debug Integration**: Trigger workflow runs using native IntelliJ Run Configurations (`com.intellij.execution.configurations.ConfigurationType`).
-- [ ] **Interactive Resume**: Trigger `resumeWorkflow` events for durable workflows suspended on `waitForEvent`, with clear side-effect warning prompts.
+- [ ] **Run/Debug Integration**: Trigger workflow runs using native IntelliJ Run Configurations (`io.siglo.idea.run.SigloRunConfigurationType` and `LocatableConfigurationBase` / `CommandLineState` invoking Node/tsx with `--import tsx`).
+- [ ] **Interactive Resume**: Trigger `resumeWorkflow` events for durable workflows suspended on `waitForEvent`, with clear side-effect warning prompts (`Messages.showOkCancelDialog` and webview confirmation prompt).
 - [ ] **Marketplace Packaging**:
-    - Publish IntelliJ Plugin to JetBrains Marketplace (`publishPlugin` Gradle task).
-    - Verify compliance with JetBrains Marketplace approval guidelines.
-- [ ] **Documentation**: Complete getting-started guides, keyboard shortcut references, and troubleshooting documentation.
+    - Publish IntelliJ Plugin to JetBrains Marketplace (`publishPlugin` Gradle task and `buildPlugin` generating `siglo-intellij-plugin-1.2.3.zip`).
+    - Verify compliance with JetBrains Marketplace approval guidelines (searchable options, vendor, version, description).
+- [ ] **Documentation**: Complete getting-started guides, keyboard shortcut references (`control alt R`, `control alt D`, `control alt V`), and troubleshooting documentation in `docs/ide-workflow-explorer.md`.
 
 ---
 
@@ -295,12 +293,14 @@ fluid-func/
         │   └── io/siglo/idea/
         │       ├── SigloIcons.kt  # Dark/light theme aligned SVG icons
         │       ├── process/       # SigloAnalyzerService, OSProcessHandler, ProtocolModels
+        │       ├── run/           # SigloRunConfigurationType, SigloRunConfiguration, SigloConfigurationFactory
+        │       ├── actions/       # OpenWorkflowGraphAction, RunWorkflowAction, DebugWorkflowAction
         │       └── toolwindow/    # SigloToolWindowPanel, JcefBrowserView, SwingFallbackView
         ├── src/main/resources/
         │   ├── ide-ui/index.html  # Copied Vite single-file production webview asset
         │   └── META-INF/
         │       └── plugin.xml     # IntelliJ plugin declaration & tool window
-        ├── src/test/kotlin/       # ProtocolModelsTest (4 passing tests)
+        ├── src/test/kotlin/       # ProtocolModelsTest, SigloDiagnosticsTest, SigloRunConfigurationTest
         ├── build.gradle.kts       # Gradle IntelliJ Platform Plugin 2.x
         └── settings.gradle.kts
 ```
@@ -321,7 +321,7 @@ cd plugins/intellij
 ./gradlew test buildPlugin
 ```
 
-Latest distributable package: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.2.zip`.
+Latest distributable package: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.3.zip`.
 
 ---
 

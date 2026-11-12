@@ -1,6 +1,7 @@
 package io.siglo.idea.toolwindow
 
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -8,6 +9,8 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.fileChooser.FileChooser
+import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
@@ -60,53 +63,39 @@ class SigloToolWindowPanel(
                 this.jcefBrowserView = jcef
                 add(jcef.component, BorderLayout.CENTER)
                 initializedJcef = true
-                LOG.info("Siglo JCEF browser initialized successfully.")
+                LOG.info("Initialized JCEF browser successfully for Siglo Workflows")
             }
-        } catch (t: Throwable) {
-            LOG.warn("Failed to initialize JCEF view, falling back to Swing tree: ${t.message}")
+        } catch (e: Throwable) {
+            LOG.warn("Failed to initialize JCEF browser, falling back to Swing tree view", e)
         }
 
         if (!initializedJcef) {
-            LOG.info("Using native Swing fallback JBTree view.")
-            setupSwingFallbackView()
+            val tree = Tree()
+            this.fallbackTree = tree
+            add(JBScrollPane(tree), BorderLayout.CENTER)
+            add(JBLabel("Running in headless/fallback Swing tree mode (JCEF unavailable)"), BorderLayout.NORTH)
         }
 
-        setupEditorTracking()
-    }
-
-    private fun setupEditorTracking() {
-        val busConnection = project.messageBus.connect(this)
-
-        // 1. Listen for active file switching / tab changes
-        busConnection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
+        // Register tab change listener to automatically track open editor file
+        val messageBus = project.messageBus.connect(this)
+        messageBus.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
             override fun selectionChanged(event: FileEditorManagerEvent) {
-                alarm.cancelAllRequests()
-                graphRequestCounter.incrementAndGet()
                 val newFile = event.newFile
                 if (newFile != null && isSupportedFile(newFile)) {
                     refreshForFile(newFile)
                 }
             }
-
-            override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
-                if (activeVirtualFile == null && isSupportedFile(file)) {
-                    refreshForFile(file)
-                }
-            }
         })
 
-        // 2. Listen for document buffer edits (live typing & modifications)
+        // Listen for live buffer edits in open documents (debounced at 250ms)
         EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
                 if (!isAutoReloadEnabled) return
-
-                val virtualFile = FileDocumentManager.getInstance().getFile(event.document) ?: return
+                val fileDocManager = FileDocumentManager.getInstance()
+                val virtualFile = fileDocManager.getFile(event.document) ?: return
                 if (!isSupportedFile(virtualFile)) return
-                if (FileEditorManager.getInstance(project).selectedFiles.firstOrNull() != virtualFile) return
 
                 val docText = event.document.text
-
-                // Debounce rapid typing edits by 250ms
                 alarm.cancelAllRequests()
                 alarm.addRequest({
                     if (FileEditorManager.getInstance(project).selectedFiles.firstOrNull() == virtualFile) {
@@ -178,39 +167,14 @@ class SigloToolWindowPanel(
 
     private fun isJcefAvailable(): Boolean {
         return try {
-            val appClass = Class.forName("com.intellij.ui.jcef.JBCefApp")
-            val isSupportedMethod = appClass.getMethod("isSupported")
-            (isSupportedMethod.invoke(null) as? Boolean) == true
+            Class.forName("com.intellij.ui.jcef.JBCefApp")
+            com.intellij.ui.jcef.JBCefApp.isSupported()
         } catch (_: Throwable) {
             false
         }
     }
 
-    private fun setupSwingFallbackView() {
-        val rootNode = DefaultMutableTreeNode("Siglo Workflows")
-        val tree = Tree(DefaultTreeModel(rootNode))
-        this.fallbackTree = tree
-
-        tree.addTreeSelectionListener { event ->
-            val selected = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
-            val userObj = selected?.userObject
-            if (userObj is GraphNode) {
-                navigateToNodeInEditor(userObj)
-            }
-        }
-
-        val scrollPane = JBScrollPane(tree)
-        val banner = JPanel(BorderLayout())
-        banner.add(
-            JBLabel("Note: Full graphical workflow visualization requires JCEF runtime. Showing AST tree fallback."),
-            BorderLayout.NORTH
-        )
-        banner.add(scrollPane, BorderLayout.CENTER)
-        add(banner, BorderLayout.CENTER)
-    }
-
     private fun loadUiBundleHtml(): String {
-        // Read from plugin JAR resources first
         val resourceStream = SigloToolWindowPanel::class.java.getResourceAsStream("/ide-ui/index.html")
         if (resourceStream != null) {
             return resourceStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
@@ -221,52 +185,48 @@ class SigloToolWindowPanel(
         if (basePath != null) {
             val distFile = File(basePath, "packages/ide-ui/dist/index.html")
             if (distFile.exists()) {
-                return distFile.readText()
+                return distFile.readText(Charsets.UTF_8)
             }
         }
 
         return """
             <!DOCTYPE html>
             <html>
-            <body style="background:#1e1f22;color:#dfe1e5;font-family:sans-serif;padding:20px;">
+            <head><meta charset="utf-8"/><title>Siglo Workflows</title></head>
+            <body style="background:#1e1f22;color:#bcbec4;font-family:sans-serif;padding:24px;">
                 <h3>Siglo Workflows</h3>
-                <p>Connecting to static analyzer...</p>
+                <p>Waiting for UI assets to bundle or file selection...</p>
             </body>
             </html>
         """.trimIndent()
     }
 
     fun renderDocument(doc: GraphDocument) {
-        this.currentDocument = doc
+        currentDocument = doc
+
+        val json = gson.toJson(doc)
         if (jcefBrowserView != null) {
-            val json = gson.toJson(mapOf("type" to "setGraph", "document" to doc))
-            val script = "if (window.__SIGLO_BRIDGE__) { window.__SIGLO_BRIDGE__.dispatch($json); }"
+            val script = "if (window.__SIGLO_BRIDGE__) { window.__SIGLO_BRIDGE__.dispatch(JSON.stringify({ type: 'setGraph', document: $json })); }"
             jcefBrowserView?.executeJavaScript(script)
-        } else if (fallbackTree != null) {
-            updateFallbackTree(doc)
+        } else {
+            renderFallbackTree(doc)
         }
     }
 
-    private fun updateFallbackTree(doc: GraphDocument) {
-        val rootNode = DefaultMutableTreeNode(
-            if (doc.nodes.isEmpty() && doc.unresolved.isEmpty() && doc.workflows.isEmpty())
-                "No Siglo Workflows in current file"
-            else if (doc.workflows.size > 1)
-                "Siglo Workflows (${doc.workflows.size} flows)"
-            else
-                "${doc.workflowName} (${doc.nodes.size} steps)"
-        )
+    private fun renderFallbackTree(doc: GraphDocument) {
+        val rootTitle = "${doc.workflowName} (r${doc.documentVersion})"
+        val rootNode = DefaultMutableTreeNode(rootTitle)
 
-        if (doc.workflows.size > 1) {
-            for (w in doc.workflows) {
-                val flowNode = DefaultMutableTreeNode("${w.name} (${w.nodes.size} steps)")
-                for (node in w.nodes) {
-                    flowNode.add(DefaultMutableTreeNode(node))
+        if (doc.workflows.isNotEmpty()) {
+            for (wf in doc.workflows) {
+                val wfItem = DefaultMutableTreeNode("${wf.name} (${wf.nodes.size} steps)")
+                for (node in wf.nodes) {
+                    wfItem.add(DefaultMutableTreeNode(node))
                 }
-                for (un in w.unresolved) {
-                    flowNode.add(DefaultMutableTreeNode("[Unresolved] ${un.expressionSnippet}"))
+                for (un in wf.unresolved) {
+                    wfItem.add(DefaultMutableTreeNode("[Unresolved] ${un.expressionSnippet}"))
                 }
-                rootNode.add(flowNode)
+                rootNode.add(wfItem)
             }
         } else {
             for (node in doc.nodes) {
@@ -319,6 +279,11 @@ class SigloToolWindowPanel(
                         LOG.info("Siglo workflow auto-reload set to: $isAutoReloadEnabled")
                     }
                 }
+                "importTelemetry" -> {
+                    ApplicationManager.getApplication().invokeLater {
+                        importTelemetry()
+                    }
+                }
                 "nodeSelected" -> {
                     val nodeId = json.get("nodeId")?.asString
                     val node = currentDocument?.nodes?.find { it.id == nodeId }
@@ -369,7 +334,46 @@ class SigloToolWindowPanel(
                 }
             }
         } catch (e: Exception) {
-            LOG.warn("Error processing webview query: $request", e)
+            LOG.error("Failed to parse message from Siglo webview: $request", e)
+        }
+    }
+
+    fun importTelemetry() {
+        val descriptor = FileChooserDescriptor(true, false, false, false, false, false)
+            .withTitle("Import Siglo Telemetry Recording")
+            .withDescription("Select a recorded telemetry JSON file (*.json)")
+            .withFileFilter { it.extension?.lowercase() == "json" }
+        val chosen = FileChooser.chooseFile(descriptor, project, null) ?: return
+        try {
+            val content = String(chosen.contentsToByteArray(), Charsets.UTF_8)
+            val jsonElement = try {
+                gson.fromJson(content, JsonElement::class.java)
+            } catch (e: Exception) {
+                null
+            }
+            if (jsonElement != null) {
+                val wrapped = JsonObject()
+                wrapped.addProperty("type", "setTelemetry")
+                if (jsonElement.isJsonObject) {
+                    val docObj = jsonElement.asJsonObject
+                    if (!docObj.has("fileName")) {
+                        docObj.addProperty("fileName", chosen.name)
+                    }
+                    wrapped.add("document", docObj)
+                } else if (jsonElement.isJsonArray) {
+                    val docObj = JsonObject()
+                    docObj.addProperty("version", 1)
+                    docObj.addProperty("fileName", chosen.name)
+                    docObj.addProperty("importedAt", java.time.Instant.now().toString())
+                    docObj.add("records", jsonElement.asJsonArray)
+                    wrapped.add("document", docObj)
+                }
+                val rawPayload = gson.toJson(wrapped)
+                val script = "if (window.__SIGLO_BRIDGE__) { window.__SIGLO_BRIDGE__.dispatch($rawPayload); }"
+                jcefBrowserView?.executeJavaScript(script)
+            }
+        } catch (e: Exception) {
+            LOG.warn("Failed to read telemetry file: ${chosen.name}", e)
         }
     }
 

@@ -1,36 +1,53 @@
-import { flow, Step } from '@siglo/core';
+import { flow, Step, parallel, branch } from '@siglo/core';
 import { httpStep } from '@siglo/http';
 import { sendNotificationStep } from '@siglo/notifications';
 import { aiStep } from '@siglo/ai';
+import { verifyWebhookStep } from '@siglo/crypto';
 
-const stepFetchUser = Step.create('fetchUser', { retries: 2, timeoutMs: 3000 }, async () => {
-  return { id: 'usr_123' };
+const stepVerifySignature = verifyWebhookStep('verifyOrderSignature', {
+  provider: 'stripe',
+  secret: 'whsec_test',
+  payload: (ctx: any) => ctx.rawBody,
+  signature: (ctx: any) => ctx.headers?.['stripe-signature'],
 });
+
+const stepFetchUser = Step.create('fetchUser', async () => {
+  return { id: 'usr_123' };
+})
+  .timeout(3000)
+  .onFail({ maxRetries: 2 });
+
+const stepRefund = Step.create('refundCard', async () => {});
 
 const stepChargeCard = httpStep('chargeCard', {
   method: 'POST',
   url: 'https://api.stripe.com/v1/charges',
-});
+}).compensate(stepRefund);
 
 const stepSendEmail = sendNotificationStep('sendReceipt', {
   channel: 'email',
+  recipient: 'customer@example.com',
+  template: 'order-receipt',
 });
 
 const stepAnalyzeFraud = aiStep('analyzeFraud', {
-  provider: 'openai',
-  model: 'gpt-4o',
+  model: {
+    provider: 'openai',
+    model: 'gpt-4o',
+  },
+  prompt: 'Analyze fraud risk for order',
 });
 
-const stepRefund = Step.create('refundCard', async () => {});
-
-export const orderWorkflow = flow('orderWorkflow')
-  .then(stepFetchUser)
-  .then(stepChargeCard)
-  .compensate(stepRefund)
-  .parallel([stepSendEmail, stepAnalyzeFraud])
-  .branch(
-    (ctx: any) => ctx.isVip,
-    Step.create('vipPerk', async () => {}),
-    Step.create('standardPerk', async () => {})
-  )
-  .fallback(Step.create('handleOrderError', async () => {}));
+export const orderWorkflow = flow(
+  stepVerifySignature,
+  stepFetchUser,
+  stepChargeCard,
+  parallel(stepSendEmail, stepAnalyzeFraud),
+  branch(
+    (ctx: any) => (ctx.isVip ? 'vip' : 'standard'),
+    {
+      vip: Step.create('vipPerk', async () => {}),
+      standard: Step.create('standardPerk', async () => {}),
+    },
+  ),
+);

@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import type { GraphDocument } from '@siglo/ide-protocol';
+import type { GraphDocument, TelemetryRecordingDocument } from '@siglo/ide-protocol';
+import { sanitizeTelemetryDocument } from '@siglo/ide-protocol';
 
 /** Nonce scripts and style elements; React's graph coordinates require style attributes. */
 export function secureHtml(html: string): string {
@@ -32,6 +33,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
     private panel?: vscode.WebviewPanel;
     private disposables: vscode.Disposable[] = [];
     private document?: GraphDocument;
+    private telemetryDocument?: TelemetryRecordingDocument | null;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -80,9 +82,13 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             if (msg.type === 'ready') {
                 surface.ready = true;
                 if (this.document) void webview.postMessage({ type: 'setGraph', document: this.document });
-                else void this.refresh().catch(this.report);
+                if (this.telemetryDocument)
+                    void webview.postMessage({ type: 'setTelemetry', document: this.telemetryDocument });
+                if (!this.document) void this.refresh().catch(this.report);
             } else if (msg.type === 'reload') {
                 void this.refresh().catch(this.report);
+            } else if (msg.type === 'importTelemetry') {
+                void this.importTelemetry().catch(this.report);
             } else if (msg.type === 'nodeSelected' && typeof msg.nodeId === 'string') {
                 // Resolve IDs against the host's current graph, never trust a webview-supplied URI/range.
                 void this.navigate({ kind: 'node', nodeId: msg.nodeId }).catch(this.report);
@@ -100,28 +106,89 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             receiver.dispose();
             disposed.dispose();
         });
-        this.disposables.push(receiver, disposed);
-        webview.html = secureHtml(readFileSync(this.context.asAbsolutePath('dist/index.html'), 'utf8'));
+        this.render(surface);
     }
 
-    setGraph(document: GraphDocument, automatic = false): void {
+    private render(surface: Surface): void {
+        try {
+            const template = readFileSync(this.context.asAbsolutePath('dist/index.html'), 'utf8');
+            surface.webview.html = secureHtml(template);
+        } catch (error) {
+            this.report(error);
+        }
+    }
+
+    async post(document: GraphDocument): Promise<void> {
         this.document = document;
-        for (const surface of this.surfaces) {
-            if (surface.ready && (!automatic || surface.autoReload))
-                void surface.webview.postMessage({ type: 'setGraph', document });
+        const message = { type: 'setGraph', document };
+        await Promise.all(
+            Array.from(this.surfaces)
+                .filter(surface => surface.ready)
+                .map(surface => surface.webview.postMessage(message)),
+        );
+    }
+
+    async select(nodeId: string): Promise<void> {
+        const message = { type: 'selectNode', nodeId };
+        await Promise.all(
+            Array.from(this.surfaces)
+                .filter(surface => surface.ready)
+                .map(surface => surface.webview.postMessage(message)),
+        );
+    }
+
+    async importTelemetry(): Promise<void> {
+        const uris = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            filters: { 'Siglo Telemetry Recording': ['json'] },
+            openLabel: 'Import Telemetry',
+        });
+        if (!uris || !uris[0]) return;
+        const targetUri = uris[0];
+        try {
+            const rawBytes = await vscode.workspace.fs.readFile(targetUri);
+            const text = Buffer.from(rawBytes).toString('utf8');
+            const parsed = JSON.parse(text);
+            const fileName = targetUri.path.split('/').pop() || 'recording.json';
+            const sanitized = sanitizeTelemetryDocument(parsed, fileName);
+            if (!sanitized) throw new Error('Invalid or unsupported telemetry recording document');
+            await this.postTelemetry(sanitized);
+            void vscode.window.showInformationMessage(
+                `Siglo: Imported ${sanitized.records.length} telemetry records from ${fileName}.`,
+            );
+        } catch (error) {
+            this.report(error);
+            void vscode.window.showErrorMessage(
+                `Siglo: Failed to import telemetry: ${error instanceof Error ? error.message : String(error)}`,
+            );
         }
     }
 
-    selectNode(nodeId?: string): void {
-        for (const surface of this.surfaces) {
-            if (surface.ready)
-                void surface.webview.postMessage(nodeId ? { type: 'selectNode', nodeId } : { type: 'clearSelection' });
+    async postTelemetry(document: TelemetryRecordingDocument | null): Promise<void> {
+        this.telemetryDocument = document;
+        const message = { type: 'setTelemetry', document };
+        await Promise.all(
+            Array.from(this.surfaces)
+                .filter(surface => surface.ready)
+                .map(surface => surface.webview.postMessage(message)),
+        );
+    }
+
+    isAutoReloadEnabled(): boolean {
+        // Return true if any surface has auto-reload enabled (default behavior)
+        if (this.surfaces.size === 0) return true;
+        for (const s of this.surfaces) {
+            if (s.autoReload) return true;
         }
+        return false;
     }
 
     dispose(): void {
-        this.panel?.dispose();
         for (const disposable of this.disposables) disposable.dispose();
+        this.disposables = [];
         this.surfaces.clear();
+        this.panel?.dispose();
     }
 }

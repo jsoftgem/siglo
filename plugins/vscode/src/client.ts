@@ -92,7 +92,7 @@ export class AnalyzerClient {
         try {
             await this.send(PROTOCOL_METHODS.INITIALIZE, {
                 clientName: 'siglo-vscode',
-                clientVersion: '1.2.2',
+                clientVersion: '1.2.3',
                 rootUri: this.rootUri(),
                 capabilities: { dynamicRefresh: true },
             });

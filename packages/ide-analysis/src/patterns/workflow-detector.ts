@@ -39,7 +39,7 @@ interface WorkflowParseContext {
 
 const MAX_RESOLVE_DEPTH = 10;
 const FLOW_CHAIN_METHODS = new Set(['then', 'parallel', 'branch', 'fallback', 'compensate']);
-const FLOW_CONFIG_METHODS = new Set(['timeout', 'version', 'networkPolicy', 'monitor']);
+const FLOW_CONFIG_METHODS = new Set(['timeout', 'version', 'networkPolicy', 'monitor', 'durable', 'saga']);
 
 export function analyzeWorkflowsInSourceFile(
     sourceFile: ts.SourceFile,
@@ -538,6 +538,7 @@ function buildWorkflowDocument(
     const nodes: GraphNode[] = [...(seedSubflow?.nodes || [])];
     const edges: GraphEdge[] = [...(seedSubflow?.edges || [])];
     const unresolved: UnresolvedNode[] = [...(seedSubflow?.unresolved || [])];
+    const stepInvocations: { id: string; name: string; location: SourceRange; usageLocation?: SourceRange }[] = [];
     let currentHeadIds: string[] = seedSubflow ? resolveSubflowEntryAndExitIds(seedSubflow).exitIds : [];
 
     function addNode(detected: DetectedStep, usageNode?: ts.Node): string {
@@ -566,6 +567,7 @@ function buildWorkflowDocument(
                 if (def) {
                     nodeToAdd = {
                         ...nodeToAdd,
+                        id: def.id,
                         name: def.name,
                         stepKind: def.stepKind,
                         location: def.location,
@@ -573,9 +575,17 @@ function buildWorkflowDocument(
                         executionConfig: { ...def.executionConfig, ...nodeToAdd.executionConfig },
                         properties: { ...def.properties, ...nodeToAdd.properties },
                         specs: [...(def.specs || []), ...(nodeToAdd.specs || [])],
+                        ecosystemConfig: def.ecosystemConfig || nodeToAdd.ecosystemConfig,
                     };
                 }
             }
+            const usageLoc = usageNode ? getSourceRange(ctx.sourceFile, usageNode) : undefined;
+            stepInvocations.push({
+                id: nodeToAdd.id,
+                name: nodeToAdd.name,
+                location: nodeToAdd.location,
+                usageLocation: usageLoc,
+            });
             // Check if already in nodes
             const existing = nodes.find(n => n.id === nodeToAdd.id);
             if (!existing) {
@@ -593,6 +603,11 @@ function buildWorkflowDocument(
         if (subflow.nodes.length === 0 && subUnresolved.length === 0) return;
 
         for (const n of subflow.nodes) {
+            stepInvocations.push({
+                id: n.id,
+                name: n.name,
+                location: n.location,
+            });
             if (!nodes.some(existing => existing.id === n.id)) {
                 nodes.push(n);
             }
@@ -967,6 +982,31 @@ function buildWorkflowDocument(
         }
     }
 
+    // Process step-level compensations (e.g. step.compensate(stepRefund))
+    for (const node of [...nodes]) {
+        if (node.executionConfig?.hasCompensation && node.properties?.compensationStep) {
+            const compTargetName = node.properties.compensationStep;
+            const hasEdge = edges.some(e => e.from === node.id && e.type === 'compensation');
+            if (!hasEdge) {
+                let compNode = nodes.find(n => n.name === compTargetName || n.id === compTargetName);
+                if (!compNode && ctx.stepDefinitions.has(compTargetName)) {
+                    compNode = ctx.stepDefinitions.get(compTargetName);
+                    if (compNode && !nodes.some(n => n.id === compNode!.id)) {
+                        nodes.push(compNode);
+                    }
+                }
+                if (compNode) {
+                    edges.push({
+                        id: `edge_${node.id}_to_${compNode.id}_comp`,
+                        from: node.id,
+                        to: compNode.id,
+                        type: 'compensation',
+                    });
+                }
+            }
+        }
+    }
+
     const routeEdges = new Map<string, GraphEdge>();
     const normalizedEdges: GraphEdge[] = [];
     for (const edge of edges) {
@@ -984,7 +1024,7 @@ function buildWorkflowDocument(
             normalizedEdges.push(normalized);
         }
     }
-    const diagnostics = runDiagnostics(nodes, normalizedEdges);
+    const diagnostics = runDiagnostics(nodes, normalizedEdges, workflowName, properties);
 
     return {
         uri: ctx.uri,
@@ -1279,22 +1319,43 @@ function resolveExpandableExpression(
     return allowSingleStep ? resolveExpressionToSingleStep(expr, ctx) : null;
 }
 
-export function runDiagnostics(nodes: GraphNode[], edges: GraphEdge[]): Diagnostic[] {
+export function runDiagnostics(
+    nodes: GraphNode[],
+    edges: GraphEdge[],
+    workflowName?: string,
+    properties?: Record<string, string>,
+): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
 
-    // 1. Detect duplicate node IDs
-    const idCounts = new Map<string, number>();
-    for (const node of nodes) {
-        idCounts.set(node.id, (idCounts.get(node.id) || 0) + 1);
+    // Helper to identify synthetic combinator hubs
+    function isSyntheticNode(node: GraphNode): boolean {
+        return (
+            node.name.endsWith(' fork') ||
+            node.name.endsWith(' join') ||
+            node.name === 'inline action' ||
+            node.id.includes('_fork_') ||
+            node.id.includes('_join_') ||
+            ['parallel', 'all', 'race', 'allSettled', 'branch', 'when', 'map'].includes(node.name)
+        );
     }
-    for (const node of nodes) {
-        if ((idCounts.get(node.id) || 0) > 1) {
-            diagnostics.push({
-                code: 'SIGLO_DUPLICATE_STEP_ID',
-                message: `Duplicate step ID detected: "${node.id}"`,
-                severity: 'error',
-                range: node.location,
-            });
+
+    // 1. Detect duplicate step IDs
+    const userNodes = nodes.filter(n => !isSyntheticNode(n));
+    const nameToNodes = new Map<string, GraphNode[]>();
+    for (const node of userNodes) {
+        if (!nameToNodes.has(node.name)) nameToNodes.set(node.name, []);
+        nameToNodes.get(node.name)!.push(node);
+    }
+    for (const [name, matchedNodes] of nameToNodes.entries()) {
+        if (matchedNodes.length > 1) {
+            for (const node of matchedNodes) {
+                diagnostics.push({
+                    code: 'SIGLO_DUPLICATE_STEP_ID',
+                    message: `Duplicate step ID detected: "${name}"`,
+                    severity: 'error',
+                    range: node.location,
+                });
+            }
         }
     }
 
@@ -1337,7 +1398,7 @@ export function runDiagnostics(nodes: GraphNode[], edges: GraphEdge[]): Diagnost
                 diagnostics.push({
                     code: 'SIGLO_STATIC_CYCLE',
                     message: `Cyclic workflow dependency detected involving step "${node.name}"`,
-                    severity: 'error',
+                    severity: 'warning',
                     range: node.location,
                 });
             }
@@ -1346,9 +1407,14 @@ export function runDiagnostics(nodes: GraphNode[], edges: GraphEdge[]): Diagnost
 
     // 3. Detect side-effect steps lacking compensation in sagas
     const hasAnyCompensationEdge = edges.some(e => e.type === 'compensation');
-    if (hasAnyCompensationEdge) {
+    const isSaga = hasAnyCompensationEdge || properties?.isSaga === 'true' || properties?.saga === 'true';
+    if (isSaga) {
         for (const node of nodes) {
-            if ((node.stepKind === 'http' || node.stepKind === 'crypto') && !node.executionConfig?.hasCompensation) {
+            const isSideEffect =
+                node.stepKind === 'http' ||
+                node.stepKind === 'crypto' ||
+                (node.stepKind === 'notification' && node.properties?.autoCompensate !== 'true');
+            if (isSideEffect && !node.executionConfig?.hasCompensation) {
                 const hasOutCompensation = edges.some(e => e.from === node.id && e.type === 'compensation');
                 if (!hasOutCompensation) {
                     diagnostics.push({
@@ -1359,6 +1425,54 @@ export function runDiagnostics(nodes: GraphNode[], edges: GraphEdge[]): Diagnost
                         fixAvailable: true,
                     });
                 }
+            }
+        }
+    }
+
+    // 4. Detect unhandled error branches in durable workflows
+    const durableNodes = nodes.filter(
+        n =>
+            n.name.startsWith('wait:') ||
+            n.name.startsWith('waitForEvent:') ||
+            n.properties?.operation === 'wait' ||
+            n.properties?.operation === 'waitForEvent' ||
+            n.properties?.operation === 'Step.wait' ||
+            n.properties?.operation === 'Step.waitForEvent' ||
+            n.properties?.operation?.toLowerCase().includes('wait'),
+    );
+    const isDurableWorkflow = durableNodes.length > 0 || properties?.durable === 'true';
+    if (isDurableWorkflow) {
+        // Check for branch forks lacking a default or fallback route
+        const branchForks = nodes.filter(n => n.name === 'branch fork' || n.properties?.operation === 'branch');
+        for (const fork of branchForks) {
+            const outEdges = edges.filter(e => e.from === fork.id);
+            const hasDefault = outEdges.some(
+                e => e.label === 'default' || e.label?.includes('default') || e.type === 'fallback',
+            );
+            if (!hasDefault) {
+                diagnostics.push({
+                    code: 'SIGLO_UNHANDLED_ERROR_BRANCH',
+                    message: `Durable workflow branch "${fork.name}" has unhandled error/default branch`,
+                    severity: 'warning',
+                    range: fork.location,
+                });
+            }
+        }
+
+        // Check for when forks lacking an else / fallback route
+        const whenForks = nodes.filter(n => n.name === 'when fork' || n.properties?.operation === 'when');
+        for (const fork of whenForks) {
+            const outEdges = edges.filter(e => e.from === fork.id);
+            const hasElse = outEdges.some(
+                e => e.label === 'else' || e.label?.includes('else') || e.type === 'fallback',
+            );
+            if (!hasElse) {
+                diagnostics.push({
+                    code: 'SIGLO_UNHANDLED_ERROR_BRANCH',
+                    message: `Durable workflow conditional "${fork.name}" has unhandled alternate/error branch`,
+                    severity: 'warning',
+                    range: fork.location,
+                });
             }
         }
     }
@@ -1382,6 +1496,8 @@ function applyFlowProperty(
     if (method === 'timeout') properties.timeoutMs = value;
     else if (method === 'version') properties.workflowVersion = value;
     else if (method === 'monitor') properties.monitor = value;
+    else if (method === 'durable') properties.durable = 'true';
+    else if (method === 'saga') properties.isSaga = 'true';
     else if (method === 'networkPolicy') {
         for (const key of Object.keys(properties)) if (key.startsWith('network.')) delete properties[key];
         const defaults = {

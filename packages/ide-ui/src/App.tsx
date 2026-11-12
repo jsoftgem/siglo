@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import type { GraphDocument, GraphNode } from '@siglo/ide-protocol';
+import React, { useState, useEffect, useRef } from 'react';
+import type { GraphDocument, GraphNode, TelemetryRecordingDocument } from '@siglo/ide-protocol';
+import { sanitizeTelemetryDocument, matchTelemetryRecord } from '@siglo/ide-protocol';
 import { bridge, HostMessage } from './bridge';
 import { GraphCanvas } from './components/GraphCanvas';
 import { WorkflowInspector } from './components/WorkflowInspector';
 import { InspectorPanel } from './components/InspectorPanel';
-import { Layers, CheckCircle2, RotateCw } from 'lucide-react';
+import { Layers, CheckCircle2, RotateCw, Database, X } from 'lucide-react';
 import sigloLogo from './assets/siglo-logo-128.png';
 
 const EMPTY_DOCUMENT: GraphDocument = {
@@ -25,6 +26,8 @@ export const App: React.FC = () => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [autoReload, setAutoReload] = useState<boolean>(true);
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+    const [telemetryDoc, setTelemetryDoc] = useState<TelemetryRecordingDocument | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         const unsubscribe = bridge.subscribe((msg: HostMessage) => {
@@ -55,6 +58,11 @@ export const App: React.FC = () => {
                 setSelectedNodeId(msg.nodeId);
             } else if (msg.type === 'clearSelection') {
                 setSelectedNodeId(null);
+            } else if (msg.type === 'setTelemetry') {
+                const sanitized = msg.document ? sanitizeTelemetryDocument(msg.document, msg.document.fileName) : null;
+                setTelemetryDoc(sanitized || null);
+            } else if (msg.type === 'clearTelemetry') {
+                setTelemetryDoc(null);
             }
         });
 
@@ -118,6 +126,21 @@ export const App: React.FC = () => {
         bridge.notifyWorkflowSelected(name);
     };
 
+    const telemetryRecords = telemetryDoc?.records || [];
+    const telemetryWorkflowName = telemetryRecords[0]?.workflowName;
+    const isTelemetryWorkflowMismatch = Boolean(
+        telemetryDoc &&
+        telemetryWorkflowName &&
+        activeWorkflow.name &&
+        telemetryRecords.length > 0 &&
+        telemetryRecords.every(r => r.workflowName !== activeWorkflow.name),
+    );
+    const telemetryMatchedCount = telemetryDoc
+        ? (activeWorkflow.nodes || []).filter(node =>
+              telemetryRecords.some(rec => matchTelemetryRecord(rec, activeWorkflow.name, undefined, node)),
+          ).length
+        : 0;
+
     const selectedNode = displayNodes.find(n => n.id === selectedNodeId) || null;
 
     const handleSelectNode = (node: GraphNode) => {
@@ -135,6 +158,38 @@ export const App: React.FC = () => {
         const nextVal = !autoReload;
         setAutoReload(nextVal);
         bridge.sendToHost({ type: 'setAutoReload', enabled: nextVal });
+    };
+
+    const handleImportTelemetryClick = () => {
+        bridge.notifyImportTelemetry();
+        if (!window.cefQuery && !window.acquireVsCodeApi && fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
+    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                const raw = ev.target?.result;
+                if (typeof raw === 'string') {
+                    const parsed = JSON.parse(raw);
+                    const sanitized = sanitizeTelemetryDocument(parsed, file.name);
+                    setTelemetryDoc(sanitized || null);
+                }
+            } catch (err) {
+                console.error('Failed to parse telemetry file:', err);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    const handleClearTelemetry = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setTelemetryDoc(null);
     };
 
     return (
@@ -170,14 +225,14 @@ export const App: React.FC = () => {
                                     >
                                         All Flows ({availableWorkflows.length})
                                     </option>
-                                    {availableWorkflows.map(w => (
+                                    {availableWorkflows.map(wf => (
                                         <option
-                                            key={w.name}
-                                            value={w.name}
+                                            key={wf.name}
+                                            value={wf.name}
                                             className="bg-[#1e1f22] text-[#dfe1e5]"
                                             style={{ backgroundColor: '#1e1f22', color: '#dfe1e5' }}
                                         >
-                                            {w.name} ({w.nodes.length} steps)
+                                            {wf.name} ({wf.nodes.length} steps)
                                         </option>
                                     ))}
                                 </select>
@@ -198,6 +253,57 @@ export const App: React.FC = () => {
                     )}
                 </div>
                 <div className="flex items-center space-x-3 text-[11px] text-[#868a98]">
+                    {/* Telemetry Import / Status Badge (Milestone 4) */}
+                    {telemetryDoc ? (
+                        <div
+                            className={`flex items-center space-x-1.5 px-2 py-1 rounded bg-[#1e1f22] border ${
+                                isTelemetryWorkflowMismatch
+                                    ? 'border-amber-700/60 text-amber-300'
+                                    : 'border-emerald-800/60 text-[#dfe1e5]'
+                            }`}
+                        >
+                            <Database
+                                className={`w-3.5 h-3.5 ${isTelemetryWorkflowMismatch ? 'text-amber-400' : 'text-emerald-400'}`}
+                            />
+                            <span
+                                className="truncate max-w-[150px] font-mono text-[10px]"
+                                title={
+                                    isTelemetryWorkflowMismatch
+                                        ? `Telemetry recording is for "${telemetryWorkflowName}", but active flow is "${activeWorkflow.name}". Open ${telemetryWorkflowName}.workflow.ts to inspect recorded traces.`
+                                        : `${telemetryDoc.fileName || 'Telemetry'} (${telemetryMatchedCount}/${telemetryRecords.length} steps matched)`
+                                }
+                            >
+                                {telemetryDoc.fileName || 'Telemetry'}{' '}
+                                {isTelemetryWorkflowMismatch
+                                    ? '(0 matched)'
+                                    : `(${telemetryMatchedCount}/${telemetryRecords.length})`}
+                            </span>
+                            <button
+                                onClick={handleClearTelemetry}
+                                title="Clear telemetry recording"
+                                className="p-0.5 hover:bg-[#393b40] rounded text-[#868a98] hover:text-[#dfe1e5] transition-colors"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleImportTelemetryClick}
+                            title="Import recorded telemetry JSON file"
+                            className="flex items-center space-x-1 px-2 py-1 rounded bg-[#393b40] hover:bg-[#4e5157] text-[#dfe1e5] transition-colors"
+                        >
+                            <Database className="w-3.5 h-3.5 text-sky-400" />
+                            <span>Import Telemetry</span>
+                        </button>
+                    )}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json,application/json"
+                        style={{ display: 'none' }}
+                        onChange={handleFileInputChange}
+                    />
+
                     {/* Reload Button */}
                     <button
                         onClick={handleManualReload}
@@ -232,7 +338,7 @@ export const App: React.FC = () => {
                 </div>
             </header>
 
-            {/* Main Content Area */}
+            {/* Main Area */}
             <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
                 <main className="flex-1 min-w-0 min-h-0 relative overflow-hidden">
                     {displayNodes.length === 0 && displayUnresolved.length === 0 ? (
@@ -257,8 +363,11 @@ export const App: React.FC = () => {
                                         key={workflow.name}
                                         workflowName={workflow.name}
                                         workflowProperties={workflow.properties}
+                                        workflowVersion={
+                                            workflow.properties?.workflowVersion || workflow.properties?.version
+                                        }
+                                        telemetryDocument={telemetryDoc}
                                         onSelectWorkflow={() => inspectWorkflow(workflow.name)}
-                                        embedded
                                         nodes={workflow.nodes}
                                         edges={workflow.edges}
                                         unresolved={workflow.unresolved}
@@ -272,6 +381,10 @@ export const App: React.FC = () => {
                         <GraphCanvas
                             workflowName={displayTitle}
                             workflowProperties={activeWorkflow.properties}
+                            workflowVersion={
+                                activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version
+                            }
+                            telemetryDocument={telemetryDoc}
                             onSelectWorkflow={() => inspectWorkflow(displayTitle)}
                             nodes={displayNodes}
                             edges={displayEdges}
@@ -288,7 +401,15 @@ export const App: React.FC = () => {
                         onOpenRelatedFile={uri => bridge.notifyOpenRelatedFile(uri)}
                     />
                 ) : (
-                    <InspectorPanel selectedNode={selectedNode} diagnostics={displayDiagnostics} />
+                    <InspectorPanel
+                        selectedNode={selectedNode}
+                        diagnostics={displayDiagnostics}
+                        workflowName={activeWorkflow.name}
+                        workflowVersion={
+                            activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version
+                        }
+                        telemetryDocument={telemetryDoc}
+                    />
                 )}
             </div>
         </div>

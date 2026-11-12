@@ -5,7 +5,7 @@
 | Display name | Siglo Workflow Explorer |
 | Installed extension ID | `jsoftgem.siglo-workflow-explorer` |
 | Publisher | `jsoftgem` |
-| Version | Defined in `../package.json` (currently `1.2.2`) |
+| Version | Defined in `../package.json` (currently `1.2.3`) |
 | VS Code target | `^1.90.0` |
 | License | MIT |
 
@@ -31,6 +31,7 @@ The PNGs capture the extension's actual bundled webview in headless Chrome. Thei
 | [02-step-input-contracts.png](screenshots/02-step-input-contracts.png) | Inspect required inputs, transforms, default values, and validation rules from source. |
 | [03-workflow-settings.png](screenshots/03-workflow-settings.png) | Review workflow deadlines, schema versions, and allowed network hosts. |
 | [04-all-workflows.png](screenshots/04-all-workflows.png) | Compare multiple workflows from the same file in the All Flows view. |
+| [05-ecosystem-telemetry.png](screenshots/05-ecosystem-telemetry.png) | Inspect runtime telemetry with imported offline recordings (HTTP, Crypto, Notifications, AI) and fail-closed sanitization. |
 
 Images are 1440 × 1080 pixels. Use the order above when preparing the listing. Adding or packaging these assets does not publish the extension.
 
