@@ -42,36 +42,6 @@ description: 'Zero-daemon, in-process workflow orchestration with durable checkp
 
 ---
 
-## Live DevTools & IDE Workflow Visualizer
-
-<p align="center">
-    <img
-        src="/assets/hero-split-screen.gif"
-        alt="Siglo Split-Screen Demo: Live IDE Workflow Visualizer alongside @siglo/monitor Saga Rollback Waterfall"
-        width="100%"
-        style={{ borderRadius: '8px' }}
-    />
-</p>
-
-### Bi-Directional Code & IDE Visual Inspector Sync
-
-As you author workflows in TypeScript, the **Siglo IDE Visual Inspector** (`@siglo/ide-ui` for VS Code & JetBrains) stays synchronized with your code in real time:
-
-- **Add Steps & Policies in Code -> Instant Graph Update**: Adding `.step(...)`, `.retry(...)`, `.compensate(...)`, or `.timeout(...)` in your workflow file automatically updates the visual DAG and Policy Inspector via `Auto-Reload`.
-- **Select a Step in the Visual Tool -> Jump to Code & Open Step File**: Clicking any step node in the visual canvas jumps directly to its `.step()` definition and opens the related step implementation file (`steps/*.step.ts`) alongside its Saga `.compensate()` handler.
-- **Place Cursor in Code -> Highlights Visual Node**: Moving your editor cursor inside a step highlights the corresponding node and its active resilience policies in the inspector.
-
-<p align="center">
-    <img
-        src="/assets/ide-code-sync.gif"
-        alt="Siglo Bi-Directional Code and IDE Visual Inspector Sync: Adding steps updates the graph, and selecting a step opens its source file"
-        width="100%"
-        style={{ borderRadius: '8px' }}
-    />
-</p>
-
----
-
 ## 30-Second Quickstart
 
 ```bash
@@ -110,6 +80,115 @@ async function main() {
 
 main();
 ```
+
+---
+
+## Manual Plumbing vs. Siglo
+
+Most backend services start as a clean function and slowly devolve into nested `try/catch` blocks, manual rollback flags, and ad-hoc retry loops—yet spinning up a distributed workflow cluster is overkill.
+
+<CodeGroup>
+
+```typescript ✅ With Siglo (Declarative, Self-Healing Flow)
+import { Step, flow } from '@siglo/core';
+
+const reserveInventory = Step.create('reserveInventory', async ({ orderId }: { orderId: string; amount: number }) => ({
+    reservationId: await inventory.reserve(orderId),
+})).compensate(async ctx => {
+    await inventory.release(ctx.reservationId);
+});
+
+const chargeCard = Step.create('chargeCard', async ({ amount }) => ({
+    chargeId: await stripe.charge(amount),
+}))
+    .onFail({ maxRetries: 3, backoff: 'exponential', delay: 200 })
+    .compensate(async ctx => {
+        await stripe.refund(ctx.chargeId);
+    });
+
+const shipOrder = Step.create('shipOrder', async ({ orderId, reservationId }) => ({
+    trackingId: await shipping.dispatch(orderId, reservationId),
+}));
+
+// Typed outputs merge automatically; failures roll back in LIFO order
+export const checkoutFlow = flow(reserveInventory, chargeCard, shipOrder);
+```
+
+```typescript ❌ Without Siglo (Fragile Imperative Plumbing)
+async function checkout(orderId: string, amount: number) {
+    let reservationId: string | undefined;
+    let chargeId: string | undefined;
+
+    try {
+        reservationId = await inventory.reserve(orderId);
+
+        // Manual retry loop + backoff for flaky payment gateway
+        for (let attempt = 1; ; attempt++) {
+            try {
+                chargeId = await stripe.charge(amount);
+                break;
+            } catch (err) {
+                if (attempt >= 3) throw err;
+                await new Promise(r => setTimeout(r, 200 * 2 ** attempt));
+            }
+        }
+
+        const trackingId = await shipping.dispatch(orderId, reservationId);
+        return { reservationId, chargeId, trackingId };
+    } catch (err) {
+        // Manual LIFO rollback with nested error swallowing
+        if (chargeId) {
+            try {
+                await stripe.refund(chargeId);
+            } catch {}
+        }
+        if (reservationId) {
+            try {
+                await inventory.release(reservationId);
+            } catch {}
+        }
+        throw err;
+    }
+}
+```
+
+</CodeGroup>
+
+What you get immediately by wrapping existing functions in `Step.create`:
+
+- **Automatic LIFO Saga Rollbacks**: If `shipOrder` throws, `chargeCard` is refunded first, then `reserveInventory` is released.
+- **Zero-Boilerplate Type Inference**: `shipOrder` statically knows `reservationId` exists in its input context because `reserveInventory` returned it upstream.
+- **Instant Architecture Diagrams & Live Telemetry**: Call `checkoutFlow.toMermaid()` to render the pipeline in PRs, or inspect live execution waterfalls in `@siglo/monitor` and OpenTelemetry (`@siglo/opentelemetry`).
+
+---
+
+## Live DevTools & IDE Workflow Visualizer
+
+<p align="center">
+    <img
+        src="/assets/hero-split-screen.gif"
+        alt="Siglo Split-Screen Demo: Live IDE Workflow Visualizer alongside @siglo/monitor Saga Rollback Waterfall"
+        width="100%"
+        style={{ borderRadius: '8px' }}
+    />
+</p>
+
+### Bi-Directional Code & IDE Visual Inspector Sync
+
+As you author workflows in TypeScript, the **Siglo IDE Visual Inspector** (`@siglo/ide-ui` for VS Code & JetBrains) stays synchronized with your code in real time:
+
+- **Add Steps & Policies in Code -> Instant Graph Update**: Adding `.step(...)`, `.retry(...)`, `.compensate(...)`, or `.timeout(...)` in your workflow file automatically updates the visual DAG and Policy Inspector via `Auto-Reload`.
+- **Select a Step in the Visual Tool -> Jump to Code & Open Step File**: Clicking any step node in the visual canvas jumps directly to its `.step()` definition and opens the related step implementation file (`steps/*.step.ts`) alongside its Saga `.compensate()` handler.
+- **Place Cursor in Code -> Highlights Visual Node**: Moving your editor cursor inside a step highlights the corresponding node and its active resilience policies in the inspector.
+
+<p align="center">
+    <img
+        src="/assets/ide-code-sync.gif"
+        alt="Siglo Bi-Directional Code and IDE Visual Inspector Sync: Adding steps updates the graph, and selecting a step opens its source file"
+        width="100%"
+        style={{ borderRadius: '8px' }}
+    />
+</p>
 
 ---
 
