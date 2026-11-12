@@ -10,6 +10,8 @@
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](<>)
+[![VS Code Extension](https://img.shields.io/badge/VS_Code-Siglo_Workflows-007ACC.svg?logo=visualstudiocode&logoColor=white)](plugins/vscode)
+[![JetBrains Plugin](https://img.shields.io/badge/JetBrains-Siglo_Workflows-000000.svg?logo=intellijidea&logoColor=white)](plugins/intellij)
 
 **Siglo** is a lightweight, zero-daemon workflow runtime for TypeScript. It orchestrates complex business logic into composable, resilient steps—featuring end-to-end type inference, automatic Sagas, durable checkpoints, and live DevTools without requiring external server daemons or queue clusters.
 
@@ -28,14 +30,106 @@
 
 > 💡 **Start with a Real Problem:** What happens when checkout charges a customer, but shipping fails? [Build a checkout that handles failure](docs/01-getting-started.md) walks through payment retries, refunds, stock release, and duplicate requests with runnable TypeScript and fake services. No database or external services are needed for the demo.
 
+### Manual Plumbing vs. Siglo
+
+Most backend services start as a clean function and slowly devolve into nested `try/catch` blocks, manual rollback flags, and ad-hoc retry loops—yet spinning up a distributed workflow cluster is overkill.
+
+<table>
+<tr>
+<th width="50%">❌ Without Siglo (Fragile Imperative Plumbing)</th>
+<th width="50%">✅ With Siglo (Declarative, Self-Healing Flow)</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+async function checkout(orderId: string, amount: number) {
+    let reservationId: string | undefined;
+    let chargeId: string | undefined;
+
+    try {
+        reservationId = await inventory.reserve(orderId);
+
+        // Manual retry loop + backoff for flaky payment gateway
+        for (let attempt = 1; ; attempt++) {
+            try {
+                chargeId = await stripe.charge(amount);
+                break;
+            } catch (err) {
+                if (attempt >= 3) throw err;
+                await new Promise(r => setTimeout(r, 200 * 2 ** attempt));
+            }
+        }
+
+        const trackingId = await shipping.dispatch(orderId, reservationId);
+        return { reservationId, chargeId, trackingId };
+    } catch (err) {
+        // Manual LIFO rollback with nested error swallowing
+        if (chargeId) {
+            try {
+                await stripe.refund(chargeId);
+            } catch {}
+        }
+        if (reservationId) {
+            try {
+                await inventory.release(reservationId);
+            } catch {}
+        }
+        throw err;
+    }
+}
+```
+
+</td>
+<td>
+
+```typescript
+import { Step, flow } from '@siglo/core';
+
+const reserveInventory = Step.create('reserveInventory', async ({ orderId }: { orderId: string; amount: number }) => ({
+    reservationId: await inventory.reserve(orderId),
+})).compensate(async ctx => {
+    await inventory.release(ctx.reservationId);
+});
+
+const chargeCard = Step.create('chargeCard', async ({ amount }) => ({
+    chargeId: await stripe.charge(amount),
+}))
+    .onFail({ maxRetries: 3, backoff: 'exponential', delay: 200 })
+    .compensate(async ctx => {
+        await stripe.refund(ctx.chargeId);
+    });
+
+const shipOrder = Step.create('shipOrder', async ({ orderId, reservationId }) => ({
+    trackingId: await shipping.dispatch(orderId, reservationId),
+}));
+
+// Typed outputs merge automatically; failures roll back in LIFO order
+export const checkoutFlow = flow(reserveInventory, chargeCard, shipOrder);
+```
+
+</td>
+</tr>
+</table>
+
+What you get immediately by wrapping existing functions in `Step.create`:
+
+- **Automatic LIFO Saga Rollbacks**: If `shipOrder` throws, `chargeCard` is refunded first, then `reserveInventory` is released.
+- **Zero-Boilerplate Type Inference**: `shipOrder` statically knows `reservationId` exists in its input context because `reserveInventory` returned it upstream.
+- **Instant Architecture Diagrams & Live Telemetry**: Call `checkoutFlow.toMermaid()` to render the pipeline in PRs, or inspect live execution waterfalls in `@siglo/monitor` and OpenTelemetry (`@siglo/opentelemetry`).
+
 ---
 
 ## ⚡ Quickstart (Under 2 Minutes)
 
-### 1. Install
+### 1. Install (or Scaffold a Starter Project)
 
 ```bash
+# Install into an existing TypeScript project
 npm install @siglo/core
+
+# Or scaffold a new runnable workflow project + test harness in seconds
+npm exec --package=@siglo/cli -- siglo init
 ```
 
 ### 2. Define Steps and Compose Your Flow
@@ -78,17 +172,29 @@ main();
 
 ## 🖥️ Visual DevTools & IDE Extensions
 
-Siglo is built from the ground up for developer visibility. Inspect execution topologies, observe latency waterfalls, and navigate code directly inside your editor:
+Siglo is built from the ground up for developer visibility. Watch your workflow graph hot-reload in your IDE while `@siglo/monitor` animates live step retries and LIFO Saga rollback waterfalls:
 
 <p align="center">
-  <img src="docs/assets/rest-and-live-monitoring/checkout-success.png" alt="Siglo Live Monitoring DevTools" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" />
+  <img src="docs/assets/hero-split-screen.gif" alt="Siglo Split-Screen Demo: Live IDE Workflow Visualizer alongside @siglo/monitor Saga Rollback Waterfall" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.18);" />
 </p>
 
 - **Live DevTools Dashboard (`@siglo/monitor`)**: Stream execution state in real time to a modern React DevTools UI (`http://localhost:4000`) with latency waterfalls, active DAG node highlighting, state mutation diffs, and interactive failure replay. See [Live Monitoring Guide](docs/live-monitoring.md).
 - **IDE Extensions for VS Code & IntelliJ IDEA**: Visualize workflows directly from your editor. Statically analyzes TypeScript source without running your server, renders interactive branching paths, and hot-reloads diagrams as you write code. See [VS Code setup](plugins/vscode/README.md) and [IntelliJ IDEA setup](plugins/intellij/README.md).
 
+### 🧩 Bi-Directional Code & IDE Visual Inspector Sync
+
+Your TypeScript code and the Siglo IDE Visualizer stay synchronized in both directions:
+
+- **Code $\rightarrow$ Graph (`Auto-Reload`)**: Adding steps (`chargePayment`, `shipOrder`) or chaining policies (`.timeout()`, `.version()`, `.networkPolicy()`) in TypeScript automatically updates the visual DAG and inspector within `250ms`.
+- **Graph $\rightarrow$ Code (Cross-File Jump to Definition)**: Selecting any step node in the visual inspector automatically opens the related step's source file (such as `steps/charge-payment.step.ts` or `steps/ship-order.step.ts`) and highlights its exact definition lines.
+- **Cursor $\rightarrow$ Inspector Sync**: Placing your editor cursor inside a step definition highlights the node in the graph and surfaces its `.spec()` input contracts, retry policy, and Saga compensation details.
+
 <p align="center">
-  <img src="plugins/vscode/marketplace/screenshots/01-workflow-graph.png" alt="Siglo VS Code Visualizer" width="85%" style="border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);" />
+  <img src="docs/assets/ide-code-sync.gif" alt="Siglo Bi-Directional Code and IDE Visual Inspector Sync: Adding steps updates the graph, and selecting a step opens its source file" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.18);" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/rest-and-live-monitoring/checkout-success.png" alt="Siglo Live Monitoring DevTools" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" />
 </p>
 
 ---
@@ -337,6 +443,88 @@ export const secureOrderPipeline = flow(
 
 ---
 
+### 🤖 Resilient AI & Agentic Inference (`@siglo/ai`)
+
+Replace fragile LLM scripts with multi-provider fallback cascades (`429` / `5xx`), Standard Schema structured outputs with self-healing JSON repair loops, and **Step-as-Tool** agent loops backed by parent Saga rollbacks:
+
+```typescript
+import { z } from 'zod';
+import { Step, flow } from '@siglo/core';
+import { aiStep, defineAiTool } from '@siglo/ai';
+
+// 1. Expose any Siglo Step as a typed AI tool (with automatic Saga rollback if downstream fails)
+const refundOrderStep = Step.create('refundOrder', async ({ orderId }: { orderId: string }) => ({
+    refundId: await billingApi.issueRefund(orderId),
+})).compensate(async ctx => {
+    await billingApi.cancelRefund(ctx.refundId);
+});
+
+const refundTool = defineAiTool({
+    name: 'refundOrder',
+    description: 'Issue a customer refund for an order',
+    inputSchema: z.object({ orderId: z.string() }),
+    jsonSchema: z.toJSONSchema(z.object({ orderId: z.string() })),
+    mapInput: args => ({ orderId: args.orderId }),
+    step: refundOrderStep,
+});
+
+// 2. Multi-provider fallback cascade + self-healing structured output
+const ResolutionSchema = z.object({
+    decision: z.enum(['REFUNDED', 'ESCALATED']),
+    summary: z.string(),
+});
+
+export const supportAgentFlow = flow(
+    aiStep('triageTicket', {
+        model: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', requestTimeoutMs: 15_000 },
+        fallbackModels: [
+            { provider: 'openai', model: 'gpt-4o', requestTimeoutMs: 10_000 },
+            { provider: 'gemini', model: 'gemini-2.0-flash', requestTimeoutMs: 10_000 },
+        ],
+        tools: [refundTool],
+        schema: ResolutionSchema,
+        jsonSchema: z.toJSONSchema(ResolutionSchema),
+        maxRepairAttempts: 2, // Automatically repairs malformed JSON before failing
+        prompt: (ctx: { ticketText: string }) => `Resolve customer ticket: ${ctx.ticketText}`,
+    }),
+);
+```
+
+---
+
+### ⚡ Drop-In HTTP Route Adapters & CI Diagram Automation
+
+Mount workflows directly into **Express**, **Fastify**, or **Hono** (Cloudflare Workers, Bun, Deno, Node.js) with automatic client-disconnect `AbortSignal` propagation and HTTP status mapping (`202` on `waitForEvent`, `400` on validation failure, `409` on idempotency conflict, `504` on timeout):
+
+```typescript
+import { Hono } from 'hono';
+import { sigloMiddleware } from '@siglo/hono';
+import { checkoutFlow } from './checkout.workflow';
+
+const app = new Hono();
+
+// Executes checkoutFlow, binds request AbortSignal, and maps errors to HTTP status codes
+app.post('/api/checkout', sigloMiddleware(checkoutFlow, { timeout: 5_000, durable: true }));
+```
+
+> 💡 **Adopting incrementally?** See [Migrate 1 Endpoint in 5 Minutes](docs/migrate-one-endpoint.md) to wrap existing service functions in `Step.create()` without changing your architecture.
+
+#### Auto-Update Workflow Diagrams in Pull Requests
+
+Add a single step to your GitHub Actions workflow to comment live Mermaid diagrams (with retry, timeout, and saga badges) on every PR:
+
+````yaml
+# .github/workflows/workflow-diagrams.yml
+- name: Export Siglo Workflow Diagram to PR Summary
+  run: |
+      echo "### 🗺️ Updated Checkout Workflow" >> $GITHUB_STEP_SUMMARY
+      echo '```mermaid' >> $GITHUB_STEP_SUMMARY
+      npx --yes @siglo/cli export src/checkout.workflow.ts --format=mermaid >> $GITHUB_STEP_SUMMARY
+      echo '```' >> $GITHUB_STEP_SUMMARY
+````
+
+---
+
 ### 💻 Scaffolding & Replay CLI
 
 `@siglo/cli` provides terminal commands for project creation, code generation, diagram export, and failure replay:
@@ -434,6 +622,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 
 ### 🚀 Interactive Tutorials
 
+- **Migrate 1 Endpoint in 5 Minutes**: [Incremental Adoption Guide](docs/migrate-one-endpoint.md) &mdash; Wrap existing TypeScript service functions in `Step.create()` inside an Express, Fastify, or Hono route without rewriting your codebase.
 - **Zero-Code APM Dashboards**: [Kafka APM Example](docs/zero-code-apm-dashboards.md) &mdash; Run an isolated Kafka example, trace events from producer to consumer, and inspect shared workflow metrics with Jaeger, Grafana, and Prometheus.
 - **REST & Live Monitoring**: [Serve a REST Endpoint and Watch It Run Live](docs/rest-and-live-monitoring.md) &mdash; Connect an Express checkout endpoint to the dashboard, inspect retries, and diagnose failed requests.
 - **Distributed Checkout**: [PostgreSQL and Redis Persistence](docs/distributed-rest-and-live-monitoring.md) &mdash; Run two API instances with shared persistence, caching, and a separate live monitor using Docker Compose.
