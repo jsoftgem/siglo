@@ -12,6 +12,23 @@
     "light": "/assets/siglo-logo.png",
     "dark": "/assets/siglo-logo.png"
   },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/jsoftgem/siglo"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/jsoftgem/siglo"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/jsoftgem/siglo"
+    }
+  },
   "navigation": {
     "tabs": [
       {
