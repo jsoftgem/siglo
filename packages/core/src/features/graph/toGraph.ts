@@ -24,10 +24,12 @@ export function toGraph(item: any): WorkflowNode {
     }
 
     if (item.workflowNode && isWorkflowNode(item.workflowNode)) {
-        return {
+        const node = {
             ...item.workflowNode,
             metadata: { ...item.workflowNode.metadata, runtimeStepId: item.$stepId },
         };
+        Object.defineProperty(node, 'step', { value: item, enumerable: false });
+        return node;
     }
 
     if (Array.isArray(item)) {
@@ -89,6 +91,8 @@ export function toGraph(item: any): WorkflowNode {
                 networkPolicy: stepPolicy,
             },
         };
+        // Runtime-only reference for tooling; omit from JSON and graph serialization.
+        Object.defineProperty(node, 'step', { value: item, enumerable: false });
         return node;
     }
 

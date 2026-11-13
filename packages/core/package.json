@@ -1,6 +1,6 @@
 {
   "name": "@siglo/core",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "TypeScript workflow orchestration with durable checkpoints, retries, saga compensation, and live DevTools.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

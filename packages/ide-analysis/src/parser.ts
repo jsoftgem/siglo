@@ -49,6 +49,49 @@ export function parseWorkflowFile(options: ParseOptions): GraphDocument {
         };
     }
 
+    // Static export and structural position metadata. Never imports application code.
+    const exports = new Map<string, string>();
+    for (const statement of sourceFile.statements) {
+        if (
+            ts.isVariableStatement(statement) &&
+            statement.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)
+        ) {
+            for (const declaration of statement.declarationList.declarations) {
+                if (ts.isIdentifier(declaration.name)) exports.set(declaration.name.text, declaration.name.text);
+            }
+        }
+        if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression))
+            exports.set(statement.expression.text, 'default');
+        if (
+            ts.isExportDeclaration(statement) &&
+            !statement.moduleSpecifier &&
+            statement.exportClause &&
+            ts.isNamedExports(statement.exportClause)
+        ) {
+            for (const item of statement.exportClause.elements)
+                exports.set(item.propertyName?.text || item.name.text, item.name.text);
+        }
+    }
+    for (const workflow of workflows) {
+        workflow.nodes = workflow.nodes.map(node => ({ ...node, executionTarget: undefined }));
+        const exportName = exports.get(workflow.workflowName);
+        if (!exportName || workflow.unresolved.length) continue;
+        const recovery = new Set(
+            workflow.edges.filter(e => e.type === 'fallback' || e.type === 'compensation').map(e => e.to),
+        );
+        let stepIndex = 0;
+        for (const node of workflow.nodes) {
+            if (
+                recovery.has(node.id) ||
+                /_(fork|join)_/.test(node.id) ||
+                / (fork|join)$/.test(node.name) ||
+                ['parallel', 'all', 'race', 'allSettled', 'branch', 'when', 'map', 'inline action'].includes(node.name)
+            )
+                continue;
+            node.executionTarget = { exportName, stepIndex: stepIndex++ };
+        }
+    }
+
     const workflowSummaries: WorkflowGraph[] = workflows.map(w => ({
         name: w.workflowName,
         uri: w.uri,

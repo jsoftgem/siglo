@@ -11,7 +11,7 @@ import { SemanticAttributes } from './attributes';
 import { SigloTelemetryOptions } from './types';
 
 const DEFAULT_TRACER_NAME = '@siglo/opentelemetry';
-const DEFAULT_TRACER_VERSION = '1.2.3';
+const DEFAULT_TRACER_VERSION = '1.2.4';
 
 const STEP_INSTRUMENTED = Symbol.for('siglo.opentelemetry.step_instrumented');
 const WORKFLOW_INSTRUMENTED = Symbol.for('siglo.opentelemetry.workflow_instrumented');

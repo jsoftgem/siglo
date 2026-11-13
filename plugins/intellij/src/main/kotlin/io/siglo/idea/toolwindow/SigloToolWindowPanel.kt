@@ -45,6 +45,12 @@ class SigloToolWindowPanel(
     private val graphRequestCounter = AtomicInteger(0)
     private val sourceRevisions = mutableMapOf<String, Pair<String?, Int>>()
 
+    private val execution = io.siglo.idea.process.ExecutionSession(project) { event ->
+        ApplicationManager.getApplication().invokeLater {
+            val payload = gson.toJson(event)
+            jcefBrowserView?.executeJavaScript("window.__SIGLO_BRIDGE__?.dispatch($payload)")
+        }
+    }
     private var jcefBrowserView: JcefBrowserView? = null
     private var fallbackTree: Tree? = null
     private var currentDocument: GraphDocument? = null
@@ -247,6 +253,12 @@ class SigloToolWindowPanel(
             val type = json.get("type")?.asString
 
             when (type) {
+                "runSteps" -> execution.run(json, currentDocument, sourceRevisions[currentDocument?.uri]?.first)
+                "cancelRun" -> execution.cancel()
+                "copyRunOutput" -> {
+                    val text = json.get("text")?.asString ?: ""
+                    com.intellij.openapi.ide.CopyPasteManager.getInstance().setContents(java.awt.datatransfer.StringSelection(text))
+                }
                 "ready" -> {
                     isUiReady = true
                     // First preference: currently open/selected file in editor
@@ -425,6 +437,7 @@ class SigloToolWindowPanel(
     }
 
     override fun dispose() {
+        execution.dispose()
         alarm.cancelAllRequests()
     }
 }

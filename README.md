@@ -5,7 +5,7 @@
 > Zero-daemon, in-process workflow orchestration with durable checkpoints, Sagas, and live visual DevTools.
 
 [![Documentation](https://img.shields.io/badge/docs-siglo.dev-blue.svg)](https://siglo.dev)
-[![NPM Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://www.npmjs.com/package/siglo)
+[![NPM Version](https://img.shields.io/badge/version-1.2.4-blue.svg)](https://www.npmjs.com/package/siglo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%5E22.13.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -187,6 +187,7 @@ Your TypeScript code and the Siglo IDE Visualizer stay synchronized in both dire
 
 - **Code $\rightarrow$ Graph (`Auto-Reload`)**: Adding steps (`chargePayment`, `shipOrder`) or chaining policies (`.timeout()`, `.version()`, `.networkPolicy()`) in TypeScript automatically updates the visual DAG and inspector within `250ms`.
 - **Graph $\rightarrow$ Code (Cross-File Jump to Definition)**: Selecting any step node in the visual inspector automatically opens the related step's source file (such as `steps/charge-payment.step.ts` or `steps/ship-order.step.ts`) and highlights its exact definition lines.
+- **Interactive Step Runner (`Run` tab)**: Select individual steps or Ctrl/Cmd-click sequential ranges (`reserveStock` $\rightarrow$ `chargePayment`), provide custom JSON inputs, and execute real application code in an isolated worker process with live progress tracking and Pretty/Raw JSON outputs.
 - **Cursor $\rightarrow$ Inspector Sync**: Placing your editor cursor inside a step definition highlights the node in the graph and surfaces its `.spec()` input contracts, retry policy, and Saga compensation details.
 
 <p align="center">

@@ -5,7 +5,7 @@
 | Display name | Siglo Workflows |
 | Installed extension ID | `Jsoftgem.siglo-workflows` |
 | Publisher | `Jsoftgem` |
-| Version | Defined in `../package.json` (currently `1.2.3`) |
+| Version | Defined in `../package.json` (currently `1.2.4`) |
 | VS Code target | `^1.90.0` |
 | License | MIT |
 

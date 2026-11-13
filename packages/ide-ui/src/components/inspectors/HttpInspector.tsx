@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { HttpEcosystemConfig, HttpTelemetryRecord, EcosystemInspectionData } from '@siglo/ide-protocol';
 import { formatOriginCurl } from '@siglo/ide-protocol';
-import { Globe, Copy, Check, Clock, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Globe, Copy, Check, Clock, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface HttpInspectorProps {
     config?: HttpEcosystemConfig;

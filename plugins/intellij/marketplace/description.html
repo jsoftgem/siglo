@@ -1,6 +1,7 @@
 <p>
-    Explore Siglo workflows directly in IntelliJ IDEA. Siglo Workflows turns workflow source into an interactive graph
-    so you can understand composition, inspect step settings, and navigate to definitions.
+    Explore and execute Siglo workflows directly in IntelliJ IDEA. Siglo Workflows turns workflow source into an
+    interactive graph so you can understand composition, inspect step settings, run selected steps in isolation, and
+    navigate to definitions.
 </p>
 <h3>Visual workflow explorer</h3>
 <ul>
@@ -11,6 +12,19 @@
     <li>Switch between workflows in a file or compare them with the All Flows view.</li>
     <li>Click a graph step to inspect its properties and open its source location.</li>
     <li>Keep the graph in sync with the active editor and automatically refresh it as you type, or reload manually.</li>
+</ul>
+<h3>Interactive step runner</h3>
+<ul>
+    <li>Execute an individual step or an inclusive sequential step range directly from the <b>Run</b> tab.</li>
+    <li>Provide custom JSON input payloads with built-in validation and formatting.</li>
+    <li>
+        Track real-time step progress (<code>Completed</code>, <code>Running...</code>, <code>Failed</code>,
+        <code>Cancelled</code>) with elapsed timers.
+    </li>
+    <li>Inspect resolved final and intermediate step outputs as formatted Pretty JSON or compact Raw JSON.</li>
+    <li>
+        Expand application logs to view unredacted stdout/stderr and safely cancel runs without full flow execution.
+    </li>
 </ul>
 <h3>Step and workflow inspection</h3>
 <ul>
@@ -35,11 +49,11 @@
     <li>Flag missing compensations on side-effect sagas (<code>SIGLO_MISSING_COMPENSATION</code>).</li>
     <li>Warn on unhandled error branches in durable workflows (<code>SIGLO_UNHANDLED_ERROR_BRANCH</code>).</li>
 </ul>
-<h3>Static analysis</h3>
+<h3>Static analysis & execution</h3>
 <p>
-    The Node.js analyzer reads source using the TypeScript Compiler API without executing your application code. The
-    graph describes declared structure and settings; it does not display live execution traces or runtime results.
-    Dynamic expressions may remain unresolved.
+    The Node.js analyzer reads source using the TypeScript Compiler API without executing your application code during
+    visual inspection. When you choose to run selected steps via the Run tab, execution runs your real project code in
+    an isolated worker process. Dynamic expressions in unexecuted steps may remain unresolved.
 </p>
 <h3>Getting started</h3>
 <ol>
@@ -53,6 +67,7 @@
         open <b>View → Tool Windows → Siglo Workflows</b>.
     </li>
     <li>Select a workflow or click a step to explore its settings and source.</li>
+    <li>Switch to the <b>Run</b> tab, enter JSON input, and execute selected steps interactively.</li>
     <li>Optionally choose <b>Import Siglo Telemetry Recording...</b> to inspect recorded execution metrics offline.</li>
 </ol>
 <p>

@@ -175,6 +175,67 @@ try {
     await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'setTelemetry', document:${JSON.stringify(telemetryDoc)}})`);
     await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(payment.id)}})`);
     await screenshot('05-ecosystem-telemetry.png');
+
+    // 06-step-runner: Switch to Run tab, provide input JSON, and execute authorizePayment step
+    await evaluate(`(() => {
+        window.cefQuery = ({ request, onSuccess }) => {
+            const req = JSON.parse(request);
+            if (req.type === 'runSteps') {
+                if (onSuccess) onSuccess('{}');
+                setTimeout(() => {
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'step',
+                        nodeId: req.nodeIds[0],
+                        output: {
+                            status: 200,
+                            authorizationId: 'auth_9042_live',
+                            gateway: 'api.payments.example.com',
+                            feeCents: 147,
+                        },
+                    });
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'completed',
+                        elapsedMs: 245,
+                        output: {
+                            status: 200,
+                            authorizationId: 'auth_9042_live',
+                            gateway: 'api.payments.example.com',
+                            feeCents: 147,
+                        },
+                    });
+                }, 50);
+            }
+        };
+        const btns = Array.from(document.querySelectorAll('button'));
+        const runTabBtn = btns.find(b => b.textContent && b.textContent.trim() === 'Run');
+        if (runTabBtn) runTabBtn.click();
+    })()`);
+
+    await evaluate(`(() => {
+        const b = document.querySelector('button[title="authorizePayment"]');
+        if (b) b.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        const textarea = document.querySelector('textarea#run-input');
+        if (textarea) {
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+            nativeInputValueSetter.call(textarea, JSON.stringify({ orderId: 'ord_9042', amount: 4900, currency: 'PHP' }, null, 2));
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    })()`);
+
+    await evaluate(`new Promise(r => setTimeout(r, 80))`);
+
+    await evaluate(`(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const runActionBtn = btns.find(b => b.textContent && b.textContent.includes('Run step'));
+        if (runActionBtn) runActionBtn.click();
+    })()`);
+
+    await evaluate(`new Promise(r => setTimeout(r, 200))`);
+    await screenshot('06-step-runner.png');
 } finally {
     socket?.close();
     browser.kill();

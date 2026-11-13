@@ -333,6 +333,8 @@ export interface ExecutionOptions {
     monitor?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
     ast?: WorkflowNode;
     stepExecutionHook?: StepExecutionHook;
+    /** Local tooling observer of resolved step data, including after hooks. Not redacted telemetry. */
+    onStepResult?: (stepName: string, output: unknown) => void;
 }
 
 export type StepAction<TInput = any, TOutput = any> = (

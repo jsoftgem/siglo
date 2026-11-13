@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { ExecutionSession } from './execution';
+import type { RunRequest } from '@siglo/ide-protocol';
 import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import type { GraphDocument, TelemetryRecordingDocument } from '@siglo/ide-protocol';
@@ -23,6 +25,7 @@ interface Surface {
     webview: vscode.Webview;
     ready: boolean;
     autoReload: boolean;
+    execution?: ExecutionSession;
 }
 
 export type NavigationTarget =
@@ -69,6 +72,9 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
     private attach(webview: vscode.Webview, onDispose: vscode.Event<void>): void {
         const surface: Surface = { webview, ready: false, autoReload: true };
         this.surfaces.add(surface);
+        surface.execution = new ExecutionSession(this.context, event => {
+            void webview.postMessage(event);
+        });
         webview.options = { enableScripts: true, localResourceRoots: [] };
         const receiver = webview.onDidReceiveMessage((message: unknown) => {
             if (!message || typeof message !== 'object' || !('type' in message)) return;
@@ -79,7 +85,13 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
                 uri?: unknown;
                 enabled?: unknown;
             };
-            if (msg.type === 'ready') {
+            if (msg.type === 'copyRunOutput' && typeof (message as { text?: unknown }).text === 'string') {
+                void vscode.env.clipboard.writeText((message as unknown as { text: string }).text);
+            } else if (msg.type === 'runSteps') {
+                void surface.execution!.run(message as RunRequest, this.document);
+            } else if (msg.type === 'cancelRun') {
+                surface.execution!.cancel();
+            } else if (msg.type === 'ready') {
                 surface.ready = true;
                 if (this.document) void webview.postMessage({ type: 'setGraph', document: this.document });
                 if (this.telemetryDocument)
@@ -102,6 +114,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             }
         });
         const disposed = onDispose(() => {
+            surface.execution?.dispose();
             this.surfaces.delete(surface);
             receiver.dispose();
             disposed.dispose();
@@ -188,6 +201,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
     dispose(): void {
         for (const disposable of this.disposables) disposable.dispose();
         this.disposables = [];
+        for (const surface of this.surfaces) surface.execution?.dispose();
         this.surfaces.clear();
         this.panel?.dispose();
     }

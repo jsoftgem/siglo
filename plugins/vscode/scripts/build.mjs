@@ -22,3 +22,14 @@ await build({
     minify: true,
 });
 await copyFile(`${root}../../packages/ide-ui/dist/index.html`, `${root}dist/index.html`);
+
+await build({
+    entryPoints: [`${root}../../packages/ide-analysis/src/execution.ts`],
+    outfile: `${root}dist/prepare.cjs`,
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+});
+for (const file of ['supervisor.cjs', 'worker.cjs'])
+    await copyFile(`${root}../../packages/ide-runner/${file}`, `${root}dist/${file}`);

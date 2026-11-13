@@ -6,19 +6,19 @@
 
 **Vendor:** Siglo
 
-**Version:** Defined in `../build.gradle.kts` (currently `1.2.3`).
+**Version:** Defined in `../build.gradle.kts` (currently `1.2.4`).
 
-**Short summary:** Visualize Siglo workflows, inspect step contracts and settings, and jump from graph nodes to source in IntelliJ IDEA.
+**Short summary:** Visualize Siglo workflows, inspect step contracts and settings, run selected steps interactively, and jump from graph nodes to source in IntelliJ IDEA.
 
 ## Description
 
-[description.html](description.html) contains the listing copy and supplies the description embedded in the built plugin. It covers features, requirements, setup, and the limits of static analysis.
+[description.html](description.html) contains the listing copy and supplies the description embedded in the built plugin. It covers features, requirements, setup, step execution, and the limits of static analysis.
 
-The plugin targets IntelliJ Platform build 241+ and uses a separately available Node.js analyzer. This is a declared compatibility target; it does not imply that every later IDE release or operating system has been verified.
+The plugin targets IntelliJ Platform build 241+ and uses a separately available Node.js analyzer and runner worker. This is a declared compatibility target; it does not imply that every later IDE release or operating system has been verified.
 
 ## Screenshots and captions
 
-These PNGs capture the plugin's actual bundled webview in headless Chrome, with graph data produced by the static analyzer from [demo.workflow.ts](demo.workflow.ts). They show the embedded UI, without the surrounding IntelliJ editor. They do not demonstrate IDE source navigation or live execution.
+These PNGs capture the plugin's actual bundled webview in headless Chrome, with graph data produced by the static analyzer from [demo.workflow.ts](demo.workflow.ts). They show the embedded UI, without the surrounding IntelliJ editor. They do not demonstrate IDE source navigation.
 
 | File | Suggested caption |
 | --- | --- |
@@ -27,6 +27,7 @@ These PNGs capture the plugin's actual bundled webview in headless Chrome, with 
 | [03-workflow-settings.png](screenshots/03-workflow-settings.png) | Review workflow deadlines, schema versions, and allowed network hosts. |
 | [04-all-workflows.png](screenshots/04-all-workflows.png) | Compare multiple workflows from the same file in the All Flows view. |
 | [05-ecosystem-telemetry.png](screenshots/05-ecosystem-telemetry.png) | Inspect runtime telemetry with imported offline recordings (HTTP, Crypto, Notifications, AI) and fail-closed sanitization. |
+| [06-step-runner.png](screenshots/06-step-runner.png) | Execute selected steps or sequential ranges with custom JSON input, live progress tracking, and Pretty JSON output. |
 
 Images are 1440 × 1080 pixels. Upload them in the order above when preparing the Marketplace listing. No listing has been published by adding these files.
 

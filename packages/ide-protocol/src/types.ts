@@ -64,6 +64,7 @@ export type EcosystemConfig =
     HttpEcosystemConfig | CryptoEcosystemConfig | NotificationEcosystemConfig | AiEcosystemConfig;
 
 export interface GraphNode {
+    executionTarget?: import('./execution').ExecutionTarget;
     id: string; // Deterministic AST node ID (e.g. "step_callStripe_L14_C5")
     name: string; // Display label
     stepKind: 'generic' | 'http' | 'crypto' | 'notification' | 'ai' | 'custom';

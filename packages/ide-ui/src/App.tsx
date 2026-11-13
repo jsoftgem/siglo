@@ -6,6 +6,8 @@ import { GraphCanvas } from './components/GraphCanvas';
 import { WorkflowInspector } from './components/WorkflowInspector';
 import { InspectorPanel } from './components/InspectorPanel';
 import { Layers, CheckCircle2, RotateCw, Database, X } from 'lucide-react';
+import { RunPanel } from './components/RunPanel';
+import { executionRange } from '@siglo/ide-protocol';
 import sigloLogo from './assets/siglo-logo-128.png';
 
 const EMPTY_DOCUMENT: GraphDocument = {
@@ -20,6 +22,8 @@ const EMPTY_DOCUMENT: GraphDocument = {
 };
 
 export const App: React.FC = () => {
+    const [runTab, setRunTab] = useState(false);
+    const [runSelection, setRunSelection] = useState<string[]>([]);
     const [doc, setDoc] = useState<GraphDocument>(EMPTY_DOCUMENT);
     const [selectedFlowName, setSelectedFlowName] = useState<string | null>(null);
     const [inspectedWorkflowName, setInspectedWorkflowName] = useState<string | null>(null);
@@ -33,6 +37,7 @@ export const App: React.FC = () => {
         const unsubscribe = bridge.subscribe((msg: HostMessage) => {
             if (msg.type === 'setGraph') {
                 setDoc(msg.document);
+                setRunSelection([]);
                 setInspectedWorkflowName(null);
                 setIsRefreshing(false);
 
@@ -143,12 +148,25 @@ export const App: React.FC = () => {
 
     const selectedNode = displayNodes.find(n => n.id === selectedNodeId) || null;
 
-    const handleSelectNode = (node: GraphNode) => {
+    const handleSelectNode = (node: GraphNode, toggle = false) => {
+        setRunSelection(previous =>
+            toggle
+                ? previous.includes(node.id)
+                    ? previous.filter(id => id !== node.id)
+                    : [...previous, node.id]
+                : [node.id],
+        );
         setInspectedWorkflowName(null);
         setSelectedNodeId(node.id);
-        bridge.notifyNodeSelected(node);
+        if (!runTab) bridge.notifyNodeSelected(node);
     };
 
+    let effectiveSelection = runSelection;
+    try {
+        effectiveSelection = executionRange(displayNodes, displayEdges, runSelection).map(node => node.id);
+    } catch {
+        /* Panel explains invalid selection. */
+    }
     const handleManualReload = () => {
         setIsRefreshing(true);
         bridge.sendToHost({ type: 'reload' });
@@ -211,6 +229,7 @@ export const App: React.FC = () => {
                                     title={displayTitle}
                                     value={selectedFlowName || doc.workflowName}
                                     onChange={e => {
+                                        setRunSelection([]);
                                         setSelectedFlowName(e.target.value);
                                         setInspectedWorkflowName(e.target.value === '__ALL__' ? null : e.target.value);
                                         setSelectedNodeId(null);
@@ -220,7 +239,7 @@ export const App: React.FC = () => {
                                 >
                                     <option
                                         value="__ALL__"
-                                        className="bg-[#1e1f22] text-[#dfe1e5]"
+                                        className="bg-[#1e1f22] text-[#dfe1e5] border-0"
                                         style={{ backgroundColor: '#1e1f22', color: '#dfe1e5' }}
                                     >
                                         All Flows ({availableWorkflows.length})
@@ -229,7 +248,7 @@ export const App: React.FC = () => {
                                         <option
                                             key={wf.name}
                                             value={wf.name}
-                                            className="bg-[#1e1f22] text-[#dfe1e5]"
+                                            className="bg-[#1e1f22] text-[#dfe1e5] border-0"
                                             style={{ backgroundColor: '#1e1f22', color: '#dfe1e5' }}
                                         >
                                             {wf.name} ({wf.nodes.length} steps)
@@ -372,6 +391,7 @@ export const App: React.FC = () => {
                                         edges={workflow.edges}
                                         unresolved={workflow.unresolved}
                                         selectedNodeId={selectedNodeId}
+                                        selectedNodeIds={runTab ? effectiveSelection : undefined}
                                         onSelectNode={handleSelectNode}
                                     />
                                 ))}
@@ -390,27 +410,66 @@ export const App: React.FC = () => {
                             edges={displayEdges}
                             unresolved={displayUnresolved}
                             selectedNodeId={selectedNodeId}
+                            selectedNodeIds={runTab ? effectiveSelection : undefined}
                             onSelectNode={handleSelectNode}
                         />
                     )}
                 </main>
-                {inspectedWorkflow ? (
-                    <WorkflowInspector
-                        workflow={inspectedWorkflow}
-                        onSelectNode={handleSelectNode}
-                        onOpenRelatedFile={uri => bridge.notifyOpenRelatedFile(uri)}
-                    />
-                ) : (
-                    <InspectorPanel
-                        selectedNode={selectedNode}
-                        diagnostics={displayDiagnostics}
-                        workflowName={activeWorkflow.name}
-                        workflowVersion={
-                            activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version
-                        }
-                        telemetryDocument={telemetryDoc}
-                    />
-                )}
+                <aside className="flex flex-col min-h-0 w-full sm:w-[360px] border-l border-[#393b40] bg-[#2b2d30]">
+                    <div className="flex gap-4 px-3 pt-2 border-b border-[#393b40] text-xs">
+                        <button
+                            aria-pressed={!runTab}
+                            onClick={() => setRunTab(false)}
+                            className={`pb-2 -mb-px transition-colors ${
+                                !runTab
+                                    ? 'text-[#dfe1e5] border-b-2 border-[#3574f0] font-semibold'
+                                    : 'text-[#868a98] hover:text-[#bcbec4]'
+                            }`}
+                        >
+                            Inspect
+                        </button>
+                        <button
+                            aria-pressed={runTab}
+                            onClick={() => setRunTab(true)}
+                            className={`pb-2 -mb-px transition-colors ${
+                                runTab
+                                    ? 'text-[#dfe1e5] border-b-2 border-[#3574f0] font-semibold'
+                                    : 'text-[#868a98] hover:text-[#bcbec4]'
+                            }`}
+                        >
+                            Run
+                        </button>
+                    </div>
+                    <div style={{ display: runTab ? 'block' : 'none' }} className="flex-1 min-h-0">
+                        <RunPanel
+                            document={doc}
+                            workflowName={activeWorkflow.name}
+                            nodes={displayNodes}
+                            edges={displayEdges}
+                            selected={runSelection}
+                            allFlows={isAllSelected}
+                        />
+                    </div>
+                    <div style={{ display: runTab ? 'none' : 'contents' }}>
+                        {inspectedWorkflow ? (
+                            <WorkflowInspector
+                                workflow={inspectedWorkflow}
+                                onSelectNode={handleSelectNode}
+                                onOpenRelatedFile={uri => bridge.notifyOpenRelatedFile(uri)}
+                            />
+                        ) : (
+                            <InspectorPanel
+                                selectedNode={selectedNode}
+                                diagnostics={displayDiagnostics}
+                                workflowName={activeWorkflow.name}
+                                workflowVersion={
+                                    activeWorkflow.properties?.workflowVersion || activeWorkflow.properties?.version
+                                }
+                                telemetryDocument={telemetryDoc}
+                            />
+                        )}
+                    </div>
+                </aside>
             </div>
         </div>
     );

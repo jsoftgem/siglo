@@ -472,43 +472,56 @@ try {
     await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(reserveNode2.id)}})`);
     leftShots.push(await grabShot());
 
-    // Left 7: Load telemetry recording onto chargePayment
-    const telemetryDoc = {
-        version: 1,
-        fileName: 'checkout-ord-9042.telemetry.json',
-        importedAt: '2026-11-13T02:30:00.000Z',
-        records: [
-            {
-                version: 1,
-                workflowName: 'checkoutWorkflow',
-                stepIdentity: 'chargePayment',
-                attempt: 2,
-                timestamp: '2026-11-13T02:30:00.000Z',
-                inspection: {
-                    version: 1,
-                    kind: 'http',
-                    outcome: 'success',
-                    durationMs: 142,
-                    method: 'POST',
-                    url: 'https://api.payments.example.com/v1/charge',
-                    status: 200,
-                    retryAttempts: 1,
-                    requestAttempt: 2,
-                    retryDelayMs: 55,
-                    policy: 'allowed',
-                    traceId: 'tr_chk_9042',
-                },
-            },
-        ],
-    };
-    await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'setTelemetry', document:${JSON.stringify(telemetryDoc)}})`);
-    await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(chargeNode.id)}})`);
+    // Left 7: Switch to Run tab and execute chargePayment step via isolated runner
+    await evaluate(`(() => {
+        window.cefQuery = ({ request, onSuccess }) => {
+            const req = JSON.parse(request);
+            if (req.type === 'runSteps') {
+                if (onSuccess) onSuccess('{}');
+                setTimeout(() => {
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'step',
+                        nodeId: req.nodeIds[0],
+                        output: { chargeId: 'ch_9042_live', amount: 4900, status: 'succeeded' },
+                    });
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'completed',
+                        elapsedMs: 142,
+                        output: { chargeId: 'ch_9042_live', amount: 4900, status: 'succeeded' },
+                    });
+                }, 50);
+            }
+        };
+        const btns = Array.from(document.querySelectorAll('button'));
+        const runTabBtn = btns.find(b => b.textContent && b.textContent.trim() === 'Run');
+        if (runTabBtn) runTabBtn.click();
+        const b = document.querySelector('button[title="chargePayment"]');
+        if (b) b.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        const textarea = document.querySelector('textarea#run-input');
+        if (textarea) {
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+            nativeInputValueSetter.call(textarea, JSON.stringify({ orderId: 'ord_9042', amountCents: 4900 }, null, 2));
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const runActionBtn = btns.find(b => b.textContent && b.textContent.includes('Run step'));
+        if (runActionBtn) runActionBtn.click();
+    })()`);
+    await new Promise(r => setTimeout(r, 200));
+    await settle();
     leftShots.push(await grabShot());
 
-    // Left 8: All Flows view
-    await evaluate(
-        `const selector = document.querySelector('select'); if (selector) { selector.value = '__ALL__'; selector.dispatchEvent(new Event('change', {bubbles:true})); }`,
-    );
+    // Left 8: Switch back to Inspect and show All Flows view
+    await evaluate(`(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const inspectBtn = btns.find(b => b.textContent && b.textContent.trim() === 'Inspect');
+        if (inspectBtn) inspectBtn.click();
+        const selector = document.querySelector('select');
+        if (selector) { selector.value = '__ALL__'; selector.dispatchEvent(new Event('change', {bubbles:true})); }
+    })()`);
     leftShots.push(await grabShot());
     console.log('Captured 8 IDE Workflow Visualizer frames');
 
@@ -800,8 +813,8 @@ try {
         },
         {
             delayCs: 190,
-            rightBadge: '🔍 DAG DIAGNOSTICS',
-            label: 'Telemetry Bridge: Recorded trace imported into IDE inspector alongside @siglo/monitor DAG failure diagnostics',
+            rightBadge: '⚡ STEP RUNNER',
+            label: 'Step Runner & DevTools: Isolated step execution in IDE Run tab with live JSON output alongside @siglo/monitor',
         },
         {
             delayCs: 190,

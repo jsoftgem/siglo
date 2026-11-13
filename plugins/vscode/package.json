@@ -2,7 +2,7 @@
   "name": "@siglo/vscode",
   "displayName": "Siglo Workflows",
   "description": "Interactive workflow graph visualization and diagnostics for Siglo workflows.",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "publisher": "Jsoftgem",
   "icon": "media/siglo.png",
   "license": "MIT",

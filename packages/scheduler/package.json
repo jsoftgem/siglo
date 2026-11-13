@@ -1,6 +1,6 @@
 {
   "name": "@siglo/scheduler",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Durable workflow timer polling and cloud scheduler webhook dispatch for Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

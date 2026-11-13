@@ -96,7 +96,7 @@ You can also use **Import Telemetry** in the visualizer toolbar to load a record
 - No separate Node.js installation or project dependencies are needed for workflow analysis.
 - Browser-only VS Code and virtual workspaces are unsupported.
 
-Workflow analysis runs locally without importing or executing your application code. Values that depend on dynamic expressions may appear as unresolved. Runtime details come from imported recordings; the extension does not connect to live runtime monitors.
+Workflow analysis runs locally without importing or executing your application code. The Run tab explicitly executes exported workflows in a separate process. Values that depend on dynamic expressions may appear as unresolved. Runtime details come from imported recordings; the extension does not connect to live runtime monitors.
 
 ### Install from a VSIX file
 
@@ -107,3 +107,7 @@ If you have a downloaded `.vsix` file, open the **Extensions** view, select **â€
 - **The graph does not appear:** Confirm the workspace is trusted and the active file contains a Siglo workflow, then select **Reload**. Check **Output â†’ Siglo** for details if analysis still fails.
 - **A workflow is missing from discovery:** Discovery checks up to 100 source files and skips dependency and build folders. Open the workflow's source file directly and run **Siglo: Open Workflow Visualizer**.
 - **The graph stops updating:** Enable **Auto-Reload** or select **Reload** to refresh it manually. If analysis fails, the last graph remains visible until a successful refresh.
+
+## Run selected steps
+
+Use the right-side **Run** tab to enter JSON, select a step or Ctrl/Cmd-click a sequential range, and execute it. View the final or intermediate output as Pretty or Raw JSON. See [execution setup and limits](../../packages/ide-runner/README.md) for exported workflows, runtime requirements, and `.siglo/run.json`.

@@ -40,7 +40,7 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
         }
     }
 
-    private fun isProjectTrusted(project: Project): Boolean {
+    fun isProjectTrusted(project: Project, failClosed: Boolean = false): Boolean {
         return try {
             val trustedProjectsClass = Class.forName("com.intellij.ide.trustedProjects.TrustedProjects")
             val method = trustedProjectsClass.methods.firstOrNull {
@@ -59,7 +59,7 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
                     method.invoke(target, located) as Boolean
                 }
             } else {
-                true
+                !failClosed
             }
         } catch (_: Throwable) {
             try {
@@ -67,7 +67,7 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
                 val isTrustedMethod = oldClass.getMethod("isTrusted", Project::class.java)
                 isTrustedMethod.invoke(null, project) as Boolean
             } catch (_: Throwable) {
-                true
+                !failClosed
             }
         }
     }

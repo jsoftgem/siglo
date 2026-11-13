@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.4] - 2026-11-14
+
+### Added
+
+- **IDE Interactive Step & Range Runner (`@siglo/ide-runner`, `@siglo/ide-ui`, `@siglo/ide-protocol`, `@siglo/vscode`, IntelliJ Plugin)**:
+  - Added the **Run** tab in the visualizer right panel to execute real application code for a single step or an inclusive sequential step range (`reserveStock → chargePayment`).
+  - Added `executionRange` topology calculation in `@siglo/ide-protocol` to resolve sequential ranges, reject invalid/boundary-crossing selections, and highlight active paths on the DAG canvas.
+  - Added isolated child worker process execution in `@siglo/ide-runner` communicating over newline JSON stdio / IPC using project `tsx` and local Node.js.
+  - Added support for `.siglo/run.json` project configuration (`cwd`, `setupModule`, `env` overrides).
+  - Added input JSON formatting, live step status tracking (`Running...`, `Completed`, `Failed`, `Cancelled`), execution elapsed timers, Pretty and Raw JSON output views with one-click clipboard copying, and safe cancellation.
+  - Added core step execution hooks (`ExecutionOptions.onStepResult`) in `@siglo/core` exposing unredacted local step return values to the IDE runner.
+
+### Changed
+
+- Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.2.4`.
+- Updated IntelliJ plugin documentation and marketplace assets with `06-step-runner.png` screenshot and runner execution guide.
+- Updated split-screen hero GIF (`docs/assets/hero-split-screen.gif`) and IDE code sync GIF (`docs/assets/ide-code-sync.gif`) to demonstrate the interactive step runner.
+
 ## [1.2.3] - 2026-11-12
 
 ### Added

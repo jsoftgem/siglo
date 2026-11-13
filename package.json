@@ -1,6 +1,6 @@
 {
   "name": "siglo-monorepo",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": true,
   "description": "Monorepo for Siglo workflow runtime and ecosystem integration packages",
   "workspaces": [
@@ -28,7 +28,8 @@
     "test:monitoring": "npm test --workspace=siglo-apm-monitoring",
     "test:apm": "npm run test:tutorial --workspace=siglo-apm-monitoring",
     "format": "prettier --write \"{packages,examples,plugins,test}/**/*.{ts,tsx,js,jsx,mjs,cjs,json,css,html}\" \"*.{js,mjs,cjs,json}\"",
-    "format:check": "prettier --check \"{packages,examples,plugins,test}/**/*.{ts,tsx,js,jsx,mjs,cjs,json,css,html}\" \"*.{js,mjs,cjs,json}\""
+    "format:check": "prettier --check \"{packages,examples,plugins,test}/**/*.{ts,tsx,js,jsx,mjs,cjs,json,css,html}\" \"*.{js,mjs,cjs,json}\"",
+    "test:ide-runner": "npm run build --workspace=@siglo/core && npm run build --workspace=@siglo/vscode && node --test packages/ide-runner/execution.test.cjs"
   },
   "repository": {
     "type": "git",

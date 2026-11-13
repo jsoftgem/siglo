@@ -25,6 +25,8 @@ data class StepSpecRule(
 
 data class StepSpec(val field: String, val rules: List<StepSpecRule>)
 
+data class ExecutionTarget(val exportName: String, val stepIndex: Int)
+
 data class GraphNode(
     val id: String,
     val name: String,
@@ -35,7 +37,8 @@ data class GraphNode(
     val sourceLocation: SourceRange? = null,
     val executionConfig: ExecutionConfig? = null,
     val properties: Map<String, String>? = null,
-    val specs: List<StepSpec>? = null
+    val specs: List<StepSpec>? = null,
+    val executionTarget: ExecutionTarget? = null
 )
 
 data class GraphEdge(

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { AiEcosystemConfig, AiTelemetryRecord, EcosystemInspectionData } from '@siglo/ide-protocol';
-import { Sparkles, Brain, Cpu, DollarSign, Layers, Wrench, ShieldCheck, Clock } from 'lucide-react';
+import { Sparkles, Clock } from 'lucide-react';
 
 interface AiInspectorProps {
     config?: AiEcosystemConfig;

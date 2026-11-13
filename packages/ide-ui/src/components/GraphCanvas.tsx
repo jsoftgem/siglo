@@ -12,7 +12,8 @@ interface GraphCanvasProps {
     onSelectWorkflow?: () => void;
     embedded?: boolean;
     selectedNodeId: string | null;
-    onSelectNode: (node: GraphNode) => void;
+    selectedNodeIds?: string[];
+    onSelectNode: (node: GraphNode, toggle?: boolean) => void;
     telemetryDocument?: TelemetryRecordingDocument | null;
     workflowVersion?: number | string;
 }
@@ -22,6 +23,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     edges,
     unresolved,
     selectedNodeId,
+    selectedNodeIds,
     onSelectNode,
     workflowName,
     workflowProperties,
@@ -247,12 +249,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 </svg>
                 {nodes.map(node => {
                     const p = positions.get(node.id)!;
-                    const selected = selectedNodeId === node.id;
+                    const selected = selectedNodeIds ? selectedNodeIds.includes(node.id) : selectedNodeId === node.id;
                     const hasTelemetry = recordedNodeIds.has(node.id);
                     return (
                         <button
                             key={node.id}
-                            onClick={() => onSelectNode(node)}
+                            onClick={event => onSelectNode(node, event.ctrlKey || event.metaKey)}
                             title={node.name}
                             style={{ left: p.x, top: p.y, width: W, height: H }}
                             className={`absolute text-left rounded-lg border p-3 shadow-md transition-all ${
