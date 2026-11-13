@@ -20,6 +20,7 @@ export default class ResolveChain {
         });
         const resolveFinal = (ctx: any) => {
             if (!ctx) {
+                _options?.onStepResult?.(typeof chain === 'string' ? chain : chain?.name || 'step_0', ctx);
                 resolve(ctx);
                 return;
             }
@@ -43,7 +44,12 @@ export default class ResolveChain {
                 ctx[STEPS] = stepsAccessor;
                 ctx[HISTORY] = stepsAccessor;
             }
-            resolve(toPOJO(ctx));
+            const output = toPOJO(ctx);
+            if (_options?.onStepResult) {
+                const stepName = typeof chain === 'string' ? chain : chain?.name || chain?.func || 'step_0';
+                _options.onStepResult(stepName, output);
+            }
+            resolve(output);
         };
 
         if (executeAfter) {

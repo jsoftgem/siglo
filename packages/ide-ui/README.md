@@ -127,3 +127,7 @@ Generates `dist/index.html` (approx. 227 kB, inlined CSS and JavaScript).
 ```bash
 cp packages/ide-ui/dist/index.html plugins/intellij/src/main/resources/ide-ui/index.html
 ```
+
+## Run selected steps
+
+The right-side Run tab supports inclusive sequential selection, JSON input, cancellation, progress, and pretty/raw output. See [execution setup](../ide-runner/README.md).

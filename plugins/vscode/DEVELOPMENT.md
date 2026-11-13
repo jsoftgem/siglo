@@ -10,7 +10,7 @@ npm test --workspace=@siglo/vscode
 npm run package --workspace=@siglo/vscode
 ```
 
-Output: `plugins/vscode/siglo-workflows-1.2.3.vsix`.
+Output: `plugins/vscode/siglo-workflows-1.2.4.vsix`.
 
 The root explicitly registers `plugins/vscode` as an npm workspace. The build bundles the extension host and analyzer (including TypeScript) and copies the shared single-file HTML UI. Installation needs neither a separate Node executable nor workspace npm dependencies. The analyzer runs using the extension host executable in Node mode, also on remote hosts.
 
@@ -18,7 +18,7 @@ The npm workspace retains the name `@siglo/vscode`. Packaging stages an unscoped
 
 ### Marketplace Publishing
 
-- **Visual Studio Marketplace**: Run the build and package command above, then upload `plugins/vscode/siglo-workflows-1.2.3.vsix` in the Marketplace publisher portal under **Jsoftgem**. The source manifest and generated VSIX must both declare `Jsoftgem` as the publisher. Upload the generated archive so it uses the staged, unscoped extension name.
+- **Visual Studio Marketplace**: Run the build and package command above, then upload `plugins/vscode/siglo-workflows-1.2.4.vsix` in the Marketplace publisher portal under **Jsoftgem**. The source manifest and generated VSIX must both declare `Jsoftgem` as the publisher. Upload the generated archive so it uses the staged, unscoped extension name.
 - **Open VSX Registry**:
   ```sh
   npm run publish:ovsx --workspace=@siglo/vscode

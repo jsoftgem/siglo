@@ -637,16 +637,74 @@ try {
     rightShots.push(await grabShot());
     clickTargets.push(null);
 
-    // Scene 6: User clicks `shipOrder` node in IDE Visualizer -> shows click ripple on node
-    await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(ship3.id)}})`);
+    // Scene 6: Switch to Run tab and select sequential range (reserveStock -> chargePayment)
+    await evaluate(`(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const runTabBtn = btns.find(b => b.textContent && b.textContent.trim() === 'Run');
+        if (runTabBtn) runTabBtn.click();
+    })()`);
+    await evaluate(`(() => {
+        const b1 = document.querySelector('button[title="reserveStock"]');
+        const b2 = document.querySelector('button[title="chargePayment"]');
+        if (b1) b1.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        if (b2) b2.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+        const textarea = document.querySelector('textarea#run-input');
+        if (textarea) {
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+            nativeInputValueSetter.call(textarea, JSON.stringify({ orderId: 'ord_9042', amountCents: 4900 }, null, 2));
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    })()`);
+    await settle();
     rightShots.push(await grabShot());
-    clickTargets.push({ ...(await getNodeCenter('shipOrder')), label: 'Click shipOrder' });
+    clickTargets.push({ ...(await getNodeCenter('chargePayment')), label: 'Ctrl+Click to Select Range' });
 
-    // Scene 7: `steps/ship-order.step.ts` opens on Left; `shipOrder` inspector open on Right
+    // Scene 7: Execute steps 2–3 via isolated runner, showing live progress & Pretty JSON output
+    await evaluate(`(() => {
+        window.cefQuery = ({ request, onSuccess }) => {
+            const req = JSON.parse(request);
+            if (req.type === 'runSteps') {
+                if (onSuccess) onSuccess('{}');
+                setTimeout(() => {
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'step',
+                        nodeId: req.nodeIds[0],
+                        output: { reservationId: 'res_ord_9042', status: 'CONFIRMED' }
+                    });
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'step',
+                        nodeId: req.nodeIds[1],
+                        output: { chargeId: 'ch_9042_live', amount: 4900, status: 'succeeded' }
+                    });
+                    window.__SIGLO_BRIDGE__.dispatch({
+                        type: 'runEvent',
+                        runId: req.runId,
+                        status: 'completed',
+                        elapsedMs: 240,
+                        output: { chargeId: 'ch_9042_live', amount: 4900, status: 'succeeded' }
+                    });
+                }, 50);
+            }
+        };
+        const btns = Array.from(document.querySelectorAll('button'));
+        const runActionBtn = btns.find(b => b.textContent && b.textContent.includes('Run steps'));
+        if (runActionBtn) runActionBtn.click();
+    })()`);
+    await new Promise(r => setTimeout(r, 200));
+    await settle();
     rightShots.push(await grabShot());
     clickTargets.push(null);
 
-    // Scene 8: User clicks `validateOrder` in code editor -> IDE Visualizer selects `validateOrder` & shows Input Contracts
+    // Scene 8: Switch back to Inspect tab, cursor inside validateOrder in code editor -> visualizer highlights validateOrder & shows contracts
+    await evaluate(`(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const inspectBtn = btns.find(b => b.textContent && b.textContent.trim() === 'Inspect');
+        if (inspectBtn) inspectBtn.click();
+    })()`);
     await evaluate(`window.__SIGLO_BRIDGE__.dispatch({type:'selectNode', nodeId:${JSON.stringify(validate3.id)}})`);
     rightShots.push(await grabShot());
     clickTargets.push(null);
@@ -742,32 +800,32 @@ try {
                 '5. Opens Related Step File: Editor automatically opens steps/charge-payment.step.ts and highlights the step',
         },
         {
-            delayCs: 180,
-            fileKey: 'charge-payment-step',
+            delayCs: 190,
+            fileKey: 'checkout-with-policies',
             addedLines: [],
-            highlightRange: [5, 11],
-            cursorLine: 5,
+            highlightRange: [12, 16],
+            cursorLine: 14,
             navBanner: {
-                text: '🖱️ Clicked "shipOrder" in Visualizer → Navigating to steps/ship-order.step.ts:5',
-                color: '#f59e0b',
+                text: '▶️ Interactive Runner: Selected sequential step range (reserveStock → chargePayment)',
+                color: '#38bdf8',
             },
-            rightBadge: '🖱️ Select Node',
+            rightBadge: '▶️ Range: Steps 2–3',
             caption:
-                '6. Jump Across Step Files: Clicking "shipOrder" in the visual graph jumps directly to its step module',
+                '6. Run Selected Steps: Switch to Run tab and Ctrl/Cmd-click steps to select a sequential execution range',
         },
         {
             delayCs: 200,
-            fileKey: 'ship-order-step',
+            fileKey: 'checkout-with-policies',
             addedLines: [],
-            highlightRange: [5, 18],
-            cursorLine: 5,
+            highlightRange: [14, 16],
+            cursorLine: 15,
             navBanner: {
-                text: '📂 Opened steps/ship-order.step.ts (L5:C14 → L18:C3) — Step Definition & Rollback Handler',
-                color: '#38bdf8',
+                text: '✨ Isolated Worker: Executed steps 2–3 with project tsx; Pretty JSON output ready',
+                color: '#10b981',
             },
-            rightBadge: '📂 Opened Step File',
+            rightBadge: '✅ Output: 200 OK (0.2s)',
             caption:
-                '7. Related Step File Opened: Editor switches to steps/ship-order.step.ts and highlights shipOrder',
+                '7. Interactive Step Execution: Real-time progress, live step results, and Pretty JSON output without full flow execution',
         },
         {
             delayCs: 190,

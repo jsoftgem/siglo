@@ -1,6 +1,6 @@
 {
   "name": "siglo-apm-monitoring",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": true,
   "description": "Zero-code APM dashboard setup for Siglo workflows using OpenTelemetry, Jaeger, and Grafana",
   "main": "src/order-routing/worker.ts",

@@ -4,7 +4,7 @@ import type {
     NotificationTelemetryRecord,
     EcosystemInspectionData,
 } from '@siglo/ide-protocol';
-import { Bell, CheckSquare, Clock, Mail, MessageSquare, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Bell, Clock, Mail, MessageSquare } from 'lucide-react';
 
 interface NotificationInspectorProps {
     config?: NotificationEcosystemConfig;

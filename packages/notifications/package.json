@@ -1,6 +1,6 @@
 {
   "name": "@siglo/notifications",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Multi-channel notification steps and durable human-in-the-loop approvals for Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

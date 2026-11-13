@@ -24,7 +24,8 @@ class ProtocolModelsTest {
                 start = SourcePosition(line = 9, character = 0),
                 end = SourcePosition(line = 13, character = 0)
             ),
-            executionConfig = ExecutionConfig(retries = 2, timeoutMs = 3000, hasCompensation = true)
+            executionConfig = ExecutionConfig(retries = 2, timeoutMs = 3000, hasCompensation = true),
+            executionTarget = ExecutionTarget(exportName = "orderWorkflow", stepIndex = 0)
         )
 
         val edge = GraphEdge(
@@ -66,6 +67,8 @@ class ProtocolModelsTest {
         assertEquals("http", deserialized.nodes[0].stepKind)
         assertEquals(2, deserialized.nodes[0].executionConfig?.retries)
         assertEquals(true, deserialized.nodes[0].executionConfig?.hasCompensation)
+        assertEquals("orderWorkflow", deserialized.nodes[0].executionTarget?.exportName)
+        assertEquals(0, deserialized.nodes[0].executionTarget?.stepIndex)
         assertEquals("sequential", deserialized.edges[0].type)
         assertEquals("v2", deserialized.properties?.get("workflowVersion"))
         assertEquals("1000", deserialized.workflows[0].properties?.get("timeoutMs"))
@@ -134,5 +137,26 @@ class ProtocolModelsTest {
         val cryptoRecord = records.map { it.asJsonObject }.find { it.getAsJsonObject("inspection").get("kind").asString == "crypto" }
         assertNotNull(cryptoRecord)
         assertEquals("verified", cryptoRecord!!.getAsJsonObject("inspection").get("category").asString)
+    }
+
+    @Test
+    fun testExecutionTargetAndProtocolEvents() {
+        val target = ExecutionTarget(exportName = "flowWorkflow", stepIndex = 3)
+        assertEquals("flowWorkflow", target.exportName)
+        assertEquals(3, target.stepIndex)
+
+        val runEvent = JsonObject()
+        runEvent.addProperty("type", "runEvent")
+        runEvent.addProperty("runId", "run-123")
+        runEvent.addProperty("status", "completed")
+        runEvent.addProperty("elapsedMs", 150)
+        val outputObj = JsonObject()
+        outputObj.addProperty("result", "ok")
+        runEvent.add("output", outputObj)
+
+        val serialized = gson.toJson(runEvent)
+        assertTrue(serialized.contains("\"runId\":\"run-123\""))
+        assertTrue(serialized.contains("\"status\":\"completed\""))
+        assertTrue(serialized.contains("\"result\":\"ok\""))
     }
 }

@@ -104,7 +104,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             {hasTelemetryDocument && isWorkflowMismatch && (
                 <div className="mx-4 mt-3 p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed">
                     <span className="font-semibold block mb-0.5">Workflow Mismatch</span>
-                    Recording <span className="font-mono text-amber-200">{telemetryDocument.fileName}</span> is for
+                    Recording <span className="font-mono text-amber-200">{telemetryDocument?.fileName}</span> is for
                     workflow{' '}
                     <code className="text-amber-200 bg-amber-950/40 px-1 py-0.5 rounded">
                         {telemetryRecords[0]?.workflowName}

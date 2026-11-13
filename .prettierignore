@@ -16,6 +16,7 @@ packages/monitor/src/ui/dashboard.ts
 
 # Built IDE UI bundle in IntelliJ resources
 plugins/intellij/src/main/resources/ide-ui/index.html
+plugins/intellij/src/main/resources/ide-runner/
 
 # Analyzer fixtures intentionally preserve source layout and locations
 packages/ide-analysis/test/fixtures/

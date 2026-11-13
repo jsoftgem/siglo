@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.siglo"
-version = "1.2.3"
+version = "1.2.4"
 
 repositories {
     mavenCentral()
@@ -61,3 +61,9 @@ intellijPlatform {
 tasks.test {
     useJUnitPlatform()
 }
+
+val buildExecutionAssets by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir.resolve("../.."))
+    commandLine("node", "packages/ide-runner/build.mjs")
+}
+tasks.processResources { dependsOn(buildExecutionAssets) }

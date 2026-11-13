@@ -179,6 +179,7 @@ As you author workflows in TypeScript, the **Siglo IDE Visual Inspector** (`@sig
 
 - **Add Steps & Policies in Code -> Instant Graph Update**: Adding `.step(...)`, `.retry(...)`, `.compensate(...)`, or `.timeout(...)` in your workflow file automatically updates the visual DAG and Policy Inspector via `Auto-Reload`.
 - **Select a Step in the Visual Tool -> Jump to Code & Open Step File**: Clicking any step node in the visual canvas jumps directly to its `.step()` definition and opens the related step implementation file (`steps/*.step.ts`) alongside its Saga `.compensate()` handler.
+- **Run Selected Steps in Isolation**: Switch to the **Run** tab, select individual steps or Ctrl/Cmd-click sequential ranges, provide custom JSON input, and execute real application code with live progress and Pretty JSON output.
 - **Place Cursor in Code -> Highlights Visual Node**: Moving your editor cursor inside a step highlights the corresponding node and its active resilience policies in the inspector.
 
 <p align="center">

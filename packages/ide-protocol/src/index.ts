@@ -15,3 +15,5 @@ export {
     sanitizeTelemetryDocument,
     matchTelemetryRecord,
 } from './telemetry';
+
+export * from './execution';

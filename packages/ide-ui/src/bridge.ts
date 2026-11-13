@@ -21,6 +21,7 @@ declare global {
 }
 
 export type HostMessage =
+    | import('@siglo/ide-protocol').RunEvent
     | { type: 'setGraph'; document: GraphDocument }
     | { type: 'selectNode'; nodeId: string }
     | { type: 'clearSelection' }

@@ -14,6 +14,7 @@ import {
     GraphNode,
     GraphEdge,
     SourceRange,
+    executionRange,
 } from '../src';
 
 describe('packages/ide-protocol', () => {
@@ -103,5 +104,83 @@ describe('packages/ide-protocol', () => {
         expect(doc.nodes).to.have.lengthOf(1);
         expect(doc.nodes[0].stepKind).to.equal('generic');
         expect(doc.edges[0].type).to.equal('sequential');
+    });
+
+    describe('executionRange', () => {
+        const loc: SourceRange = { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } };
+        const makeNode = (id: string, name: string, stepIndex?: number): GraphNode => ({
+            id,
+            name,
+            stepKind: 'generic',
+            location: loc,
+            declarationRange: loc,
+            executionTarget: stepIndex !== undefined ? { exportName: 'wf', stepIndex } : undefined,
+        });
+
+        const nodes: GraphNode[] = [
+            makeNode('step1', 'Step 1', 0),
+            makeNode('step2', 'Step 2', 1),
+            makeNode('step3', 'Step 3', 2),
+            makeNode('step4', 'Step 4', 3),
+            makeNode('step5', 'Step 5', 4),
+        ];
+
+        const edges: GraphEdge[] = [
+            { id: 'e1', from: 'step1', to: 'step2', type: 'sequential' },
+            { id: 'e2', from: 'step2', to: 'step3', type: 'sequential' },
+            { id: 'e3', from: 'step3', to: 'step4', type: 'sequential' },
+            { id: 'e4', from: 'step4', to: 'step5', type: 'sequential' },
+        ];
+
+        it('returns a single selected step', () => {
+            const range = executionRange(nodes, edges, ['step2']);
+            expect(range.map(n => n.id)).to.deep.equal(['step2']);
+        });
+
+        it('resolves sequential range regardless of selection order', () => {
+            // Selecting 2 and 4 yields 2 -> 3 -> 4
+            const forward = executionRange(nodes, edges, ['step2', 'step4']);
+            expect(forward.map(n => n.id)).to.deep.equal(['step2', 'step3', 'step4']);
+
+            // Reverse selection order (4 then 2) still yields 2 -> 3 -> 4
+            const reverse = executionRange(nodes, edges, ['step4', 'step2']);
+            expect(reverse.map(n => n.id)).to.deep.equal(['step2', 'step3', 'step4']);
+
+            // More than two selected steps (4, 2, 3)
+            const multi = executionRange(nodes, edges, ['step4', 'step2', 'step3']);
+            expect(multi.map(n => n.id)).to.deep.equal(['step2', 'step3', 'step4']);
+        });
+
+        it('rejects empty selection', () => {
+            expect(() => executionRange(nodes, edges, [])).to.throw('Select one or more steps.');
+        });
+
+        it('rejects synthetic fork/join nodes with explanatory message', () => {
+            const forkNode = makeNode('step_fork_1', 'parallel fork');
+            expect(() => executionRange([...nodes, forkNode], edges, ['step_fork_1'])).to.throw(
+                'Synthetic fork/join nodes cannot run independently.',
+            );
+        });
+
+        it('rejects composite combinator nodes', () => {
+            const compNode = makeNode('par1', 'parallel');
+            expect(() => executionRange([...nodes, compNode], edges, ['par1'])).to.throw(
+                'Composite boundaries cannot be crossed. Select individual steps within a branch.',
+            );
+        });
+
+        it('rejects unexported steps', () => {
+            const unexported = makeNode('unexp', 'Private Step');
+            expect(() => executionRange([...nodes, unexported], edges, ['unexp'])).to.throw(
+                'Selection is not independently executable.',
+            );
+        });
+
+        it('rejects non-contiguous ranges or selections crossing boundaries', () => {
+            const brokenEdges = edges.filter(e => e.id !== 'e2');
+            expect(() => executionRange(nodes, brokenEdges, ['step1', 'step4'])).to.throw(
+                'Select a contiguous sequential range within one branch.',
+            );
+        });
     });
 });

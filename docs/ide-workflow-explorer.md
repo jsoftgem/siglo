@@ -108,7 +108,14 @@ Selecting any step in the visual graph opens the **Inspector Panel**:
 - **Live Debounced Refresh**: When **Auto-Reload** is enabled, editing the code buffer automatically updates the visual graph within 250ms of typing without requiring manual file saves.
 - **Active Tab Tracking**: Switching editor tabs updates the tool window to display the workflows declared in the active file.
 
-### 6. Responsive Layout & Native Swing Fallback
+### 6. Interactive Step & Range Runner (Run Tab)
+
+- **Inclusive Range Selection**: Click a single step or Ctrl/Cmd-click two steps to highlight and execute an inclusive sequential range on the DAG canvas.
+- **Custom JSON Input**: Provide input payloads with built-in formatting and validation.
+- **Isolated Execution**: Executes real application code using project `tsx` and local Node.js runtime without starting full servers.
+- **Live State & Output Tracking**: Real-time step progress (`Completed`, `Running...`, `Failed`, `Cancelled`), elapsed timers, Pretty and Raw JSON output views, and expandable application logs.
+
+### 7. Responsive Layout & Native Swing Fallback
 
 - **Responsive Stacking**: In narrow sidebars (such as the VS Code Activity Bar or docked IntelliJ tool windows), the Inspector automatically stacks beneath the DAG canvas for seamless visibility.
 - **IntelliJ Swing Fallback (`JBTree`)**: When running in headless environments, remote development, or custom JetBrains runtimes where JCEF is disabled, the IntelliJ plugin gracefully degrades to a native Swing tree view showing the structured AST hierarchy.
@@ -205,7 +212,7 @@ export const checkoutWorkflow = flow(
 
 1. Open IntelliJ IDEA → **Settings / Preferences** (`⌘,` on macOS, `Ctrl+Alt+S` on Linux/Windows).
 2. Go to **Plugins** → Click ⚙️ (Gear Icon) → **Install Plugin from Disk...**.
-3. Select `siglo-intellij-plugin-1.2.3.zip` (located in `plugins/intellij/build/distributions/`).
+3. Select `siglo-intellij-plugin-1.2.4.zip` (located in `plugins/intellij/build/distributions/`).
 4. Click **Restart IDE**.
 5. Access the **Siglo Workflows** tool window from the right-hand stripe.
 
@@ -227,7 +234,7 @@ cd plugins/intellij
 ./gradlew test buildPlugin
 ```
 
-The distributable zip will be generated at `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.3.zip`.
+The distributable zip will be generated at `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.4.zip`.
 
 ---
 
@@ -257,7 +264,7 @@ code --install-extension Jsoftgem.siglo-workflows
 1. Open VS Code → Go to the **Extensions** view (`⇧⌘X` on macOS, `Ctrl+Shift+X` on Linux/Windows).
 2. Click **Views and More Actions** (`…`) at the top of the Extensions view.
 3. Select **Install from VSIX…**.
-4. Choose `plugins/vscode/siglo-workflows-1.2.3.vsix`.
+4. Choose `plugins/vscode/siglo-workflows-1.2.4.vsix`.
 5. When prompted, trust the workspace folder to activate the extension.
 
 ### Option C: Building from Source (Monorepo)
@@ -269,7 +276,7 @@ From the repository root:
 npm run package --workspace=@siglo/vscode
 ```
 
-The packaged extension is generated at `plugins/vscode/siglo-workflows-1.2.3.vsix`.
+The packaged extension is generated at `plugins/vscode/siglo-workflows-1.2.4.vsix`.
 
 ---
 
@@ -299,7 +306,18 @@ Durable workflows paused at `wait` or `waitForEvent` steps can be resumed intera
    > ⚠️ **Side-Effect Warning**: Resuming a suspended durable workflow triggers downstream execution, external side effects, and state mutations. Verify that target test environments are prepared.
 5. Click **Confirm & Resume** to dispatch the resume event to the workflow runtime.
 
-### 3. Keyboard Shortcuts Reference
+### 3. Interactive Step & Range Execution (Run Tab)
+
+The right panel features a dedicated **Run** tab allowing developers to execute individual steps or an inclusive sequential range of steps directly within the visualizer:
+
+1. **Select Range**: Click a step, or Ctrl/Cmd-click two steps to select an inclusive range (e.g. selecting step 2 and step 4 runs steps 2, 3, and 4). The highlighted path previews the range on the DAG canvas.
+2. **Provide JSON Input**: Supply custom JSON input payload for the first selected step. Built-in **Format** validates and pretty-prints the JSON.
+3. **Isolated Execution**: Launches an isolated worker process (`@siglo/ide-runner`) using the project's local `tsx` and Node runtime without executing the rest of the application or starting servers.
+4. **Live Progress & Cancellation**: Displays real-time step status (`Completed`, `Running...`, `Failed`, `Cancelled`) with millisecond elapsed timers. Click **Cancel** to terminate the process.
+5. **Output Inspection & Logs**: View final or intermediate step outputs as **Pretty JSON** or **Raw JSON** with one-click copy. Application stdout/stderr logs are accessible in the expandable **Application logs** viewer.
+6. **Workspace Configuration (`.siglo/run.json`)**: Configure custom working directories (`cwd`), bootstrap modules (`setupModule`), and environment variables (`env`).
+
+### 4. Keyboard Shortcuts Reference
 
 | Action | VS Code (macOS) | VS Code (Linux/Win) | IntelliJ (macOS) | IntelliJ (Linux/Win) |
 | --- | --- | --- | --- | --- |
@@ -308,14 +326,14 @@ Durable workflows paused at `wait` or `waitForEvent` steps can be resumed intera
 | **Debug Siglo Workflow** | `⌥⌘D` | `Ctrl+Alt+D` | `⌃⌥D` | `Ctrl+Alt+D` |
 | **Discover Workflows** | Command Palette | Command Palette | Project Tool Window | Project Tool Window |
 
-### 4. Marketplace Publishing Procedures
+### 5. Marketplace Publishing Procedures
 
 - **JetBrains Marketplace**:
   - Task: `./gradlew publishPlugin` (configured with `JETBRAINS_TOKEN` environment variable).
-  - Artifact: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.3.zip`.
+  - Artifact: `plugins/intellij/build/distributions/siglo-intellij-plugin-1.2.4.zip`.
 - **VS Code Marketplace**:
   - Command: `npm run publish:vsce --workspace=@siglo/vscode` (configured with `VSCE_PAT`).
-  - Artifact: `plugins/vscode/siglo-workflows-1.2.3.vsix`.
+  - Artifact: `plugins/vscode/siglo-workflows-1.2.4.vsix`.
 - **Open VSX Registry**:
   - Command: `npm run publish:ovsx --workspace=@siglo/vscode` (configured with `OVSX_PAT`).
 
