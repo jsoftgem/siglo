@@ -62,6 +62,7 @@
             "pages": [
               "rest-and-live-monitoring",
               "distributed-rest-and-live-monitoring",
+              "distributed-cross-service-workflows",
               "durable-distributed-checkout",
               "kafka-order-routing",
               "signed-order-intake",

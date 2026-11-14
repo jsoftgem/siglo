@@ -210485,7 +210485,13 @@ function getEnclosingName(node, sourceFile) {
     if (import_typescript3.default.isExportAssignment(p)) {
       return "default";
     }
-    if (import_typescript3.default.isSourceFile(p) || import_typescript3.default.isBlock(p)) break;
+    if (import_typescript3.default.isFunctionDeclaration(p) && p.name) {
+      return p.name.getText(sourceFile);
+    }
+    if (import_typescript3.default.isMethodDeclaration(p) && p.name) {
+      return p.name.getText(sourceFile);
+    }
+    if (import_typescript3.default.isSourceFile(p)) break;
     p = p.parent;
   }
   return null;
@@ -211629,6 +211635,9 @@ function parseWorkflowFile(options) {
         if (import_typescript4.default.isIdentifier(declaration.name)) exports2.set(declaration.name.text, declaration.name.text);
       }
     }
+    if (import_typescript4.default.isFunctionDeclaration(statement) && statement.name && statement.modifiers?.some((m) => m.kind === import_typescript4.default.SyntaxKind.ExportKeyword)) {
+      exports2.set(statement.name.text, statement.name.text);
+    }
     if (import_typescript4.default.isExportAssignment(statement) && import_typescript4.default.isIdentifier(statement.expression))
       exports2.set(statement.expression.text, "default");
     if (import_typescript4.default.isExportDeclaration(statement) && !statement.moduleSpecifier && statement.exportClause && import_typescript4.default.isNamedExports(statement.exportClause)) {
@@ -211638,7 +211647,7 @@ function parseWorkflowFile(options) {
   }
   for (const workflow of workflows) {
     workflow.nodes = workflow.nodes.map((node) => ({ ...node, executionTarget: void 0 }));
-    const exportName = exports2.get(workflow.workflowName);
+    const exportName = exports2.get(workflow.workflowName) ?? (workflows.length === 1 && exports2.size === 1 ? Array.from(exports2.values())[0] : void 0);
     if (!exportName || workflow.unresolved.length) continue;
     const recovery = new Set(
       workflow.edges.filter((e) => e.type === "fallback" || e.type === "compensation").map((e) => e.to)

@@ -37,7 +37,6 @@ export const App: React.FC = () => {
         const unsubscribe = bridge.subscribe((msg: HostMessage) => {
             if (msg.type === 'setGraph') {
                 setDoc(msg.document);
-                setRunSelection([]);
                 setInspectedWorkflowName(null);
                 setIsRefreshing(false);
 
@@ -53,9 +52,15 @@ export const App: React.FC = () => {
                     setSelectedFlowName(null);
                 }
 
-                if (msg.document.nodes.length > 0) {
-                    setSelectedNodeId(msg.document.nodes[0].id);
+                const allAvailableNodes =
+                    workflows.length > 0 && workflows[0].nodes?.length > 0 ? workflows[0].nodes : msg.document.nodes;
+
+                const firstRunnable = allAvailableNodes.find(n => n.executionTarget) || allAvailableNodes[0];
+                if (firstRunnable) {
+                    setRunSelection([firstRunnable.id]);
+                    setSelectedNodeId(firstRunnable.id);
                 } else {
+                    setRunSelection([]);
                     setSelectedNodeId(null);
                 }
             } else if (msg.type === 'selectNode') {

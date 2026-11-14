@@ -26,6 +26,33 @@ export function RunPanel({
     const [resultKey, setResultKey] = useState('final');
     const [elapsed, setElapsed] = useState(0);
     const run = useRef<{ id: string; key: string; version: number; started: number }>();
+
+    // Reset execution state whenever the active workflow key changes (different file or flow)
+    const prevKeyRef = useRef(key);
+    useEffect(() => {
+        if (prevKeyRef.current !== key) {
+            prevKeyRef.current = key;
+            setEvents([]);
+            setResultKey('final');
+            setBusy(false);
+            setElapsed(0);
+            run.current = undefined;
+        }
+    }, [key]);
+
+    // Reset execution state when document version changes (source file updated/reloaded)
+    const prevVersionRef = useRef(document.documentVersion);
+    useEffect(() => {
+        if (prevVersionRef.current !== document.documentVersion) {
+            prevVersionRef.current = document.documentVersion;
+            setEvents([]);
+            setResultKey('final');
+            setBusy(false);
+            setElapsed(0);
+            run.current = undefined;
+        }
+    }, [document.documentVersion]);
+
     useEffect(
         () =>
             bridge.subscribe(message => {
@@ -42,21 +69,27 @@ export function RunPanel({
             }),
         [],
     );
+
     useEffect(() => {
         if (!busy) return;
         const timer = setInterval(() => setElapsed(Date.now() - (run.current?.started ?? Date.now())), 100);
         return () => clearInterval(timer);
     }, [busy]);
+
+    const runnableNodes = nodes.filter(n => n.executionTarget);
+    const effectiveSelected = selected.length > 0 ? selected : runnableNodes.length > 0 ? [runnableNodes[0].id] : [];
+
     let validation = '',
         parsed: unknown,
         range: GraphNode[] = [];
     try {
         parsed = JSON.parse(input);
         if (allFlows) throw new Error('Choose one workflow before running steps.');
-        range = executionRange(nodes, edges, selected);
+        range = executionRange(nodes, edges, effectiveSelected);
     } catch (error) {
         validation = (error as Error).message;
     }
+
     const start = async () => {
         if (validation || busy) return;
         const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -73,7 +106,7 @@ export function RunPanel({
                 uri: document.uri,
                 documentVersion: document.documentVersion,
                 workflowName,
-                nodeIds: selected,
+                nodeIds: effectiveSelected,
                 input: parsed,
             });
         } catch (error) {
@@ -81,8 +114,12 @@ export function RunPanel({
             setEvents([{ type: 'runEvent', runId: id, status: 'failed', error: String(error) }]);
         }
     };
+
     const completed = events.filter(
-        event => event.status === 'step' && Object.prototype.hasOwnProperty.call(event, 'output'),
+        event =>
+            event.status === 'step' &&
+            Object.prototype.hasOwnProperty.call(event, 'output') &&
+            nodes.some(n => n.id === event.nodeId),
     );
     const outputs = [...new Map(completed.map(event => [event.nodeId, event])).values()];
     const final = events.find(event => event.status === 'completed');
@@ -98,12 +135,12 @@ export function RunPanel({
     const stale = run.current && (run.current.key !== key || run.current.version !== document.documentVersion);
     const status = events.filter(event => event.status !== 'log').slice(-1)[0]?.status;
     const currentStepEvent = events.filter(e => e.status === 'step').slice(-1)[0];
-    const progressNodes =
-        range.length > 0
-            ? range
-            : [...new Set(events.filter(event => event.nodeId).map(event => event.nodeId!))].map(
-                  id => nodes.find(n => n.id === id) || ({ id, name: id } as GraphNode),
-              );
+    const progressNodes = (() => {
+        if (range.length > 0) return range;
+        if (runnableNodes.length > 0) return runnableNodes;
+        return nodes;
+    })();
+
     const control =
         'rounded border border-[#555] bg-[#393b40] px-2 py-1 disabled:opacity-40 hover:bg-[#4a4d52] transition-colors';
     const activeControl =

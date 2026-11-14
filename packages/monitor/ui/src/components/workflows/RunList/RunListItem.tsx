@@ -22,7 +22,17 @@ export const RunListItem: React.FC<RunListItemProps> = ({ run, isSelected, onSel
             }`}
         >
             <div className="flex items-start justify-between gap-2 mb-1.5">
-                <span className="font-semibold text-sm text-slate-100 truncate">{run.flowName || 'Workflow'}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-semibold text-sm text-slate-100 truncate">{run.flowName || 'Workflow'}</span>
+                    {run.namespace && (
+                        <span
+                            className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 border border-slate-700/60 truncate max-w-[110px]"
+                            title={run.namespace}
+                        >
+                            {run.namespace}
+                        </span>
+                    )}
+                </div>
                 <StatusBadge status={run.status} size="sm" />
             </div>
 

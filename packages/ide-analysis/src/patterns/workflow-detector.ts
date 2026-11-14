@@ -179,7 +179,13 @@ function getEnclosingName(node: ts.Node, sourceFile: ts.SourceFile): string | nu
         if (ts.isExportAssignment(p)) {
             return 'default';
         }
-        if (ts.isSourceFile(p) || ts.isBlock(p)) break;
+        if (ts.isFunctionDeclaration(p) && p.name) {
+            return p.name.getText(sourceFile);
+        }
+        if (ts.isMethodDeclaration(p) && p.name) {
+            return p.name.getText(sourceFile);
+        }
+        if (ts.isSourceFile(p)) break;
         p = p.parent;
     }
     return null;

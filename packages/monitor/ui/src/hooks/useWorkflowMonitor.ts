@@ -23,7 +23,18 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
             list.forEach(run => {
                 map[run.stackId] = run;
             });
-            setWorkflows(prev => ({ ...prev, ...map }));
+            setWorkflows(prev => {
+                if (!namespace) {
+                    return { ...prev, ...map };
+                }
+                const filteredPrev: Record<string, WorkflowRun> = {};
+                for (const [id, r] of Object.entries(prev)) {
+                    if (!r.namespace || r.namespace === namespace) {
+                        filteredPrev[id] = r;
+                    }
+                }
+                return { ...filteredPrev, ...map };
+            });
         } catch (err) {
             console.error('Failed to load workflows:', err);
         }
@@ -31,6 +42,10 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
 
     const handleIncomingEvent = useCallback(
         (ev: MonitoringEvent) => {
+            if (namespace && ev.namespace && ev.namespace !== namespace) {
+                return;
+            }
+
             setEvents(prev => [ev, ...prev].slice(0, maxEvents));
 
             if (!ev.stackId) return;
@@ -186,7 +201,7 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
                 };
             });
         },
-        [maxEvents],
+        [namespace, maxEvents],
     );
 
     useEffect(() => {

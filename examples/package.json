@@ -1,6 +1,6 @@
 {
   "name": "siglo-examples",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "private": true,
   "description": "Production-grade examples and use cases demonstrating Siglo with ecosystem adapters and workflow power features",
   "main": "src/index.ts",
@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "test": "tsx --test 'src/**/*.test.ts'",
     "demo:telemetry": "tsx src/offline-telemetry.ts",
-    "demo:migrate-endpoint": "tsx src/migrate-one-endpoint/migrate-one-endpoint.ts"
+    "demo:migrate-endpoint": "tsx src/migrate-one-endpoint/migrate-one-endpoint.ts",
+    "demo:distributed-domains": "tsx src/distributed-domains-stackid/run.ts"
   },
   "dependencies": {
     "@siglo/bullmq": "^1.0.0",

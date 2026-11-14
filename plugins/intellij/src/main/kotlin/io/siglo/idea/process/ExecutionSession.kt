@@ -37,14 +37,18 @@ class ExecutionSession(private val project: Project, private val post: (JsonObje
             try {
                 check(SigloAnalyzerService.getInstance(project).isProjectTrusted(project, true)) { "Trust this project before executing code." }
                 check(document != null && request.get("uri")?.asString == document.uri) { "Reload the workflow before running." }
+                ApplicationManager.getApplication().invokeAndWait {
+                    FileDocumentManager.getInstance().saveAllDocuments()
+                }
                 val unsaved = ApplicationManager.getApplication().runReadAction<Boolean> {
                     FileDocumentManager.getInstance().unsavedDocuments.isNotEmpty()
                 }
                 check(!unsaved) { "Save modified source files before running." }
                 val file = try { File(URI(document!!.uri)) } catch (_: Exception) { File(document!!.uri.removePrefix("file://")) }
                 request.add("document", gson.toJsonTree(document))
-                check(sourceSnapshot != null) { "Reload the workflow before running." }
-                request.addProperty("source", sourceSnapshot)
+                val latestSource = if (file.exists()) file.readText(Charsets.UTF_8) else sourceSnapshot
+                check(latestSource != null) { "Reload the workflow before running." }
+                request.addProperty("source", latestSource)
                 request.addProperty("cwd", project.basePath ?: file.parent)
                 val node = NodeDiscoveryService.findNodeExecutable() ?: error("Node.js is required to run steps.")
                 val dir = Files.createTempDirectory("siglo-run-").toFile()
