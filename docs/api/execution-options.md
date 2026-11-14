@@ -246,6 +246,8 @@ A string partition key used for multi-tenant metadata scoping and storage key pa
 
 - Partitions checkpoint keys, cached step outputs, and wait records to prevent key collisions across tenants.
 - `restoreCheckpoint` checks an explicitly supplied expected namespace when both values exist.
+- Automatically partitions workflow-level `idempotencyKey` strings across tenants (`${namespace}:${idempotencyKey}`).
+- In [Live Monitoring](/live-monitoring), incoming events are tagged with `namespace`, enabling tenant filtering in the dashboard and tenant-scoped SSE streams.
 - **Security Note**: Namespace scoping is logical key partitioning, not an enforced authenticated tenant boundary. Application-level tenant authentication and explicit validation are still required.
 
 ```typescript
@@ -329,6 +331,10 @@ Human-readable workflow identifier attached to telemetry, logs, and checkpoints.
 
 Explicit caller-provided execution stack ID. If omitted, Siglo automatically generates a unique UUID.
 
+- When supplied, marks the execution as a correlated execution stack (`isSubStack: true`).
+- Used to correlate distributed workflows across microservices (e.g. Order Service -> Fulfillment Service via Kafka or HTTP), allowing the [Live Monitoring](/live-monitoring) dashboard to combine all steps, telemetry events, and latency waterfalls under a single execution.
+- See [Correlate Distributed Multi-Domain Services with stackId and namespace](/distributed-cross-service-workflows) for a complete architecture walkthrough and runnable example.
+
 ---
 
 ## Comprehensive Production Example
@@ -374,6 +380,7 @@ async function handleOrderWebhook(request: any) {
 
 ## Related Topic Guides
 
+- [Correlate Distributed Multi-Domain Services with stackId and namespace](/distributed-cross-service-workflows)
 - [02. Core Concepts](/02-core-concepts)
 - [05. Retries, Timeouts, and Cancellation](/05-retries-timeouts-and-cancellation)
 - [06. Durable Workflows](/06-durable-workflows)

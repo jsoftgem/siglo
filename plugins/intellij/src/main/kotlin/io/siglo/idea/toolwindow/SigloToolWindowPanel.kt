@@ -12,6 +12,7 @@ import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
@@ -20,6 +21,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
@@ -91,6 +94,19 @@ class SigloToolWindowPanel(
                     refreshForFile(newFile)
                 }
             }
+
+            override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
+                if (isSupportedFile(file)) {
+                    refreshForFile(file)
+                }
+            }
+
+            override fun fileClosed(source: FileEditorManager, file: VirtualFile) {
+                val remaining = FileEditorManager.getInstance(project).selectedFiles.firstOrNull { isSupportedFile(it) }
+                if (remaining != null) {
+                    refreshForFile(remaining)
+                }
+            }
         })
 
         // Listen for live buffer edits in open documents (debounced at 250ms)
@@ -104,12 +120,35 @@ class SigloToolWindowPanel(
                 val docText = event.document.text
                 alarm.cancelAllRequests()
                 alarm.addRequest({
-                    if (FileEditorManager.getInstance(project).selectedFiles.firstOrNull() == virtualFile) {
+                    val selectedFiles = FileEditorManager.getInstance(project).selectedFiles
+                    if (activeVirtualFile == virtualFile || selectedFiles.contains(virtualFile)) {
                         refreshForFile(virtualFile, contentOverride = docText, force = true)
                     }
                 }, 250)
             }
         }, this)
+
+        // Listen for file document save events to ensure disk and analyzer stay in sync
+        messageBus.subscribe(FileDocumentManagerListener.TOPIC, object : FileDocumentManagerListener {
+            override fun beforeDocumentSaving(document: com.intellij.openapi.editor.Document) {
+                val file = FileDocumentManager.getInstance().getFile(document) ?: return
+                if (isSupportedFile(file) && (activeVirtualFile == file || FileEditorManager.getInstance(project).selectedFiles.contains(file))) {
+                    refreshForFile(file, contentOverride = document.text, force = true)
+                }
+            }
+        })
+
+        // Listen for VFS external file modifications
+        messageBus.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+            override fun after(events: List<VFileEvent>) {
+                if (!isAutoReloadEnabled) return
+                val currentFile = activeVirtualFile ?: return
+                val changed = events.any { it.file == currentFile }
+                if (changed) {
+                    refreshForFile(currentFile, force = true)
+                }
+            }
+        })
 
         // Track whatever file is already open right now upon creation
         val currentSelected = FileEditorManager.getInstance(project).selectedFiles.firstOrNull { isSupportedFile(it) }
@@ -253,7 +292,22 @@ class SigloToolWindowPanel(
             val type = json.get("type")?.asString
 
             when (type) {
-                "runSteps" -> execution.run(json, currentDocument, sourceRevisions[currentDocument?.uri]?.first)
+                "runSteps" -> {
+                    val targetUri = json.get("uri")?.asString ?: currentDocument?.uri
+                    val targetVf = targetUri?.let { findVirtualFileByUri(it) } ?: activeVirtualFile
+                    val snapshot = targetVf?.let { vf ->
+                        try {
+                            ApplicationManager.getApplication().runReadAction<String?> {
+                                FileDocumentManager.getInstance().getDocument(vf)?.text
+                            } ?: String(vf.contentsToByteArray(), Charsets.UTF_8)
+                        } catch (_: Exception) { null }
+                    } ?: sourceRevisions[currentDocument?.uri]?.first
+                    if (targetUri != null && snapshot != null) {
+                        val prev = sourceRevisions[targetUri]
+                        sourceRevisions[targetUri] = snapshot to (prev?.second ?: 1)
+                    }
+                    execution.run(json, currentDocument, snapshot)
+                }
                 "cancelRun" -> execution.cancel()
                 "copyRunOutput" -> {
                     val text = json.get("text")?.asString ?: ""
@@ -275,8 +329,8 @@ class SigloToolWindowPanel(
                 "reload" -> {
                     // Manual reload request triggered from webview button
                     ApplicationManager.getApplication().invokeLater {
-                        val targetFile = activeVirtualFile
-                            ?: FileEditorManager.getInstance(project).selectedFiles.firstOrNull { isSupportedFile(it) }
+                        val currentSelected = FileEditorManager.getInstance(project).selectedFiles.firstOrNull { isSupportedFile(it) }
+                        val targetFile = currentSelected ?: activeVirtualFile
                         if (targetFile != null) {
                             refreshForFile(targetFile, force = true)
                         } else {
@@ -394,9 +448,14 @@ class SigloToolWindowPanel(
         service.discoverWorkflows().thenAccept { workflows ->
             if (workflows.isNotEmpty()) {
                 val first = workflows.first()
-                service.getGraph(first.uri).thenAccept { doc ->
-                    ApplicationManager.getApplication().invokeLater {
-                        renderDocument(doc)
+                val vf = findVirtualFileByUri(first.uri)
+                if (vf != null) {
+                    refreshForFile(vf, force = true)
+                } else {
+                    service.getGraph(first.uri).thenAccept { doc ->
+                        ApplicationManager.getApplication().invokeLater {
+                            renderDocument(doc)
+                        }
                     }
                 }
             }

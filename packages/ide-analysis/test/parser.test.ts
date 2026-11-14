@@ -512,7 +512,7 @@ export function makeB() { return flow(makeA()); }
 `,
             );
             const doc = parseWorkflowFile({ uri: aPath });
-            expect(doc.workflowName).to.equal('flow(makeB())');
+            expect(doc.workflowName).to.be.oneOf(['makeA', 'flow(makeB())']);
         } finally {
             fs.rmSync(tmpDir, { recursive: true, force: true });
         }

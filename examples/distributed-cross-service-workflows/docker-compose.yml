@@ -1,0 +1,66 @@
+name: siglo-distributed-cross-service
+
+x-app: &app
+  image: siglo-distributed-cross-service:local
+  build:
+    context: ../..
+    dockerfile: examples/distributed-cross-service-workflows/Dockerfile
+  init: true
+  environment: &environment
+    REDIS_URL: redis://redis:6379
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6383:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  monitor:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/distributed-domains-stackid/monitor.ts"]
+    ports: ["127.0.0.1:${MONITOR_HOST_PORT:-4200}:4200"]
+    depends_on:
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4200/api/workflows').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  fulfillment-service:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/distributed-domains-stackid/fulfillment-server.ts"]
+    environment:
+      <<: *environment
+      PORT: 3002
+    ports: ["127.0.0.1:${FULFILLMENT_HOST_PORT:-3002}:3002"]
+    depends_on:
+      redis: { condition: service_healthy }
+      monitor: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  order-service:
+    <<: *app
+    command: ["node", "--import", "tsx", "examples/src/distributed-domains-stackid/order-server.ts"]
+    environment:
+      <<: *environment
+      PORT: 3001
+      FULFILLMENT_SERVICE_URL: http://fulfillment-service:3002
+    ports: ["127.0.0.1:${ORDER_HOST_PORT:-3001}:3001"]
+    depends_on:
+      redis: { condition: service_healthy }
+      monitor: { condition: service_healthy }
+      fulfillment-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

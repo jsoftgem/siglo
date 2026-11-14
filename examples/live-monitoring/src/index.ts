@@ -10,6 +10,7 @@ export interface OrderPayload {
     authToken: string;
     cardNumber: string;
     isVip?: boolean;
+    stackId: string;
 }
 
 // 1. Define Step Pipeline
@@ -20,6 +21,7 @@ export const fetchCustomer = Step.create('fetchCustomer', async (ctx: OrderPaylo
         customerTier: ctx.isVip ? 'VIP_PLATINUM' : 'STANDARD',
         verified: true,
         region: 'US-EAST',
+        id: ctx.stackId || 'what??',
     };
 });
 

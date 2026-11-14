@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.5] - 2026-11-15
+
+### Added
+
+- **Distributed Cross-Service Workflows & Multi-Domain Correlation (`examples/src/distributed-domains-stackid`, `examples/distributed-cross-service-workflows`)**:
+  - Added parent-child correlated workflow pattern linking independent domain workflows (Order Service → Fulfillment Service) through explicit stack ID propagation (`${stackId}:fulfillment`) and tenant namespace propagation (`x-tenant-id` / `x-namespace`).
+  - Added runnable multi-service architecture with Redis event pub/sub transport, standalone HTTP servers, and containerized Docker Compose environment.
+  - Published comprehensive multi-domain guide in `docs/distributed-cross-service-workflows.md`.
+
+### Fixed
+
+- **Live Monitoring Dashboard Namespace Filtering (`@siglo/monitor`)**:
+  - Fixed issue where selecting a namespace in the Live Monitor header dropdown failed to filter workflow runs in `RunList` and `StatsOverview`.
+  - Preserved discovered tenant namespaces in the header dropdown to enable 0ms instantaneous tenant switching without re-establishing SSE connections.
+  - Added tenant namespace indicator badges to workflow list item cards.
+  - Synced selected namespace filter to browser URL query parameter (`?namespace=...`) via `window.history.replaceState`.
+  - Scoped `useWorkflowMonitor` state hydration and event ingestion to the active namespace partition.
+
+### Changed
+
+- Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.2.5`.
+
 ## [1.2.4] - 2026-11-14
 
 ### Added

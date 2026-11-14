@@ -60,6 +60,13 @@ export function parseWorkflowFile(options: ParseOptions): GraphDocument {
                 if (ts.isIdentifier(declaration.name)) exports.set(declaration.name.text, declaration.name.text);
             }
         }
+        if (
+            ts.isFunctionDeclaration(statement) &&
+            statement.name &&
+            statement.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)
+        ) {
+            exports.set(statement.name.text, statement.name.text);
+        }
         if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression))
             exports.set(statement.expression.text, 'default');
         if (
@@ -74,7 +81,9 @@ export function parseWorkflowFile(options: ParseOptions): GraphDocument {
     }
     for (const workflow of workflows) {
         workflow.nodes = workflow.nodes.map(node => ({ ...node, executionTarget: undefined }));
-        const exportName = exports.get(workflow.workflowName);
+        const exportName =
+            exports.get(workflow.workflowName) ??
+            (workflows.length === 1 && exports.size === 1 ? Array.from(exports.values())[0] : undefined);
         if (!exportName || workflow.unresolved.length) continue;
         const recovery = new Set(
             workflow.edges.filter(e => e.type === 'fallback' || e.type === 'compensation').map(e => e.to),
