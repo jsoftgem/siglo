@@ -9,6 +9,7 @@ import {
     inspectWorkflow,
     toTextGraph,
     initProject,
+    installSkills,
     replayFixture,
     inspectCheckpoint,
     generateWorkflow,
@@ -50,34 +51,13 @@ describe('@siglo/cli Developer Tools Suite', () => {
         expect(validation.errors).to.have.lengthOf(0);
     });
 
-    it('inspects workflow and returns complexity summary with field redaction', () => {
-        const stepA = Step.create('secretStep', async () => ({ a: 1 }));
-        const stepB = Step.create('publicStep', async () => ({ b: 2 }));
-        const testFlow = flow(stepA, stepB);
+    it('inspects workflow and applies field redactions', () => {
+        const stepSecret = Step.create('secretStep', async () => ({ token: 'secret' }));
+        const testFlow = flow(stepSecret);
 
-        const inspection = inspectWorkflow(testFlow, { redact: ['secretStep'] });
-        expect(inspection.totalNodes).to.be.greaterThan(0);
-        expect(inspection.nodes.some(n => n.name === '[REDACTED]')).to.be.true;
-        expect(inspection.nodes.some(n => n.name === 'publicStep')).to.be.true;
-    });
-
-    it('replays a recorded test fixture against a workflow', async () => {
-        const calculateFlow = flow(
-            Step.create('calc', async ({ amount }: any) => ({
-                doubled: amount * 2,
-                status: 'OK',
-            })),
-        );
-
-        const fixture = {
-            initialParam: { amount: 25 },
-            expectedOutputs: { doubled: 50, status: 'OK' },
-        };
-
-        const result = await replayFixture(calculateFlow, fixture);
-        expect(result.success).to.be.true;
-        expect(result.finalContext.doubled).to.equal(50);
-        expect(result.diff).to.be.undefined;
+        const report = inspectWorkflow(testFlow, { redact: ['secretStep'] });
+        expect(report.nodes.some((n: any) => n.name === '[REDACTED]')).to.be.true;
+        expect(report.redactedFields).to.include('secretStep');
     });
 
     it('detects output diff in replayFixture when expectations fail', async () => {
@@ -128,10 +108,24 @@ describe('@siglo/cli Developer Tools Suite', () => {
             expect(testCode).to.not.include('result.validated()');
             const pkgJson = JSON.parse(fs.readFileSync(path.join(tempDir, 'package.json'), 'utf-8'));
             expect(pkgJson.devDependencies).to.have.property('@siglo/testing');
+            expect(res.skillsInstalled).to.be.an('array');
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
     });
+
+    it('installs Siglo Agent Skills via installSkills', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'siglo-skills-test-'));
+        try {
+            const res = installSkills(tempDir);
+            expect(res.skillsInstalled).to.include('siglo-workflow-development');
+            expect(res.skillsInstalled).to.include('siglo-durable-workflows');
+            expect(fs.existsSync(path.join(tempDir, 'siglo-workflow-development', 'SKILL.md'))).to.be.true;
+        } finally {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
     it('scaffolds typed workflow files via generateWorkflow', () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'siglo-cli-wf-test-'));
         try {

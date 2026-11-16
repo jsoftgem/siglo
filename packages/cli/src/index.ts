@@ -182,9 +182,68 @@ export function inspectCheckpoint(checkpoint: any | string, options: { redact?: 
 }
 
 /**
+ * Installs Siglo Agent Skills into the target directory (default: .agents/skills).
+ */
+export function installSkills(targetDir?: string): { skillsInstalled: string[]; destination: string } {
+    const destination = targetDir || path.resolve(process.cwd(), '.agents', 'skills');
+
+    const candidates = [
+        path.resolve(__dirname, '..', 'skills'),
+        path.resolve(__dirname, '..', '..', 'skills'),
+        path.resolve(__dirname, '..', '..', '..', 'skills'),
+        path.resolve(process.cwd(), 'skills'),
+        path.resolve(process.cwd(), 'node_modules', '@siglo', 'cli', 'skills'),
+        path.resolve(process.cwd(), 'node_modules', '@siglo', 'core', 'skills'),
+    ];
+
+    let sourceDir: string | undefined;
+    for (const cand of candidates) {
+        if (fs.existsSync(cand) && fs.existsSync(path.join(cand, 'siglo-workflow-development', 'SKILL.md'))) {
+            sourceDir = cand;
+            break;
+        }
+    }
+
+    if (!sourceDir) {
+        throw new Error(
+            'Unable to locate Siglo skills directory. Ensure @siglo/cli or @siglo/core is installed or run in a Siglo repository.',
+        );
+    }
+
+    fs.mkdirSync(destination, { recursive: true });
+
+    function copyDirRecursive(src: string, dest: string) {
+        fs.mkdirSync(dest, { recursive: true });
+        const entries = fs.readdirSync(src, { withFileTypes: true });
+        for (const entry of entries) {
+            const srcPath = path.join(src, entry.name);
+            const destPath = path.join(dest, entry.name);
+            if (entry.isDirectory()) {
+                copyDirRecursive(srcPath, destPath);
+            } else if (entry.isFile()) {
+                fs.copyFileSync(srcPath, destPath);
+            }
+        }
+    }
+
+    const skillsInstalled: string[] = [];
+    const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+    for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.startsWith('siglo-')) {
+            const skillSrc = path.join(sourceDir, entry.name);
+            const skillDest = path.join(destination, entry.name);
+            copyDirRecursive(skillSrc, skillDest);
+            skillsInstalled.push(entry.name);
+        }
+    }
+
+    return { skillsInstalled, destination };
+}
+
+/**
  * Scaffolds a new starter siglo project directory.
  */
-export function initProject(targetDir: string = process.cwd()): { filesCreated: string[] } {
+export function initProject(targetDir: string = process.cwd()): { filesCreated: string[]; skillsInstalled?: string[] } {
     const srcDir = path.join(targetDir, 'src');
     fs.mkdirSync(srcDir, { recursive: true });
 
@@ -230,7 +289,16 @@ export function initProject(targetDir: string = process.cwd()): { filesCreated: 
         filesCreated.push(testPath);
     }
 
-    return { filesCreated };
+    // Install Agent Skills into target project
+    let skillsInstalled: string[] = [];
+    try {
+        const skillsResult = installSkills(path.join(targetDir, '.agents', 'skills'));
+        skillsInstalled = skillsResult.skillsInstalled;
+    } catch {
+        // Fallback gracefully if running in an environment without skills bundled
+    }
+
+    return { filesCreated, skillsInstalled };
 }
 
 /**

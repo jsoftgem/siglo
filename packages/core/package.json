@@ -1,6 +1,6 @@
 {
   "name": "@siglo/core",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "TypeScript workflow orchestration with durable checkpoints, retries, saga compensation, and live DevTools.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,14 +16,15 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "skills"
   ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e 'require(\"fs\").cpSync(\"../../skills\", \"./skills\", {recursive: true})' && tsc -p tsconfig.build.json",
     "compile": "npm run build",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
