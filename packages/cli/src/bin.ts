@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
     initProject,
+    installSkills,
     visualizeWorkflow,
     validateWorkflow,
     inspectWorkflow,
@@ -19,13 +20,14 @@ import {
 
 function printHelp(): void {
     console.log(`
-siglo CLI v1.2.4
+siglo CLI v1.2.6
 
 USAGE:
     siglo <command> [arguments] [options]
 
 COMMANDS:
-    init [dir]                     Scaffold a starter siglo project
+    init [dir]                     Scaffold a starter siglo project with skills
+    skills [install]               Install Siglo Agent Skills into .agents/skills
     generate workflow <name>       Scaffold a new typed workflow with test
     generate step <name>           Scaffold a new typed step with test
     visualize <workflow-file>      Render workflow graph as Mermaid or text diagram
@@ -38,6 +40,7 @@ COMMANDS:
     reconcile [workflow-file]      Reconcile and compensate abandoned/stuck workflows
 
 OPTIONS:
+    --dir=<path>                   Target directory for skills install
     --type=generic|http|crypto|notification|ai  Step template (default: generic)
     --url=<url> --provider=<provider> --model=<id>  Template configuration
     --channel=<channel> --interactive=true|false   Notification configuration
@@ -97,7 +100,7 @@ async function main(): Promise<void> {
     }
 
     if (args.includes('--version') || args.includes('-v')) {
-        console.log('1.2.4');
+        console.log('1.2.6');
         return;
     }
 
@@ -113,6 +116,27 @@ async function main(): Promise<void> {
                 console.log(`\n✔ Initialized siglo workflow project in ${targetDir}`);
                 for (const f of res.filesCreated) {
                     console.log(`  + ${f}`);
+                }
+                break;
+            }
+
+            case 'skills': {
+                const subCommand = target || 'install';
+                if (subCommand === 'install' || subCommand === 'add') {
+                    const dirOption = getOption(args, '--dir=');
+                    const targetDir = dirOption
+                        ? path.resolve(process.cwd(), dirOption)
+                        : path.resolve(process.cwd(), '.agents', 'skills');
+                    const res = installSkills(targetDir);
+                    console.log(
+                        `\n✔ Installed ${res.skillsInstalled.length} Siglo Agent Skills into ${res.destination}`,
+                    );
+                    for (const s of res.skillsInstalled) {
+                        console.log(`  + ${s}`);
+                    }
+                } else {
+                    console.error(`Unknown skills command: '${subCommand}'. Use 'install'.`);
+                    process.exit(1);
                 }
                 break;
             }
@@ -188,7 +212,7 @@ async function main(): Promise<void> {
                 const wf = await loadWorkflowFromFile(target);
                 const val = validateWorkflow(wf);
                 if (val.valid) {
-                    console.log('✔ Workflow graph is valid (acyclic, reachable)');
+                    console.log('✔ Workflow graph definition is valid (no cycles, reachable exit).');
                 } else {
                     console.error('✖ Workflow validation failed:');
                     for (const err of val.errors) {
@@ -205,88 +229,83 @@ async function main(): Promise<void> {
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
-                const redactStr = getOption(args, '--redact=');
-                const redactList = redactStr ? redactStr.split(',') : [];
-                const report = inspectWorkflow(wf, { redact: redactList });
-                writeOutput(JSON.stringify(report, null, 2), outArg);
+                const redactArg = getOption(args, '--redact=');
+                const redact = redactArg ? redactArg.split(',') : undefined;
+                const insp = inspectWorkflow(wf, { redact });
+
+                writeOutput(JSON.stringify(insp, null, 2), outArg);
                 break;
             }
 
             case 'checkpoint': {
                 if (!target) {
-                    console.error('Error: specify checkpoint JSON file (e.g. siglo checkpoint stack-state.json)');
+                    console.error('Error: specify checkpoint file path (e.g. siglo checkpoint checkpoint.json)');
                     process.exit(1);
                 }
-                const cpPath = path.resolve(process.cwd(), target);
-                const content = fs.readFileSync(cpPath, 'utf-8');
-                const redactStr = getOption(args, '--redact=');
-                const redactList = redactStr ? redactStr.split(',') : [];
-                const inspected = inspectCheckpoint(content, { redact: redactList });
-                writeOutput(JSON.stringify(inspected, null, 2), outArg);
+                const resolved = path.resolve(process.cwd(), target);
+                if (!fs.existsSync(resolved)) {
+                    throw new Error(`Checkpoint file not found: ${resolved}`);
+                }
+                const redactArg = getOption(args, '--redact=');
+                const redact = redactArg ? redactArg.split(',') : undefined;
+                const insp = inspectCheckpoint(fs.readFileSync(resolved, 'utf-8'), { redact });
+                writeOutput(JSON.stringify(insp, null, 2), outArg);
                 break;
             }
 
             case 'replay': {
-                if (!target) {
-                    console.error('Error: specify fixture file (e.g. siglo replay fixture.json [workflow.ts])');
+                const fixturePath = target;
+                const workflowPath = args[2];
+                if (!fixturePath || !workflowPath) {
+                    console.error(
+                        'Error: specify fixture and workflow (e.g. siglo replay fixture.json src/workflow.ts)',
+                    );
                     process.exit(1);
                 }
-                const wfPath = args[2] || 'src/workflow.ts';
-                const wf = await loadWorkflowFromFile(wfPath);
-                const fixturePath = path.resolve(process.cwd(), target);
+                const wf = await loadWorkflowFromFile(workflowPath);
                 const result = await replayFixture(wf, fixturePath);
                 if (result.success) {
                     console.log(`✔ Replay passed in ${result.durationMs}ms`);
                 } else {
-                    console.error('✖ Replay failed with discrepancies:', JSON.stringify(result.diff, null, 2));
+                    console.error(`✖ Replay failed in ${result.durationMs}ms`);
+                    if (result.diff) {
+                        console.error('Discrepancies found:', JSON.stringify(result.diff, null, 2));
+                    }
                     process.exit(1);
                 }
                 break;
             }
 
             case 'monitor': {
-                const portStr = getOption(args, '--port=');
-                const port = portStr ? parseInt(portStr, 10) : 4000;
-                const host = getOption(args, '--host=') || '0.0.0.0';
-                const ns = getOption(args, '--namespace=');
-                let wf: any;
-                if (target && !target.startsWith('--')) {
-                    try {
-                        wf = await loadWorkflowFromFile(target);
-                    } catch (e: any) {
-                        console.warn(`Warning: Could not load workflow ${target}: ${e.message}`);
-                    }
+                const port = getOption(args, '--port=') ? parseInt(getOption(args, '--port=')!, 10) : 4000;
+                const host = getOption(args, '--host=') || '127.0.0.1';
+                const namespace = getOption(args, '--namespace=');
+                let flowCandidate: any;
+                if (target) {
+                    flowCandidate = await loadWorkflowFromFile(target);
                 }
-                const monitor = await startMonitor({ port, host, namespace: ns, flow: wf });
-                console.log(
-                    `🚀 Siglo Live Monitor running at http://${host === '0.0.0.0' ? 'localhost' : host}:${monitor.port}`,
-                );
-                console.log(`   - Dashboard: http://localhost:${monitor.port}/`);
-                console.log(`   - SSE Stream: http://localhost:${monitor.port}/events`);
-                console.log(`   - WebSocket: ws://localhost:${monitor.port}/ws`);
-                console.log(`   - Prometheus Metrics: http://localhost:${monitor.port}/metrics`);
+                console.log(`Starting Siglo Monitor dev dashboard on http://${host}:${port} ...`);
+                await startMonitor({ port, host, namespace, flow: flowCandidate });
                 break;
             }
 
             case 'reconcile': {
-                const staleStr = getOption(args, '--stale-threshold=') || '10m';
-                const actionArg = (getOption(args, '--action=') || 'compensate') as 'compensate' | 'fail' | 'inspect';
-                const modeArg = (getOption(args, '--mode=') || 'best-effort') as 'strict' | 'best-effort';
-                const ns = getOption(args, '--namespace=');
-                let wf: any;
-                if (target && !target.startsWith('--')) {
-                    try {
-                        wf = await loadWorkflowFromFile(target);
-                    } catch (e: any) {
-                        console.warn(`Warning: Could not load workflow ${target}: ${e.message}`);
-                    }
+                let flowCandidate: any;
+                if (target) {
+                    flowCandidate = await loadWorkflowFromFile(target);
                 }
+                const staleThreshold = getOption(args, '--stale=');
+                const action = (getOption(args, '--action=') || 'compensate') as 'compensate' | 'fail' | 'inspect';
+                const mode = (getOption(args, '--mode=') || 'best-effort') as 'strict' | 'best-effort';
+                const namespace = getOption(args, '--namespace=');
+
+                console.log(`Reconciling abandoned workflow executions (threshold: ${staleThreshold || '10m'})...`);
                 const report = await reconcileCommand({
-                    staleThreshold: staleStr,
-                    action: actionArg,
-                    mode: modeArg,
-                    namespace: ns,
-                    flow: wf,
+                    staleThreshold,
+                    action,
+                    mode,
+                    namespace,
+                    flow: flowCandidate,
                 });
                 writeOutput(JSON.stringify(report, null, 2), outArg);
                 break;

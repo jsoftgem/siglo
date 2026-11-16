@@ -71,7 +71,7 @@
           },
           {
             "group": "Developer Tools",
-            "pages": ["ide-workflow-explorer", "live-monitoring", "ecosystem-devtools"]
+            "pages": ["ide-workflow-explorer", "live-monitoring", "ecosystem-devtools", "agent-skills"]
           },
           {
             "group": "Engineering Deep Dives",

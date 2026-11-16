@@ -8,5 +8,6 @@ grill
 .DS_Store
 .stryker-tmp
 reports
+packages/*/skills
 
 examples/signed-order-intake/.local/

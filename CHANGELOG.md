@@ -7,23 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.6] - 2026-11-16
+
+### Added
+
+- **AI Agent Skills Suite & CLI Distribution (`skills/`, `.agents/skills`, `@siglo/cli`, `@siglo/core`)**:
+    - Published comprehensive suite of four specialized Agent Skills for AI coding assistants (Antigravity, JetBrains AI, Cursor, Claude Code, GitHub Copilot):
+        - `siglo-workflow-development`: 5-phase step lifecycle, accumulated context inference, automatic LIFO Saga compensations, retries with exponential backoff & jitter, combinators (`parallel`, `race`, `when`, `branch`, `map`), and Mermaid diagram exports.
+        - `siglo-durable-workflows`: Asynchronous event suspensions (`waitForEvent`), durable timer sleeps (`wait`), webhook resumptions, PostgreSQL & Redis OCC persistence adapters, and zero-downtime state migrations.
+        - `siglo-ecosystem-adapters`: Web framework middlewares (Express, Fastify, Hono), background queue workers (BullMQ, Kafka, AWS SQS partial batch responses), multi-provider AI steps (`@siglo/ai`), resilient HTTP (`@siglo/http`), and OpenTelemetry tracing.
+        - `siglo-testing-and-replay`: Zero-flake testing harness (`createWorkflowHarness`), step mocks & spies, virtual clock time travel (`FakeClock`), and golden execution replay.
+    - Added `siglo skills install` (and `siglo skills add`) CLI command in `@siglo/cli` to install skills directly into local `.agents/skills` directories.
+    - Integrated automatic Agent Skills scaffolding into `siglo init`.
+    - Bundled verified skills inside `@siglo/core` and `@siglo/cli` npm tarballs.
+    - Published interactive tutorial documentation in `docs/agent-skills.md` and registered under Developer Tools in `docs/docs.json`.
+
+### Changed
+
+- Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.2.6`.
+
 ## [1.2.5] - 2026-11-15
 
 ### Added
 
 - **Distributed Cross-Service Workflows & Multi-Domain Correlation (`examples/src/distributed-domains-stackid`, `examples/distributed-cross-service-workflows`)**:
-  - Added parent-child correlated workflow pattern linking independent domain workflows (Order Service → Fulfillment Service) through explicit stack ID propagation (`${stackId}:fulfillment`) and tenant namespace propagation (`x-tenant-id` / `x-namespace`).
-  - Added runnable multi-service architecture with Redis event pub/sub transport, standalone HTTP servers, and containerized Docker Compose environment.
-  - Published comprehensive multi-domain guide in `docs/distributed-cross-service-workflows.md`.
+    - Added parent-child correlated workflow pattern linking independent domain workflows (Order Service → Fulfillment Service) through explicit stack ID propagation (`${stackId}:fulfillment`) and tenant namespace propagation (`x-tenant-id` / `x-namespace`).
+    - Added runnable multi-service architecture with Redis event pub/sub transport, standalone HTTP servers, and containerized Docker Compose environment.
+    - Published comprehensive multi-domain guide in `docs/distributed-cross-service-workflows.md`.
 
 ### Fixed
 
 - **Live Monitoring Dashboard Namespace Filtering (`@siglo/monitor`)**:
-  - Fixed issue where selecting a namespace in the Live Monitor header dropdown failed to filter workflow runs in `RunList` and `StatsOverview`.
-  - Preserved discovered tenant namespaces in the header dropdown to enable 0ms instantaneous tenant switching without re-establishing SSE connections.
-  - Added tenant namespace indicator badges to workflow list item cards.
-  - Synced selected namespace filter to browser URL query parameter (`?namespace=...`) via `window.history.replaceState`.
-  - Scoped `useWorkflowMonitor` state hydration and event ingestion to the active namespace partition.
+    - Fixed issue where selecting a namespace in the Live Monitor header dropdown failed to filter workflow runs in `RunList` and `StatsOverview`.
+    - Preserved discovered tenant namespaces in the header dropdown to enable 0ms instantaneous tenant switching without re-establishing SSE connections.
+    - Added tenant namespace indicator badges to workflow list item cards.
+    - Synced selected namespace filter to browser URL query parameter (`?namespace=...`) via `window.history.replaceState`.
+    - Scoped `useWorkflowMonitor` state hydration and event ingestion to the active namespace partition.
 
 ### Changed
 
@@ -34,12 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **IDE Interactive Step & Range Runner (`@siglo/ide-runner`, `@siglo/ide-ui`, `@siglo/ide-protocol`, `@siglo/vscode`, IntelliJ Plugin)**:
-  - Added the **Run** tab in the visualizer right panel to execute real application code for a single step or an inclusive sequential step range (`reserveStock → chargePayment`).
-  - Added `executionRange` topology calculation in `@siglo/ide-protocol` to resolve sequential ranges, reject invalid/boundary-crossing selections, and highlight active paths on the DAG canvas.
-  - Added isolated child worker process execution in `@siglo/ide-runner` communicating over newline JSON stdio / IPC using project `tsx` and local Node.js.
-  - Added support for `.siglo/run.json` project configuration (`cwd`, `setupModule`, `env` overrides).
-  - Added input JSON formatting, live step status tracking (`Running...`, `Completed`, `Failed`, `Cancelled`), execution elapsed timers, Pretty and Raw JSON output views with one-click clipboard copying, and safe cancellation.
-  - Added core step execution hooks (`ExecutionOptions.onStepResult`) in `@siglo/core` exposing unredacted local step return values to the IDE runner.
+    - Added the **Run** tab in the visualizer right panel to execute real application code for a single step or an inclusive sequential step range (`reserveStock → chargePayment`).
+    - Added `executionRange` topology calculation in `@siglo/ide-protocol` to resolve sequential ranges, reject invalid/boundary-crossing selections, and highlight active paths on the DAG canvas.
+    - Added isolated child worker process execution in `@siglo/ide-runner` communicating over newline JSON stdio / IPC using project `tsx` and local Node.js.
+    - Added support for `.siglo/run.json` project configuration (`cwd`, `setupModule`, `env` overrides).
+    - Added input JSON formatting, live step status tracking (`Running...`, `Completed`, `Failed`, `Cancelled`), execution elapsed timers, Pretty and Raw JSON output views with one-click clipboard copying, and safe cancellation.
+    - Added core step execution hooks (`ExecutionOptions.onStepResult`) in `@siglo/core` exposing unredacted local step return values to the IDE runner.
 
 ### Changed
 
@@ -52,17 +71,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **IDE Static Diagnostics (Milestone 2 - `@siglo/ide-analysis`, `@siglo/vscode`, IntelliJ Plugin)**:
-  - Surface in-editor diagnostic annotations and warnings without executing application code:
-    - DAG cyclic dependency detection (`SIGLO_STATIC_CYCLE`).
-    - Missing compensation warnings for sagas with side-effect steps (`SIGLO_MISSING_COMPENSATION`).
-    - Unhandled error branch warnings in durable workflows (`SIGLO_UNHANDLED_ERROR_BRANCH`).
-    - Duplicate step ID validation within the same workflow (`SIGLO_DUPLICATE_STEP_ID`).
-  - Integrated via `DiagnosticCollection` in VS Code and `SigloWorkflowInspection` (`LocalInspectionTool`) / `SigloWorkflowAnnotator` (`ExternalAnnotator`) in IntelliJ IDEA.
+    - Surface in-editor diagnostic annotations and warnings without executing application code:
+        - DAG cyclic dependency detection (`SIGLO_STATIC_CYCLE`).
+        - Missing compensation warnings for sagas with side-effect steps (`SIGLO_MISSING_COMPENSATION`).
+        - Unhandled error branch warnings in durable workflows (`SIGLO_UNHANDLED_ERROR_BRANCH`).
+        - Duplicate step ID validation within the same workflow (`SIGLO_DUPLICATE_STEP_ID`).
+    - Integrated via `DiagnosticCollection` in VS Code and `SigloWorkflowInspection` (`LocalInspectionTool`) / `SigloWorkflowAnnotator` (`ExternalAnnotator`) in IntelliJ IDEA.
 
 - **Ecosystem Deep-Dive Inspectors & Offline Telemetry (Milestone 4 - `@siglo/ide-protocol`, `@siglo/ide-ui`, `@siglo/vscode`, IntelliJ Plugin)**:
-  - Dedicated inspector panels for HTTP, Crypto, Notification, and AI ecosystem steps.
-  - Offline local JSON telemetry recording import (`Siglo: Import Telemetry Recording...` in VS Code and `Import Siglo Telemetry Recording...` in IntelliJ).
-  - Unambiguous workflow/version and step identity source matching with fail-closed secret redaction (credentials, raw payloads, and authorization headers never touch the webview DOM or clipboard).
+    - Dedicated inspector panels for HTTP, Crypto, Notification, and AI ecosystem steps.
+    - Offline local JSON telemetry recording import (`Siglo: Import Telemetry Recording...` in VS Code and `Import Siglo Telemetry Recording...` in IntelliJ).
+    - Unambiguous workflow/version and step identity source matching with fail-closed secret redaction (credentials, raw payloads, and authorization headers never touch the webview DOM or clipboard).
 
 ### Changed
 

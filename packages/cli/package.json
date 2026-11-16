@@ -1,6 +1,6 @@
 {
   "name": "@siglo/cli",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Command-line tools for scaffolding, visualizing, inspecting, and replaying Siglo TypeScript workflows.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,14 +20,15 @@
     "dist",
     "README.md",
     "ECOSYSTEM.md",
-    "LICENSE"
+    "LICENSE",
+    "skills"
   ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node -e 'require(\"fs\").cpSync(\"../../skills\", \"./skills\", {recursive: true})' && tsc -p tsconfig.json",
     "prepublishOnly": "npm run build",
     "test": "npm run build && mocha -r tsx 'src/**/*.test.ts'"
   },
