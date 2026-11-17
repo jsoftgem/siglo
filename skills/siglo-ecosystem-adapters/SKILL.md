@@ -15,7 +15,7 @@ Siglo provides native middleware adapters that map HTTP requests to workflow exe
 
 - `200 OK`: Workflow executed successfully.
 - `202 Accepted`: Workflow suspended at a durable wait node (`waitForEvent` or `wait`).
-- `400 Bad Request`: `ValidationException` or `.schema()` failure.
+- `400 Bad Request`: `ValidationException`, `.spec()`, or `.schema()` failure.
 - `409 Conflict`: `IdempotencyConflictException` or OCC version conflict.
 - `504 Gateway Timeout`: `StepTimeoutException` or workflow timeout.
 
