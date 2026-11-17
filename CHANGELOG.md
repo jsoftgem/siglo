@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.7] - 2026-11-17
+
+### Added
+
+- **AI Agent Skills: Zero-Trust Security & Runtime Resilience (`skills/`, `.agents/skills`, `@siglo/cli`, `@siglo/core`)**:
+    - Added `siglo-security-and-guardrails`: Declarative in-process zero-trust network perimeter guardrails via AsyncLocalStorage (`allowNetwork`, `denyNetwork`, `allowUnixSockets`, `networkPolicy`), `NetworkPolicyViolationException` handling, and cryptographic envelope protection with `@siglo/crypto`.
+    - Added `siglo-runtime-and-resilience`: Runtime execution controls via `ExecutionOptions` (`signal: AbortSignal`, `timeout`, `services`, `namespace`, `pojo`), pre-flight AST graph verification with `assertValidGraph()`, structured error taxonomy, and Dead-Letter Queue (DLQ) escalations on unresolvable saga compensations.
+    - Enhanced `siglo-workflow-development`: Added full awareness and documentation for Step input contracts (`.spec()`, `.strict()`, `.schema()`) with async validation predicates, sanitizing transformers, translation/remapping, default fallbacks, and strict parameter filtering.
+    - Updated hands-on interactive tutorial in `docs/agent-skills.md` with idiomatic zero-trust security perimeter lockdown and resilient runner patterns.
+
+### Changed
+
+- Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.2.7`.
+
 ## [1.2.6] - 2026-11-16
 
 ### Added
