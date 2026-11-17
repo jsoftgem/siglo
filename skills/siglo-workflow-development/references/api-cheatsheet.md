@@ -27,8 +27,20 @@ All methods are chainable on a `Step` instance:
 
 ```typescript
 const step = Step.create('myStep', async ctx => ({ result: 1 }))
-    .schema(ZodSchema) // Validates input against Standard Schema (Zod, Valibot, ArkType)
-    .spec({ orderId: { required: true } }) // Built-in rule validator
+    // Validation, sanitization, translation & parameter hygiene
+    .spec('email', {
+        require: true,
+        requireMessage: 'Customer email is required',
+        default: 'guest@example.com',
+        validate: async (email: string) => {
+            if (!email.includes('@')) throw new Error('Invalid email format');
+        },
+        transform: async (email: string) => email.trim().toLowerCase(),
+        translate: async (email: string, ctx: any) => ctx.set('userEmail', email),
+        schema: z.string().email(),
+    })
+    .strict() // Strips undeclared parameters before action execution
+    .schema(ZodSchema) // Validates full input against Standard Schema (Zod, Valibot, ArkType)
     .onBefore(async ctx => shouldRun(ctx)) // Gate predicate: return false to skip action
     .onSkip(ctx => ({ result: 0 })) // Fallback data when onBefore returns false
     .onAfter(async (output, ctx) => out) // Transform output before context merge
@@ -48,9 +60,23 @@ const step = Step.create('myStep', async ctx => ({ result: 1 }))
     .cache({ keyBuilder, ttlMs, store }); // Cache successful responses
 ```
 
+### 2.1 Input Contracts: `step.spec(field, options)` & `step.strict()`
+
+| Method / Option  | Type                                       | Description                                                              |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
+| `require`        | `boolean \| (() => boolean)`               | Enforces field presence; throws `ValidationException` if missing.        |
+| `requireMessage` | `string`                                   | Custom error message when `require` validation fails.                    |
+| `default`        | `any`                                      | Default fallback value if field is `undefined`.                          |
+| `validate`       | `(val: any) => Promise<void>`              | Async validator; throws or rejects to fail validation.                   |
+| `transform`      | `(val: any) => Promise<any>`               | Async transformer; returns sanitized or coerced value in-place.          |
+| `translate`      | `(val: any, ctx: any) => Promise<void>`    | Async translator; projects or remaps into context via `ctx.set(key, v)`. |
+| `schema`         | `StandardSchema \| ZodSchema \| Predicate` | Per-field Standard Schema validation or predicate function.              |
+| `step.strict()`  | `() => Step`                               | Filters out all undeclared properties from incoming parameter context.   |
+| `step.schema(s)` | `(schema: any) => Step`                    | Validates entire incoming context against Standard Schema / Zod.         |
+
 ---
 
-## 3. Flow Execution Options (`flow.run(input, options)`)
+## 3. Flow Execution Options (`flow.run(input, options)`)\n
 
 ```typescript
 interface ExecutionOptions {

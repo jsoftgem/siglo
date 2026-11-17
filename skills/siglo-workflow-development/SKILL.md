@@ -1,6 +1,6 @@
 ---
 name: siglo-workflow-development
-description: 'Author, structure, and optimize in-process TypeScript workflows using the Siglo workflow framework (@siglo/core). Use when creating or editing workflows, defining Steps (`Step.create`), chaining with `flow()`, managing accumulated context and type inference, configuring validation (with Zod/Standard Schema or `.spec()`), implementing Sagas and LIFO compensation rollbacks (`.compensate()`), configuring retry policies with exponential backoff & jitter (`.onFail()`), timeouts, idempotency (`.idempotent()`), caching (`.cache()`), and combinators (`parallel`, `race`, `when`, `branch`, `map`).'
+description: 'Author, structure, and optimize in-process TypeScript workflows using the Siglo workflow framework (@siglo/core). Use when creating or editing workflows, defining Steps (`Step.create`), chaining with `flow()`, managing accumulated context and type inference, configuring validation, transformation, and translation with `.spec()` or Standard Schema/Zod, enforcing strict parameter filtering with `.strict()`, implementing Sagas and LIFO compensation rollbacks (`.compensate()`), configuring retry policies with exponential backoff & jitter (`.onFail()`), timeouts, idempotency (`.idempotent()`), caching (`.cache()`), and combinators (`parallel`, `race`, `when`, `branch`, `map`).'
 ---
 
 # Siglo Workflow Development
@@ -73,7 +73,7 @@ Every step executes through a strict 5-phase lifecycle:
 
 ```mermaid
 flowchart TD
-    P1["1. VALIDATION<br/>(Spec rules / Standard Schema / Zod)"]
+    P1["1. VALIDATION & CONTRACTS<br/>(.spec() / transform / translate / .strict() / .schema())"]
     P2["2. BEFORE HOOK<br/>(Gate check with onBefore, skip with onSkip)"]
     P3["3. ACTION<br/>(Core idempotent logic & service calls)"]
     P4["4. AFTER HOOK<br/>(onAfter context transformations)"]
@@ -88,19 +88,92 @@ flowchart TD
     P4 -.->|error| P5
 ```
 
-### 1. Validation (`.spec()` or Standard Schema)
+### 1. Input Contracts: Validation, Transformation, and Translation (`.spec()`, `.strict()`, `.schema()`)
 
-Validates inputs before entering action logic. Rejections throw `ValidationException` (non-retryable by default).
+Before executing action logic or `onBefore` guards, Siglo enforces parameter contracts declared via `.spec()` or `.schema()`. Any failure throws `ValidationException` (or `SpecFailedException`, non-retryable by default).
+
+#### Granular Field Contracts with `step.spec(field, options)`
+
+The `.spec()` API declares granular parameter constraints, default values, transforms, translations, and per-field schemas for specific context fields:
 
 ```typescript
+export interface SpecData {
+    require?: boolean | (() => boolean);
+    requireMessage?: string;
+    default?: any;
+    validate?: (value: any) => Promise<void>; // Async validator function (throw on error)
+    transform?: (value: any) => Promise<any>; // Async transformer function
+    translate?: (value: any, context?: any) => Promise<void>; // Async translator function
+    schema?: any; // Standard schema (~standard, Zod, Valibot) or predicate (value: any) => boolean
+}
+```
+
+- **Validation (`validate`)**: Async validator function. Throw an error or reject to fail validation with a `ValidationException`.
+- **Transformation (`transform`)**: Async transformer function. Receives the raw field value, computes the sanitized or coerced result (e.g. `.trim().toUpperCase()`, number coercion, date parsing), and resolves with the new value before action execution.
+- **Translation (`translate`)**: Async field projection/remapping. Receives `(value, context)` and can alias, rename, or project values into new context keys using `context.set('newKey', value)`.
+- **Presence Enforcement (`require` & `requireMessage`)**: Enforces that a field is present and non-empty. Supports boolean or dynamic predicate functions with custom error messages.
+- **Default Fallback (`default`)**: Supplies a default fallback value if the parameter is `undefined`.
+- **Field Schema (`schema`)**: Validates the individual field against a Standard Schema / Zod schema or custom predicate function.
+
+```typescript
+import { Step } from '@siglo/core';
 import { z } from 'zod';
 
-const OrderSchema = z.object({
-    orderId: z.string().min(1),
-    quantity: z.number().int().positive(),
-});
+export const sanitizeAndRegisterUser = Step.create(
+    'registerUser',
+    async (param: { cleanEmail: string; newsletterOptIn: boolean; age: number }) => {
+        return { accountCreated: true, email: param.cleanEmail };
+    },
+)
+    // 1. Validate, transform, and translate email in context
+    .spec('email', {
+        require: true,
+        requireMessage: 'Customer email is mandatory.',
+        validate: async (email: string) => {
+            if (!email.includes('@')) throw new Error('Invalid email format');
+        },
+        transform: async (email: string) => email.trim().toLowerCase(),
+        translate: async (email: string, ctx: any) => {
+            ctx.set('cleanEmail', email); // Translates / remaps to new field in context
+        },
+    })
+    // 2. Default fallback values
+    .spec('newsletterOptIn', {
+        default: false,
+    })
+    // 3. Per-field Standard Schema validation
+    .spec('age', {
+        schema: z.number().int().min(18),
+    });
+```
 
-const validateStep = Step.create('validate', handler).schema(OrderSchema); // Standard Schema compatible
+#### Strict Parameter Filtering with `step.strict()`
+
+Use `.strict()` to enforce parameter hygiene. When `.strict()` is enabled, any undeclared context properties are filtered out before the action executes, ensuring the action handler only receives explicitly declared `.spec()` fields:
+
+```typescript
+const strictStep = Step.create('createAccount', async (param: any) => {
+    // Only declared spec fields ('username') exist in param; extra keys are stripped
+    return { created: param.username, hasExtra: 'extraField' in param };
+})
+    .spec('username', { require: true })
+    .strict();
+
+const result = await strictStep.run({ username: 'alice', extraField: 'filtered out' } as any);
+console.log(result.hasExtra); // false
+```
+
+#### Full Context Schema Validation (`step.schema(schema)`)
+
+Validates the complete execution context against standard schema validators supporting the [Standard Schema](https://github.com/standard-schema/standard-schema) specification (`~standard`), including **Zod**, **Valibot**, and **ArkType**:
+
+```typescript
+import { Step } from '@siglo/core';
+import { z } from 'zod';
+
+const OrderInputSchema = z.object({\n    orderId: z.string().min(1),\n    amount: z.number().positive(),\n    currency: z.enum(['USD', 'EUR', 'GBP']),\n});
+
+export const processPayment = Step.create('processPayment', async (param: z.infer<typeof OrderInputSchema>) => {\n    return { paymentCaptured: true };\n}).schema(OrderInputSchema);
 ```
 
 ### 2. Before Hook & Conditional Skipping (`.onBefore()`, `.onSkip()`)
@@ -363,3 +436,4 @@ npx siglo export src/workflows/checkout.ts --format=mermaid > docs/checkout.md
 4. **Idempotent Compensations**: Compensations may be called during recovery or network retries; make them safe against missing resources.
 5. **Use `pojo: true` at Boundaries**: When returning data to HTTP clients or message queues, pass `{ pojo: true }` to unwrap proxy wrappers.
 6. **Prefer `map()` over `Promise.all`**: When iterating over arrays inside workflows, use `map()` combinator to enforce concurrency bounds and proper tracing.
+7. **Validate, Transform & Sanitize Early with `.spec()`**: Use `.spec()` to enforce field requirements, validate constraints, apply default fallbacks, sanitize inputs with `transform`, and alias keys with `translate`. Use `.strict()` at public API boundaries to prevent parameter pollution.
