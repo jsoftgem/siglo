@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.siglo"
-version = "1.2.5"
+version = "1.2.7"
 
 repositories {
     mavenCentral()
