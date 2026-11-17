@@ -29,19 +29,34 @@ export function createOrderFulfillmentFlow(deps: {
     payment: PaymentService;
     shipping: ShippingService;
 }) {
-    // 2. Validate Order Step
+    // 2. Validate, Transform, and Enforce Order Input via .spec() and .strict()
     const validateOrder = Step.create('validateOrder', (order: OrderInput) => {
-        if (!order.orderId || !order.sku) {
-            throw new Error('Order ID and SKU are required');
-        }
-        if (order.quantity <= 0 || !Number.isInteger(order.quantity)) {
-            throw new Error('Quantity must be a positive integer');
-        }
-        if (order.amountCents <= 0) {
-            throw new Error('Amount must be positive');
-        }
         return { validatedAt: new Date().toISOString() };
-    });
+    })
+        .spec('orderId', {
+            require: true,
+            requireMessage: 'Order ID is required',
+        })
+        .spec('sku', {
+            require: true,
+            transform: async (sku: string) => sku.trim().toUpperCase(), // Sanitizes / normalizes input
+        })
+        .spec('quantity', {
+            require: true,
+            validate: async (qty: number) => {
+                if (!Number.isInteger(qty) || qty <= 0) throw new Error('Quantity must be a positive integer');
+            },
+        })
+        .spec('amountCents', {
+            require: true,
+            validate: async (amt: number) => {
+                if (typeof amt !== 'number' || amt <= 0) throw new Error('amountCents must be positive');
+            },
+        })
+        .spec('shippingPriority', {
+            default: 'standard', // Fallback default value
+        })
+        .strict(); // Filters out any undeclared payload properties
 
     // 3. Reserve Stock with Compensation
     const reserveStock = Step.create('reserveStock', async (ctx: OrderInput) => {
