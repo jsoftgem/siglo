@@ -41,6 +41,26 @@ describe('durable acceptance safety', () => {
             WorkflowAlreadyResumedException,
         );
     });
+    it('rejects conflicting tenant ownership under the lock before accepting a payload', async () => {
+        let claims = 0;
+        useStorage({
+            name: 'scoped',
+            getWaitRecord: async () => ({ ...record, namespace: 'owner' }),
+            claimWaitRecord: async () => {
+                claims++;
+            },
+        });
+        await assert.rejects(
+            resumeWorkflow(
+                flow(new Step('effect', async () => ({}))),
+                record.correlationKey,
+                {},
+                { namespace: 'other' },
+            ),
+            /namespace/,
+        );
+        assert.equal(claims, 0);
+    });
     it('does not swallow expiry validation from a storage claim', async () => {
         useStorage({
             name: 'safety',

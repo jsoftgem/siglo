@@ -43,6 +43,7 @@ class MockPostgresClient implements PostgresClientInterface {
             return { rows: [], rowCount: 0 };
         }
         if (
+            text.startsWith('SELECT STATE, VERSION, CREATED_AT FROM SIGLO_CHECKPOINTS') ||
             text.startsWith('SELECT STATE, VERSION FROM SIGLO_CHECKPOINTS') ||
             text.startsWith('SELECT STATE FROM SIGLO_CHECKPOINTS')
         ) {
