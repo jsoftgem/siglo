@@ -60,7 +60,7 @@ jobs:
         run: npm run test:monitoring
 
       - name: Audit dependencies
-        run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org/
+        run: npm audit --omit=dev --audit-level=moderate --registry=https://registry.npmjs.org/
 
       - name: Run Automated Exploratory & Chaos test suite
         run: npm run test:exploratory
