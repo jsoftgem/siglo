@@ -1,0 +1,91 @@
+{
+  "name": "@siglo/query",
+  "version": "1.2.8",
+  "description": "Query and project Siglo workflow checkpoints.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./cursor": {
+      "types": "./dist/cursor.d.ts",
+      "default": "./dist/cursor.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js",
+      "require": "./dist/mcp/index.js",
+      "default": "./dist/mcp/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && mocha 'src/**/*.test.ts'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsoftgem/siglo.git",
+    "directory": "packages/query"
+  },
+  "author": "Jerico de Guzman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jsoftgem/siglo/issues"
+  },
+  "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/query#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@siglo/core": "^1.0.0",
+    "graphql": "^17.1.0"
+  },
+  "peerDependencies": {
+    "graphql-ws": "^5.14.0 || ^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "graphql-ws": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "chai": "^3.5.0",
+    "graphql-ws": "^6.4.3",
+    "mocha": "^12.0.3",
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.0",
+    "ws": "^8.23.0"
+  },
+  "keywords": [
+    "siglo",
+    "workflow",
+    "query",
+    "mcp"
+  ],
+  "typesVersions": {
+    "*": {
+      "cursor": [
+        "dist/cursor.d.ts"
+      ],
+      "mcp": [
+        "dist/mcp/index.d.ts"
+      ]
+    }
+  }
+}

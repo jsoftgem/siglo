@@ -1,6 +1,6 @@
 {
   "name": "@siglo/postgres",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "PostgreSQL persistence adapter for Siglo TypeScript workflows with durable checkpoints, event auditing, and idempotency.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -39,7 +39,8 @@
   },
   "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/postgres#readme",
   "dependencies": {
-    "@siglo/core": "^1.0.0"
+    "@siglo/core": "^1.0.0",
+    "@siglo/query": "^1.2.7"
   },
   "peerDependencies": {
     "pg": "^8.0.0"

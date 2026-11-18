@@ -67,10 +67,18 @@ export async function resumeWorkflow(
                 ? await adapter.getCheckpoint(storedRecord.stackId)
                 : await defaultStorageManager.getCheckpoint(storedRecord.stackId)
             : undefined;
+        if (
+            options?.namespace !== undefined &&
+            (storedRecord?.namespace !== options.namespace ||
+                (checkpoint && checkpoint.namespace !== options.namespace))
+        ) {
+            throw new Error('Workflow namespace does not match the stored wait');
+        }
         if (checkpoint?.status === 'cancelled') throw new WorkflowAlreadyResumedException(correlationKey);
 
         if (adapter && typeof (adapter as any).claimWaitRecord === 'function') {
             waitRecord = await (adapter as any).claimWaitRecord(correlationKey, claimantId, {
+                namespace: options?.namespace,
                 allowExpired: isTimerExpired,
                 eventPayload,
             });

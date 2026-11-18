@@ -66,7 +66,9 @@
               "durable-distributed-checkout",
               "kafka-order-routing",
               "signed-order-intake",
-              "zero-code-apm-dashboards"
+              "zero-code-apm-dashboards",
+              "querying-workflows-graphql",
+              "querying-workflows-mcp"
             ]
           },
           {
@@ -93,7 +95,7 @@
           },
           {
             "group": "Storage & Persistence",
-            "pages": ["adapters/postgres", "adapters/redis", "adapters/scheduler"]
+            "pages": ["adapters/postgres", "adapters/redis", "adapters/scheduler", "adapters/query"]
           },
           {
             "group": "Messaging & Queues",

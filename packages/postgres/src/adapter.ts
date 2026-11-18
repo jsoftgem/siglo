@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
     StorageAdapter,
@@ -7,6 +8,8 @@ import {
     ExpiredWaitException,
 } from '@siglo/core';
 import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
+
+import { creationTime, workflowStatus, listWorkflows, type ListingOptions } from './query';
 
 function validateIdentifier(name: string, paramName: string): string {
     if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
@@ -53,6 +56,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
      * Initializes the necessary PostgreSQL schema and tables if they do not exist.
      */
     async ensureTables(): Promise<void> {
+        const indexSuffix = createHash('sha256').update(this.checkpointsTable.toLowerCase()).digest('hex').slice(0, 16);
         await this.client.query(`
             CREATE TABLE IF NOT EXISTS ${this.checkpointsTable} (
                 stack_id VARCHAR(255) PRIMARY KEY,
@@ -64,6 +68,11 @@ export class PostgresStorageAdapter implements StorageAdapter {
             );
             ALTER TABLE ${this.checkpointsTable} ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 1;
             CREATE INDEX IF NOT EXISTS idx_${this.checkpointsTable}_namespace ON ${this.checkpointsTable}(namespace);
+
+            CREATE INDEX IF NOT EXISTS idx_query_created_${indexSuffix} ON ${this.checkpointsTable}
+                (namespace, (${creationTime}) DESC, stack_id COLLATE "C");
+            CREATE INDEX IF NOT EXISTS idx_query_status_${indexSuffix} ON ${this.checkpointsTable} (namespace, (${workflowStatus}));
+            CREATE INDEX IF NOT EXISTS idx_query_metadata_${indexSuffix} ON ${this.checkpointsTable} USING gin ((state->'metadata') jsonb_path_ops);
 
             CREATE TABLE IF NOT EXISTS ${this.eventsTable} (
                 id BIGSERIAL PRIMARY KEY,
@@ -97,6 +106,10 @@ export class PostgresStorageAdapter implements StorageAdapter {
             CREATE INDEX IF NOT EXISTS idx_${this.waitRecordsTable}_stack ON ${this.waitRecordsTable}(stack_id);
             CREATE INDEX IF NOT EXISTS idx_${this.waitRecordsTable}_status ON ${this.waitRecordsTable}(status);
         `);
+    }
+
+    queryWorkflows(options: ListingOptions) {
+        return listWorkflows(this.client, this.checkpointsTable, options);
     }
 
     private trackWrite(action: () => Promise<void>): Promise<void> {
@@ -197,9 +210,10 @@ export class PostgresStorageAdapter implements StorageAdapter {
         if (!stackId) {
             return undefined;
         }
-        const res = await this.client.query(`SELECT state, version FROM ${this.checkpointsTable} WHERE stack_id = $1`, [
-            stackId,
-        ]);
+        const res = await this.client.query(
+            `SELECT state, version, created_at FROM ${this.checkpointsTable} WHERE stack_id = $1`,
+            [stackId],
+        );
         if (!res.rows || res.rows.length === 0) {
             return undefined;
         }
@@ -210,6 +224,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
             (checkpoint as any).occVersion = Number(row.version);
             checkpoint.revision = Number(row.version);
         }
+        if (checkpoint && row.created_at) checkpoint.createdAt = new Date(row.created_at).getTime();
         return checkpoint;
     }
 
@@ -380,7 +395,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
     async claimWaitRecord(
         correlationKey: string,
         claimantId: string = 'worker',
-        options?: { allowExpired?: boolean; eventPayload?: any },
+        options?: { allowExpired?: boolean; eventPayload?: any; namespace?: string },
     ): Promise<any> {
         if (!correlationKey) {
             throw new Error('claimWaitRecord requires a valid correlationKey.');
@@ -390,6 +405,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
              SET status = 'RESUMING', locked_at = NOW(), locked_by = $1,
                  resume_payload = COALESCE(resume_payload, $3::jsonb), updated_at = NOW()
              WHERE correlation_key = $2
+               AND ($6::text IS NULL OR namespace = $6)
                AND (status = 'WAITING' OR (status = 'RESUMING' AND $5))
                AND (resume_payload IS NOT NULL OR $4 OR expires_at IS NULL OR expires_at > NOW())
              RETURNING *`,
@@ -399,6 +415,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
                 JSON.stringify(options?.eventPayload ?? {}),
                 options?.allowExpired === true,
                 this.scope.getStore()?.active === true,
+                options?.namespace ?? null,
             ],
         );
         if (!res.rows || res.rows.length === 0) {

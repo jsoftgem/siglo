@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.8] - 2026-11-18
+
+### Added
+
+- **Query Adapter, GraphQL API & Model Context Protocol (MCP) Server (`@siglo/query`, `@siglo/query/mcp`, `@siglo/postgres`)**:
+    - Added `WorkflowQueryEngine` (`createWorkflowQueryEngine`) with accumulated context materialization, recursive secret redaction (`redactFields`), deterministic base64 cursor pagination, and `MemoryStorageAdapter` fallback.
+    - Added standard GraphQL SDL contract (`WORKFLOW_SCHEMA_SDL`, `createWorkflowGraphQLSchema`) with custom `JSON` and `DateTime` scalars, AST-driven zero-cost context projection, root `Query`/`Mutation`/`Subscription` resolvers, and strict tenant namespace guardrails.
+    - Extended `@siglo/postgres` with native `queryWorkflows` support, conditional `state->'contexts'` projection, composite cursor pagination indexes, and GIN metadata indexes.
+    - Added real-time GraphQL subscription transports over Server-Sent Events (SSE with configurable proxy heartbeats) and WebSockets (`graphql-ws`).
+    - Added drop-in GraphQL & SSE route handlers for Express (`createExpressQueryMiddleware`), Fastify (`fastifyQueryPlugin`), and Hono (`createHonoQueryHandler`).
+    - Added AI-native Model Context Protocol (MCP) server (`@siglo/query/mcp`, `createWorkflowMcpServer`) over `stdio` and `sse` transports with tools (`search_workflows`, `inspect_workflow`, `execute_workflow_query`, `resume_workflow`), resources (`siglo://workflows/active`, `siglo://workflows/{stackId}`, `siglo://schema/graphql`), and the `diagnose_failure` prompt template.
+    - Published adapter reference and tutorials in `docs/adapters/query.md`, `docs/querying-workflows-graphql.md`, and `docs/querying-workflows-mcp.md`.
+
+### Changed
+
+- Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.2.8`.
+
 ## [1.2.7] - 2026-11-17
 
 ### Added
@@ -249,7 +266,7 @@ This is the initial production release of **`Siglo`** (v1.0.0), marking the tran
 - **Virtual Clock (`FakeClock`)**: Deterministically advance time and timers without real-time delays.
 - **`WorkflowHarness`**: Complete testing harness with step spies, mock implementations, trace history, and event injection.
 - **Assertions**: Specialized assertions (`assertStepExecuted`, `assertStepRetried`, `assertStepFailed`).
-- **`InMemoryStorageFake`**: In-memory storage adapter for zero-infrastructure checkpoint and cache testing.
+- **`InMemoryStorageFake`**: In-memory storage adapter for zero-dependency testing.
 - **Execution Replay (`replayExecution`)**: Replay execution records against workflow definitions with golden parity assertions.
 
 #### Observability & Distributed Tracing (`@siglo/opentelemetry`)

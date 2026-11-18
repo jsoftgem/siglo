@@ -35,7 +35,7 @@ export interface StorageAdapter {
     claimWaitRecord?(
         correlationKey: string,
         claimantId?: string,
-        options?: { allowExpired?: boolean; eventPayload?: any },
+        options?: { allowExpired?: boolean; eventPayload?: any; namespace?: string },
     ): Promise<any>;
     completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
     withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
