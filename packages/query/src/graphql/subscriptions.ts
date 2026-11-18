@@ -178,6 +178,7 @@ export class DefaultWorkflowSubscriptionManager implements WorkflowSubscriptionM
             if (!exec) {
                 if (this.engine) {
                     try {
+                        await Promise.resolve();
                         const found = await this.engine.findById(stackId, {
                             namespace,
                             includeContext: true,
