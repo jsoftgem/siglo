@@ -16,6 +16,12 @@ function nodes(document?: GraphDocument): GraphNode[] {
 
 const SUPPORTED = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact']);
 
+function isTrackableDocument(document?: vscode.TextDocument): document is vscode.TextDocument {
+    if (!document) return false;
+    const scheme = document.uri.scheme;
+    return !scheme || scheme === 'file' || scheme === 'untitled';
+}
+
 export function activate(context: vscode.ExtensionContext): void {
     const output = vscode.window.createOutputChannel('Siglo');
     const diagnosticsCollection = vscode.languages.createDiagnosticCollection('siglo');
@@ -24,7 +30,15 @@ export function activate(context: vscode.ExtensionContext): void {
         output.appendLine(message);
     };
 
-    let active = vscode.window.activeTextEditor?.document;
+    const pickFallbackDocument = (): vscode.TextDocument | undefined => {
+        const current = vscode.window.activeTextEditor?.document;
+        if (current && isTrackableDocument(current)) return current;
+        return vscode.window.visibleTextEditors?.find(
+            editor => isTrackableDocument(editor.document) && SUPPORTED.has(editor.document.languageId),
+        )?.document;
+    };
+
+    let active: vscode.TextDocument | undefined = pickFallbackDocument();
     let graph: GraphDocument | undefined;
     let generation = 0;
     let edits: ReturnType<typeof setTimeout> | undefined;
@@ -43,7 +57,10 @@ export function activate(context: vscode.ExtensionContext): void {
         },
     );
 
-    async function refresh(automatic = false): Promise<void> {
+    async function refresh(_automatic = false): Promise<void> {
+        if (!active) {
+            active = pickFallbackDocument();
+        }
         const document = active;
         const ticket = ++generation;
         if (!document || !SUPPORTED.has(document.languageId) || !vscode.workspace.isTrusted) {
@@ -64,11 +81,21 @@ export function activate(context: vscode.ExtensionContext): void {
             return;
         }
         const version = document.version;
-        const result = await client.request<GraphDocument>(PROTOCOL_METHODS.GET_GRAPH, {
-            uri: document.uri.toString(),
-            documentVersion: version,
-            content: document.getText(),
-        });
+        let result: GraphDocument;
+        try {
+            result = await client.request<GraphDocument>(PROTOCOL_METHODS.GET_GRAPH, {
+                uri: document.uri.toString(),
+                documentVersion: version,
+                content: document.getText(),
+            });
+        } catch (error) {
+            if (ticket !== generation || active !== document) return;
+            report(error);
+            graph = undefined;
+            const message = error instanceof Error ? error.message : String(error);
+            await views.postStatus(message, 'error');
+            return;
+        }
         if (ticket !== generation || active !== document || document.version !== version) return;
         graph = result;
         await views.post(result);
@@ -98,10 +125,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     async function openTarget(targetUri?: string, targetRange?: SourceRange): Promise<void> {
         if (!active) return;
-        const selection = targetRange ? range(targetRange) : undefined;
+        const selectionRange = targetRange ? range(targetRange) : undefined;
         if (!targetUri || targetUri === active.uri.toString() || targetUri === graph?.uri) {
             await vscode.window.showTextDocument(active, {
-                ...(selection ? { selection } : {}),
+                ...(selectionRange ? { selection: selectionRange } : {}),
                 viewColumn: vscode.ViewColumn.One,
                 preview: false,
             });
@@ -111,7 +138,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (parsed.scheme !== 'file') return;
         const targetDoc = await vscode.workspace.openTextDocument(parsed);
         await vscode.window.showTextDocument(targetDoc, {
-            ...(selection ? { selection } : {}),
+            ...(selectionRange ? { selection: selectionRange } : {}),
             viewColumn: vscode.ViewColumn.One,
             preview: false,
         });
@@ -180,7 +207,9 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.workspace.onDidCloseTextDocument(closed => {
             diagnosticsCollection.delete(closed.uri);
         }),
-        vscode.window.registerWebviewViewProvider('siglo.workflows', views),
+        vscode.window.registerWebviewViewProvider('siglo.workflows', views, {
+            webviewOptions: { retainContextWhenHidden: true },
+        }),
         vscode.commands.registerCommand('siglo.importTelemetry', () => views.importTelemetry()),
         vscode.commands.registerCommand('siglo.openVisualizer', () => {
             views.open();
@@ -248,8 +277,8 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
         vscode.window.onDidChangeActiveTextEditor(editor => {
-            // Focusing a webview must preserve the source document it is displaying.
-            if (!editor) return;
+            // Focusing a webview or internal output/settings pane must preserve the source document it is displaying.
+            if (!editor || !isTrackableDocument(editor.document)) return;
             clearTimeout(edits);
             active = editor.document;
             void refresh().catch(report);

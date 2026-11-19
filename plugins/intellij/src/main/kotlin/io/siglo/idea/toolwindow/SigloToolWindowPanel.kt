@@ -27,6 +27,7 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.Alarm
+import io.siglo.idea.inspection.SigloWorkflowAnnotator
 import io.siglo.idea.process.GraphDocument
 import io.siglo.idea.process.GraphNode
 import io.siglo.idea.process.SigloAnalyzerService
@@ -161,8 +162,8 @@ class SigloToolWindowPanel(
     }
 
     private fun isSupportedFile(file: VirtualFile): Boolean {
-        val name = file.name
-        return name.endsWith(".ts") || name.endsWith(".tsx") || name.endsWith(".js") || name.endsWith(".jsx")
+        val ext = file.extension?.lowercase() ?: return false
+        return ext in SigloWorkflowAnnotator.SUPPORTED_EXTENSIONS
     }
 
     fun refreshForFile(
@@ -170,13 +171,13 @@ class SigloToolWindowPanel(
         contentOverride: String? = null,
         force: Boolean = false
     ) {
-        if (!force && activeVirtualFile == file && currentDocument?.uri == file.url) {
+        val uri = if (file.url.startsWith("file://")) file.url else "file://${file.path}"
+        if (!force && activeVirtualFile == file && currentDocument?.uri == uri) {
             return
         }
         activeVirtualFile = file
 
         val service = SigloAnalyzerService.getInstance(project)
-        val uri = file.url
         val content = contentOverride ?: run {
             try {
                 ApplicationManager.getApplication().runReadAction<String?> {
@@ -205,7 +206,16 @@ class SigloToolWindowPanel(
                 }
             }
         }.exceptionally { err ->
-            LOG.debug("No Siglo workflow graph in file: ${file.name} (${err.message})")
+            val rootErr = err.cause ?: err
+            LOG.warn("Failed to analyze Siglo workflow graph for ${file.name}: ${rootErr.message}", rootErr)
+            ApplicationManager.getApplication().invokeLater {
+                if (requestId == graphRequestCounter.get() && activeVirtualFile == file) {
+                    dispatchStatus(
+                        message = rootErr.message ?: "Failed to analyze ${file.name}",
+                        level = "error"
+                    )
+                }
+            }
             null
         }
     }
@@ -249,12 +259,18 @@ class SigloToolWindowPanel(
     fun renderDocument(doc: GraphDocument) {
         currentDocument = doc
 
-        val json = gson.toJson(doc)
         if (jcefBrowserView != null) {
-            val script = "if (window.__SIGLO_BRIDGE__) { window.__SIGLO_BRIDGE__.dispatch(JSON.stringify({ type: 'setGraph', document: $json })); }"
-            jcefBrowserView?.executeJavaScript(script)
+            val payload = gson.toJson(mapOf("type" to "setGraph", "document" to doc))
+            jcefBrowserView?.executeJavaScript("window.__SIGLO_BRIDGE__?.dispatch($payload)")
         } else {
             renderFallbackTree(doc)
+        }
+    }
+
+    private fun dispatchStatus(message: String, level: String = "info") {
+        if (jcefBrowserView != null) {
+            val payload = gson.toJson(mapOf("type" to "setStatus", "message" to message, "level" to level))
+            jcefBrowserView?.executeJavaScript("window.__SIGLO_BRIDGE__?.dispatch($payload)")
         }
     }
 
@@ -450,15 +466,25 @@ class SigloToolWindowPanel(
                 val first = workflows.first()
                 val vf = findVirtualFileByUri(first.uri)
                 if (vf != null) {
-                    refreshForFile(vf, force = true)
+                    ApplicationManager.getApplication().invokeLater {
+                        refreshForFile(vf, force = true)
+                    }
                 } else {
                     service.getGraph(first.uri).thenAccept { doc ->
                         ApplicationManager.getApplication().invokeLater {
                             renderDocument(doc)
                         }
+                    }.exceptionally { err ->
+                        val rootErr = err.cause ?: err
+                        LOG.warn("Failed to load initial Siglo workflow graph: ${rootErr.message}", rootErr)
+                        null
                     }
                 }
             }
+        }.exceptionally { err ->
+            val rootErr = err.cause ?: err
+            LOG.warn("Failed to discover initial Siglo workflows: ${rootErr.message}", rootErr)
+            null
         }
     }
 

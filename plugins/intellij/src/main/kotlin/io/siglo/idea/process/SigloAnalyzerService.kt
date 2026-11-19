@@ -18,6 +18,7 @@ import com.intellij.openapi.util.Key
 import java.io.File
 import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -33,8 +34,13 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
     private var processWriter: OutputStreamWriter? = null
     private val lineBuffer = StringBuilder()
     private var isInitialized = false
+    private var startingFuture: CompletableFuture<Boolean>? = null
+    @Volatile
+    private var extractedAnalyzerDir: File? = null
 
     companion object {
+        private const val BUNDLED_ANALYZER_RESOURCE = "/ide-analysis/analyzer.js"
+
         fun getInstance(project: Project): SigloAnalyzerService {
             return project.getService(SigloAnalyzerService::class.java)
         }
@@ -78,6 +84,11 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
             return CompletableFuture.completedFuture(true)
         }
 
+        val existingStart = startingFuture
+        if (existingStart != null && !existingStart.isDone) {
+            return existingStart
+        }
+
         // Trust Gate
         if (!isProjectTrusted(project)) {
             LOG.warn("Project is not trusted. Skipping Siglo static analyzer launch.")
@@ -89,9 +100,7 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
                     NotificationType.WARNING
                 )
                 .notify(project)
-            val future = CompletableFuture<Boolean>()
-            future.complete(false)
-            return future
+            return CompletableFuture.completedFuture(false)
         }
 
         val nodePath = NodeDiscoveryService.findNodeExecutable()
@@ -110,14 +119,25 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
         val analyzerBinPath = findAnalyzerBinary()
         if (analyzerBinPath == null || !File(analyzerBinPath).exists()) {
             LOG.warn("Could not locate Siglo ide-analysis binary.")
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Siglo Notifications")
+                .createNotification(
+                    "Siglo Workflows",
+                    "Could not locate or extract the bundled Siglo static analyzer.",
+                    NotificationType.ERROR
+                )
+                .notify(project)
             return CompletableFuture.completedFuture(false)
         }
+
+        val workDir = project.basePath?.takeIf { File(it).isDirectory }
+            ?: System.getProperty("user.home")
 
         return try {
             val commandLine = GeneralCommandLine()
                 .withExePath(nodePath)
                 .withParameters(analyzerBinPath)
-                .withWorkDirectory(project.basePath ?: ".")
+                .withWorkDirectory(workDir)
                 .withCharset(StandardCharsets.UTF_8)
 
             val handler = OSProcessHandler(commandLine)
@@ -129,13 +149,23 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
                     if (outputType == ProcessOutputTypes.STDOUT) {
                         handleProcessStdout(event.text)
                     } else if (outputType == ProcessOutputTypes.STDERR) {
-                        LOG.debug("Siglo Analyzer STDERR: ${event.text}")
+                        val text = event.text.trim()
+                        if (text.isNotEmpty()) {
+                            LOG.warn("Siglo Analyzer STDERR: $text")
+                        }
                     }
                 }
 
                 override fun processTerminated(event: ProcessEvent) {
                     LOG.info("Siglo Analyzer process terminated with exit code: ${event.exitCode}")
-                    isInitialized = false
+                    synchronized(this@SigloAnalyzerService) {
+                        if (processHandler === handler) {
+                            isInitialized = false
+                            processHandler = null
+                            processWriter = null
+                            startingFuture = null
+                        }
+                    }
                     failAllPending(IllegalStateException("Analyzer process terminated: exit code ${event.exitCode}"))
                 }
             })
@@ -145,42 +175,92 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
             // Send initialize request
             val initParams = mapOf(
                 "clientName" to "IntelliJ IDEA",
-                "clientVersion" to "2024.1",
+                "clientVersion" to "1.2.8",
                 "rootUri" to (project.basePath?.let { "file://$it" } ?: ""),
                 "capabilities" to mapOf("dynamicRefresh" to true)
             )
 
-            sendRequest("siglo/initialize", initParams).thenApply { res ->
-                isInitialized = true
+            val initFuture = sendRequest("siglo/initialize", initParams).thenApply { res ->
+                synchronized(this@SigloAnalyzerService) {
+                    isInitialized = true
+                    startingFuture = null
+                }
                 LOG.info("Siglo static analyzer initialized successfully: $res")
                 true
             }.exceptionally { err ->
                 LOG.error("Failed to initialize Siglo static analyzer", err)
+                synchronized(this@SigloAnalyzerService) {
+                    isInitialized = false
+                    startingFuture = null
+                    if (processHandler === handler) {
+                        processHandler = null
+                        processWriter = null
+                    }
+                }
+                try {
+                    handler.destroyProcess()
+                } catch (_: Exception) {}
                 false
             }
+            this.startingFuture = initFuture
+            initFuture
         } catch (e: Exception) {
             LOG.error("Failed to launch Siglo static analyzer process", e)
+            this.startingFuture = null
+            this.processHandler = null
+            this.processWriter = null
             CompletableFuture.completedFuture(false)
         }
     }
 
-    private fun findAnalyzerBinary(): String? {
+    internal fun findAnalyzerBinary(): String? {
         val customBin = System.getenv("SIGLO_ANALYZER_BIN") ?: System.getProperty("siglo.analyzer.bin")
         if (customBin != null && File(customBin).exists()) {
             return customBin
         }
 
-        val basePath = project.basePath ?: return null
-        val candidates = listOf(
-            "$basePath/packages/ide-analysis/dist/bin.js",
-            "$basePath/node_modules/@siglo/ide-analysis/dist/bin.js"
-        )
-        for (candidate in candidates) {
-            if (File(candidate).exists()) {
-                return candidate
+        val basePath = project.basePath
+        if (basePath != null) {
+            val candidates = listOf(
+                "$basePath/packages/ide-analysis/dist/bin.js",
+                "$basePath/node_modules/@siglo/ide-analysis/dist/bin.js"
+            )
+            for (candidate in candidates) {
+                if (File(candidate).exists()) {
+                    return candidate
+                }
             }
         }
-        return null
+
+        return extractBundledAnalyzer()
+    }
+
+    internal fun extractBundledAnalyzer(): String? {
+        synchronized(this) {
+            val existing = extractedAnalyzerDir?.let { File(it, "analyzer.js") }
+            if (existing != null && existing.isFile) {
+                return existing.absolutePath
+            }
+
+            val stream = SigloAnalyzerService::class.java.getResourceAsStream(BUNDLED_ANALYZER_RESOURCE)
+                ?: SigloAnalyzerService::class.java.classLoader?.getResourceAsStream(BUNDLED_ANALYZER_RESOURCE.removePrefix("/"))
+                ?: return null
+
+            return try {
+                val dir = Files.createTempDirectory("siglo-analyzer-").toFile()
+                val target = File(dir, "analyzer.js")
+                stream.use { input ->
+                    target.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                extractedAnalyzerDir = dir
+                target.absolutePath
+            } catch (e: Exception) {
+                LOG.warn("Failed to extract bundled Siglo analyzer resource", e)
+                null
+            }
+        }
     }
 
     private fun handleProcessStdout(chunk: String) {
@@ -323,6 +403,10 @@ class SigloAnalyzerService(private val project: Project) : Disposable {
             } catch (_: Exception) {}
             processHandler = null
             processWriter = null
+            startingFuture = null
+            isInitialized = false
+            extractedAnalyzerDir?.deleteRecursively()
+            extractedAnalyzerDir = null
         }
     }
 }

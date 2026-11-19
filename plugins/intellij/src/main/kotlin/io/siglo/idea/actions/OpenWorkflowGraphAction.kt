@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.wm.ToolWindowManager
+import io.siglo.idea.inspection.SigloWorkflowAnnotator
 import io.siglo.idea.toolwindow.SigloToolWindowPanel
 
 class OpenWorkflowGraphAction : AnAction() {
@@ -16,9 +17,9 @@ class OpenWorkflowGraphAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        val isTsFile = virtualFile?.name?.endsWith(".ts") == true ||
-                virtualFile?.name?.endsWith(".tsx") == true
-        e.presentation.isEnabledAndVisible = isTsFile
+        val ext = virtualFile?.extension?.lowercase()
+        val isSupported = ext != null && ext in SigloWorkflowAnnotator.SUPPORTED_EXTENSIONS
+        e.presentation.isEnabledAndVisible = isSupported
     }
 
     override fun actionPerformed(e: AnActionEvent) {

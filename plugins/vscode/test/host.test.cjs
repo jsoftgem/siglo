@@ -8,8 +8,11 @@ const handlers = {};
 const commands = {};
 const messages = [];
 let receiver;
+let panelReceiver;
 let opened;
 let trusted = true;
+let registeredViewOptions;
+let createdPanelOptions;
 const uri = { scheme: 'file', toString: () => 'file:///tmp/test.ts' };
 const doc = {
     uri,
@@ -66,6 +69,16 @@ const webview = {
         return disposable();
     },
 };
+const panelWebview = {
+    postMessage: async msg => {
+        messages.push(msg);
+        return true;
+    },
+    onDidReceiveMessage: fn => {
+        panelReceiver = fn;
+        return disposable();
+    },
+};
 const vscode = {
     Range,
     Position,
@@ -98,6 +111,7 @@ const vscode = {
     },
     window: {
         activeTextEditor: { document: doc, selection: { active: { line: 0, character: 12 } } },
+        visibleTextEditors: [],
         createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
         showWarningMessage: async () => {},
         showInformationMessage: async () => {},
@@ -109,9 +123,19 @@ const vscode = {
                 path: '/fixtures/telemetry/sample-order-recording.json',
             },
         ],
-        registerWebviewViewProvider: (_, provider) => {
+        registerWebviewViewProvider: (_, provider, options) => {
+            registeredViewOptions = options;
             provider.resolveWebviewView({ webview, onDidDispose: event('viewDispose') });
             return disposable();
+        },
+        createWebviewPanel: (_type, _title, _column, options) => {
+            createdPanelOptions = options;
+            return {
+                webview: panelWebview,
+                onDidDispose: event('panelDispose'),
+                reveal: () => {},
+                dispose: () => {},
+            };
         },
         onDidChangeActiveTextEditor: event('active'),
         onDidChangeTextEditorSelection: event('selection'),
@@ -152,6 +176,7 @@ test('host handles ready, trusted launch, live edits, background tabs, and valid
     const subscriptions = [];
     activate({ subscriptions, asAbsolutePath: name => path.resolve(__dirname, '..', name) });
     try {
+        assert.equal(registeredViewOptions?.webviewOptions?.retainContextWhenHidden, true);
         await receiver({ type: 'ready' });
         await waitFor(() => messages.some(msg => msg.document));
         const initial = messages.filter(msg => msg.document).at(-1);
@@ -196,9 +221,67 @@ test('host handles ready, trusted launch, live edits, background tabs, and valid
         await waitFor(() => messages.some(msg => msg.document?.uri === 'file:///tmp/other.ts'));
         await new Promise(r => setTimeout(r, 350));
         assert.equal(messages.filter(msg => msg.document).at(-1).document.uri, 'file:///tmp/other.ts');
+
+        // Focusing an internal output pane must preserve the current workflow graph
+        const prevDocCount = messages.filter(msg => msg.document).length;
+        handlers.active({
+            document: {
+                uri: { scheme: 'output', toString: () => 'output:extension-output-siglo' },
+                languageId: 'Log',
+                version: 1,
+                getText: () => '',
+            },
+        });
+        await new Promise(r => setTimeout(r, 100));
+        assert.equal(messages.filter(msg => msg.document).length, prevDocCount);
+
+        // Opening the visualizer panel enables retainContextWhenHidden and receives graph on ready
+        commands['siglo.openVisualizer']();
+        assert.equal(createdPanelOptions?.retainContextWhenHidden, true);
+        assert.equal(createdPanelOptions?.enableScripts, true);
+        const beforePanelReady = messages.length;
+        await panelReceiver({ type: 'ready' });
+        await waitFor(() => messages.slice(beforePanelReady).some(msg => msg.type === 'setGraph'));
     } finally {
         for (const d of subscriptions) d.dispose();
     }
+});
+
+test('untrusted workspace displays trust prompt status and refreshes upon grant', async t => {
+    trusted = false;
+    const subscriptions = [];
+    activate({ subscriptions, asAbsolutePath: name => path.resolve(__dirname, '..', name) });
+    t.after(() => {
+        trusted = true;
+        for (const d of subscriptions) d.dispose();
+    });
+    const before = messages.length;
+    await receiver({ type: 'ready' });
+    await waitFor(() =>
+        messages.slice(before).some(msg => msg.document?.workflowName === 'Trust this workspace to enable Siglo'),
+    );
+    trusted = true;
+    const afterTrust = messages.length;
+    handlers.trust();
+    await waitFor(() => messages.slice(afterTrust).some(msg => msg.document?.nodes?.length > 0));
+});
+
+test('analyzer error surfaces setStatus instead of leaving webview stuck loading', async t => {
+    trusted = true;
+    const subscriptions = [];
+    activate({
+        subscriptions,
+        asAbsolutePath: name =>
+            name === 'dist/analyzer.js'
+                ? path.resolve(__dirname, 'nonexistent-analyzer.js')
+                : path.resolve(__dirname, '..', name),
+    });
+    t.after(() => {
+        for (const d of subscriptions) d.dispose();
+    });
+    const before = messages.length;
+    await receiver({ type: 'ready' });
+    await waitFor(() => messages.slice(before).some(msg => msg.type === 'setStatus' && msg.level === 'error'));
 });
 
 test('workspace discovery includes JavaScript and workflows from multiple roots', async () => {

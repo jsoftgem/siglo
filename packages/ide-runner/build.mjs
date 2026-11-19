@@ -14,6 +14,19 @@ await build({
 });
 for (const file of ['supervisor.cjs', 'worker.cjs'])
     await copyFile(`${root}packages/ide-runner/${file}`, `${out}/${file}`);
+
+const analysisOut = `${root}plugins/intellij/src/main/resources/ide-analysis`;
+await mkdir(analysisOut, { recursive: true });
+await build({
+    entryPoints: [`${root}packages/ide-analysis/src/bin.ts`],
+    outfile: `${analysisOut}/analyzer.js`,
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    minify: true,
+});
+
 await mkdir(`${root}plugins/intellij/src/main/resources/ide-ui`, { recursive: true });
 await copyFile(
     `${root}packages/ide-ui/dist/index.html`,

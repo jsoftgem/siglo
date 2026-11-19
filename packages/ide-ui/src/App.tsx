@@ -30,6 +30,10 @@ export const App: React.FC = () => {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [autoReload, setAutoReload] = useState<boolean>(true);
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+    const [statusMessage, setStatusMessage] = useState<{
+        message: string;
+        level: 'info' | 'warning' | 'error';
+    } | null>(null);
     const [telemetryDoc, setTelemetryDoc] = useState<TelemetryRecordingDocument | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -38,6 +42,7 @@ export const App: React.FC = () => {
             if (msg.type === 'setGraph') {
                 setDoc(msg.document);
                 setInspectedWorkflowName(null);
+                setStatusMessage(null);
                 setIsRefreshing(false);
 
                 const workflows = msg.document.workflows || [];
@@ -63,6 +68,9 @@ export const App: React.FC = () => {
                     setRunSelection([]);
                     setSelectedNodeId(null);
                 }
+            } else if (msg.type === 'setStatus') {
+                setStatusMessage(msg.message ? { message: msg.message, level: msg.level ?? 'info' } : null);
+                setIsRefreshing(false);
             } else if (msg.type === 'selectNode') {
                 setInspectedWorkflowName(null);
                 setSelectedNodeId(msg.nodeId);
@@ -372,12 +380,42 @@ export const App: React.FC = () => {
                                 alt="Siglo"
                                 className="w-14 h-14 rounded-xl mb-3 opacity-80 object-cover ring-1 ring-sky-500/30 shadow-lg shadow-sky-500/10"
                             />
-                            <p className="text-sm font-medium text-[#dfe1e5] mb-1">No workflow detected</p>
-                            <p className="text-xs max-w-sm">
-                                Open or select a TypeScript file containing a Siglo workflow definition (
-                                <code className="text-[#a8adbb]">flow(...)</code> or{' '}
-                                <code className="text-[#a8adbb]">Step.create(...)</code>).
-                            </p>
+                            {statusMessage ? (
+                                <>
+                                    <p
+                                        className={`text-sm font-medium mb-1 ${
+                                            statusMessage.level === 'error'
+                                                ? 'text-rose-400'
+                                                : statusMessage.level === 'warning'
+                                                  ? 'text-amber-300'
+                                                  : 'text-[#dfe1e5]'
+                                        }`}
+                                    >
+                                        {statusMessage.level === 'error'
+                                            ? 'Unable to analyze workflow'
+                                            : statusMessage.level === 'warning'
+                                              ? 'Workspace action required'
+                                              : 'Siglo Workflows'}
+                                    </p>
+                                    <p className="text-xs max-w-sm text-[#a8adbb]">{statusMessage.message}</p>
+                                </>
+                            ) : doc.workflowName === 'Trust this workspace to enable Siglo' ? (
+                                <>
+                                    <p className="text-sm font-medium text-amber-300 mb-1">Workspace is not trusted</p>
+                                    <p className="text-xs max-w-sm">
+                                        Trust this workspace to enable Siglo static workflow analysis and visualization.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-sm font-medium text-[#dfe1e5] mb-1">No workflow detected</p>
+                                    <p className="text-xs max-w-sm">
+                                        Open or select a TypeScript file containing a Siglo workflow definition (
+                                        <code className="text-[#a8adbb]">flow(...)</code> or{' '}
+                                        <code className="text-[#a8adbb]">Step.create(...)</code>).
+                                    </p>
+                                </>
+                            )}
                         </div>
                     ) : isAllSelected ? (
                         <div className="h-full overflow-auto p-6">

@@ -59,8 +59,11 @@ process.on('message', async message => {
         if (controller.signal.aborted) throw new Error('Cancelled.');
         if (request.setupModule) await load(pathToFileURL(resolve(request.cwd, request.setupModule)).href);
         const module = await load(pathToFileURL(request.file).href);
-        let workflow = module[request.exportName] ?? module.default?.[request.exportName] ?? (request.exportName === "default" ? module.default : undefined);
-        if (typeof workflow === "function" && (!workflow?.steps || !workflow?.toGraph)) {
+        let workflow =
+            module[request.exportName] ??
+            module.default?.[request.exportName] ??
+            (request.exportName === 'default' ? module.default : undefined);
+        if (typeof workflow === 'function' && (!workflow?.steps || !workflow?.toGraph)) {
             try {
                 workflow = workflow();
             } catch {}

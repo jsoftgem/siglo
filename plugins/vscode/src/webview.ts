@@ -21,11 +21,20 @@ export function secureHtml(html: string): string {
         .replace(/<head>/i, `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`);
 }
 
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 interface Surface {
     webview: vscode.Webview;
     ready: boolean;
     autoReload: boolean;
     execution?: ExecutionSession;
+}
+
+interface StatusPayload {
+    message: string | null;
+    level: 'info' | 'warning' | 'error';
 }
 
 export type NavigationTarget =
@@ -36,6 +45,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
     private panel?: vscode.WebviewPanel;
     private disposables: vscode.Disposable[] = [];
     private document?: GraphDocument;
+    private status?: StatusPayload;
     private telemetryDocument?: TelemetryRecordingDocument | null;
 
     constructor(
@@ -58,7 +68,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             'siglo.visualizer',
             'Siglo Workflow Visualizer',
             vscode.ViewColumn.Beside,
-            { enableScripts: true },
+            { enableScripts: true, retainContextWhenHidden: true },
         );
         this.panel = panel;
         this.disposables.push(
@@ -94,6 +104,7 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             } else if (msg.type === 'ready') {
                 surface.ready = true;
                 if (this.document) void webview.postMessage({ type: 'setGraph', document: this.document });
+                if (this.status) void webview.postMessage({ type: 'setStatus', ...this.status });
                 if (this.telemetryDocument)
                     void webview.postMessage({ type: 'setTelemetry', document: this.telemetryDocument });
                 if (!this.document) void this.refresh().catch(this.report);
@@ -128,16 +139,29 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
             surface.webview.html = secureHtml(template);
         } catch (error) {
             this.report(error);
+            const message = error instanceof Error ? error.message : String(error);
+            surface.webview.html = `<!doctype html><html><body style="background:#1e1f22;color:#bcbec4;font-family:sans-serif;padding:24px;"><h3>Siglo Workflows</h3><p>Failed to load visualizer assets: ${escapeHtml(message)}</p></body></html>`;
         }
     }
 
     async post(document: GraphDocument): Promise<void> {
         this.document = document;
+        this.status = undefined;
         const message = { type: 'setGraph', document };
         await Promise.all(
             Array.from(this.surfaces)
                 .filter(surface => surface.ready)
                 .map(surface => surface.webview.postMessage(message)),
+        );
+    }
+
+    async postStatus(message: string | null, level: 'info' | 'warning' | 'error' = 'info'): Promise<void> {
+        this.status = message ? { message, level } : undefined;
+        const payload = { type: 'setStatus', message, level };
+        await Promise.all(
+            Array.from(this.surfaces)
+                .filter(surface => surface.ready)
+                .map(surface => surface.webview.postMessage(payload)),
         );
     }
 

@@ -23,6 +23,7 @@ declare global {
 export type HostMessage =
     | import('@siglo/ide-protocol').RunEvent
     | { type: 'setGraph'; document: GraphDocument }
+    | { type: 'setStatus'; message: string | null; level?: 'info' | 'warning' | 'error' }
     | { type: 'selectNode'; nodeId: string }
     | { type: 'clearSelection' }
     | { type: 'setTelemetry'; document: TelemetryRecordingDocument | null }

@@ -2,6 +2,7 @@ package io.siglo.idea.toolwindow
 
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
@@ -11,6 +12,7 @@ class SigloToolWindowFactory : ToolWindowFactory, DumbAware {
         val panel = SigloToolWindowPanel(project, toolWindow.disposable)
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(panel, "", false)
+        Disposer.register(content, panel)
         toolWindow.contentManager.addContent(content)
     }
 
