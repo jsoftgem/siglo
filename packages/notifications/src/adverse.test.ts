@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { createHmac } from 'node:crypto';
-import { flow, Step, defaultDurableManager, useStorage } from '@siglo/core';
+import { flow, Step, defaultDurableManager, useStorage, InMemoryIdempotencyStore } from '@siglo/core';
 import {
     sendNotificationStep,
     sendInteractiveApprovalStep,
@@ -63,6 +63,68 @@ describe('notification adverse cases and dynamic resolution', () => {
             }).execute({}),
         );
         assert.throws(() => sendInteractiveApprovalStep('bad-timeout', { timeout: 'invalid' } as any));
+        assert.throws(() => sendInteractiveApprovalStep('negative-timeout', { timeout: -5 } as any));
+    });
+    it('supports static data objects, DurationInput deduplicationTtl, and DynamicDuration approval timeouts', async () => {
+        const transport = new MockNotificationTransport('email');
+        const idempotencyStore = new InMemoryIdempotencyStore();
+        const staticDataStep = sendNotificationStep('static-data', {
+            channel: 'email',
+            recipient: 'a@b.com',
+            template: 'Hi',
+            transport,
+            data: { orderId: 'ord-1' },
+            dataSchema: {
+                '~standard': {
+                    version: 1,
+                    vendor: 'test',
+                    validate: v =>
+                        (v as any)?.orderId === 'ord-1' ? { value: v } : { issues: [{ message: 'missing' }] },
+                },
+            },
+            deduplicationTtl: '5m',
+            idempotencyStore,
+        });
+        await staticDataStep.execute({}, { stackId: 'dedup-str' });
+        await staticDataStep.execute({}, { stackId: 'dedup-str' });
+        assert.equal(transport.messages.length, 1);
+
+        const numericTtlStep = sendNotificationStep('numeric-ttl', {
+            channel: 'email',
+            recipient: 'a@b.com',
+            template: 'Hi',
+            transport,
+            deduplicationTtl: 60,
+            idempotencyStore,
+        });
+        await numericTtlStep.execute({}, { stackId: 'dedup-num' });
+        assert.equal(transport.messages.length, 2);
+
+        const approval = sendInteractiveApprovalStep('dynamic-timeout', {
+            channel: 'email',
+            recipient: (ctx: { email: string; sla: string | number }) => ctx.email,
+            title: 'Approve?',
+            correlationKey: 'corr-dyn-ttl',
+            timeout: ctx => ctx.sla,
+            onApproveEvent: 'YES',
+            onRejectEvent: 'NO',
+            callbackBaseUrl: 'https://example.com/callback',
+            signingSecret: 'secret',
+            transport,
+        });
+        const before = Date.now();
+        const out = await approval.execute({ email: 'a@b.com', sla: '2h' }, { stackId: 'dyn-sla-1' });
+        assert.ok(out.$notificationMetadata.approvalExpiresAt! >= before + 7_190_000);
+        const outMs = await approval.execute({ email: 'b@b.com', sla: 30_000 }, { stackId: 'dyn-sla-2' });
+        assert.ok(outMs.$notificationMetadata.approvalExpiresAt! >= before + 29_000);
+        await assert.rejects(
+            approval.execute({ email: 'c@b.com', sla: 'invalid' }, { stackId: 'dyn-sla-bad' }),
+            /Approval timeout must be positive/,
+        );
+        await assert.rejects(
+            approval.execute({ email: 'd@b.com', sla: -100 }, { stackId: 'dyn-sla-neg' }),
+            /Approval timeout must be positive/,
+        );
     });
     it('fails closed on provider HTTP errors, logical errors and invalid destinations', async () => {
         const failed = (async () => new Response('', { status: 503 })) as typeof fetch;

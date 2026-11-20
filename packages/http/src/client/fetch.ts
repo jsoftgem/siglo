@@ -1,5 +1,14 @@
-import { recordInspection, captureInspection, InspectionCapturePolicy, InspectionContent } from '@siglo/core';
-import { SigloError, StepTimeoutException, CancellationException } from '@siglo/core';
+import {
+    recordInspection,
+    captureInspection,
+    InspectionCapturePolicy,
+    InspectionContent,
+    DurationInput,
+    parseDuration,
+    SigloError,
+    StepTimeoutException,
+    CancellationException,
+} from '@siglo/core';
 import { Span } from '@opentelemetry/api';
 import { HttpMethod, HttpMetadata } from '../types';
 import {
@@ -29,7 +38,8 @@ export interface ExecuteHttpRequestOptions {
     retryOnStatus?: number[];
     maxRetries?: number;
     allowNotFound?: boolean;
-    timeoutMs?: number;
+    timeout?: DurationInput;
+    timeoutMs?: DurationInput;
     signal?: any;
     span?: Span;
     clock?: { now(): number };
@@ -145,13 +155,15 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
         retryOnStatus = [...DEFAULT_RETRY_STATUSES],
         maxRetries = 3,
         allowNotFound = false,
-        timeoutMs,
+        timeout: rawTimeout,
+        timeoutMs: rawTimeoutMs,
         signal: rawSignal,
         span: customSpan,
         clock,
         sleep: customSleep,
         customFetch,
     } = options;
+    const timeoutMs = parseDuration(rawTimeoutMs) ?? parseDuration(rawTimeout);
 
     const externalSignal = resolveAbortSignal(rawSignal);
     const fetchFn = customFetch || globalThis.fetch;

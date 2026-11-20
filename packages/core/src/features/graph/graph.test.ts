@@ -12,6 +12,7 @@ import {
     map,
     waitForEvent,
     wait,
+    toJSON,
     GraphValidationException,
 } from '../../index';
 
@@ -123,6 +124,48 @@ describe('Workflow Graph Model Unit Tests', () => {
         expect(res.errors).to.have.length(0);
 
         expect(() => assertValidGraph(graph)).to.not.throw();
+    });
+
+    it('validates dynamic wait and waitForEvent nodes and exports clean toJSON without functions', () => {
+        const dynamicWaitFlow = flow(
+            Step.create('prepare', () => ({ delay: '5m', sla: '1h', orderId: 'o-1' })),
+            wait(ctx => ctx.delay),
+            wait(0),
+            waitForEvent('approval.requested', {
+                correlationKey: ctx => ctx.orderId,
+                timeout: ctx => ctx.sla,
+            }),
+            waitForEvent('static.event', {
+                correlationKey: 'static-k',
+                timeout: '30m',
+            }),
+        );
+
+        const graph = dynamicWaitFlow.toGraph();
+        const validation = validateGraph(graph);
+        expect(validation.valid).to.be.true;
+        expect(validation.errors).to.have.length(0);
+        expect(() => assertValidGraph(graph)).to.not.throw();
+
+        const jsonStr = toJSON(dynamicWaitFlow);
+        const parsed = JSON.parse(jsonStr);
+        expect(parsed.type).to.equal('sequence');
+        expect(parsed.children).to.have.length(5);
+
+        const dynamicTimerNode = parsed.children[1];
+        expect(dynamicTimerNode.type).to.equal('wait');
+        expect(dynamicTimerNode.name).to.equal('wait:dynamic');
+        expect(dynamicTimerNode.durationMs).to.be.undefined;
+        expect(dynamicTimerNode.duration).to.be.undefined;
+
+        const dynamicEventNode = parsed.children[3];
+        expect(dynamicEventNode.type).to.equal('wait');
+        expect(dynamicEventNode.eventName).to.equal('approval.requested');
+        expect(dynamicEventNode.correlationKey).to.be.undefined;
+        expect(dynamicEventNode.timeout).to.be.undefined;
+
+        const staticEventNode = parsed.children[4];
+        expect(staticEventNode.timeoutMs).to.equal(1800000);
     });
 
     it('validateGraph catches structural defects and throws GraphValidationException', () => {

@@ -1,4 +1,4 @@
-import { Step, observeEcosystem, recordInspection } from '@siglo/core';
+import { Step, observeEcosystem, recordInspection, resolveDynamic, parseDuration } from '@siglo/core';
 import { HttpMethod, HttpStepOptions, HttpStepResult, CompensationHttpConfig, HttpStepInstance } from './types';
 import { extractHostInfo, assertNetworkPolicy, extractStaticHostname } from './policy/asl-bridge';
 import { validatePayload } from './schema/validator';
@@ -13,16 +13,15 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
     constructor(name: TName, options: HttpStepOptions<TInput, TOutput>) {
         const action = async (ctx: TInput) => {
             // 1. Resolve parameters dynamically from context
-            const resolvedUrl = typeof options.url === 'function' ? options.url(ctx) : options.url;
+            const resolvedUrl = resolveDynamic(options.url, ctx);
             const { hostname, port } = extractHostInfo(resolvedUrl);
 
             // Asserts hostname against active AsyncLocalStorage (ASL) network policy
             assertNetworkPolicy(name, resolvedUrl, hostname, port);
 
-            const resolvedHeaders =
-                typeof options.headers === 'function' ? options.headers(ctx) : options.headers || {};
-            const resolvedQuery = typeof options.query === 'function' ? options.query(ctx) : options.query;
-            const resolvedBody = typeof options.body === 'function' ? options.body(ctx) : options.body;
+            const resolvedHeaders = resolveDynamic(options.headers, ctx) || {};
+            const resolvedQuery = resolveDynamic(options.query, ctx);
+            const resolvedBody = resolveDynamic(options.body, ctx);
 
             // 2. VALIDATION Phase: Validate outgoing request payload before touching the network
             if (options.requestSchema && resolvedBody !== undefined) {
@@ -42,7 +41,7 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
                 retryOnStatus: options.retryOnStatus,
                 maxRetries: options.maxRetries,
                 allowNotFound: options.allowNotFound,
-                timeoutMs: options.timeoutMs,
+                timeoutMs: parseDuration(options.timeoutMs) ?? parseDuration(options.timeout),
                 signal: (ctx as any)?.$signal || (ctx as any)?.signal,
                 span: (ctx as any)?.span || (ctx as any)?.$span,
                 clock: options.clock,
@@ -115,7 +114,7 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
         // 1. BEFORE Phase: Validate ASL Network Egress Perimeter early
         this.onBefore(async (ctx: TInput) => {
             try {
-                const resolvedUrl = typeof options.url === 'function' ? options.url(ctx) : options.url;
+                const resolvedUrl = resolveDynamic(options.url, ctx);
                 const { hostname, port } = extractHostInfo(resolvedUrl);
 
                 // Asserts hostname against active AsyncLocalStorage (ASL) network policy

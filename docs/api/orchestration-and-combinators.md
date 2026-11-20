@@ -25,6 +25,7 @@ The Orchestration & Combinators API in **Siglo** provides functional combinators
     - [`branch(selectorOrBranches, branchesMap?, defaultBranch?)`](#branchselectororbranches-branchesmap-defaultbranch)
 - [Dynamic Mapping](#dynamic-mapping)
     - [`map(itemsOrAccessor, processItem, options?)`](#mapitemsoraccessor-processitem-options)
+- [Network Policy Containment Across Combinators](#network-policy-containment-across-combinators)
 - [Durable Waits and Event Resumption](#durable-waits-and-event-resumption)
     - [`waitForEvent(eventName, options)`](#waitforeventeventname-options)
     - [`wait(durationOrMs)`](#waitdurationorms)
@@ -419,7 +420,7 @@ export type MapItemAccessor =
 
 export interface MapOptions {
     name?: string;
-    concurrency?: number; // Default: 10 (minimum: 1)
+    concurrency?: number; // Static worker pool bound; default: 10 (minimum: 1)
     stopOnError?: boolean; // Default: true (fails fast and aborts workers)
     preserveOrder?: boolean; // Default: true (results array matches input order)
 }
@@ -470,6 +471,15 @@ console.log(result.items); // [{ processedId: 'ord_1', charged: 50 }, ...]
 
 ---
 
+## Network Policy Containment Across Combinators
+
+When an outer `Flow` defines a `networkPolicy` (via `flow.networkPolicy(...)` or `ExecutionOptions.networkPolicy`), that perimeter is propagated via `AsyncLocalStorage` (`networkPolicyStorage`) into every nested combinator (`parallel`, `all`, `allSettled`, `race`, `when`, `branch`, `map`) and sub-flow (`Step.create(subFlow)`).
+
+- **Strict Intersection**: Child steps and nested sub-flows automatically intersect their own policies with the enclosing `networkPolicyStorage` scope.
+- **No Perimeter Widening**: A child step inside `parallel`, `when`, `branch`, `map`, or a sub-flow can further restrict allowed hosts or call `.denyNetwork()`, but cannot re-allow hosts excluded by the enclosing outer flow.
+
+---
+
 ## Durable Waits and Event Resumption
 
 ### `waitForEvent(eventName, options)`
@@ -479,20 +489,28 @@ Suspends workflow execution in durable mode until an external event is delivered
 #### Signature
 
 ```typescript
-export interface WaitForEventOptions {
-    correlationKey: string | ((ctx: any) => string);
-    timeout?: string | number; // e.g. '24h', '30m', 60000
+export type DynamicOption<T, TContext = any> = T | ((ctx: TContext) => T);
+export type DurationInput = number | string;
+export type DynamicDuration<TContext = any> = DynamicOption<DurationInput, TContext>;
+
+export interface WaitForEventOptions<TContext = any> {
+    correlationKey: DynamicOption<string, TContext>;
+    timeout?: DynamicDuration<TContext>; // e.g. '24h', '30m', 60000, or ctx => ctx.sla
     timeoutMs?: number;
 }
 
-export function waitForEvent(eventName: string, options: WaitForEventOptions): Step<any, any>;
+export function waitForEvent<TContext = any>(
+    eventName: string,
+    options: WaitForEventOptions<NoInfer<TContext>>,
+): Step<TContext, any>;
 ```
 
 #### Semantics
 
 1. When `options.durable: true`, reaching `waitForEvent` persists an execution checkpoint to storage and throws `WorkflowSuspendedException`.
 2. The waiting instance is registered under `eventName` and the computed `correlationKey`.
-3. If no event arrives before `timeout`, subsequent resumption throws `ExpiredWaitException`.
+3. Both `correlationKey` and `timeout` accept static values or synchronous `(ctx) => ...` resolvers (`DynamicOption` / `DynamicDuration`). `timeoutMs` retains precedence over `timeout`, and non-durable runs skip evaluating `timeout(ctx)`.
+4. If no event arrives before `timeout`, subsequent resumption throws `ExpiredWaitException`.
 
 #### Example
 
@@ -518,12 +536,12 @@ await approvalWorkflow.run({ ticketId: 'ticket_42' }, { durable: true });
 
 ### `wait(durationOrMs)`
 
-Pauses workflow execution for a duration string (e.g. `'5m'`, `'2h'`, `'1d'`) or millisecond count. In durable mode, suspends execution to storage. In in-memory mode, pauses using a timer.
+Pauses workflow execution for a duration string (e.g. `'5m'`, `'2h'`, `'1d'`), millisecond count, or synchronous `(ctx) => number | string` resolver (`DynamicDuration`). In durable mode, suspends execution to storage. In in-memory mode, pauses using a timer.
 
 #### Signature
 
 ```typescript
-export function wait(durationOrMs: number | string): Step<any, any>;
+export function wait<TContext = any>(durationOrMs: DynamicDuration<NoInfer<TContext>>): Step<TContext, any>;
 ```
 
 #### Example
@@ -534,6 +552,7 @@ import { Step, flow, wait } from '@siglo/core';
 const delayedWorkflow = flow(
     Step.create('init', async () => ({ step: 1 })),
     wait('10m'), // In durable mode: suspends checkpoint. In memory: awaits timeout.
+    wait(ctx => ctx.cooldown ?? '5s'), // Or resolve dynamically from accumulated ctx
     Step.create('finalize', async () => ({ step: 2 })),
 );
 ```

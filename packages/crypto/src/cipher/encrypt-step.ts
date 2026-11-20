@@ -1,4 +1,4 @@
-import { Step, ValidationException, ExecutionOptions } from '@siglo/core';
+import { Step, ValidationException, ExecutionOptions, resolveDynamic } from '@siglo/core';
 import { FieldCipherOptions, KeyRing } from '../types';
 import { encryptAESGCM, isEncryptedEnvelope } from './aes-gcm';
 import { isKeyRing } from './key-ring';
@@ -49,11 +49,8 @@ export class EncryptFieldsStep<TInput = any, TName extends string = string> exte
             }
 
             // 2. Resolve optional AAD and deriveKeyContext
-            const resolvedAad = typeof options.aad === 'function' ? options.aad(ctx) : options.aad;
-            const resolvedDeriveCtx =
-                typeof options.deriveKeyContext === 'function'
-                    ? options.deriveKeyContext(ctx)
-                    : options.deriveKeyContext;
+            const resolvedAad = resolveDynamic(options.aad, ctx);
+            const resolvedDeriveCtx = resolveDynamic(options.deriveKeyContext, ctx);
 
             // 3. Encrypt target fields using structural sharing
             const result = transformFields(ctx, options.fields as any, val => {

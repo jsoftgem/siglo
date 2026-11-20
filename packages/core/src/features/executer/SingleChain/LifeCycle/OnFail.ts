@@ -1,5 +1,5 @@
 import { FlowTimeoutException, WorkflowSuspendedException } from '../../exceptions';
-import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY } from '../../../../shared';
+import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY, DurationInput, parseDuration } from '../../../../shared';
 import { emitMonitoringEvent } from '../../../events';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
@@ -7,8 +7,8 @@ export type RetryPredicate = (error: any, attempt: number) => boolean;
 export interface RetryConfig {
     maxRetries?: number;
     backoff?: 'fixed' | 'linear' | 'exponential' | ((attempt: number) => number);
-    delay?: number;
-    maxDelay?: number;
+    delay?: DurationInput;
+    maxDelay?: DurationInput;
     jitter?: boolean | ((delay: number) => number);
     randomFn?: () => number;
     retryIf?: RetryPredicate;
@@ -151,8 +151,8 @@ export default class OnFail {
                         : (config as any).maxAttempts !== undefined
                           ? (config as any).maxAttempts
                           : 3;
-                const baseDelay = config.delay !== undefined ? config.delay : 100;
-                const maxDelay = config.maxDelay !== undefined ? config.maxDelay : 10000;
+                const baseDelay = parseDuration(config.delay) ?? 100;
+                const maxDelay = parseDuration(config.maxDelay) ?? 10000;
                 const backoff = config.backoff || 'fixed';
 
                 if (initialParam && typeof initialParam === 'object') {

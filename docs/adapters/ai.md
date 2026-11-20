@@ -81,7 +81,7 @@ Peer dependencies:
 
 Credentials resolve independently for each provider. There is **no implicit credential sharing** across primary and fallback models:
 
-1. Static or dynamic `apiKey` provided on the specific model config:
+1. Static or synchronous dynamic `apiKey` (`DynamicOption<string, TInput>`) provided on the specific model config:
     ```typescript
     apiKey: ctx => ctx.tenantApiKey;
     ```
@@ -198,11 +198,11 @@ export const resilientStep = aiStep('resilientSummary', {
     model: {
         provider: 'anthropic',
         model: 'claude-3-5-sonnet-20241022',
-        requestTimeoutMs: 15_000,
+        requestTimeoutMs: '15s', // DurationInput: number (ms) or duration string
     },
     fallbackModels: [
         { provider: 'openai', model: 'gpt-4o', requestTimeoutMs: 10_000 },
-        { provider: 'gemini', model: 'gemini-2.0-flash', requestTimeoutMs: 10_000 },
+        { provider: 'gemini', model: 'gemini-2.0-flash', requestTimeoutMs: '10s' },
     ],
     prompt: (ctx: { text: string }) => `Summarize: ${ctx.text}`,
 });
@@ -269,7 +269,7 @@ export const cachedSummaryStep = aiStep('cachedSummary', {
     model: { provider: 'openai', model: 'gpt-4o' },
     prompt: (ctx: { documentId: string; content: string }) => `Summarize: ${ctx.content}`,
     cacheVersion: 'v1',
-}).cache({ ttl: 3600 });
+}).cache({ ttl: '1h' });
 ```
 
 - **Deterministic Hash**: The cache key is computed as a SHA-256 digest covering:
@@ -488,21 +488,21 @@ Instantiates a typed `AiStep` execution unit extending Siglo's core `Step`.
 
 #### Configuration Options (`AiStepOptions`)
 
-| Option                           | Type                                                                    | Default     | Description                                                                                                         |
-| -------------------------------- | ----------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
-| `model`                          | `AiModelConfig`                                                         | _Required_  | Primary model configuration (provider, model ID, requestTimeoutMs, apiKey, baseUrl, adapter, pricing).              |
-| `fallbackModels`                 | `AiModelConfig[]`                                                       | `[]`        | Sequential fallback models invoked on `429`, `5xx`, or request timeouts.                                            |
-| `prompt`                         | `string \| ChatMessage[] \| ((ctx: TInput) => string \| ChatMessage[])` | _Required_  | Static prompt string, ChatMessage array, or dynamic prompt function.                                                |
-| `schema`                         | `TSchema extends StandardSchemaV1`                                      | `undefined` | Standard Schema V1 validator for structured JSON output.                                                            |
-| `jsonSchema`                     | `Record<string, unknown>`                                               | `undefined` | Native JSON Schema for provider structured output. Required unless schema supports Standard JSON Schema conversion. |
-| `inputSchema`                    | `StandardSchemaV1`                                                      | `undefined` | Validates step input context during `VALIDATION` phase before inference.                                            |
-| `temperature`                    | `number`                                                                | `undefined` | Sampling temperature between `0` and `2`.                                                                           |
-| `maxTokens`                      | `number`                                                                | `undefined` | Maximum completion tokens to generate.                                                                              |
-| `maxRepairAttempts`              | `number`                                                                | `2`         | Maximum correction turns when model output fails JSON parsing or schema validation.                                 |
-| `tools`                          | `AiTool[]`                                                              | `[]`        | Typed tools created with `defineAiTool` exposed to the model.                                                       |
-| `maxToolTurns`                   | `number`                                                                | `5`         | Maximum agentic multi-turn tool interaction rounds.                                                                 |
-| `enforceNativeStructuredOutputs` | `boolean`                                                               | `true`      | Set to `false` to disable provider-native schema enforcement and rely on local validation and repair.               |
-| `cacheVersion`                   | `string`                                                                | `'1'`       | Cache namespace identifier; bump when prompt closures or validation semantics change.                               |
+| Option                           | Type                                             | Default     | Description                                                                                                            |
+| -------------------------------- | ------------------------------------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `model`                          | `AiModelConfig<TInput>`                          | _Required_  | Primary model configuration (`provider`, `model`, `requestTimeoutMs?: DurationInput`, `apiKey?: DynamicOption`, etc.). |
+| `fallbackModels`                 | `AiModelConfig<TInput>[]`                        | `[]`        | Sequential fallback models invoked on `429`, `5xx`, or request timeouts.                                               |
+| `prompt`                         | `DynamicOption<string \| ChatMessage[], TInput>` | _Required_  | Static prompt string, `ChatMessage[]`, or synchronous dynamic prompt resolver.                                         |
+| `schema`                         | `TSchema extends StandardSchemaV1`               | `undefined` | Standard Schema V1 validator for structured JSON output.                                                               |
+| `jsonSchema`                     | `Record<string, unknown>`                        | `undefined` | Native JSON Schema for provider structured output. Required unless schema supports Standard JSON Schema conversion.    |
+| `inputSchema`                    | `StandardSchemaV1`                               | `undefined` | Validates step input context during `VALIDATION` phase before inference.                                               |
+| `temperature`                    | `number`                                         | `undefined` | Sampling temperature between `0` and `2`.                                                                              |
+| `maxTokens`                      | `number`                                         | `undefined` | Maximum completion tokens to generate.                                                                                 |
+| `maxRepairAttempts`              | `number`                                         | `2`         | Maximum correction turns when model output fails JSON parsing or schema validation.                                    |
+| `tools`                          | `AiTool<TInput>[]`                               | `[]`        | Typed tools created with `defineAiTool` exposed to the model.                                                          |
+| `maxToolTurns`                   | `number`                                         | `5`         | Maximum agentic multi-turn tool interaction rounds.                                                                    |
+| `enforceNativeStructuredOutputs` | `boolean`                                        | `true`      | Set to `false` to disable provider-native schema enforcement and rely on local validation and repair.                  |
+| `cacheVersion`                   | `string`                                         | `'1'`       | Cache namespace identifier; bump when prompt closures or validation semantics change.                                  |
 
 ---
 

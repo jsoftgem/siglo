@@ -383,4 +383,109 @@ describe('Resilient Execution & Timeouts Unit Tests', () => {
             controller.abort(new Error('Aborted before start'));
         });
     });
+
+    describe('DurationInput Support Across Timeouts & Retries', () => {
+        it('supports DurationInput strings in Step.timeout() and plain chain objects', async () => {
+            const step = Step.create('strTimeoutStep', async () => {
+                await new Promise(r => setTimeout(r, 120));
+                return { ok: true };
+            }).timeout('40ms');
+            expect(step.timeoutMs).to.equal(40);
+
+            try {
+                await step.run();
+                expect.fail('Should have timed out');
+            } catch (err: any) {
+                const error = err.error || err;
+                expect(error).to.be.an.instanceof(StepTimeoutException);
+                expect(error.timeoutMs).to.equal(40);
+            }
+
+            // Plain chain object using `timeout` string without `timeoutMs`
+            const plainChain: any = {
+                name: 'plainChainTimeout',
+                timeout: '40ms',
+                specs: [],
+                onbefore: () => true,
+                action: async () => {
+                    await new Promise(r => setTimeout(r, 120));
+                    return { ok: true };
+                },
+            };
+
+            try {
+                await Step.start(plainChain);
+                expect.fail('Plain chain should have timed out');
+            } catch (err: any) {
+                const error = err.error || err;
+                expect(error).to.be.an.instanceof(StepTimeoutException);
+                expect(error.timeoutMs).to.equal(40);
+            }
+        });
+
+        it('supports DurationInput strings in Flow.timeout() and ExecutionOptions.timeout / timeoutMs', async () => {
+            const slowStep = Step.create('slowStepForFlow', async () => {
+                await new Promise(r => setTimeout(r, 120));
+                return { ok: true };
+            });
+
+            const f = flow(slowStep).timeout('45ms');
+            expect(f.timeoutMs).to.equal(45);
+
+            try {
+                await f.run();
+                expect.fail('Flow.timeout string should have timed out');
+            } catch (err: any) {
+                const error = err.error || err;
+                expect(error).to.be.an.instanceof(FlowTimeoutException);
+                expect(error.timeoutMs).to.equal(45);
+            }
+
+            try {
+                await flow(slowStep).run({}, { timeout: '40ms' });
+                expect.fail('ExecutionOptions.timeout string should have timed out');
+            } catch (err: any) {
+                const error = err.error || err;
+                expect(error).to.be.an.instanceof(FlowTimeoutException);
+                expect(error.timeoutMs).to.equal(40);
+            }
+
+            try {
+                await flow(slowStep).run({}, { timeoutMs: '40ms' });
+                expect.fail('ExecutionOptions.timeoutMs string should have timed out');
+            } catch (err: any) {
+                const error = err.error || err;
+                expect(error).to.be.an.instanceof(FlowTimeoutException);
+                expect(error.timeoutMs).to.equal(40);
+            }
+        });
+
+        it('supports DurationInput strings for RetryConfig delay and maxDelay with synchronous retryIf', async () => {
+            let attempts = 0;
+            const observedDelays: number[] = [];
+
+            const step = Step.create('durationRetryStep', () => {
+                attempts++;
+                if (attempts < 4) {
+                    throw new Error(`Transient ${attempts}`);
+                }
+                return { attempts, ok: true };
+            }).onFail({
+                maxRetries: 4,
+                backoff: 'exponential',
+                delay: '15ms',
+                maxDelay: '25ms',
+                retryIf: err => err.message.startsWith('Transient'),
+                onRetry: (_err, _attempt, delayMs) => {
+                    observedDelays.push(delayMs ?? 0);
+                },
+            });
+
+            const res = await flow(step).run({}, { pojo: true });
+            expect(res.ok).to.be.true;
+            expect(attempts).to.equal(4);
+            // 15ms, 30ms capped to 25ms, 60ms capped to 25ms
+            expect(observedDelays).to.deep.equal([15, 25, 25]);
+        });
+    });
 });

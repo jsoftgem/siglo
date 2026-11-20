@@ -572,7 +572,18 @@ export function extractDisplayProperties(
     for (const prop of obj.properties)
         if (ts.isPropertyAssignment(prop)) {
             const key = prop.name.getText(sourceFile).replace(/['"]/g, '');
-            if (keys.has(key)) result[key] = prop.initializer.getText(sourceFile);
+            if (key === 'model' && ts.isObjectLiteralExpression(prop.initializer)) {
+                for (const mProp of prop.initializer.properties) {
+                    if (ts.isPropertyAssignment(mProp)) {
+                        const mKey = mProp.name.getText(sourceFile).replace(/['"]/g, '');
+                        if (mKey === 'provider' || mKey === 'model' || mKey === 'requestTimeoutMs') {
+                            result[mKey] = mProp.initializer.getText(sourceFile);
+                        }
+                    }
+                }
+            } else if (keys.has(key)) {
+                result[key] = prop.initializer.getText(sourceFile);
+            }
         }
     return result;
 }

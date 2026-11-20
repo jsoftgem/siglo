@@ -188,6 +188,8 @@ describe('@siglo/ai runtime', () => {
             { schema },
             { inputSchema: schema },
             { model: { ...config(new MockAiProvider()), pricing: { inputPerMillion: Infinity, outputPerMillion: 0 } } },
+            { model: { ...config(new MockAiProvider()), requestTimeoutMs: 'invalid' } },
+            { model: { ...config(new MockAiProvider()), requestTimeoutMs: '-5s' } },
         ];
         for (const changes of badOptions) {
             const mock = new MockAiProvider([reply('unused')]);
@@ -298,27 +300,32 @@ describe('@siglo/ai runtime', () => {
         assert.equal(fallback.requests.length, 0);
     });
 
-    it('uses actual request deadlines to fall back and leaves unknown costs undefined', async () => {
-        const mock = new MockAiProvider([reply('ok')]);
-        const step = aiStep('timeout', {
-            model: { ...config({ generate: async () => new Promise<any>(() => {}) }), requestTimeoutMs: 5 },
-            fallbackModels: [
-                { provider: 'custom', model: 'unknown', baseUrl: 'https://mock.example/v1', adapter: mock },
-            ],
-            prompt: 'test',
-        });
-        const result = await step.run({});
-        assert.equal(result.aiMetrics.fallbackCount, 1);
-        assert.equal(result.aiMetrics.estimatedCostUsd, undefined);
+    it('uses actual request deadlines (numeric and DurationInput) to fall back and leaves unknown costs undefined', async () => {
+        for (const requestTimeoutMs of [5, '5ms']) {
+            const mock = new MockAiProvider([reply('ok')]);
+            const step = aiStep('timeout', {
+                model: { ...config({ generate: async () => new Promise<any>(() => {}) }), requestTimeoutMs },
+                fallbackModels: [
+                    { provider: 'custom', model: 'unknown', baseUrl: 'https://mock.example/v1', adapter: mock },
+                ],
+                prompt: 'test',
+            });
+            const result = await step.run({});
+            assert.equal(result.aiMetrics.fallbackCount, 1);
+            assert.equal(result.aiMetrics.estimatedCostUsd, undefined);
+        }
     });
 
-    it('hashes prompt/model/context cache inputs, avoids network on hits, and checks policy on hits', async () => {
+    it('hashes prompt/model/context cache inputs consistently with DurationInput, avoids network on hits, and checks policy on hits', async () => {
         const storage = new InMemoryStorageFake();
         useStorage(storage);
         const mock = new MockAiProvider([reply('first'), reply('second'), reply('third')]);
         let version = 'one';
-        const step = aiStep('cached', { model: config(mock), prompt: (ctx: { q: string }) => version + ctx.q }).cache({
-            ttl: 1000,
+        const step = aiStep('cached', {
+            model: { ...config(mock), requestTimeoutMs: '5s' },
+            prompt: (ctx: { q: string }) => version + ctx.q,
+        }).cache({
+            ttl: '5m',
             keySerializer: (_id, ctx) => ctx.q,
         });
         assert.equal((await step.run({ q: 'a' })).data, 'first');
@@ -329,19 +336,43 @@ describe('@siglo/ai runtime', () => {
         assert.equal((await step.run({ q: 'b' })).data, 'third');
         await assert.rejects(flow(step).networkPolicy({ allowedHosts: [] }).run({ q: 'b' }));
         assert.equal(mock.requests.length, 3);
-        const cached = aiStep('simpleCache', { model: config(new MockAiProvider([reply('ok')])), prompt: 'x' }).cache(
-            1000,
-        );
+        const cached = aiStep('simpleCache', {
+            model: { ...config(new MockAiProvider([reply('ok')])), requestTimeoutMs: '5s' },
+            prompt: 'x',
+        }).cache('5m');
         assert.equal((await cached.run({})).data, 'ok');
+        // Equivalent millisecond requestTimeoutMs (5000 vs '5s') shares the exact same cache key.
+        assert.equal(
+            (
+                await aiStep('simpleCache', {
+                    model: { ...config(new MockAiProvider()), requestTimeoutMs: 5000 },
+                    prompt: 'x',
+                })
+                    .cache('5m')
+                    .run({})
+            ).data,
+            'ok',
+        );
     });
 
-    it('retains inference lifecycle controls on text steps and propagates transformed input', async () => {
+    it('retains inference lifecycle controls on text steps and propagates transformed input to dynamic options', async () => {
         const mock = new MockAiProvider([reply('ok')]);
+        const apiKeyCalls: string[] = [];
         const step = aiStep('controls', {
-            model: config(mock),
-            prompt: (ctx: any) => ctx.query,
+            model: {
+                ...config(mock),
+                apiKey: (ctx: any) => {
+                    apiKeyCalls.push(ctx.key ?? 'missing');
+                    return ctx.key ?? 'fallback-key';
+                },
+            },
+            prompt: (ctx: any) => [{ role: 'user', content: ctx.query }],
             inputSchema: {
-                '~standard': { version: 1, vendor: 'test', validate: () => ({ value: { query: 'transformed' } }) },
+                '~standard': {
+                    version: 1,
+                    vendor: 'test',
+                    validate: () => ({ value: { query: 'transformed', key: 'dyn-k' } }),
+                },
             },
         });
         step.onBefore(() => true)
@@ -349,6 +380,7 @@ describe('@siglo/ai runtime', () => {
             .idempotent('ai-foundation-controls');
         assert.equal((await step.run({})).data, 'ok');
         assert.equal(mock.requests[0].messages[0].content, 'transformed');
+        assert.equal(apiKeyCalls.includes('dyn-k'), true);
         const stored = new InMemoryStorageFake();
         useStorage(stored);
         const opts = { model: config(new MockAiProvider([reply('cached')])), prompt: 'same', cacheVersion: 'v1' };

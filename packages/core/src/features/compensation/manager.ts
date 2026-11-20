@@ -1,10 +1,11 @@
 import { withLocalWorkflowLock } from '../durable/lock';
 import { defaultDurableManager } from '../durable/manager';
 import { defaultStorageManager } from '../storage';
-import { Status } from '../../shared';
+import { parseDuration, Status } from '../../shared';
 import { CompensationRecord, CompensationRunOptions, CompensationRunResult } from './types';
 import { CompensationException, UnresolvableCompensationException } from '../executer/exceptions';
 import { getCompensationHandler } from './registry';
+import { resolveEffectiveNetworkPolicy, networkPolicyStorage, ensureNetworkInterceptorsInstalled } from '../network';
 
 export class CompensationManager {
     private stackCompensations = new Map<string, CompensationRecord[]>();
@@ -34,6 +35,7 @@ export class CompensationManager {
     ): Promise<CompensationRunResult> {
         const records = this.getCompensations(stackId);
         const adapter = defaultStorageManager.getAdapter();
+        const enclosingPolicy = networkPolicyStorage.getStore();
         const execute = async () => {
             if (records.length) {
                 await adapter?.cancelWorkflow?.(stackId);
@@ -90,32 +92,52 @@ export class CompensationManager {
                 }
 
                 const maxRetries = record.options?.maxRetries ?? options?.maxRetries ?? 0;
-                const delayMs = record.options?.delay ?? options?.delay ?? 0;
+                const delayMs = parseDuration(record.options?.delay) ?? parseDuration(options?.delay) ?? 0;
                 let success = false;
                 let lastErr: any;
 
-                for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                    try {
-                        if (attempt > 0 && delayMs > 0) {
-                            await new Promise(r => setTimeout(r, delayMs));
-                        }
-                        const payload = record.payload !== undefined ? record.payload : record.output;
-                        if (typeof handler === 'function') {
-                            await handler(payload, record.input);
-                        } else if (handler && typeof (handler as any).execute === 'function') {
-                            await (handler as any).execute({ output: payload, input: record.input });
-                        }
-                        success = true;
-                        record.status = Status.COMPLETED;
-                        record.completedAt = Date.now();
-                        completed.push(record.stepName);
-                        break;
-                    } catch (err: any) {
-                        lastErr = err;
-                        if (record.options?.retryIf && !record.options.retryIf(err, attempt + 1)) {
+                let outerPolicy = options?.networkPolicy;
+                if (enclosingPolicy?.enabled) {
+                    outerPolicy = outerPolicy
+                        ? resolveEffectiveNetworkPolicy(outerPolicy, enclosingPolicy)
+                        : enclosingPolicy;
+                }
+                const effectivePolicy = resolveEffectiveNetworkPolicy(record.networkPolicy, outerPolicy);
+
+                const executeWithRetries = async () => {
+                    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                        try {
+                            if (attempt > 0 && delayMs > 0) {
+                                await new Promise(r => setTimeout(r, delayMs));
+                            }
+                            const payload = record.payload !== undefined ? record.payload : record.output;
+                            if (typeof handler === 'function') {
+                                await handler(payload, record.input);
+                            } else if (handler && typeof (handler as any).execute === 'function') {
+                                await (handler as any).execute({ output: payload, input: record.input });
+                            }
+                            success = true;
+                            record.status = Status.COMPLETED;
+                            record.completedAt = Date.now();
+                            completed.push(record.stepName);
                             break;
+                        } catch (err: any) {
+                            lastErr = err;
+                            if (record.options?.retryIf && !record.options.retryIf(err, attempt + 1)) {
+                                break;
+                            }
                         }
                     }
+                };
+
+                if (effectivePolicy?.enabled) {
+                    ensureNetworkInterceptorsInstalled();
+                    await networkPolicyStorage.run(
+                        { ...effectivePolicy, stepName: record.stepName },
+                        executeWithRetries,
+                    );
+                } else {
+                    await executeWithRetries();
                 }
 
                 if (!success) {

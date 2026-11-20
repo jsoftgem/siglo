@@ -12,7 +12,6 @@ import { toPOJO } from '../../context';
 import {
     generateUUID,
     Status,
-    isFunction,
     tagErrorPhase,
     ExecutionPhase,
     SIGNAL,
@@ -29,6 +28,8 @@ import {
     SERVICES,
     DEPENDENCIES,
     DEPS,
+    parseDuration,
+    resolveDynamic,
 } from '../../../shared';
 import { StepTimeoutException, IdempotencyConflictException, NetworkPolicyViolationException } from '../exceptions';
 import { combineAbortSignals } from '../signals';
@@ -126,7 +127,10 @@ export default class StartChain {
                     const chainName = chain.func || (typeof chains === 'string' ? chains : chain.name || '');
 
                     const stepTimeoutMs =
-                        chain.timeoutMs || (typeof chain.timeout === 'number' ? chain.timeout : undefined);
+                        parseDuration(chain.timeoutMs) ??
+                        (typeof chain.timeout === 'number' || typeof chain.timeout === 'string'
+                            ? parseDuration(chain.timeout)
+                            : undefined);
                     let stepController: AbortController | undefined;
                     let stepTimer: any;
                     let stepSignalCleanup: () => void = () => {};
@@ -157,10 +161,18 @@ export default class StartChain {
                     };
 
                     try {
-                        const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(
-                            chain.networkPolicy || chain.networkPolicyConfig,
-                            options?.networkPolicy,
-                        );
+                        const enclosingPolicy = networkPolicyStorage.getStore();
+                        const rawStepPolicy =
+                            typeof chain.networkPolicy === 'function'
+                                ? chain.networkPolicyConfig
+                                : chain.networkPolicy || chain.networkPolicyConfig;
+                        let outerPolicy = options?.networkPolicy;
+                        if (enclosingPolicy?.enabled) {
+                            outerPolicy = outerPolicy
+                                ? resolveEffectiveNetworkPolicy(outerPolicy, enclosingPolicy)
+                                : enclosingPolicy;
+                        }
+                        const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(rawStepPolicy, outerPolicy);
                         // Include validation and before hooks in the same runtime identity
                         // as the action so rejected ecosystem inputs remain observable.
                         const executeInspectedStep = () =>
@@ -362,21 +374,24 @@ export default class StartChain {
                                                         const stepIdempStore =
                                                             chain.idempotencyOptions?.store || defaultIdempotencyStore;
 
-                                                        if (chain.idempotencyKey) {
+                                                        const idempKeySource =
+                                                            chain.idempotencyKey ?? chain.idempotencyOptions?.key;
+                                                        if (idempKeySource) {
                                                             try {
                                                                 // Preserve runtime identity for per-workflow keys; toPOJO removes reserved fields.
-                                                                const rawKey = isFunction(chain.idempotencyKey)
-                                                                    ? chain.idempotencyKey({
-                                                                          ...toPOJO(param),
-                                                                          $stackId: stackId,
-                                                                      })
-                                                                    : chain.idempotencyKey;
+                                                                const rawKey = resolveDynamic(idempKeySource, {
+                                                                    ...toPOJO(param),
+                                                                    $stackId: stackId,
+                                                                });
                                                                 stepIdempKey = buildIdempotencyKey(rawKey, {
                                                                     namespace: options?.namespace,
                                                                 });
+                                                                const stepIdempTtlMs =
+                                                                    parseDuration(chain.idempotencyOptions?.ttlMs) ??
+                                                                    parseDuration(chain.idempotencyOptions?.ttl);
                                                                 let claim = await stepIdempStore.claim(
                                                                     stepIdempKey,
-                                                                    chain.idempotencyOptions?.ttlMs,
+                                                                    stepIdempTtlMs,
                                                                 );
                                                                 const stepSettleTimeout =
                                                                     chain.idempotencyOptions?.settleTimeoutMs;
@@ -414,7 +429,7 @@ export default class StartChain {
                                                                             if (!rec) {
                                                                                 claim = await stepIdempStore.claim(
                                                                                     stepIdempKey,
-                                                                                    chain.idempotencyOptions?.ttlMs,
+                                                                                     stepIdempTtlMs,
                                                                                 );
                                                                                 // prettier-ignore
                                                                                 if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
@@ -504,6 +519,7 @@ export default class StartChain {
                                                                             handlerName: chain.compensationHandlerName,
                                                                             payload: toPOJO(payload),
                                                                             options: chain.compensationOptions,
+                                                                            networkPolicy: effectiveNetworkPolicy,
                                                                         },
                                                                     );
                                                                 } catch (compErr) {

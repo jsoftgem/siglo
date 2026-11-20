@@ -176,6 +176,91 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(stepExecutions).to.equal(1);
     });
 
+    it('supports DurationInput TTLs and options object form in Step.idempotent() and ExecutionOptions', async () => {
+        const store = new InMemoryIdempotencyStore();
+
+        // 1. ExecutionOptions.idempotencyTtlMs as DurationInput string
+        let wfCalls = 0;
+        const wfStep = Step.create('wfDurStep', () => {
+            wfCalls++;
+            return { wfCalls };
+        });
+        const wf = flow(wfStep);
+
+        const w1 = await wf.run(
+            { orderId: 'o1' },
+            {
+                pojo: true,
+                idempotencyKey: ctx => `wf-dur:${ctx.orderId}`,
+                idempotencyTtlMs: '25ms',
+                idempotencyStore: store,
+            },
+        );
+        expect(w1.wfCalls).to.equal(1);
+
+        const w2 = await wf.run(
+            { orderId: 'o1' },
+            {
+                pojo: true,
+                idempotencyKey: ctx => `wf-dur:${ctx.orderId}`,
+                idempotencyTtlMs: '25ms',
+                idempotencyStore: store,
+            },
+        );
+        expect(w2.wfCalls).to.equal(1);
+
+        await new Promise(r => setTimeout(r, 35));
+        const w3 = await wf.run(
+            { orderId: 'o1' },
+            {
+                pojo: true,
+                idempotencyKey: ctx => `wf-dur:${ctx.orderId}`,
+                idempotencyTtlMs: '25ms',
+                idempotencyStore: store,
+            },
+        );
+        expect(w3.wfCalls).to.equal(2);
+
+        // 2. Step.idempotent(optionsObject) with DynamicOption key and DurationInput ttl
+        let objCalls = 0;
+        const objStep = Step.create('objIdempStep', ({ id }: any) => {
+            objCalls++;
+            return { id, objCalls };
+        }).idempotent({
+            key: ctx => `obj:${ctx.id}`,
+            ttl: '25ms',
+            store,
+        });
+
+        const o1 = await flow(objStep).run({ id: 'a1' }, { pojo: true });
+        expect(o1.objCalls).to.equal(1);
+        const o2 = await flow(objStep).run({ id: 'a1' }, { pojo: true });
+        expect(o2.objCalls).to.equal(1);
+
+        await new Promise(r => setTimeout(r, 35));
+        const o3 = await flow(objStep).run({ id: 'a1' }, { pojo: true });
+        expect(o3.objCalls).to.equal(2);
+
+        // 3. Step.idempotent(optionsObject) falling back to ctx.id / step.name when key omitted and ttlMs as string
+        let fallbackCalls = 0;
+        const fallbackObjStep = Step.create('fallbackObjStep', () => {
+            fallbackCalls++;
+            return { fallbackCalls };
+        }).idempotent({
+            ttlMs: '25ms',
+            store,
+        });
+
+        const f1 = await flow(fallbackObjStep).run({ id: 'ctx-id-1' }, { pojo: true });
+        expect(f1.fallbackCalls).to.equal(1);
+        const f2 = await flow(fallbackObjStep).run({ id: 'ctx-id-1' }, { pojo: true });
+        expect(f2.fallbackCalls).to.equal(1);
+
+        await new Promise(r => setTimeout(r, 35));
+        const f3 = await flow(fallbackObjStep).run({ id: 'ctx-id-1' }, { pojo: true });
+        expect(f3.fallbackCalls).to.equal(2);
+    });
+
     it('failed workflow cleans up idempotency claim so it can be retried', async () => {
         let attempts = 0;
         const failingStep = Step.create('failFirst', () => {
@@ -298,16 +383,17 @@ describe('Idempotency Unit and Workflow Tests', () => {
             expect(err.message).to.equal('Store failure');
         }
     });
-    it('evaluates isPermanentBusinessError across error shapes and predicates', () => {
-        expect(isPermanentBusinessError(null)).to.be.false;
-        expect(isPermanentBusinessError(new Error('Generic'))).to.be.false;
+    it('isPermanentBusinessError evaluates custom predicate function and options', () => {
+        const customErr = new Error('CustomFail');
+        const customPredicate = (err: any) => err.message === 'CustomFail';
+        expect(isPermanentBusinessError(customErr, { isPermanentError: customPredicate })).to.be.true;
+        expect(isPermanentBusinessError(new Error('Other'), { isPermanentError: customPredicate })).to.be.false;
         expect(isPermanentBusinessError({ isPermanent: true })).to.be.true;
         expect(isPermanentBusinessError({ permanent: true })).to.be.true;
         expect(isPermanentBusinessError({ isBusinessError: true })).to.be.true;
-        expect(isPermanentBusinessError(new Error('Custom'), { isPermanentError: e => e.message.includes('Custom') }))
-            .to.be.true;
-        expect(isPermanentBusinessError(new Error('Other'), { isPermanentError: e => e.message.includes('Custom') })).to
-            .be.false;
+        expect(isPermanentBusinessError(new Error('Regular transient fail'))).to.be.false;
+        expect(isPermanentBusinessError(null)).to.be.false;
+        expect(isPermanentBusinessError(undefined)).to.be.false;
     });
 
     it('retrieves record metadata via InMemoryIdempotencyStore.getRecord', async () => {

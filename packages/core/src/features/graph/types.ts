@@ -1,3 +1,5 @@
+import { DynamicDuration, DynamicOption } from '../../shared';
+
 export type WorkflowNodeType = 'step' | 'sequence' | 'parallel' | 'branch' | 'wait' | 'map';
 
 export interface BaseWorkflowNode {
@@ -38,9 +40,11 @@ export interface BranchNode extends BaseWorkflowNode {
 export interface WaitNode extends BaseWorkflowNode {
     type: 'wait';
     eventName?: string;
-    correlationKey?: string | ((ctx: any) => string);
+    correlationKey?: DynamicOption<string>;
     timeoutMs?: number;
+    timeout?: DynamicDuration;
     durationMs?: number;
+    duration?: DynamicDuration;
 }
 
 export interface MapNode extends BaseWorkflowNode {

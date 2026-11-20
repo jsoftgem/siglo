@@ -18,7 +18,7 @@ import {
 } from '../executer/hooks';
 import Spec, { SpecData } from '../spec';
 import Configurator from '../configurator';
-import { generateUUID, isFunction, isObject, isReservedKey } from '../../shared';
+import { DurationInput, DynamicOption, generateUUID, isFunction, isObject, isReservedKey } from '../../shared';
 import { toPOJO } from '../context';
 import { CacheOptions } from '../cache';
 
@@ -303,21 +303,21 @@ export {
     isUnixSocketAllowed,
 };
 
-export interface ExecutionOptions {
+export interface ExecutionOptions<TContext = any> {
     signal?: AbortSignal;
     pojo?: boolean;
     mode?: 'pojo' | 'wrapped';
     namespace?: string;
-    timeout?: number;
-    timeoutMs?: number;
+    timeout?: DurationInput;
+    timeoutMs?: DurationInput;
     workflowId?: string;
     checkpoint?: boolean;
     // Phase 2
     durable?: boolean;
     workflowVersion?: string | number;
-    idempotencyKey?: string | ((ctx: any) => string);
+    idempotencyKey?: DynamicOption<string, TContext>;
     idempotencyStore?: IdempotencyStore;
-    idempotencyTtlMs?: number;
+    idempotencyTtlMs?: DurationInput;
     settleTimeoutMs?: number;
     pollIntervalMs?: number;
     isPermanentError?: (err: any) => boolean;
@@ -352,7 +352,7 @@ export interface Flow<TInput = any, TOutput = any> {
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     steps: Step<any, any, any>[];
     readonly isFlow?: boolean;
-    timeout: (ms: number) => Flow<TInput, TOutput>;
+    timeout: (ms: DurationInput) => Flow<TInput, TOutput>;
     timeoutMs?: number;
     workflowVersion?: string | number;
     version: (v: string | number) => Flow<TInput, TOutput>;
@@ -362,7 +362,7 @@ export interface Flow<TInput = any, TOutput = any> {
     toJSON: () => string;
     toDot: (options?: DotExportOptions) => string;
     resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
-    compensate: (stackId: string, options?: any) => Promise<any>;
+    compensate: (stackId: string, options?: CompensationRunOptions) => Promise<any>;
     networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
     networkPolicyConfig?: NetworkPolicyConfig;
     monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
@@ -548,9 +548,10 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
         run: runFn,
         steps: flatSteps,
         isFlow: true,
-        timeout(ms: number) {
-            defaultTimeoutMs = ms;
-            flowObj.timeoutMs = ms;
+        timeout(ms: DurationInput) {
+            const parsed = parseDuration(ms);
+            defaultTimeoutMs = parsed;
+            flowObj.timeoutMs = parsed;
             return flowObj;
         },
         timeoutMs: undefined,
@@ -591,19 +592,22 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
                             if (!handler && record.handlerName) {
                                 handler = getCompensationHandler(record.handlerName);
                             }
+                            const matchingStep = allSteps.find(
+                                (s: any) =>
+                                    (s?.name && s.name === record.stepName) ||
+                                    (s?.func && s.func === record.stepName) ||
+                                    (s?.$stepId && s.$stepId === record.stepId),
+                            );
                             if (!handler) {
-                                const matchingStep = allSteps.find(
-                                    (s: any) =>
-                                        (s?.name && s.name === record.stepName) ||
-                                        (s?.func && s.func === record.stepName) ||
-                                        (s?.$stepId && s.$stepId === record.stepId),
-                                );
                                 if (matchingStep?.compensationHandler) {
                                     handler = matchingStep.compensationHandler;
                                 } else if (matchingStep?.compensationHandlerName) {
                                     handler = getCompensationHandler(matchingStep.compensationHandlerName);
                                 }
                             }
+                            const recordPolicy =
+                                record.networkPolicy ||
+                                resolveEffectiveNetworkPolicy(matchingStep?.networkPolicyConfig, flowPolicyConfig);
 
                             if (!handler && !record.handlerName) {
                                 throw new UnresolvableCompensationException(record.stepName, undefined, { stackId });
@@ -618,6 +622,7 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
                                 handlerName: record.handlerName,
                                 payload: record.payload,
                                 options: record.options,
+                                networkPolicy: recordPolicy,
                                 status: record.status,
                                 completedAt: record.completedAt,
                             });
@@ -630,7 +635,15 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
                     // best-effort checkpoint hydration
                 }
             }
-            return defaultCompensationManager.runCompensations(stackId, undefined, options);
+            const resolvedNetworkPolicy = flowPolicyConfig
+                ? options?.networkPolicy
+                    ? resolveEffectiveNetworkPolicy(options.networkPolicy, flowPolicyConfig)
+                    : flowPolicyConfig
+                : options?.networkPolicy;
+            const effectiveOptions = resolvedNetworkPolicy
+                ? { ...options, networkPolicy: resolvedNetworkPolicy }
+                : options;
+            return defaultCompensationManager.runCompensations(stackId, undefined, effectiveOptions);
         },
         networkPolicy(policy?: NetworkPolicyConfig) {
             flowPolicyConfig = {
@@ -681,7 +694,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     compensationHandlerName?: string;
     compensationPayloadMapper?: (output: any, input: any) => any;
     compensationOptions?: CompensationOptions;
-    idempotencyKey?: string | ((ctx: any) => string);
+    idempotencyKey?: DynamicOption<string>;
     idempotencyOptions?: IdempotencyOptions;
     workflowNode?: WorkflowNode;
     // Phase 4
@@ -866,8 +879,8 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    timeout(ms: number): Step<TInput, TOutput, TName> {
-        this.timeoutMs = ms;
+    timeout(ms: DurationInput): Step<TInput, TOutput, TName> {
+        this.timeoutMs = parseDuration(ms);
         return this;
     }
 
@@ -956,12 +969,12 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, TName> {
+    cache(cachedLastOrOptions?: DurationInput | CacheOptions): Step<TInput, TOutput, TName> {
         if (isObject(cachedLastOrOptions)) {
             this.cacheOptions = cachedLastOrOptions;
-            this.cachedLast = cachedLastOrOptions.ttl || 1500;
+            this.cachedLast = parseDuration(cachedLastOrOptions.ttl) || 1500;
         } else {
-            this.cachedLast = cachedLastOrOptions || 1500;
+            this.cachedLast = parseDuration(cachedLastOrOptions) || 1500;
         }
         return this;
     }
@@ -986,9 +999,18 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: IdempotencyOptions): Step<TInput, TOutput, TName> {
-        this.idempotencyKey = keyOrFn || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
-        this.idempotencyOptions = options;
+    idempotent(
+        keyOrFnOrOptions?: DynamicOption<string> | IdempotencyOptions,
+        options?: IdempotencyOptions,
+    ): Step<TInput, TOutput, TName> {
+        if (isObject(keyOrFnOrOptions) && !isFunction(keyOrFnOrOptions)) {
+            const idempOpts = keyOrFnOrOptions as IdempotencyOptions;
+            this.idempotencyOptions = idempOpts;
+            this.idempotencyKey = idempOpts.key || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
+        } else {
+            this.idempotencyKey = keyOrFnOrOptions || options?.key || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
+            this.idempotencyOptions = options;
+        }
         return this;
     }
 
@@ -1066,4 +1088,13 @@ export type {
 
 export default Step;
 
-export { Status, ExecutionPhase, tagErrorPhase, isReservedKey, isFunction, isObject } from '../../shared';
+export {
+    Status,
+    ExecutionPhase,
+    tagErrorPhase,
+    isReservedKey,
+    isFunction,
+    isObject,
+    resolveDynamic,
+} from '../../shared';
+export type { DynamicOption, DurationInput, DynamicDuration } from '../../shared';

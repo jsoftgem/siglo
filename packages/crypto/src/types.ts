@@ -1,3 +1,5 @@
+import type { DynamicOption } from '@siglo/core';
+
 /** Built-in provider preset identifiers with open string autocomplete */
 export type BuiltInWebhookProvider = 'stripe' | 'github' | 'shopify' | 'slack' | 'svix' | 'generic-hmac';
 export type WebhookProviderName = BuiltInWebhookProvider | (string & {});
@@ -51,10 +53,10 @@ export interface WebhookVerifyOptions<TInput> {
      * Built-in provider name, registered protocol name, custom WebhookProtocol instance,
      * or dynamic resolver function based on workflow context.
      */
-    provider?: WebhookProviderName | WebhookProtocol | ((ctx: TInput) => WebhookProviderName | WebhookProtocol);
+    provider?: DynamicOption<WebhookProviderName | WebhookProtocol, TInput>;
 
     /** Webhook signing secret (or public key for asymmetric protocols) */
-    secret: string | Buffer | ((ctx: TInput) => string | Buffer);
+    secret: DynamicOption<string | Buffer, TInput>;
 
     /** Raw unparsed payload buffer, UTF-8 string, or Readable stream / AsyncIterable */
     payload: (ctx: TInput) => string | Buffer | NodeJS.ReadableStream | AsyncIterable<Buffer>;
@@ -132,10 +134,10 @@ export interface FieldCipherOptions<TInput> {
     keyRing?: KeyRing;
 
     /** Optional Additional Authenticated Data (AAD) for tenant/context isolation */
-    aad?: string | Buffer | ((ctx: TInput) => string | Buffer | undefined);
+    aad?: DynamicOption<string | Buffer | undefined, TInput>;
 
     /** Optional HKDF context info for deriving per-workflow/tenant subkeys */
-    deriveKeyContext?: string | Buffer | ((ctx: TInput) => string | Buffer | undefined);
+    deriveKeyContext?: DynamicOption<string | Buffer | undefined, TInput>;
 
     /** Callback invoked when a decrypted envelope was encrypted with a retired/historical key */
     onNeedsRekey?: (ctx: TInput, field: string, oldKid?: string, activeKid?: string) => void;

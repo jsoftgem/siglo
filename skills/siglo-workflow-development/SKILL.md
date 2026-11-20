@@ -53,10 +53,10 @@ const chargeCard = Step.create(
 )
     .onFail({
         maxRetries: 3,
-        delay: 150,
+        delay: '150ms',
         backoff: 'exponential',
         jitter: true,
-        retryIf: err => err.isTransient === true,
+        retryIf: err => err.isTransient === true, // Synchronous (err, attempt) => boolean
     })
     .compensate(async ({ chargeId }) => {
         await paymentGateway.refund(chargeId);
@@ -171,9 +171,15 @@ Validates the complete execution context against standard schema validators supp
 import { Step } from '@siglo/core';
 import { z } from 'zod';
 
-const OrderInputSchema = z.object({\n    orderId: z.string().min(1),\n    amount: z.number().positive(),\n    currency: z.enum(['USD', 'EUR', 'GBP']),\n});
+const OrderInputSchema = z.object({
+    orderId: z.string().min(1),
+    amount: z.number().positive(),
+    currency: z.enum(['USD', 'EUR', 'GBP']),
+});
 
-export const processPayment = Step.create('processPayment', async (param: z.infer<typeof OrderInputSchema>) => {\n    return { paymentCaptured: true };\n}).schema(OrderInputSchema);
+export const processPayment = Step.create('processPayment', async (param: z.infer<typeof OrderInputSchema>) => {
+    return { paymentCaptured: true };
+}).schema(OrderInputSchema);
 ```
 
 ### 2. Before Hook & Conditional Skipping (`.onBefore()`, `.onSkip()`)
@@ -205,20 +211,20 @@ const fetchCustomer = Step.create('fetchCustomer', async ({ customerId }) => {
 }));
 ```
 
-### 5. OnFail Hook & Retries (`.onFail()`)
+### 5. OnFail Hook, Timeouts & Retries (`.onFail()`, `.timeout()`)
 
-Handles retries with configurable backoff curves and jitter:
+Handles retries with configurable backoff curves, jitter, and `DurationInput` (`number | string`) delays and deadlines:
 
 ```typescript
-step.onFail({
-    maxRetries: 3, // Total retry attempts
-    delay: 200, // Initial delay in ms
-    backoff: 'exponential', // 'fixed' | 'linear' | 'exponential'
-    factor: 2, // Exponential multiplier
-    maxDelay: 5000, // Maximum delay cap in ms
-    jitter: true, // Adds full random jitter to prevent thundering herds
-    retryIf: error => error.status >= 500, // Conditional predicate
-});
+step.timeout('5s') // Or numeric milliseconds (5000)
+    .onFail({
+        maxRetries: 3, // Total retry attempts
+        delay: '200ms', // Initial delay (DurationInput: number | string)
+        backoff: 'exponential', // 'fixed' | 'linear' | 'exponential'
+        maxDelay: '5s', // Maximum delay cap (DurationInput: number | string)
+        jitter: true, // Adds full random jitter to prevent thundering herds
+        retryIf: error => error.status >= 500, // Synchronous predicate: (err, attempt) => boolean
+    });
 ```
 
 ---
@@ -229,17 +235,20 @@ Siglo provides built-in Saga orchestration with **LIFO (Last-In, First-Out)** ro
 
 ### How Compensations Work
 
-1. When a step with `.compensate()` completes successfully, its compensation record is pushed onto the workflow's execution stack.
-2. If any subsequent step fails (after exhausting retries) or if the workflow is cancelled, Siglo unwinds the stack in reverse order.
+1. When a step with `.compensate()` completes successfully, its compensation record (along with the step's effective ASL `networkPolicy`) is pushed onto the workflow's execution stack.
+2. If any subsequent step fails (after exhausting retries) or if the workflow is cancelled, Siglo unwinds the stack in reverse order inside each record's captured network perimeter.
 3. Each compensation handler receives the output produced by its corresponding step.
 
 ```typescript
 const bookFlight = Step.create('bookFlight', async ({ passengerId }) => {
     const ticketId = await airlineApi.book(passengerId);
     return { ticketId };
-}).compensate(async ({ ticketId }) => {
-    await airlineApi.cancel(ticketId);
-});
+}).compensate(
+    async ({ ticketId }) => {
+        await airlineApi.cancel(ticketId);
+    },
+    { maxRetries: 3, delay: '250ms' }, // Delay accepts DurationInput; retryIf remains synchronous
+);
 
 const bookHotel = Step.create('bookHotel', async ({ hotelId }) => {
     const bookingId = await hotelApi.reserve(hotelId);
@@ -259,7 +268,7 @@ export const travelFlow = flow(bookFlight, bookHotel, bookRentalCar);
 
 ## 4. Workflow Combinators
 
-Siglo provides first-class functional combinators for concurrency, racing, branching, and bounded batch mapping.
+Siglo provides first-class functional combinators for concurrency, racing, branching, and bounded batch mapping. When executed inside an outer `flow.networkPolicy()` (or `options.networkPolicy`), all nested combinators and `Step.create(subFlow)` sub-flows inherit and intersect the enclosing perimeter and cannot widen it.
 
 ### 1. Parallel Fan-Out (`parallel()`)
 
@@ -325,7 +334,7 @@ export const routeNotification = flow(
 
 ### 5. Bounded Batch Processing (`map()`)
 
-Processes arrays with bounded concurrency, avoiding memory explosions and rate limits:
+Processes arrays with bounded concurrency, avoiding memory explosions and rate limits (`concurrency` is a static `number`):
 
 ```typescript
 import { flow, map } from '@siglo/core';
@@ -339,7 +348,7 @@ export const processOrderItems = flow(
         ctx => ctx.items, // Accessor returning array
         processItem, // Step or Flow executed per item
         {
-            concurrency: 5, // Max concurrent in-flight items
+            concurrency: 5, // Static worker pool bound (number)
             stopOnError: true, // Halt immediately on first failure
             preserveOrder: true, // Preserve original array index ordering
         },
@@ -353,27 +362,28 @@ export const processOrderItems = flow(
 
 ### In-Process & Distributed Idempotency
 
-Prevent duplicate execution using `.idempotent()`:
+Prevent duplicate execution using `.idempotent()` with a `DynamicOption<string>` key and `DurationInput` TTL (`ttl` or `ttlMs`):
 
 ```typescript
 const processPayment = Step.create('processPayment', async ({ paymentId, amount }) => {
     return await stripe.charges.create({ amount });
 }).idempotent({
-    keyBuilder: ctx => `payment:${ctx.paymentId}`,
-    ttlMs: 3600_000, // 1 hour claim window
+    key: ctx => `payment:${ctx.paymentId}`,
+    ttl: '1h', // DurationInput (or numeric ms like 3600_000)
 });
 ```
 
 ### Step Output Caching
 
-Cache deterministic expensive calls:
+Cache deterministic expensive calls using `.cache()` (`DurationInput` or `CacheOptions`):
 
 ```typescript
 const fetchTaxRates = Step.create('fetchTaxRates', async ({ countryCode }) => {
     return await taxApi.lookup(countryCode);
 }).cache({
-    ttlMs: 300_000, // Cache for 5 minutes
-    keyBuilder: ctx => `tax:${ctx.countryCode}`,
+    ttl: '5m', // DurationInput: '5m' or 300_000
+    swr: '1m', // Optional stale-while-revalidate window
+    keySerializer: (stepId, param) => `tax:${param.countryCode}`,
 });
 ```
 
@@ -388,7 +398,7 @@ const result = await orderFulfillmentFlow.run(
     { orderId: 'ord-123', sku: 'SKU-A', amountCents: 5000 },
     {
         pojo: true, // Strips internal proxies and getters into a plain object
-        timeout: 10_000, // Flow-level timeout in ms
+        timeout: '10s', // Flow-level timeout (DurationInput: number | string)
         namespace: 'ecommerce', // Logical domain partitioning for logs and DevTools
         services: {
             // Dependency injection available in step hooks

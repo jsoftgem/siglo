@@ -500,6 +500,7 @@ export class StorageManager {
             handlerName: rec.handlerName,
             payload: toPOJO(rec.payload),
             options: rec.options,
+            networkPolicy: rec.networkPolicy,
             status: rec.status,
             completedAt: rec.completedAt,
         }));

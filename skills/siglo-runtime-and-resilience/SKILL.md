@@ -16,12 +16,17 @@ Workflows running in mission-critical environments require strict deadline contr
 Runtime execution is governed by `flow.run(input, options)` or `step.run(input, options)`.
 
 ```typescript
-export interface ExecutionOptions {
+export interface ExecutionOptions<TContext = any> {
     /** Cooperative cancellation signal aborting async steps and retry delays */
     signal?: AbortSignal;
 
-    /** Overall workflow SLA deadline in milliseconds */
-    timeout?: number;
+    /** Overall workflow SLA deadline as milliseconds or duration string (e.g. '10s', '5m') */
+    timeout?: DurationInput;
+    timeoutMs?: DurationInput;
+
+    /** Workflow-level idempotency key or synchronous context resolver */
+    idempotencyKey?: DynamicOption<string, TContext>;
+    idempotencyTtlMs?: DurationInput;
 
     /** Dependency injection container accessible inside steps */
     services?: Record<string, any>;
@@ -34,6 +39,9 @@ export interface ExecutionOptions {
 
     /** Enable durable checkpoint persistence on wait/suspend */
     durable?: boolean;
+
+    /** Network egress perimeter enclosing nested combinators, sub-flows, and compensations */
+    networkPolicy?: NetworkPolicyConfig;
 
     /** Global step lifecycle interception hook */
     stepExecutionHook?: StepExecutionHook;
@@ -54,9 +62,9 @@ flowchart TD
     Steps --> Hook["stepExecutionHook(before / after)"]
     Steps --> ErrCheck{"Error Thrown?"}
     ErrCheck -->|Yes| Norm["normalizeError(err, metadata)"]
-    Norm --> RetryCheck{"retryIf(err, attempt)?"}
+    Norm --> RetryCheck{"retryIf(err, attempt)? (sync)"}
     RetryCheck -->|Yes| Backoff["Exponential Backoff Sleep<br/>(Respects AbortSignal)"]
-    RetryCheck -->|No| Compensate["LIFO Saga Rollback"]
+    RetryCheck -->|No| Compensate["LIFO Saga Rollback<br/>(Under Captured ASL NetworkPolicy)"]
     Compensate --> DLQ{"Compensation Throws?"}
     DLQ -->|Yes| Unres["UnresolvableCompensationException (DLQ)"]
 ```
@@ -97,7 +105,7 @@ try {
 
 1. **Delays Abort Immediately**: If a step is waiting in an exponential backoff retry sleep or `wait()` timer, `signal.abort()` wakes up the timer instantly rather than waiting for the timeout to elapse.
 2. **Fetch Aborts Automatically**: If steps use `fetch` or HTTP clients with standard signals, the underlying network connection terminates immediately.
-3. **Compensations Run Safely**: Active compensations for already-completed steps can be configured to execute or unwind predictably.
+3. **Compensations Run Safely**: Active compensations for already-completed steps execute under their captured ASL `networkPolicy` perimeter and unwind predictably.
 
 ---
 
@@ -208,9 +216,9 @@ try {
 
 ## 6. Saga Failure Escalation & Dead-Letter Handling
 
-When a regular step fails, Siglo executes registered compensations in reverse LIFO order. But what if a **compensation itself** fails?
+When a regular step fails, Siglo executes registered compensations in reverse LIFO order. Each compensation record captures the effective ASL `networkPolicy` perimeter (intersected across step, flow, run options, and any enclosing `networkPolicyStorage`) and enforces it during both automatic rollbacks and checkpoint-hydrated `flow.compensate(stackId, options)` calls.
 
-Siglo captures the failure as an `UnresolvableCompensationException` to prevent masking the root cause and registers a dead-letter compensation record:
+If a **compensation itself** fails, Siglo captures the failure as an `UnresolvableCompensationException` to prevent masking the root cause and registers a dead-letter compensation record:
 
 ```typescript
 import { Step, flow, UnresolvableCompensationException } from '@siglo/core';
@@ -220,7 +228,7 @@ const riskyCompensation = Step.create('allocateResource', async () => ({ resId: 
         // If external system is down, this throws
         await externalSystem.deallocate(resId);
     },
-    { maxRetries: 3, delay: 500 }, // Retries can be configured on compensations!
+    { maxRetries: 3, delay: '500ms' }, // Delay accepts DurationInput (number | string); retryIf stays sync
 );
 
 try {
@@ -277,7 +285,7 @@ assertValidGraph(orderFlow.toGraph());
 ## 9. Golden Rules for Runtime Resilience
 
 1. **Propagate `AbortSignal` Everywhere**: Always forward HTTP request cancellation signals or container SIGTERM signals into `flow.run(input, { signal })`.
-2. **Make Compensations Safe**: Wrap compensation handlers in try/catch or configure compensation retries (`step.compensate(fn, { maxRetries: 3 })`) to prevent `UnresolvableCompensationException`.
-3. **Distinguish Retryable Errors**: In `.onFail({ retryIf })`, check `err.retryable` or transient network codes (502, 503, 504, `ECONNRESET`); never retry validation or contract errors.
+2. **Make Compensations Safe**: Wrap compensation handlers in try/catch or configure compensation retries (`step.compensate(fn, { maxRetries: 3, delay: '500ms' })`) to prevent `UnresolvableCompensationException`.
+3. **Distinguish Retryable Errors**: In `.onFail({ retryIf })`, keep `retryIf` synchronous (`(err, attempt) => boolean`) and check `err.retryable` or transient network codes (502, 503, 504, `ECONNRESET`); never retry validation or contract errors.
 4. **Use DI for External Clients**: Inject database pools and SDK clients via `options.services` to keep workflows clean, testable, and mockable.
 5. **Run Pre-Flight AST Checks**: Call `assertValidGraph(flow.toGraph())` in CI test suites to catch cycles and duplicate step IDs before production deployment.

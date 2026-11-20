@@ -1,4 +1,4 @@
-import type { Step } from '@siglo/core';
+import type { Step, DynamicOption, DurationInput } from '@siglo/core';
 import type { StandardSchemaV1 } from '@siglo/http';
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'custom';
@@ -7,9 +7,9 @@ export interface AiModelConfig<TInput = any> {
     model: string;
     baseUrl?: string;
     /** Resolved independently for each provider. No implicit credential sharing. */
-    apiKey?: string | ((ctx: TInput) => string);
-    /** Per-request deadline; independent of the enclosing step deadline. */
-    requestTimeoutMs?: number;
+    apiKey?: DynamicOption<string, TInput>;
+    /** Per-request deadline (number in ms or DurationInput string such as '15s'); independent of the enclosing step deadline. */
+    requestTimeoutMs?: DurationInput;
     /** Injectable provider boundary, including deterministic offline mocks. */
     adapter?: AiProviderAdapter;
     /** Override baseline USD prices per million tokens. */
@@ -67,7 +67,7 @@ export interface AiStepOptions<TInput = any, TSchema extends StandardSchemaV1 = 
     capture?: import('@siglo/core').InspectionCapturePolicy;
     model: AiModelConfig<TInput>;
     fallbackModels?: AiModelConfig<TInput>[];
-    prompt: string | ChatMessage[] | ((ctx: TInput) => string | ChatMessage[]);
+    prompt: DynamicOption<string | ChatMessage[], TInput>;
     schema?: TSchema;
     /** Required for native output enforcement unless schema supports Standard JSON Schema. */
     jsonSchema?: Record<string, unknown>;

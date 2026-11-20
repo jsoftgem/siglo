@@ -47,11 +47,11 @@ export const summarizeDocument = aiStep('summarizeDocument', {
     model: {
         provider: 'openai',
         model: 'gpt-4o',
-        requestTimeoutMs: 15_000,
+        requestTimeoutMs: '15s',
     },
     fallbackModels: [
         { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', requestTimeoutMs: 12_000 },
-        { provider: 'gemini', model: 'gemini-2.0-flash', requestTimeoutMs: 10_000 },
+        { provider: 'gemini', model: 'gemini-2.0-flash', requestTimeoutMs: '10s' },
     ],
     prompt: (ctx: { text: string }) => `Analyze and summarize this document:\n\n${ctx.text}`,
     schema: SummarySchema,
@@ -182,7 +182,7 @@ Integrates with Siglo's AsyncLocalStorage (ASL) network egress perimeter:
 Inference steps without tools support Siglo's `.cache()`:
 
 ```typescript
-aiStep('cachedAnalyze', options).cache({ ttl: 3600 });
+aiStep('cachedAnalyze', options).cache({ ttl: '1h' });
 ```
 
 Computes a SHA-256 digest over `cacheVersion`, prompt, model cascade, credentials scope, schema, validator code, sampling parameters, and input context. Stampede protection defaults to `false` so independent workflow cancellations never abort concurrent callers.
@@ -236,33 +236,33 @@ const replayAdapter = MockAiProvider.replay(recording);
 
 ### `AiStepOptions`
 
-| Field                            | Type                                                                    | Default     | Description                                                          |
-| -------------------------------- | ----------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------- |
-| `model`                          | `AiModelConfig`                                                         | _Required_  | Primary model configuration.                                         |
-| `fallbackModels`                 | `AiModelConfig[]`                                                       | `[]`        | Sequential fallback models for `429`, `5xx`, and timeouts.           |
-| `prompt`                         | `string \| ChatMessage[] \| ((ctx: TInput) => string \| ChatMessage[])` | _Required_  | Static prompt string, ChatMessage array, or dynamic prompt function. |
-| `schema`                         | `TSchema extends StandardSchemaV1`                                      | `undefined` | Standard Schema V1 validator for structured JSON output.             |
-| `jsonSchema`                     | `Record<string, unknown>`                                               | `undefined` | Native JSON Schema for provider structured output.                   |
-| `inputSchema`                    | `StandardSchemaV1`                                                      | `undefined` | Validates step input context before inference.                       |
-| `temperature`                    | `number`                                                                | `undefined` | Sampling temperature between `0` and `2`.                            |
-| `maxTokens`                      | `number`                                                                | `undefined` | Maximum completion tokens to generate.                               |
-| `maxRepairAttempts`              | `number`                                                                | `2`         | Maximum self-healing repair attempts on validation failure.          |
-| `tools`                          | `AiTool[]`                                                              | `[]`        | Typed tools created with `defineAiTool` exposed to the model.        |
-| `maxToolTurns`                   | `number`                                                                | `5`         | Maximum agentic tool interaction rounds.                             |
-| `enforceNativeStructuredOutputs` | `boolean`                                                               | `true`      | Set to `false` to disable provider-native schema enforcement.        |
-| `cacheVersion`                   | `string`                                                                | `'1'`       | Cache namespace identifier; bump when prompt closures change.        |
+| Field                            | Type                                             | Default     | Description                                                      |
+| -------------------------------- | ------------------------------------------------ | ----------- | ---------------------------------------------------------------- |
+| `model`                          | `AiModelConfig<TInput>`                          | _Required_  | Primary model configuration.                                     |
+| `fallbackModels`                 | `AiModelConfig<TInput>[]`                        | `[]`        | Sequential fallback models for `429`, `5xx`, and timeouts.       |
+| `prompt`                         | `DynamicOption<string \| ChatMessage[], TInput>` | _Required_  | Static prompt string, `ChatMessage[]`, or sync dynamic resolver. |
+| `schema`                         | `TSchema extends StandardSchemaV1`               | `undefined` | Standard Schema V1 validator for structured JSON output.         |
+| `jsonSchema`                     | `Record<string, unknown>`                        | `undefined` | Native JSON Schema for provider structured output.               |
+| `inputSchema`                    | `StandardSchemaV1`                               | `undefined` | Validates step input context before inference.                   |
+| `temperature`                    | `number`                                         | `undefined` | Sampling temperature between `0` and `2`.                        |
+| `maxTokens`                      | `number`                                         | `undefined` | Maximum completion tokens to generate.                           |
+| `maxRepairAttempts`              | `number`                                         | `2`         | Maximum self-healing repair attempts on validation failure.      |
+| `tools`                          | `AiTool<TInput>[]`                               | `[]`        | Typed tools created with `defineAiTool` exposed to the model.    |
+| `maxToolTurns`                   | `number`                                         | `5`         | Maximum agentic tool interaction rounds.                         |
+| `enforceNativeStructuredOutputs` | `boolean`                                        | `true`      | Set to `false` to disable provider-native schema enforcement.    |
+| `cacheVersion`                   | `string`                                         | `'1'`       | Cache namespace identifier; bump when prompt closures change.    |
 
 ### `AiModelConfig`
 
-| Field              | Type                                                          | Default               | Description                                                                  |
-| ------------------ | ------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------- |
-| `provider`         | `'anthropic' \| 'openai' \| 'gemini' \| 'ollama' \| 'custom'` | _Required_            | AI provider type.                                                            |
-| `model`            | `string`                                                      | _Required_            | Provider model identifier (e.g. `'gpt-4o'`, `'claude-3-5-sonnet-20241022'`). |
-| `baseUrl`          | `string`                                                      | Provider default      | Custom endpoint base URL (required for `'custom'`).                          |
-| `apiKey`           | `string \| ((ctx: TInput) => string)`                         | Environment variable  | API key or dynamic key resolver.                                             |
-| `requestTimeoutMs` | `number`                                                      | `undefined`           | Per-request timeout in milliseconds before triggering fallback.              |
-| `adapter`          | `AiProviderAdapter`                                           | Built-in REST adapter | Injectable provider adapter (e.g. `MockAiProvider`).                         |
-| `pricing`          | `TokenPricing`                                                | Baseline snapshot     | Override token pricing: `{ inputPerMillion, outputPerMillion }`.             |
+| Field              | Type                                                          | Default               | Description                                                                        |
+| ------------------ | ------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
+| `provider`         | `'anthropic' \| 'openai' \| 'gemini' \| 'ollama' \| 'custom'` | _Required_            | AI provider type.                                                                  |
+| `model`            | `string`                                                      | _Required_            | Provider model identifier (e.g. `'gpt-4o'`, `'claude-3-5-sonnet-20241022'`).       |
+| `baseUrl`          | `string`                                                      | Provider default      | Custom endpoint base URL (required for `'custom'`).                                |
+| `apiKey`           | `DynamicOption<string, TInput>`                               | Environment variable  | Static API key or synchronous dynamic key resolver.                                |
+| `requestTimeoutMs` | `DurationInput` (`number \| string`)                          | `undefined`           | Per-request timeout (ms or duration string like `'15s'`) before fallback triggers. |
+| `adapter`          | `AiProviderAdapter`                                           | Built-in REST adapter | Injectable provider adapter (e.g. `MockAiProvider`).                               |
+| `pricing`          | `TokenPricing`                                                | Baseline snapshot     | Override token pricing: `{ inputPerMillion, outputPerMillion }`.                   |
 
 ---
 

@@ -27,7 +27,7 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
     - [`step.onFail(config)`](#steponfailconfig)
     - [`step.compensate(handler, options?)`](#stepcompensatehandler-options)
 - [Optimization and Deduplication](#optimization-and-deduplication)
-    - [`step.idempotent(keyOrFn?, options?)`](#stepidempotentkeyorfn-options)
+    - [`step.idempotent(keyOrFnOrOptions?, options?)`](#stepidempotentkeyorfnoroptions-options)
     - [`step.cache(msOrOptions)`](#stepcachemsoroptions)
 - [Dependency Injection](#dependency-injection)
     - [`step.withDependencies(deps)`](#stepwithdependenciesdeps)
@@ -308,12 +308,12 @@ const calculateTax = Step.create('calcTax', async (param: { subtotal: number }) 
 
 ### `step.timeout(ms)`
 
-Enforces a per-step SLA deadline in milliseconds. If the step action takes longer than `ms`, the action is aborted via `AbortSignal` and throws a `StepTimeoutException`.
+Enforces a per-step SLA deadline. Accepts milliseconds (`number`) or a `DurationInput` string (e.g. `'2s'`, `'500ms'`), resolved via `parseDuration`. If the step action takes longer than the resolved duration, the action is aborted via `AbortSignal` and throws a `StepTimeoutException`.
 
 #### Signature
 
 ```typescript
-step.timeout(ms: number): Step<TInput, TOutput, TName>;
+step.timeout(ms: DurationInput): Step<TInput, TOutput, TName>;
 ```
 
 #### Example
@@ -324,7 +324,7 @@ import { Step, StepTimeoutException } from '@siglo/core';
 const callExternalVendor = Step.create('vendorApi', async () => {
     const res = await fetch('https://api.vendor.com/data');
     return res.json();
-}).timeout(2000); // 2-second timeout
+}).timeout('2s'); // 2-second timeout (or 2000)
 ```
 
 ---
@@ -333,16 +333,21 @@ const callExternalVendor = Step.create('vendorApi', async () => {
 
 Configures structured retry policies or custom error fallback handlers when the step action throws.
 
+- `delay` and `maxDelay` accept `DurationInput` (`number | string`, e.g. `'500ms'`, `'5s'`).
+- `retryIf` remains a synchronous predicate `(err, attempt) => boolean`.
+
 #### Signatures
 
 ```typescript
+export type RetryPredicate = (error: any, attempt: number) => boolean;
+
 export interface RetryConfig {
     maxRetries?: number;
-    delay?: number;
+    delay?: DurationInput;
     backoff?: 'fixed' | 'linear' | 'exponential' | ((attempt: number) => number);
     jitter?: boolean | ((delay: number) => number);
-    maxDelay?: number;
-    retryIf?: (err: any, attempt: number) => boolean;
+    maxDelay?: DurationInput;
+    retryIf?: RetryPredicate;
     onRetry?: (error: any, attempt: number, delayMs?: number) => void;
 }
 
@@ -362,11 +367,11 @@ const resilientFetch = Step.create('fetchData', async () => {
     return await externalService.call();
 }).onFail({
     maxRetries: 3,
-    delay: 500,
+    delay: '500ms',
     backoff: 'exponential',
     jitter: true,
-    maxDelay: 5000,
-    retryIf: err => err.status >= 500, // Only retry 5xx server errors
+    maxDelay: '5s',
+    retryIf: err => err.status >= 500, // Synchronous predicate: only retry 5xx server errors
     onRetry: (err, attempt) => console.warn(`Retry attempt ${attempt} due to ${err.message}`),
 });
 ```
@@ -391,19 +396,22 @@ const resilientFetchWithFallback = Step.create('fetchData', async () => {
 
 ### `step.compensate(handler, options?)`
 
-Registers a saga compensation rollback handler. If downstream steps in the workflow fail, registered compensation handlers execute automatically in reverse order (LIFO).
+Registers a saga compensation rollback handler. If downstream steps in the workflow fail, registered compensation handlers execute automatically in reverse order (LIFO) inside the effective `networkPolicy` perimeter captured when the step executed.
+
+- `delay` accepts `DurationInput` (`number | string`, e.g. `'1s'`, `1000`).
+- `retryIf` remains a synchronous predicate `(err, attempt) => boolean`.
 
 #### Signature
 
 ```typescript
 export interface CompensationOptions {
     maxRetries?: number;
-    delay?: number;
+    delay?: DurationInput;
     retryIf?: (err: any, attempt: number) => boolean;
 }
 
 step.compensate(
-    handler: (ctx: any) => Promise<void> | void,
+    handler: (output: any, input: any, context?: any) => Promise<void> | void,
     options?: CompensationOptions
 ): Step<TInput, TOutput, TName>;
 ```
@@ -419,7 +427,7 @@ const bookFlight = Step.create('bookFlight', async (ctx: { flightNo: string }) =
         // Automatically called if payment or hotel booking fails downstream
         await airlineApi.cancelReservation(ctx.flightReservationId);
     },
-    { maxRetries: 3, delay: 1000 },
+    { maxRetries: 3, delay: '1s' },
 );
 ```
 
@@ -427,16 +435,26 @@ const bookFlight = Step.create('bookFlight', async (ctx: { flightNo: string }) =
 
 ## Optimization and Deduplication
 
-### `step.idempotent(keyOrFn?, options?)`
+### `step.idempotent(keyOrFnOrOptions?, options?)`
 
-Guarantees step deduplication and concurrent claim locking using deterministic idempotency keys and TTL storage.
+Guarantees step deduplication and concurrent claim locking using deterministic idempotency keys (`DynamicOption<string>`) and TTL storage (`DurationInput`).
 
 #### Signature
 
 ```typescript
+export interface IdempotencyOptions<TContext = any> {
+    key?: DynamicOption<string, TContext>;
+    ttl?: DurationInput;
+    ttlMs?: DurationInput;
+    store?: IdempotencyStore;
+    settleTimeoutMs?: number;
+    pollIntervalMs?: number;
+    isPermanentError?: (err: any) => boolean;
+}
+
 step.idempotent(
-    keyOrFn?: string | ((ctx: any) => string),
-    options?: { ttlMs?: number; store?: IdempotencyStore }
+    keyOrFnOrOptions?: DynamicOption<string> | IdempotencyOptions,
+    options?: IdempotencyOptions,
 ): Step<TInput, TOutput, TName>;
 ```
 
@@ -452,27 +470,35 @@ step.idempotent(
 ```typescript
 const chargeCard = Step.create('chargeCard', async (ctx: { idempotencyToken: string; amount: number }) => {
     return await stripe.charges.create({ amount: ctx.amount });
-}).idempotent(ctx => ctx.idempotencyToken, { ttlMs: 86400000 }); // 24-hour TTL
+}).idempotent(ctx => ctx.idempotencyToken, { ttlMs: '24h' });
+
+// Or using the single options-object overload:
+const chargeCardAlt = Step.create('chargeCardAlt', async (ctx: { idempotencyToken: string; amount: number }) => {
+    return await stripe.charges.create({ amount: ctx.amount });
+}).idempotent({
+    key: ctx => ctx.idempotencyToken,
+    ttl: '24h',
+});
 ```
 
 ---
 
 ### `step.cache(msOrOptions)`
 
-Caches step output in memory or persistent storage (`StorageAdapter`) based on input parameters.
+Caches step output in memory or persistent storage (`StorageAdapter`) based on input parameters. Accepts either a `DurationInput` TTL (`number | string`) or a `CacheOptions` object whose `ttl`, `swr`, and `staleWhileRevalidate` fields also support `DurationInput`.
 
 #### Signatures
 
 ```typescript
 export interface CacheOptions {
-    ttl?: number;
-    staleWhileRevalidate?: number;
-    swr?: boolean | number;
+    ttl?: DurationInput;
+    staleWhileRevalidate?: DurationInput;
+    swr?: boolean | DurationInput;
     keySerializer?: (stepId: string, param: any, namespace?: string) => string;
     stampedeProtection?: boolean;
 }
 
-step.cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, TName>;
+step.cache(cachedLastOrOptions?: DurationInput | CacheOptions): Step<TInput, TOutput, TName>;
 ```
 
 #### Example
@@ -480,7 +506,9 @@ step.cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, T
 ```typescript
 const getExchangeRates = Step.create('rates', async () => {
     return await fetchRates();
-}).cache({ ttl: 60000 }); // Cache for 60 seconds
+}).cache({ ttl: '60s', swr: '5m' }); // Cache for 60s, serve stale for 5m while revalidating
+
+const quickLookup = Step.create('lookup', async () => ({ ok: true })).cache('30s');
 ```
 
 ---
@@ -560,7 +588,7 @@ The network policy boundary wraps the **entire step execution lifecycle** via `A
 - **`onAfter`**: Context enrichment and post-processing cannot bypass step network restrictions (violations tagged with `phase: 'after'`).
 - **`onFail`**: Step-level retries and fallback error handlers adhere to the policy perimeter.
 - **Global Plugins (`executeBefore`, `executeAfter`)**: Engine-level plugins execute **outside** this boundary to ensure system observability and metrics remain unaffected.
-- **Compensations (`step.compensate`)**: Sagas rollback in an independent scope with their own execution perimeter.
+- **Compensations (`step.compensate`)**: Saga rollbacks capture the step's effective network perimeter (intersected with enclosing flow/execution policies) and enforce it via `AsyncLocalStorage` during both automatic rollbacks and checkpoint-hydrated `flow.compensate()` calls.
 
 ---
 

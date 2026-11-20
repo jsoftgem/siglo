@@ -56,7 +56,7 @@ export const expenseApprovalFlow = flow(
     // Workflow suspends here until 'managerApproval' event arrives
     waitForEvent('managerApproval', {
         correlationKey: ctx => ctx.expenseId, // Matches incoming resume key
-        timeout: '7d', // Auto-expires after 7 days
+        timeout: ctx => (ctx.amount > 10000 ? '24h' : '7d'), // Static DurationInput or sync DynamicDuration
     }),
 
     Step.create('processPayout', async (ctx: { approved: boolean; approverEmail: string; amount: number }) => {
@@ -68,6 +68,8 @@ export const expenseApprovalFlow = flow(
     }),
 );
 ```
+
+Both `correlationKey` and `timeout` accept static values or synchronous `(ctx) => ...` resolvers (`DynamicOption` / `DynamicDuration`) reading prior step values from `ctx`. If `timeoutMs` is set, it takes precedence over `timeout`, and non-durable runs skip evaluating `timeout(ctx)`.
 
 ### Running in Durable Mode
 
@@ -104,6 +106,8 @@ export const onboardingDripFlow = flow(
     }),
 );
 ```
+
+`wait()` accepts a `DynamicDuration` (`number | string | ((ctx) => number | string)`), so you can pass static values like `'24h'` or synchronous context resolvers like `wait(ctx => ctx.cooldown)`.
 
 Supported duration strings include `'100ms'`, `'30s'`, `'15m'`, `'24h'`, `'7d'`.
 

@@ -1,3 +1,5 @@
+import { DurationInput, DynamicOption } from '../../shared';
+
 export type IdempotencyClaimStatus = 'claimed' | 'completed' | 'in-progress';
 
 export interface IdempotencyStore {
@@ -17,9 +19,10 @@ export interface IdempotencyRecord {
     expiresAt?: number;
 }
 
-export interface IdempotencyOptions {
-    key?: string | ((ctx: any) => string);
-    ttlMs?: number;
+export interface IdempotencyOptions<TContext = any> {
+    key?: DynamicOption<string, TContext>;
+    ttl?: DurationInput;
+    ttlMs?: DurationInput;
     store?: IdempotencyStore;
     settleTimeoutMs?: number;
     pollIntervalMs?: number;

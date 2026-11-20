@@ -1,4 +1,4 @@
-import type { Step, Flow, IdempotencyStore } from '@siglo/core';
+import type { Step, Flow, IdempotencyStore, DynamicOption, DurationInput, DynamicDuration } from '@siglo/core';
 import type { KeyRing } from '@siglo/crypto';
 import type { StandardSchemaV1 } from '@siglo/http';
 export type NotificationChannel = 'email' | 'slack' | 'discord' | 'sms' | 'push';
@@ -33,7 +33,7 @@ export interface NotificationTransport {
     send(message: ResolvedNotificationMessage): Promise<{ id: string; timestamp: number }>;
     cancel?(notificationId: string, reason: string): Promise<void>;
 }
-export type Dynamic<T, C> = T | ((ctx: C) => T);
+export type Dynamic<T, C = any> = DynamicOption<T, C>;
 export interface SendNotificationOptions<TInput> {
     capture?: import('@siglo/core').InspectionCapturePolicy;
     channel: Dynamic<NotificationChannel, TInput>;
@@ -41,8 +41,9 @@ export interface SendNotificationOptions<TInput> {
     subject?: Dynamic<string, TInput>;
     template: Dynamic<string, TInput>;
     dataSchema?: StandardSchemaV1;
-    data?: (ctx: TInput) => Record<string, unknown>;
-    deduplicationTtl?: number;
+    data?: DynamicOption<Record<string, unknown>, TInput>;
+    /** Deduplication TTL in seconds (when a number) or as a DurationInput string (e.g. '1h'). */
+    deduplicationTtl?: DurationInput;
     compensateOnFailure?: boolean;
     dispatchStore?: import('./dispatch').NotificationDispatchStore;
     transport?: NotificationTransport;
@@ -55,7 +56,7 @@ export interface InteractiveApprovalOptions<TInput> {
     title: Dynamic<string, TInput>;
     description?: Dynamic<string, TInput>;
     correlationKey: Dynamic<string, TInput>;
-    timeout: string;
+    timeout: DynamicDuration<TInput>;
     onApproveEvent: string;
     onRejectEvent: string;
     callbackBaseUrl: string;

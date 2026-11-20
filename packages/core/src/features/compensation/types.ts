@@ -1,8 +1,11 @@
+import { DurationInput } from '../../shared';
+import { NetworkPolicyConfig } from '../network/types';
+
 export type CompensationHandler = (output: any, input: any, context?: any) => any | Promise<any>;
 
 export interface CompensationOptions {
     maxRetries?: number;
-    delay?: number;
+    delay?: DurationInput;
     retryIf?: (err: any, attempt: number) => boolean;
 }
 
@@ -15,6 +18,7 @@ export interface CompensationRecord {
     handlerName?: string;
     payload?: any;
     options?: CompensationOptions;
+    networkPolicy?: NetworkPolicyConfig;
     status?: 'pending' | 'completed' | 'failed';
     completedAt?: number;
     error?: any;
@@ -40,7 +44,8 @@ export interface CompensationRunOptions {
     ) => Promise<void> | void;
     deadLetterQueue?: CompensationDeadLetterQueue;
     maxRetries?: number;
-    delay?: number;
+    delay?: DurationInput;
+    networkPolicy?: NetworkPolicyConfig;
 }
 
 export interface CompensationRunResult {

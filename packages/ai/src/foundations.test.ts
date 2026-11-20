@@ -105,16 +105,22 @@ describe('@siglo/ai prerequisites', () => {
             resolveModel({ provider: 'anthropic', model: 'b', apiKey: 'secondary' }, {}, 'ai').apiKey,
             'secondary',
         );
+        assert.equal(
+            resolveModel({ provider: 'openai', model: 'a', requestTimeoutMs: '5s' }, {}, 'ai').requestTimeoutMs,
+            5000,
+        );
         assert.throws(() => resolveModel({ provider: 'custom', model: 'a' }, {}, 'ai'), /baseUrl/);
         assert.throws(
             () => resolveModel({ provider: 'custom', model: 'a', baseUrl: 'file:///tmp/a' }, {}, 'ai'),
             /HTTP/,
         );
         assert.throws(() => resolveModel({ provider: 'openai', model: '' }, {}, 'ai'), /empty/);
-        assert.throws(
-            () => resolveModel({ provider: 'openai', model: 'a', requestTimeoutMs: -1 }, {}, 'ai'),
-            /positive/,
-        );
+        for (const badTimeout of [-1, 'invalid', '-5s', '0ms']) {
+            assert.throws(
+                () => resolveModel({ provider: 'openai', model: 'a', requestTimeoutMs: badTimeout }, {}, 'ai'),
+                /positive/,
+            );
+        }
         networkPolicyStorage.run(
             {
                 enabled: true,
@@ -184,11 +190,18 @@ describe('@siglo/ai prerequisites', () => {
             AiRequestTimeoutError,
         );
         assert.equal(signal?.aborted, true);
-        assert.equal(await withAiRequest(async () => 42, undefined, 100), 42);
         await assert.rejects(
-            withAiRequest(async () => 1, undefined, 0),
-            /positive/,
+            withAiRequest(() => new Promise(() => {}), undefined, '5ms'),
+            err => err instanceof AiRequestTimeoutError && err.timeoutMs === 5,
         );
+        assert.equal(await withAiRequest(async () => 42, undefined, 100), 42);
+        assert.equal(await withAiRequest(async () => 43, undefined, '1s'), 43);
+        for (const badTimeout of [0, 'invalid', '-5s']) {
+            await assert.rejects(
+                withAiRequest(async () => 1, undefined, badTimeout),
+                /positive/,
+            );
+        }
         await assert.rejects(
             withAiRequest(async () => {
                 throw new Error('provider error');

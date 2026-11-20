@@ -10,6 +10,8 @@ import {
     VALUE,
     STEPS,
     HISTORY,
+    parseDuration,
+    resolveDynamic,
 } from '../../shared';
 import { toPOJO } from '../context';
 import { FlowTimeoutException, normalizeError, IdempotencyConflictException } from './exceptions';
@@ -84,7 +86,7 @@ export class Runner {
                 );
             }
 
-            const timeoutMs: number | undefined = rawOptions?.timeout ?? rawOptions?.timeoutMs;
+            const timeoutMs: number | undefined = parseDuration(rawOptions?.timeout) ?? parseDuration(rawOptions?.timeoutMs);
             let flowController: AbortController | undefined;
             let flowTimer: any;
             let completedSteps = 0;
@@ -210,10 +212,7 @@ export class Runner {
             let idempotencyKeyScoped: string | undefined;
 
             if (rawOptions?.idempotencyKey) {
-                const rawKey =
-                    typeof rawOptions.idempotencyKey === 'function'
-                        ? rawOptions.idempotencyKey(toPOJO(param))
-                        : rawOptions.idempotencyKey;
+                const rawKey = resolveDynamic(rawOptions.idempotencyKey, toPOJO(param));
                 idempotencyKeyScoped = buildIdempotencyKey(rawKey, {
                     namespace: namespace,
                     workflowVersion: rawOptions?.workflowVersion,
@@ -234,9 +233,10 @@ export class Runner {
                 this.executeBefore,
             );
 
+            const idempotencyTtlMs = parseDuration(rawOptions?.idempotencyTtlMs);
             const runFlowExecution = async () => {
                 if (idempotencyKeyScoped) {
-                    let claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+                    let claim = await idempotencyStore.claim(idempotencyKeyScoped, idempotencyTtlMs);
 
                     const settleTimeoutMs = rawOptions?.settleTimeoutMs;
                     const pollIntervalMs = rawOptions?.pollIntervalMs || 50;
@@ -257,7 +257,7 @@ export class Runner {
                                 if (!rec) {
                                     claim = await idempotencyStore.claim(
                                         idempotencyKeyScoped,
-                                        rawOptions?.idempotencyTtlMs,
+                                        idempotencyTtlMs,
                                     );
                                     if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
                                         break;

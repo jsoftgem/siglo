@@ -100,6 +100,7 @@ export async function reconcileAbandonedStacks(options: ReconcilerOptions = {}):
                                         handlerName: record.handlerName,
                                         payload: record.payload,
                                         options: record.options,
+                                        networkPolicy: record.networkPolicy,
                                         status: record.status,
                                         completedAt: record.completedAt,
                                     });

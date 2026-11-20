@@ -162,21 +162,22 @@ function httpStep<const TName extends string, TInput = any, TOutput = Record<str
 
 ### `HttpStepOptions` Configuration
 
-| Option           | Type                                                                     | Default                | Description                                                                           |
-| ---------------- | ------------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------- |
-| `url`            | `string \| ((ctx: TInput) => string)`                                    | _Required_             | Target URL or dynamic resolver function.                                              |
-| `method`         | `'GET' \| 'POST' \| 'PUT' \| 'PATCH' \| 'DELETE' \| 'HEAD' \| 'OPTIONS'` | `'GET'`                | HTTP request method.                                                                  |
-| `headers`        | `Record<string, string> \| ((ctx: TInput) => Record<string, string>)`    | `{}`                   | Static or dynamic request headers.                                                    |
-| `query`          | `Record<string, any> \| ((ctx: TInput) => Record<string, any>)`          | `undefined`            | Query string parameters appended to the URL.                                          |
-| `body`           | `any \| ((ctx: TInput) => any)`                                          | `undefined`            | Request payload. Automatically JSON-serialized unless string or binary.               |
-| `requestSchema`  | `StandardSchemaV1 \| ZodSchema \| Function`                              | `undefined`            | Schema validating the outgoing request payload before dispatch.                       |
-| `responseSchema` | `StandardSchemaV1 \| ZodSchema \| Function`                              | `undefined`            | Schema validating and typing incoming response data.                                  |
-| `responseType`   | `'json' \| 'text' \| 'blob' \| 'arrayBuffer'`                            | `'json'`               | Response parser strategy.                                                             |
-| `retryOnStatus`  | `number[]`                                                               | `[429, 502, 503, 504]` | HTTP status codes that trigger retry with jitter.                                     |
-| `maxRetries`     | `number`                                                                 | `3`                    | Maximum retry attempts for transient errors.                                          |
-| `allowNotFound`  | `boolean`                                                                | `false`                | When true, 404 responses return `{ notFound: true, data: null }` instead of throwing. |
-| `timeoutMs`      | `number`                                                                 | `undefined`            | Socket timeout in milliseconds (aborts connection when elapsed).                      |
-| `compensate`     | `CompensationHttpConfig<TInput, TOutput>`                                | `undefined`            | Inline saga rollback HTTP configuration.                                              |
+| Option           | Type                                                                                                                   | Default                | Description                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
+| `url`            | `DynamicOption<string, TInput>` (`string \| ((ctx: TInput) => string)`)                                                | _Required_             | Target URL or synchronous dynamic resolver function.                                  |
+| `method`         | `'GET' \| 'POST' \| 'PUT' \| 'PATCH' \| 'DELETE' \| 'HEAD' \| 'OPTIONS'`                                               | `'GET'`                | HTTP request method.                                                                  |
+| `headers`        | `DynamicOption<Record<string, string>, TInput>`                                                                        | `{}`                   | Static or synchronous dynamic request headers.                                        |
+| `query`          | `DynamicOption<Record<string, string \| number \| boolean \| undefined>, TInput>`                                      | `undefined`            | Query string parameters appended to the URL.                                          |
+| `body`           | `DynamicOption<Record<string, any> \| any[] \| string \| number \| boolean \| null, TInput> \| ((ctx: TInput) => any)` | `undefined`            | Request payload. Automatically JSON-serialized unless string or binary.               |
+| `requestSchema`  | `StandardSchemaV1 \| ZodSchema \| Function`                                                                            | `undefined`            | Schema validating the outgoing request payload before dispatch.                       |
+| `responseSchema` | `StandardSchemaV1 \| ZodSchema \| Function`                                                                            | `undefined`            | Schema validating and typing incoming response data.                                  |
+| `responseType`   | `'json' \| 'text' \| 'blob' \| 'arrayBuffer'`                                                                          | `'json'`               | Response parser strategy.                                                             |
+| `retryOnStatus`  | `number[]`                                                                                                             | `[429, 502, 503, 504]` | HTTP status codes that trigger retry with jitter.                                     |
+| `maxRetries`     | `number`                                                                                                               | `3`                    | Maximum retry attempts for transient errors.                                          |
+| `allowNotFound`  | `boolean`                                                                                                              | `false`                | When true, 404 responses return `{ notFound: true, data: null }` instead of throwing. |
+| `timeout`        | `DurationInput` (`number \| string`, e.g. `'5s'`)                                                                      | `undefined`            | Request timeout (milliseconds or duration string; overrides step-level timeout).      |
+| `timeoutMs`      | `DurationInput` (`number \| string`, e.g. `'5s'`)                                                                      | `undefined`            | Request timeout in milliseconds or duration string (overrides `timeout` if both set). |
+| `compensate`     | `CompensationHttpConfig<TInput, TOutput>`                                                                              | `undefined`            | Inline saga rollback HTTP configuration (sync `(ctx, res) => T` resolvers).           |
 
 ### `HttpMetadata` Telemetry
 
@@ -237,7 +238,7 @@ export const chargeCard = httpStep('chargeCard', {
     responseSchema: StripeChargeResponse,
     retryOnStatus: [429, 502, 503],
     maxRetries: 3,
-    timeoutMs: 5000,
+    timeout: '5s',
     // Automatic saga compensation: Refund if subsequent warehouse step fails
     compensate: {
         url: 'https://api.stripe.com/v1/refunds',

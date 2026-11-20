@@ -5,7 +5,7 @@ description: 'API reference for ExecutionOptions in Siglo: pojo, mode, signal, t
 
 # API Reference: Execution Options (`ExecutionOptions`)
 
-The `ExecutionOptions` object configures runtime execution behavior across `flow.run()`, `step.run()`, and `resumeWorkflow()`. It governs cancellation signals, deadlines, dependency injection, durable persistence, multi-tenant namespaces, schema migrations, execution hooks, and idempotency deduplication.
+The `ExecutionOptions` object configures runtime execution behavior across `flow.run()`, `step.run()`, and `resumeWorkflow()`. It governs cancellation signals, deadlines, dependency injection, durable persistence, multi-tenant namespaces, schema migrations, execution hooks, network policies, and idempotency deduplication.
 
 ---
 
@@ -35,7 +35,7 @@ The `ExecutionOptions` object configures runtime execution behavior across `flow
 ## The `ExecutionOptions` Interface
 
 ```typescript
-export interface ExecutionOptions {
+export interface ExecutionOptions<TContext = any> {
     /** Strip internal proxy wrappers and return clean plain JavaScript objects (default: true). Output path always normalizes via toPOJO. */
     pojo?: boolean;
 
@@ -45,9 +45,9 @@ export interface ExecutionOptions {
     /** Cooperative cancellation signal aborting in-flight async steps and retry delays. */
     signal?: AbortSignal;
 
-    /** Overall workflow SLA deadline in milliseconds. */
-    timeout?: number;
-    timeoutMs?: number;
+    /** Overall workflow SLA deadline as milliseconds or a duration string (e.g. '15s', '5m'). */
+    timeout?: DurationInput;
+    timeoutMs?: DurationInput;
 
     /** Dependency injection container accessible inside steps via param.$services. */
     services?: Record<string, any>;
@@ -70,14 +70,14 @@ export interface ExecutionOptions {
     /** Multi-tenant partition namespace scoping checkpoints, caches, and idempotency keys. */
     namespace?: string;
 
-    /** Workflow-level idempotency deduplication key or generator function. */
-    idempotencyKey?: string | ((ctx: any) => string);
+    /** Workflow-level idempotency deduplication key or synchronous resolver function. */
+    idempotencyKey?: DynamicOption<string, TContext>;
 
     /** Custom idempotency store adapter. */
     idempotencyStore?: IdempotencyStore;
 
-    /** Retention TTL for idempotency records in milliseconds (Postgres/Redis default: 24h; InMemory: no expiry unless set). */
-    idempotencyTtlMs?: number;
+    /** Retention TTL for idempotency records as milliseconds or a duration string (Postgres/Redis default: 24h; InMemory: no expiry unless set). */
+    idempotencyTtlMs?: DurationInput;
 
     /** Settle polling timeout and interval for concurrent in-progress idempotency claims. */
     settleTimeoutMs?: number;
@@ -155,13 +155,13 @@ try {
 
 ### `timeout` and `timeoutMs`
 
-Workflow-level SLA deadline in milliseconds.
+Workflow-level SLA deadline specified as milliseconds (`number`) or a `DurationInput` string (e.g. `'10s'`, `'5m'`, `'500ms'`).
 
 - If the total execution time of the entire workflow exceeds this limit, execution is immediately aborted.
 - Throws `FlowTimeoutException` containing `timeoutMs`, `stackId`, and `completedSteps`.
 
 ```typescript
-await myFlow.run(input, { timeout: 10000 }); // 10-second deadline
+await myFlow.run(input, { timeout: '10s' }); // 10-second deadline (or 10000)
 ```
 
 ---
@@ -260,7 +260,7 @@ await tenantFlow.run(tenantPayload, {
 
 ### `idempotencyKey`
 
-A string or generator function providing workflow-level deduplication.
+A static string or synchronous resolver function (`DynamicOption<string, TContext>`) providing workflow-level deduplication.
 
 - Prevents concurrent duplicate runs (e.g. double-submitted webhooks or duplicate HTTP requests).
 - If an execution with this key is already running, throws `IdempotencyConflictException`.
@@ -282,7 +282,7 @@ Custom adapter implementing the `IdempotencyStore` interface (e.g. `PostgresIdem
 
 ### `idempotencyTtlMs`
 
-Retention window for idempotency records in milliseconds:
+Retention window for idempotency records as milliseconds (`number`) or a `DurationInput` string (e.g. `'24h'`, `'30m'`, `86400000`):
 
 - **Redis / PostgreSQL stores**: Default to `86400000` (24 hours).
 - **In-Memory store**: No expiration by default (`expiresAt` remains undefined unless `ttlMs` is explicitly supplied; TTL starts at claim time).
@@ -308,6 +308,9 @@ await myFlow.run(payload, {
 ### `networkPolicy`
 
 Supplies dynamic network egress guardrails for this execution run, overriding or narrowing the workflow-level policy.
+
+- **Containment Across Nested Scopes**: When a workflow is executed with a `networkPolicy` (either via `flow.networkPolicy()` or `options.networkPolicy`), that perimeter encloses nested combinators (`parallel`, `when`, `branch`, `map`) and sub-flows (`Step.create(subFlow)`). Child steps and sub-flows can only narrow permissions within the outer perimeter, never widen it.
+- **Propagation to Compensations**: Effective step/flow network policies are captured onto compensation records and enforced during automatic Saga rollbacks and `flow.compensate()` invocations.
 
 ```typescript
 await myFlow.run(payload, {
@@ -359,13 +362,13 @@ async function handleOrderWebhook(request: any) {
     const options = {
         pojo: true,
         signal: abortController.signal,
-        timeout: 15000, // 15s SLA
+        timeout: '15s', // 15s SLA (DurationInput: number | string)
         namespace: request.tenantId,
         workflowId: 'order-checkout',
         workflowVersion: 'v2.0',
         durable: true,
-        idempotencyKey: `order:${request.body.orderId}`,
-        idempotencyTtlMs: 24 * 60 * 60 * 1000,
+        idempotencyKey: (ctx: any) => `order:${ctx.orderId}`,
+        idempotencyTtlMs: '24h',
         services: {
             db: request.dbClient,
             metrics: request.metricsReporter,

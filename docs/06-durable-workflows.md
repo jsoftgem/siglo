@@ -23,7 +23,7 @@ export const expenseApprovalWorkflow = flow(
     // Suspends until manager approval webhook arrives
     waitForEvent('managerApproval', {
         correlationKey: param => param.expenseId,
-        timeout: '7d', // Auto-expire after 7 days
+        timeout: param => (param.amount > 10000 ? '24h' : '7d'), // Sync DynamicDuration from ctx
     }),
 
     Step.create('payout', async (param: { approved: boolean; approverId: string }) => {
@@ -43,6 +43,8 @@ console.log(pending.status); // 'waiting'
 console.log(pending.correlationKey); // 'exp_100'
 ```
 
+> Both `correlationKey` and `timeout` accept static values or synchronous `(ctx) => ...` resolvers (`DynamicOption` / `DynamicDuration`) that read values produced by preceding steps. `timeoutMs` retains precedence if provided, and non-durable runs skip evaluating `timeout(ctx)`.
+
 ---
 
 ## 2. Sleeping with `wait()`
@@ -58,6 +60,8 @@ export const delayedNotificationWorkflow = flow(
     Step.create('sendFollowUp', () => ({ followUpSent: true })),
 );
 ```
+
+`wait()` also accepts a synchronous `DynamicDuration` resolver (`ctx => ctx.cooldown`) when the delay or backoff is computed by a preceding step.
 
 ---
 

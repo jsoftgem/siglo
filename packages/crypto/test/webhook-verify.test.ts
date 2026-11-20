@@ -337,5 +337,35 @@ describe('Webhook Verification Step (verifyWebhookStep)', () => {
             expect(result.provider).to.equal('stripe');
             expect(result.rawBody).to.equal(rawBody);
         });
+
+        it('resolves dynamic provider and secret via DynamicOption from workflow context', async () => {
+            const secret = 'whsec_dyn_tenant';
+            const rawBody = '{"event":"push"}';
+            const sig = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
+            interface WebhookCtx {
+                providerName: string;
+                tenantSecret: string;
+                rawBody: string;
+                headers: Record<string, string>;
+            }
+
+            const step = verifyWebhookStep<'verifyDyn', WebhookCtx>('verifyDyn', {
+                provider: ctx => ctx.providerName,
+                secret: ctx => ctx.tenantSecret,
+                payload: ctx => ctx.rawBody,
+                signature: ctx => ctx.headers['x-hub-signature-256'],
+            });
+
+            const result = await step.execute({
+                providerName: 'github',
+                tenantSecret: secret,
+                rawBody,
+                headers: { 'x-hub-signature-256': `sha256=${sig}` },
+            });
+
+            expect(result.webhookVerified).to.be.true;
+            expect(result.provider).to.equal('github');
+        });
     });
 });

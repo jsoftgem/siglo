@@ -1,6 +1,8 @@
-export interface WaitForEventOptions {
-    correlationKey: string | ((ctx: any) => string);
-    timeout?: number | string;
+import { DynamicDuration, DynamicOption } from '../../shared';
+
+export interface WaitForEventOptions<TContext = any> {
+    correlationKey: DynamicOption<string, TContext>;
+    timeout?: DynamicDuration<TContext>;
     timeoutMs?: number;
 }
 

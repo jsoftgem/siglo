@@ -1,6 +1,13 @@
 import { createHash } from 'node:crypto';
-import { Step, SigloError, defaultStorageManager, recordInspection, captureInspection } from '@siglo/core';
-import type { CacheOptions } from '@siglo/core';
+import {
+    Step,
+    SigloError,
+    defaultStorageManager,
+    recordInspection,
+    captureInspection,
+    resolveDynamic,
+} from '@siglo/core';
+import type { CacheOptions, DurationInput } from '@siglo/core';
 import { validatePayload } from '@siglo/http';
 import type { StandardSchemaV1 } from '@siglo/http';
 import { createAiResult, getExecutionSignal, shouldFallback, withAiRequest } from './execution';
@@ -99,7 +106,7 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
         return this;
     }
 
-    override cache(options?: number | CacheOptions): this {
+    override cache(options?: DurationInput | CacheOptions): this {
         if (this.aiOptions.tools?.length) throw new TypeError('AI steps with tools cannot be cached');
         const config = typeof options === 'object' ? options : { ttl: options };
         const customKey = config.keySerializer;
@@ -109,7 +116,7 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
             keySerializer: (stepId, ctx, namespace) => {
                 const o = this.aiOptions;
                 const configs = [o.model, ...(o.fallbackModels ?? [])].map(m => resolveModel(m, ctx, this.name));
-                const prompt = typeof o.prompt === 'function' ? o.prompt(ctx) : o.prompt;
+                const prompt = resolveDynamic(o.prompt, ctx);
                 return createHash('sha256')
                     .update(
                         JSON.stringify({
@@ -168,12 +175,12 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
             o.schema && o.enforceNativeStructuredOutputs !== false
                 ? resolveJsonSchema(o.schema, o.jsonSchema)
                 : undefined;
-        const models = [o.model, ...(o.fallbackModels ?? [])].map(m => resolveModel(m, ctx, this.name));
+        const input = o.inputSchema ? await validatePayload<TInput>(o.inputSchema, ctx, 'validation', this.name) : ctx;
+        const models = [o.model, ...(o.fallbackModels ?? [])].map(m => resolveModel(m, input, this.name));
         for (const model of models) {
             // Validate overrides before a request can incur expense.
             estimateTokenCost(model.provider, model.model, 0, 0, model.pricing);
         }
-        const input = o.inputSchema ? await validatePayload<TInput>(o.inputSchema, ctx, 'validation', this.name) : ctx;
         return { models, tools, jsonSchema, input };
     }
 
@@ -181,7 +188,7 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
         const started = Date.now();
         const o = this.aiOptions;
         const prepared = await this.preflight(ctx);
-        const prompt = typeof o.prompt === 'function' ? o.prompt(prepared.input) : o.prompt;
+        const prompt = resolveDynamic(o.prompt, prepared.input);
         const history = messages(prompt);
         const signal = getExecutionSignal(ctx as any);
         const maxRepairs = o.maxRepairAttempts ?? 2;
