@@ -1,5 +1,13 @@
 import { FlowTimeoutException, WorkflowSuspendedException } from '../../exceptions';
-import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY, DurationInput, parseDuration } from '../../../../shared';
+import {
+    STEP_ID,
+    ATTEMPT,
+    RETRY_DELAY,
+    STACK_ID,
+    STACK_ID_KEY,
+    DurationInput,
+    parseDuration,
+} from '../../../../shared';
 import { emitMonitoringEvent } from '../../../events';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;

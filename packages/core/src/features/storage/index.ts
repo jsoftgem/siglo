@@ -822,8 +822,17 @@ export function getStorage(): Readonly<Record<string, any>> {
     return defaultStorageManager.snapshot();
 }
 
+const storageResetHooks = new Set<() => void>();
+
+export function registerStorageResetHook(hook: () => void): void {
+    storageResetHooks.add(hook);
+}
+
 export function clearStorage(): void {
     defaultStorageManager.clear();
+    for (const hook of storageResetHooks) {
+        hook();
+    }
 }
 
 export function setChainConfig(config: any): void {

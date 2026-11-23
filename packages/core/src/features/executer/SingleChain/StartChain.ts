@@ -30,6 +30,8 @@ import {
     DEPS,
     parseDuration,
     resolveDynamic,
+    isObject,
+    isReservedKey,
 } from '../../../shared';
 import { StepTimeoutException, IdempotencyConflictException, NetworkPolicyViolationException } from '../exceptions';
 import { combineAbortSignals } from '../signals';
@@ -37,6 +39,32 @@ import { defaultCompensationManager } from '../../compensation';
 import { defaultIdempotencyStore, buildIdempotencyKey, isPermanentBusinessError } from '../../idempotency';
 import { resolveEffectiveNetworkPolicy, networkPolicyStorage, ensureNetworkInterceptorsInstalled } from '../../network';
 import { emitMonitoringEvent } from '../../events/emitter';
+import { executeComputeStepSync, isThenable } from '../../step/compute';
+
+function finalizeComputeOutput(chain: any, val: any): any {
+    if (!isObject(val) || Array.isArray(val)) {
+        return val;
+    }
+    const rawOutput = toPOJO(val);
+    const cleanOutput: Record<string, any> = {};
+    for (const k of Object.keys(rawOutput)) {
+        if (!isReservedKey(k)) {
+            cleanOutput[k] = rawOutput[k];
+        }
+    }
+    const stepName = chain.name || chain.func || 'step_0';
+    const singleSteps: Record<string, any> = {
+        [stepName]: cleanOutput,
+        [0]: cleanOutput,
+    };
+    const stepsAccessor: any = (subField?: string) => (subField !== undefined ? singleSteps[subField] : singleSteps);
+    Object.assign(stepsAccessor, singleSteps);
+    const ctx = Object.assign({}, rawOutput, {
+        [STEPS]: stepsAccessor,
+        [HISTORY]: stepsAccessor,
+    });
+    return toPOJO(ctx);
+}
 
 function extractNetworkViolation(err: any, seen: Set<any> = new Set()): any {
     if (!err || seen.has(err)) return undefined;
@@ -76,6 +104,17 @@ export default class StartChain {
         this.stackId = stackId;
         this.start = (initialParam: any, chains: any, options?: any) => {
             options = Object.assign({ stackId }, options);
+            if (chains && typeof chains === 'object' && chains.isCompute === true) {
+                try {
+                    const result = executeComputeStepSync(chains, initialParam, options);
+                    if (isThenable(result)) {
+                        return Promise.resolve(result).then((val: any) => finalizeComputeOutput(chains, val));
+                    }
+                    return Promise.resolve(finalizeComputeOutput(chains, result));
+                } catch (err) {
+                    return Promise.reject(err);
+                }
+            }
             logInfo('SingleChain', {
                 chain: chains,
                 message: 'Starting',
@@ -429,7 +468,7 @@ export default class StartChain {
                                                                             if (!rec) {
                                                                                 claim = await stepIdempStore.claim(
                                                                                     stepIdempKey,
-                                                                                     stepIdempTtlMs,
+                                                                                    stepIdempTtlMs,
                                                                                 );
                                                                                 // prettier-ignore
                                                                                 if (claim === Status.CLAIMED || claim === Status.COMPLETED) {

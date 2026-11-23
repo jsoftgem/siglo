@@ -1,6 +1,6 @@
 ---
 name: siglo-security-and-guardrails
-description: 'Enforce in-process zero-trust network perimeter guardrails, cryptographic protection, and sensitive context security in Siglo workflows. Use when restricting step-level or flow-level outbound network egress (`allowNetwork`, `denyNetwork`, `allowUnixSockets`, `networkPolicy`), governing external calls across `fetch`, `http`, and raw TCP sockets via AsyncLocalStorage (ASL), handling `NetworkPolicyViolationException`, encrypting sensitive PII fields (`@siglo/crypto`: `encryptFieldsStep`, `decryptFieldsStep`), and verifying webhook signatures with replay-attack protection (`verifyWebhookStep`).'
+description: 'Enforce in-process zero-trust network perimeter guardrails, cryptographic protection, and sensitive context security in Siglo workflows. Use when restricting step-level or flow-level outbound network egress (`Step.compute`, `allowNetwork`, `denyNetwork`, `allowUnixSockets`, `networkPolicy`), governing external calls across `fetch`, `http`, and raw TCP sockets via AsyncLocalStorage (ASL), handling `NetworkPolicyViolationException`, encrypting sensitive PII fields (`@siglo/crypto`: `encryptFieldsStep`, `decryptFieldsStep`), and verifying webhook signatures with replay-attack protection (`verifyWebhookStep`).'
 ---
 
 # Siglo Security and Guardrails
@@ -13,16 +13,17 @@ In modern microservices and agentic pipelines, workflow steps frequently handle 
 
 ## 1. Zero-Trust Network Mental Model
 
-Siglo's network governance follows five fundamental principles:
+Siglo's network governance follows six fundamental principles:
 
 1. **Policy Activation & Default Deny**: When a network policy is attached to a flow or step, egress enforcement activates and defaults to blocking all external outbound network connections unless explicitly listed in an allowlist.
 2. **Outer Envelope Narrowing (Flow Supersedes Step)**: The `Flow` (or enclosing execution scope) defines the maximum allowable security perimeter. Steps and nested subflows can only **narrow** permissions within what the outer envelope permits (e.g. Flow allows `['api.stripe.com', 'api.sendgrid.com']`, Step narrows to `['api.stripe.com']`). A Step can never expand or bypass the Flow perimeter.
-3. **Multi-Layer Interception**: Siglo intercepts egress across three distinct runtime layers:
+3. **Unconditional Zero-Network Invariant on `Step.compute`**: Pure synchronous compute steps (`Step.compute`) unconditionally enforce `COMPUTE_NETWORK_POLICY` (`defaultPolicy: 'deny'`, `allowedHosts: []`, `allowLocalhost: false`, `allowUnixSockets: []`, `throwSync: true`) across `.spec()`, `.cache()`, and `action`. Even if an outer flow allows external hosts or localhost, a `ComputeStep` cannot make any network or Unix socket calls and has no `.allowNetwork()` or `.networkPolicy()` methods to widen it.
+4. **Multi-Layer Interception**: Siglo intercepts egress across three distinct runtime layers:
     - Global Fetch: `globalThis.fetch` (Undici / standard Fetch API)
     - Node HTTP/HTTPS: `node:http` and `node:https` (`request`, `get`, Axios, Got)
     - Raw Sockets: `node:net.Socket.prototype.connect` and `node:tls`
-4. **Localhost & Unix Socket Controls**: Loopback addresses (`127.0.0.1`, `localhost`, `::1`) are blocked by default unless `allowLocalhost: true` is configured. Local domain sockets (e.g. `/var/run/docker.sock`) are blocked unless specified in `allowUnixSockets`.
-5. **Zero Concurrency Cross-Talk & ASL Inheritance**: Network boundaries propagate via Node's `AsyncLocalStorage` (`networkPolicyStorage`). Concurrent steps executing in `parallel`, `race`, or `map` maintain strictly isolated perimeters without leaking permissions across branches. Nested subflows, combinators, and Saga compensation rollbacks automatically inherit and intersect enclosing policies.
+5. **Localhost & Unix Socket Controls**: Loopback addresses (`127.0.0.1`, `localhost`, `::1`) are blocked by default unless `allowLocalhost: true` is configured. Local domain sockets (e.g. `/var/run/docker.sock`) are blocked unless specified in `allowUnixSockets`.
+6. **Zero Concurrency Cross-Talk & ASL Inheritance**: Network boundaries propagate via Node's `AsyncLocalStorage` (`networkPolicyStorage`). Concurrent steps executing in `parallel`, `race`, or `map` maintain strictly isolated perimeters without leaking permissions across branches. Nested subflows, combinators, and Saga compensation rollbacks automatically inherit and intersect enclosing policies.
 
 ```mermaid
 flowchart TD
@@ -41,9 +42,22 @@ flowchart TD
 
 ## 2. Declarative Step Guardrails
 
+### `Step.compute(name, action)` (Unconditional Always-Deny)
+
+For pure synchronous computation, `Step.compute` enforces an immutable zero-network boundary (`throwSync: true`) across all interceptors (`fetch`, `http.request`, `net.Socket.connect`) during `.spec()` validation, `.cache()` key projection, and `action`:
+
+```typescript
+import { Step } from '@siglo/core';
+
+export const computeTax = Step.compute('computeTax', ({ subtotal }) => {
+    // Unconditionally zero-network: blocks external hosts, localhost, and Unix sockets synchronously
+    return { tax: subtotal * 0.08 };
+});
+```
+
 ### `step.allowNetwork(hosts)`
 
-Permits specific hostnames, wildcard subdomains, port combinations, or regular expressions during step execution:
+Permits specific hostnames, wildcard subdomains, port combinations, or regular expressions during `Step.create` execution:
 
 ```typescript
 import { Step } from '@siglo/core';
@@ -63,12 +77,12 @@ Allowed host formats:
 
 ### `step.denyNetwork()`
 
-Shorthand for `.allowNetwork([])`. Strictly denies **all** outbound network egress across all lifecycle phases (validation specs, `onBefore`, `action`, `onAfter`, and retries):
+Shorthand for `.allowNetwork([])` on `Step.create`. Strictly denies **all** outbound network egress across all lifecycle phases (validation specs, `onBefore`, `action`, `onAfter`, and retries):
 
 ```typescript
-export const computeTax = Step.create('computeTax', async ({ subtotal }) => {
-    // Pure computation step: guaranteed zero outbound network calls
-    return { tax: subtotal * 0.08 };
+export const asyncDigest = Step.create('asyncDigest', async ({ payload }) => {
+    // Async computation step: guaranteed zero outbound network calls
+    return { digest: await subtleDigest(payload) };
 }).denyNetwork();
 ```
 
@@ -117,7 +131,7 @@ export const billingWorkflow = flow(validateInput, computeTotals, chargeCard, se
 
 - **Narrowing Allowed**: If the Flow allows `['api.stripe.com', 'api.sendgrid.com']`, an individual Step can narrow its access to `['api.stripe.com']`.
 - **Widening Denied**: If a Step attempts to allow `api.unauthorized.com`, Siglo rejects the request with `NetworkPolicyViolationException` because the Flow perimeter does not permit that host.
-- **Pure Computation**: A Step declared with `.denyNetwork()` within an open Flow strictly denies network calls for that step.
+- **Pure Computation**: A Step declared with `Step.compute()` or `.denyNetwork()` within an open Flow strictly denies network calls for that step.
 - **Nested Combinators & Sub-flows**: Any nested `parallel`, `branch`, `map`, or `Step.create(subFlow)` intersects its policy with the enclosing `networkPolicyStorage` store, guaranteeing child steps cannot widen an outer flow's boundary.
 - **Saga Compensation Rollback Perimeter**: Both automatic rollbacks and checkpoint-hydrated `flow.compensate(stackId)` restore and execute compensation handlers inside the effective captured network policy, ensuring compensation calls cannot contact unapproved external endpoints.
 
@@ -236,7 +250,7 @@ export const stripeWebhookFlow = flow(
 
 1. **Default Deny on Critical Flows**: Always declare `flow.networkPolicy({ defaultPolicy: 'deny', allowedHosts: [...] })` on payment, authentication, or PII pipelines.
 2. **Enforce Step Least-Privilege**: Narrow each step to only the exact domains it needs (`step.allowNetwork(['api.vendor.com'])`).
-3. **Deny Pure Computational Steps**: Explicitly chain `.denyNetwork()` on data parsing, validation, transformation, or arithmetic steps.
+3. **Use `Step.compute` or `.denyNetwork()` for Pure Computational Steps**: Use `Step.compute()` for synchronous transformations (unconditional always-deny) or `.denyNetwork()` on async steps that do not need external network egress.
 4. **Never Expand Flow Perimeters**: Remember that inner steps, combinators, and subflows cannot grant access to hosts forbidden by the outer flow or enclosing ASL storage scope.
 5. **Encrypt Before Checkpointing**: Use `encryptFieldsStep` with dynamic `aad` before durable wait nodes to protect customer data at rest.
 6. **Enforce Replay Attack Tolerance**: Always configure `toleranceSeconds` on `verifyWebhookStep` to prevent replay attacks.

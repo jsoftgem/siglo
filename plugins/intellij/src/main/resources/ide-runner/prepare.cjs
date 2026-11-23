@@ -209657,6 +209657,8 @@ var import_typescript = __toESM(require_typescript());
 var import_ide_protocol = __toESM(require_dist());
 function isEcosystemStepCallee(name) {
   switch (name) {
+    case "ComputeStep":
+      return "compute";
     case "HttpStep":
     case "httpStep":
       return "http";
@@ -209778,8 +209780,8 @@ function detectStepFromExpression(expr, sourceFile, enclosingRange) {
     let retries;
     let timeoutMs;
     let hasCompensation = false;
-    if (import_typescript.default.isPropertyAccessExpression(callee) && ["Step", "Func", "Chain"].includes(callee.expression.getText(sourceFile)) && callee.name.text === "create") {
-      stepKind = "generic";
+    if (import_typescript.default.isPropertyAccessExpression(callee) && ["Step", "Func", "Chain"].includes(callee.expression.getText(sourceFile)) && (callee.name.text === "create" || callee.name.text === "compute")) {
+      stepKind = callee.name.text === "compute" ? "compute" : "generic";
       const firstArg = args[0];
       if (firstArg) {
         if (import_typescript.default.isStringLiteral(firstArg) || import_typescript.default.isNoSubstitutionTemplateLiteral(firstArg)) {
@@ -209848,6 +209850,9 @@ function detectStepFromExpression(expr, sourceFile, enclosingRange) {
       };
     }
     const properties = { operation: callee.getText(sourceFile) };
+    if (stepKind === "compute") {
+      properties.networkPolicy = "deny";
+    }
     for (const arg of args) {
       if (import_typescript.default.isObjectLiteralExpression(arg)) {
         extractObjectConfig(arg, sourceFile, (name, r, t, comp) => {

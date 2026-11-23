@@ -1,11 +1,13 @@
 ---
 title: 'Step Methods'
-description: 'API reference for the Step execution unit in Siglo: instantiation, schema validation, lifecycle hooks, retries, sagas, idempotency, caching, dependency injection, and network guardrails.'
+description: 'API reference for the Step and ComputeStep execution units in Siglo: instantiation, Step.compute, schema validation, lifecycle hooks, retries, sagas, idempotency, caching, dependency injection, and network guardrails.'
 ---
 
-# API Reference: Step Methods (`Step`)
+# API Reference: Step Methods (`Step` & `ComputeStep`)
 
-The `Step` class is the fundamental execution unit in **Siglo**. A step encapsulates an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
+The `Step` class is the fundamental asynchronous execution unit in **Siglo**, encapsulating an async action, parameter validation contracts, lifecycle hooks, structured retry policies, SLA deadlines, idempotency locks, caching, and saga compensations.
+
+For pure, CPU-bound, or in-memory transformations, **`Step.compute`** creates a lightweight synchronous **`ComputeStep`** with zero-microtask batching, synchronous `.spec()` validation, in-memory LRU+TTL `.cache()`, and an unconditional always-deny network perimeter.
 
 ---
 
@@ -14,6 +16,7 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
 - [The 5-Phase Step Lifecycle](#the-5-phase-step-lifecycle)
 - [Instantiating Steps](#instantiating-steps)
     - [`Step.create(name?, action)`](#stepcreatename-action)
+    - [`Step.compute(name?, action)`](#stepcomputename-action)
 - [Validation and Contracts](#validation-and-contracts)
     - [`step.schema(schema)`](#stepschemaschema)
     - [`step.spec(field, options)`](#stepspecfield-options)
@@ -48,7 +51,7 @@ The `Step` class is the fundamental execution unit in **Siglo**. A step encapsul
 
 ## The 5-Phase Step Lifecycle
 
-Every step executes through five distinct, deterministic phases:
+Every `Step.create` step executes through five distinct, deterministic phases:
 
 ```mermaid
 flowchart TD
@@ -83,7 +86,7 @@ flowchart TD
 
 ### `Step.create(name?, action)`
 
-Instantiates a typed `Step` execution unit with input and output contracts.
+Instantiates a typed asynchronous `Step` execution unit with input and output contracts.
 
 #### Signatures
 
@@ -125,6 +128,106 @@ export const fetchUser = Step.create('fetchUser', async (param: UserInput): Prom
 
 ---
 
+### `Step.compute(name?, action)`
+
+Instantiates a lightweight, synchronous `ComputeStep<TInput, TOutput, TName>` designed for pure calculations, pricing engines, data shaping, and policy rules.
+
+Unlike `Step.create`, a `ComputeStep`:
+- **Requires a synchronous return value**: TypeScript rejects `Promise` return types at compile time (`SyncValue<TOut>`), and the runtime rejects any returned Promise or thenable from `action` or `keySerializer` with a `SigloError` (`phase: 'action'`, `retryable: false`) and any async `.spec()` callback/schema with a `ValidationException` (`phase: 'validation'`, `retryable: false`).
+- **Enforces an unconditional always-deny network perimeter**: `COMPUTE_NETWORK_POLICY` (`defaultPolicy: 'deny'`, `allowedHosts: []`, `allowLocalhost: false`, `throwSync: true`) is active across `.spec()`, `.cache()`, and `action`. Neither flow-level nor execution-level network policies can widen a `ComputeStep`'s network permissions.
+- **Executes in a synchronous fast path**: Consecutive `Step.compute` nodes in `flow()` execute in a tight synchronous loop without allocating `SingleChain`, `StartChain`, `PromiseChain`, or per-step `Context` instances.
+- **Exposes a focused chainable API**: Supports only `.spec()`, `.cache()`, and `.run()`. Async I/O and lifecycle methods (`.timeout()`, `.onFail()`, `.compensate()`, `.idempotent()`, `.allowNetwork()`, etc.) do not exist on `ComputeStep`.
+
+#### Signatures
+
+```typescript
+export type SyncValue<T> = T extends PromiseLike<any> ? never : T;
+
+export type SyncStepAction<TInput = any, TOutput = any> = (parameter: TInput) => SyncValue<TOutput>;
+
+export interface SyncSpecData {
+    defaultValue?: any;
+    default?: any;
+    require?: boolean | (() => boolean);
+    requireMessage?: string;
+    validator?: (currentValue?: any) => SyncValue<any>;
+    validate?: (currentValue?: any) => SyncValue<any>;
+    transformer?: (currentValue?: any) => SyncValue<any>;
+    transform?: (currentValue?: any) => SyncValue<any>;
+    translator?: (currentValue?: any, context?: Record<string, any>) => SyncValue<void>;
+    translate?: (currentValue?: any, context?: Record<string, any>) => SyncValue<void>;
+    schema?: any; // Synchronous Standard Schema (~standard), safeParse, parse, validate, or predicate
+}
+
+export interface ComputeCacheOptions {
+    ttl?: DurationInput; // Default: 1500ms
+    maxEntries?: number; // Bounded in-memory LRU capacity (default: 1000)
+    keySerializer?: (stepId: string, param: any, namespace?: string) => SyncValue<string>;
+}
+
+export class ComputeStep<TInput = any, TOutput = any, TName extends string = string> {
+    readonly isCompute = true as const;
+    readonly name: TName;
+    readonly func: string;
+    readonly $stepId: string;
+    readonly action: SyncStepAction<TInput, TOutput>;
+    readonly specs: SyncSpec[];
+    readonly networkPolicyConfig: Readonly<NetworkPolicyConfig>;
+    cachedLast?: number;
+    cacheOptions?: ComputeCacheOptions;
+
+    spec(fieldOrSchema: string | any, json?: SyncSpecData | any): ComputeStep<TInput, TOutput, TName>;
+    cache(ttlOrOptions?: DurationInput | ComputeCacheOptions): ComputeStep<TInput, TOutput, TName>;
+    run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
+}
+
+export class Step {
+    static compute<TName extends string, TIn = any, TOut = any>(
+        name: TName,
+        action: SyncStepAction<TIn, TOut>,
+    ): ComputeStep<TIn, TOut, TName>;
+
+    static compute<TIn = any, TOut = any>(
+        action: SyncStepAction<TIn, TOut>,
+    ): ComputeStep<TIn, TOut, string>;
+}
+```
+
+#### Example
+
+```typescript
+import { Step, flow } from '@siglo/core';
+
+const calculateTotals = Step.compute(
+    'calculateTotals',
+    (ctx: { subtotal: number; discount: number; taxRate: number }) => {
+        const taxable = Math.max(0, ctx.subtotal - ctx.discount);
+        const tax = Math.round(taxable * ctx.taxRate * 100) / 100;
+        return { tax, total: taxable + tax };
+    },
+)
+    .spec('subtotal', {
+        require: true,
+        validate: v => typeof v === 'number' && v >= 0,
+    })
+    .spec('discount', {
+        default: 0,
+        transform: v => Math.max(0, Number(v)),
+    })
+    .spec('taxRate', {
+        default: 0.08,
+    })
+    .cache({
+        ttl: '5m',
+        maxEntries: 500,
+        keySerializer: (_stepId, ctx) => `${ctx.subtotal}:${ctx.discount}:${ctx.taxRate}`,
+    });
+
+export const pricingFlow = flow(calculateTotals);
+```
+
+---
+
 ## Validation and Contracts
 
 ### `step.schema(schema)`
@@ -160,7 +263,7 @@ If validation fails, a `ValidationException` is thrown before the step action ex
 
 ### `step.spec(field, options)`
 
-Declares granular parameter constraints, default values, transforms, and translations for a specific context field.
+Declares granular parameter constraints, default values, transforms, and translations for a specific context field. Supported on both `Step` (sync or async hooks) and `ComputeStep` (strictly synchronous hooks via `SyncSpecData`).
 
 #### Signature
 
@@ -485,11 +588,15 @@ const chargeCardAlt = Step.create('chargeCardAlt', async (ctx: { idempotencyToke
 
 ### `step.cache(msOrOptions)`
 
-Caches step output in memory or persistent storage (`StorageAdapter`) based on input parameters. Accepts either a `DurationInput` TTL (`number | string`) or a `CacheOptions` object whose `ttl`, `swr`, and `staleWhileRevalidate` fields also support `DurationInput`.
+Caches step output based on input parameters.
+
+- On **`Step`** (`Step.create`), `.cache()` caches output in memory or persistent storage (`StorageAdapter`) and accepts `DurationInput` or `CacheOptions` (including `swr` / `staleWhileRevalidate` and `stampedeProtection`).
+- On **`ComputeStep`** (`Step.compute`), `.cache()` uses a **purely in-memory synchronous LRU + TTL cache** (`ComputeCacheOptions`) that never touches `StorageAdapter` (Redis/Postgres), operates in zero microtasks, defensively clones cached plain objects and arrays to prevent cross-run mutation, keys on post-`.spec()` normalized inputs, and scopes keys by `ExecutionOptions.namespace`.
 
 #### Signatures
 
 ```typescript
+// For Step.create:
 export interface CacheOptions {
     ttl?: DurationInput;
     staleWhileRevalidate?: DurationInput;
@@ -499,6 +606,15 @@ export interface CacheOptions {
 }
 
 step.cache(cachedLastOrOptions?: DurationInput | CacheOptions): Step<TInput, TOutput, TName>;
+
+// For Step.compute:
+export interface ComputeCacheOptions {
+    ttl?: DurationInput; // Default: 1500ms
+    maxEntries?: number; // Default: 1000
+    keySerializer?: (stepId: string, param: any, namespace?: string) => SyncValue<string>;
+}
+
+computeStep.cache(ttlOrOptions?: DurationInput | ComputeCacheOptions): ComputeStep<TInput, TOutput, TName>;
 ```
 
 #### Example
@@ -508,7 +624,13 @@ const getExchangeRates = Step.create('rates', async () => {
     return await fetchRates();
 }).cache({ ttl: '60s', swr: '5m' }); // Cache for 60s, serve stale for 5m while revalidating
 
-const quickLookup = Step.create('lookup', async () => ({ ok: true })).cache('30s');
+const computeTariff = Step.compute('tariff', (ctx: { hsCode: string; value: number }) => ({
+    duty: ctx.value * 0.045,
+})).cache({
+    ttl: '10m',
+    maxEntries: 1000,
+    keySerializer: (_stepId, ctx) => `${ctx.hsCode}:${ctx.value}`,
+});
 ```
 
 ---
@@ -578,6 +700,9 @@ const countItems = Step.create('count', async () => 42).reduce('itemCount');
 ## Network Egress Guardrails
 
 Steps can declare granular network egress permissions enforced via Node's `AsyncLocalStorage` (ASL). In flows with an outer network policy, the flow supersedes the step; steps can only narrow permissions within what the flow permits. By default, loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC are allowed.
+
+> [!IMPORTANT]
+> **Unconditional Always-Deny on `Step.compute`**: `Step.compute` enforces an immutable always-deny network perimeter (`defaultPolicy: 'deny'`, `allowedHosts: []`, `allowLocalhost: false`, `throwSync: true`) across `.spec()`, `.cache()`, and `action`. Even if an enclosing `Flow` or `ExecutionOptions` permits external hosts or localhost, `Step.compute` blocks all outbound `fetch`, `http`/`https`, and `net.Socket` connections synchronously with `NetworkPolicyViolationException`.
 
 ### Lifecycle Hook Governance
 
@@ -694,7 +819,7 @@ const syncStep = Step.create('sync', async () => {
 
 ### `step.run and step.execute`
 
-Runs the step directly as a standalone unit.
+Runs a `Step` (`.run()` or `.execute()`) or `ComputeStep` (`.run()`) directly as a standalone unit.
 
 ```typescript
 const output = await fetchUser.run({ userId: 'u_123' }, { pojo: true });
@@ -702,9 +827,9 @@ const output = await fetchUser.run({ userId: 'u_123' }, { pojo: true });
 
 ### Graph and Export Methods
 
-- `step.toGraph()`: Returns a `StepNode` AST.
-- `step.inspect()`: Returns inspection metrics for this step.
-- `step.toMermaid()` / `step.toDot()` / `step.toJSON()`: Visual diagram and AST exports.
+- `step.toGraph()` / `toGraph(step)`: Returns a `StepNode` AST (`Step.compute` sets `metadata.compute = true` and `metadata.networkPolicy = COMPUTE_NETWORK_POLICY`).
+- `step.inspect()` / `inspectGraph(step)`: Returns inspection metrics for this step.
+- `toMermaid(step)` / `toDot(step)` / `toJSON(step)`: Visual diagram and AST exports.
 
 ---
 
@@ -712,7 +837,8 @@ const output = await fetchUser.run({ userId: 'u_123' }, { pojo: true });
 
 The `Step` class exposes static utilities and orchestrator shortcuts:
 
-- `Step.create(name, action)`: Primary factory method for step construction.
+- `Step.create(name, action)`: Primary factory method for asynchronous step construction.
+- `Step.compute(name, action)`: Factory method for lightweight synchronous `ComputeStep` construction with always-deny network guardrails.
 - `Step.flow(...steps)` / `Step.pipe(...steps)`: Shorthand alias to compose a sequential `Flow`.
 - `Step.start(steps, param?, options?)`: Low-level executor entry point.
 - `Step.config(props)`: Configures global runtime settings (logging, plugins, telemetry).

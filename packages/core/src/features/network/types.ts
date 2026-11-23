@@ -22,4 +22,5 @@ export interface EffectiveNetworkPolicy {
 export interface ActiveNetworkPolicyContext extends EffectiveNetworkPolicy {
     stepName: string;
     inValidatedScope?: boolean;
+    throwSync?: boolean;
 }

@@ -1,6 +1,6 @@
 ---
 name: siglo-workflow-development
-description: 'Author, structure, and optimize in-process TypeScript workflows using the Siglo workflow framework (@siglo/core). Use when creating or editing workflows, defining Steps (`Step.create`), chaining with `flow()`, managing accumulated context and type inference, configuring validation, transformation, and translation with `.spec()` or Standard Schema/Zod, enforcing strict parameter filtering with `.strict()`, implementing Sagas and LIFO compensation rollbacks (`.compensate()`), configuring retry policies with exponential backoff & jitter (`.onFail()`), timeouts, idempotency (`.idempotent()`), caching (`.cache()`), and combinators (`parallel`, `race`, `when`, `branch`, `map`).'
+description: 'Author, structure, and optimize in-process TypeScript workflows using the Siglo workflow framework (@siglo/core). Use when creating or editing workflows, defining Steps (`Step.create`) or lightweight synchronous compute steps (`Step.compute`), chaining with `flow()`, managing accumulated context and type inference, configuring validation, transformation, and translation with `.spec()` or Standard Schema/Zod, enforcing strict parameter filtering with `.strict()`, implementing Sagas and LIFO compensation rollbacks (`.compensate()`), configuring retry policies with exponential backoff & jitter (`.onFail()`), timeouts, idempotency (`.idempotent()`), caching (`.cache()`), and combinators (`parallel`, `race`, `when`, `branch`, `map`).'
 ---
 
 # Siglo Workflow Development
@@ -32,7 +32,7 @@ interface OrderInput {
     amountCents: number;
 }
 
-const validateOrder = Step.create('validateOrder', (order: OrderInput) => {
+const validateOrder = Step.compute('validateOrder', (order: OrderInput) => {
     if (order.amountCents <= 0) throw new Error('Order amount must be positive');
     return { validated: true };
 });
@@ -65,11 +65,37 @@ const chargeCard = Step.create(
 export const orderFulfillmentFlow = flow(validateOrder, reserveInventory, chargeCard);
 ```
 
+### Choosing Between `Step.create` and `Step.compute`
+
+Siglo provides two complementary step builders:
+
+- **`Step.create(name, action)`** (Asynchronous I/O Step): Full 5-phase lifecycle with `.timeout()`, `.onFail()` retries, `.compensate()` Saga rollbacks, `.idempotent()` locks, storage-backed `.cache()`, dependency injection, and configurable network policies (`.allowNetwork()`, `.denyNetwork()`).
+- **`Step.compute(name, action)`** (Lightweight Synchronous `ComputeStep`): Designed for pure calculations, pricing engines, data shaping, and policy rules.
+    - **Synchronous Only**: Compile-time `SyncValue<TOutput>` and runtime rejection of returned Promises/thenables (`SigloError` for action / `keySerializer`; `ValidationException` for async `.spec()` callbacks).
+    - **Zero-Microtask Batching**: Consecutive `Step.compute` steps in `flow()` execute in a tight synchronous loop without allocating `SingleChain`, `StartChain`, `PromiseChain`, or per-step `Context` objects.
+    - **Unconditional Always-Deny Network Policy**: Enforces `COMPUTE_NETWORK_POLICY` (`defaultPolicy: 'deny'`, `allowedHosts: []`, `allowLocalhost: false`, `throwSync: true`) across `.spec()`, `.cache()`, and `action`. Even if an outer flow allows network hosts, a `ComputeStep` cannot make network calls.
+    - **Focused Chainable API**: Exposes only `.spec()` (synchronous validation/transforms/defaults/schemas), `.cache()` (bounded in-memory LRU + TTL cache, zero `StorageAdapter` I/O), and `.run()`.
+
+```typescript
+const calculateTotals = Step.compute(
+    'calculateTotals',
+    (ctx: { subtotal: number; discount: number; taxRate: number }) => {
+        const taxable = Math.max(0, ctx.subtotal - ctx.discount);
+        const tax = Math.round(taxable * ctx.taxRate * 100) / 100;
+        return { tax, total: taxable + tax };
+    },
+)
+    .spec('subtotal', { require: true, validate: v => typeof v === 'number' && v >= 0 })
+    .spec('discount', { default: 0, transform: v => Math.max(0, Number(v)) })
+    .spec('taxRate', { default: 0.08 })
+    .cache({ ttl: '5m', maxEntries: 500 });
+```
+
 ---
 
 ## 2. The 5-Phase Step Lifecycle
 
-Every step executes through a strict 5-phase lifecycle:
+Every `Step.create` step executes through a strict 5-phase lifecycle:
 
 ```mermaid
 flowchart TD
@@ -94,7 +120,7 @@ Before executing action logic or `onBefore` guards, Siglo enforces parameter con
 
 #### Granular Field Contracts with `step.spec(field, options)`
 
-The `.spec()` API declares granular parameter constraints, default values, transforms, translations, and per-field schemas for specific context fields:
+The `.spec()` API declares granular parameter constraints, default values, transforms, translations, and per-field schemas for specific context fields (on `Step.compute`, all `.spec()` callbacks must be synchronous):
 
 ```typescript
 export interface SpecData {
@@ -236,7 +262,7 @@ Siglo provides built-in Saga orchestration with **LIFO (Last-In, First-Out)** ro
 ### How Compensations Work
 
 1. When a step with `.compensate()` completes successfully, its compensation record (along with the step's effective ASL `networkPolicy`) is pushed onto the workflow's execution stack.
-2. If any subsequent step fails (after exhausting retries) or if the workflow is cancelled, Siglo unwinds the stack in reverse order inside each record's captured network perimeter.
+2. If any subsequent step (including a `Step.compute` step) fails (after exhausting retries) or if the workflow is cancelled, Siglo unwinds the stack in reverse order inside each record's captured network perimeter.
 3. Each compensation handler receives the output produced by its corresponding step.
 
 ```typescript
@@ -268,7 +294,7 @@ export const travelFlow = flow(bookFlight, bookHotel, bookRentalCar);
 
 ## 4. Workflow Combinators
 
-Siglo provides first-class functional combinators for concurrency, racing, branching, and bounded batch mapping. When executed inside an outer `flow.networkPolicy()` (or `options.networkPolicy`), all nested combinators and `Step.create(subFlow)` sub-flows inherit and intersect the enclosing perimeter and cannot widen it.
+Siglo provides first-class functional combinators for concurrency, racing, branching, and bounded batch mapping. All combinators accept both `Step` (`Step.create`) and `ComputeStep` (`Step.compute`) instances. When executed inside an outer `flow.networkPolicy()` (or `options.networkPolicy`), all nested combinators and `Step.create(subFlow)` sub-flows inherit and intersect the enclosing perimeter and cannot widen it.
 
 ### 1. Parallel Fan-Out (`parallel()`)
 
@@ -375,7 +401,7 @@ const processPayment = Step.create('processPayment', async ({ paymentId, amount 
 
 ### Step Output Caching
 
-Cache deterministic expensive calls using `.cache()` (`DurationInput` or `CacheOptions`):
+Cache deterministic expensive calls using `.cache()` (`DurationInput` or `CacheOptions` on `Step.create`; synchronous in-memory LRU+TTL `ComputeCacheOptions` on `Step.compute`):
 
 ```typescript
 const fetchTaxRates = Step.create('fetchTaxRates', async ({ countryCode }) => {
@@ -384,6 +410,14 @@ const fetchTaxRates = Step.create('fetchTaxRates', async ({ countryCode }) => {
     ttl: '5m', // DurationInput: '5m' or 300_000
     swr: '1m', // Optional stale-while-revalidate window
     keySerializer: (stepId, param) => `tax:${param.countryCode}`,
+});
+
+const computeTax = Step.compute('computeTax', ({ subtotal, rate }) => ({
+    tax: subtotal * rate,
+})).cache({
+    ttl: '5m',
+    maxEntries: 500,
+    keySerializer: (_stepId, ctx) => `${ctx.subtotal}:${ctx.rate}`,
 });
 ```
 
@@ -441,9 +475,10 @@ npx siglo export src/workflows/checkout.ts --format=mermaid > docs/checkout.md
 ## 7. Golden Rules for Siglo Workflow Authors
 
 1. **Step Granularity**: One step should represent one logical transaction or external dependency boundary. Never clump multiple side-effects into one step.
-2. **Always Return Context deltas**: Steps should return only newly generated fields (e.g. `{ chargeId }`), not mutate or re-wrap incoming parameters.
-3. **Compensate Every Side Effect**: If a step writes to an external service or reserves a resource, immediately chain `.compensate()`.
-4. **Idempotent Compensations**: Compensations may be called during recovery or network retries; make them safe against missing resources.
-5. **Use `pojo: true` at Boundaries**: When returning data to HTTP clients or message queues, pass `{ pojo: true }` to unwrap proxy wrappers.
-6. **Prefer `map()` over `Promise.all`**: When iterating over arrays inside workflows, use `map()` combinator to enforce concurrency bounds and proper tracing.
-7. **Validate, Transform & Sanitize Early with `.spec()`**: Use `.spec()` to enforce field requirements, validate constraints, apply default fallbacks, sanitize inputs with `transform`, and alias keys with `translate`. Use `.strict()` at public API boundaries to prevent parameter pollution.
+2. **Use `Step.compute` for Pure Calculations**: Use `Step.compute` for synchronous data transformations, math, pricing, and policy evaluation to gain zero-microtask batching and an automatic always-deny network guardrail.
+3. **Always Return Context deltas**: Steps should return only newly generated fields (e.g. `{ chargeId }`), not mutate or re-wrap incoming parameters.
+4. **Compensate Every Side Effect**: If a `Step.create` step writes to an external service or reserves a resource, immediately chain `.compensate()`. (`Step.compute` is pure and exempt from Saga compensation.)
+5. **Idempotent Compensations**: Compensations may be called during recovery or network retries; make them safe against missing resources.
+6. **Use `pojo: true` at Boundaries**: When returning data to HTTP clients or message queues, pass `{ pojo: true }` to unwrap proxy wrappers.
+7. **Prefer `map()` over `Promise.all`**: When iterating over arrays inside workflows, use `map()` combinator to enforce concurrency bounds and proper tracing.
+8. **Validate, Transform & Sanitize Early with `.spec()`**: Use `.spec()` to enforce field requirements, validate constraints, apply default fallbacks, sanitize inputs with `transform`, and alias keys with `translate`. Use `.strict()` at public API boundaries to prevent parameter pollution.

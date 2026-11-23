@@ -86,7 +86,8 @@ export class Runner {
                 );
             }
 
-            const timeoutMs: number | undefined = parseDuration(rawOptions?.timeout) ?? parseDuration(rawOptions?.timeoutMs);
+            const timeoutMs: number | undefined =
+                parseDuration(rawOptions?.timeout) ?? parseDuration(rawOptions?.timeoutMs);
             let flowController: AbortController | undefined;
             let flowTimer: any;
             let completedSteps = 0;
@@ -255,10 +256,7 @@ export class Runner {
                                     break;
                                 }
                                 if (!rec) {
-                                    claim = await idempotencyStore.claim(
-                                        idempotencyKeyScoped,
-                                        idempotencyTtlMs,
-                                    );
+                                    claim = await idempotencyStore.claim(idempotencyKeyScoped, idempotencyTtlMs);
                                     if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
                                         break;
                                     }

@@ -10,7 +10,7 @@ import {
 } from '@siglo/ide-protocol';
 import { parseWorkflowFile, resolveLocationInDocument, discoverWorkflows } from './parser';
 
-const SERVER_VERSION = '1.2.8';
+const SERVER_VERSION = '1.3.0';
 const PROTOCOL_VERSION = '1.0.0';
 
 const SUPPORTED_SYNTAX_MATRIX = [
@@ -18,11 +18,15 @@ const SUPPORTED_SYNTAX_MATRIX = [
     'workflow',
     'pipe',
     'Step.create',
+    'Step.compute',
     'new Step',
+    'new ComputeStep',
     'defineStep',
     'Func.create',
+    'Func.compute',
     'new Func',
     'Chain.create',
+    'Chain.compute',
     'new Chain',
     'then',
     'parallel',

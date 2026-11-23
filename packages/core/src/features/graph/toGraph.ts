@@ -73,6 +73,22 @@ export function toGraph(item: any): WorkflowNode {
         }
         const stepId = item.$stepId || generateUUID();
         const stepName = item.name || item.func || 'step';
+        if (item.isCompute === true) {
+            const node: StepNode = {
+                id: stepId,
+                name: stepName,
+                type: WorkflowNodeType.STEP,
+                metadata: {
+                    compute: true,
+                    cachedLast: item.cachedLast,
+                    cacheOptions: item.cacheOptions,
+                    networkPolicy: item.networkPolicyConfig,
+                },
+            };
+            // Runtime-only reference for tooling; omit from JSON and graph serialization.
+            Object.defineProperty(node, 'step', { value: item, enumerable: false });
+            return node;
+        }
         const stepPolicy =
             item.networkPolicyConfig ||
             (typeof item.networkPolicy === 'function' ? item.networkPolicy() : item.networkPolicy);

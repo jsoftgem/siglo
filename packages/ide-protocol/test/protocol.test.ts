@@ -68,7 +68,7 @@ describe('packages/ide-protocol', () => {
         expect(isJsonRpcRequest(notif)).to.be.false;
     });
 
-    it('validates graph document schema and data model', () => {
+    it('validates graph document schema and data model (including compute stepKind)', () => {
         const location: SourceRange = {
             start: { line: 10, character: 2 },
             end: { line: 15, character: 4 },
@@ -83,10 +83,23 @@ describe('packages/ide-protocol', () => {
             executionConfig: { retries: 3, timeoutMs: 5000 },
         };
 
+        const computeNode: GraphNode = {
+            id: 'step_totals_L16_C2',
+            name: 'calculateTotals',
+            stepKind: 'compute',
+            location,
+            declarationRange: location,
+            properties: {
+                operation: 'Step.compute',
+                networkPolicy: 'deny',
+                cache: "'5m'",
+            },
+        };
+
         const edge: GraphEdge = {
             id: 'edge_1',
             from: 'step_order_L10_C2',
-            to: 'step_payment_L20_C2',
+            to: 'step_totals_L16_C2',
             type: 'sequential',
         };
 
@@ -94,15 +107,17 @@ describe('packages/ide-protocol', () => {
             uri: 'file:///app/order.workflow.ts',
             documentVersion: 1,
             workflowName: 'orderWorkflow',
-            nodes: [node],
+            nodes: [node, computeNode],
             edges: [edge],
             unresolved: [],
             diagnostics: [],
         };
 
         expect(doc.workflowName).to.equal('orderWorkflow');
-        expect(doc.nodes).to.have.lengthOf(1);
+        expect(doc.nodes).to.have.lengthOf(2);
         expect(doc.nodes[0].stepKind).to.equal('generic');
+        expect(doc.nodes[1].stepKind).to.equal('compute');
+        expect(doc.nodes[1].properties?.networkPolicy).to.equal('deny');
         expect(doc.edges[0].type).to.equal('sequential');
     });
 

@@ -1,4 +1,14 @@
-import { flow, isFlow, StorageAdapter, useStorage, toPOJO, resumeWorkflow } from '@siglo/core';
+import {
+    ComputeCache,
+    ExecutionPhase,
+    flow,
+    isFlow,
+    resumeWorkflow,
+    SigloError,
+    StorageAdapter,
+    toPOJO,
+    useStorage,
+} from '@siglo/core';
 
 export interface StepTraceRecord {
     stepName: string;
@@ -186,11 +196,20 @@ export interface HarnessOptions {
     recordTrace?: boolean;
 }
 
+function isThenable(value: unknown): value is PromiseLike<any> {
+    return (
+        value !== null &&
+        (typeof value === 'object' || typeof value === 'function') &&
+        typeof (value as any).then === 'function'
+    );
+}
+
 export class WorkflowHarness {
     private workflow: any;
     private options: HarnessOptions;
     private mocks = new Map<string, (param: any) => any>();
     private spies = new Map<string, StepSpy>();
+    private computeCaches = new Map<string, ComputeCache>();
     private trace: StepTraceRecord[] = [];
     private lastRunResult: any;
     public clock: FakeClock;
@@ -205,6 +224,7 @@ export class WorkflowHarness {
 
     mockStep(stepName: string, mockImpl: (param: any) => any): this {
         this.mocks.set(stepName, mockImpl);
+        this.computeCaches.delete(stepName);
         return this;
     }
 
@@ -232,6 +252,76 @@ export class WorkflowHarness {
             const name = origStep.name || origStep.func || 'anonymous';
             const mockFn = this.mocks.get(name);
             const spy = this.spies.get(name);
+
+            if (origStep?.isCompute === true) {
+                const instrumentedSyncAction = (param: any) => {
+                    const ts = this.clock.now();
+                    this.trace.push({
+                        stepName: name,
+                        phase: 'start',
+                        timestamp: ts,
+                        input: toPOJO(param),
+                        attempt: param?.$attempt || 1,
+                    });
+
+                    try {
+                        const out = mockFn ? mockFn(param) : origStep.action(param);
+                        if (isThenable(out)) {
+                            if (out instanceof Promise) {
+                                out.catch(() => {});
+                            }
+                            throw new SigloError(
+                                `Step.compute '${name}' must be synchronous and cannot return a Promise. Use Step.create for async or I/O operations.`,
+                                {
+                                    stepName: name,
+                                    phase: ExecutionPhase.ACTION,
+                                    retryable: false,
+                                },
+                            );
+                        }
+
+                        if (spy) {
+                            spy.record({ input: toPOJO(param), output: out, timestamp: ts });
+                        }
+
+                        this.trace.push({
+                            stepName: name,
+                            phase: 'complete',
+                            timestamp: this.clock.now(),
+                            input: toPOJO(param),
+                            output: out,
+                        });
+                        return out;
+                    } catch (err: any) {
+                        if (spy) {
+                            spy.record({ input: toPOJO(param), error: err, timestamp: ts });
+                        }
+                        this.trace.push({
+                            stepName: name,
+                            phase: 'fail',
+                            timestamp: this.clock.now(),
+                            input: toPOJO(param),
+                            error: err?.message || String(err),
+                        });
+                        throw err;
+                    }
+                };
+
+                const clone = Object.assign(Object.create(Object.getPrototypeOf(origStep)), origStep);
+                clone.action = instrumentedSyncAction;
+                if (origStep._computeCache && typeof ComputeCache === 'function') {
+                    let harnessCache = this.computeCaches.get(name);
+                    if (!harnessCache) {
+                        harnessCache = new ComputeCache({
+                            ...(origStep.cacheOptions || {}),
+                            ttl: origStep.cachedLast,
+                        });
+                        this.computeCaches.set(name, harnessCache);
+                    }
+                    clone._computeCache = harnessCache;
+                }
+                return clone;
+            }
 
             const instrumentedAction = async (param: any) => {
                 const ts = this.clock.now();
@@ -294,13 +384,42 @@ export class WorkflowHarness {
             ...(execOptions.services || {}),
         };
 
-        const result = await instrumented.run(input, {
-            ...execOptions,
-            services: mergedServices,
-            pojo: execOptions.pojo !== false,
-        });
-        this.lastRunResult = result;
-        return result;
+        try {
+            const result = await instrumented.run(input, {
+                ...execOptions,
+                services: mergedServices,
+                pojo: execOptions.pojo !== false,
+            });
+            this.lastRunResult = result;
+            return result;
+        } catch (err: any) {
+            const failedStepName = err?.stepName || err?.func;
+            if (failedStepName) {
+                const alreadyRecorded = this.trace.some(t => t.stepName === failedStepName && t.phase === 'fail');
+                if (!alreadyRecorded) {
+                    const ts = this.clock.now();
+                    this.trace.push({
+                        stepName: failedStepName,
+                        phase: 'start',
+                        timestamp: ts,
+                        input: toPOJO(input),
+                        attempt: 1,
+                    });
+                    const spy = this.spies.get(failedStepName);
+                    if (spy) {
+                        spy.record({ input: toPOJO(input), error: err, timestamp: ts });
+                    }
+                    this.trace.push({
+                        stepName: failedStepName,
+                        phase: 'fail',
+                        timestamp: ts,
+                        input: toPOJO(input),
+                        error: err?.message || String(err),
+                    });
+                }
+            }
+            throw err;
+        }
     }
 
     async execute(input: any = {}, execOptions: any = {}): Promise<any> {

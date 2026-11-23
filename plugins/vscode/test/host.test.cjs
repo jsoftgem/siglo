@@ -3,7 +3,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
 const path = require('node:path');
-const { readFileSync } = require('node:fs');
+const { pathToFileURL } = require('node:url');
+const { readFileSync, mkdtempSync, writeFileSync, rmSync } = require('node:fs');
 const handlers = {};
 const commands = {};
 const messages = [];
@@ -80,6 +81,14 @@ const panelWebview = {
     },
 };
 const vscode = {
+    Uri: {
+        parse: u => ({
+            scheme: u.startsWith('file://') ? 'file' : 'unknown',
+            fsPath: u.replace(/^file:\/\//, ''),
+            path: u.replace(/^file:\/\//, ''),
+            toString: () => u,
+        }),
+    },
     Range,
     Position,
     Diagnostic,
@@ -101,7 +110,9 @@ const vscode = {
             return trusted;
         },
         workspaceFolders: [],
+        textDocuments: [],
         getWorkspaceFolder: () => undefined,
+        openTextDocument: async u => ({ ...doc, uri: u }),
         fs: {
             readFile: async u => readFileSync(u.fsPath || u.path),
         },
@@ -376,4 +387,98 @@ test('M4: host imports and sanitizes telemetry recording JSON and posts to webvi
     assert.equal(cryptoRecord.inspection.category, 'verified');
     assert.equal(cryptoRecord.inspection.timestampCheck, 'passed');
     assert.equal(cryptoRecord.inspection.replayCheck, 'passed');
+});
+
+test('Step.compute: host analyzes compute workflow, surfaces compute properties, and runs compute step via ExecutionSession', async t => {
+    trusted = true;
+    const repoRoot = path.resolve(__dirname, '../../..');
+    const tempDir = mkdtempSync(path.join(repoRoot, '.vscode-compute-test-'));
+    const computeFile = path.join(tempDir, 'compute.workflow.ts');
+    const computeSource = [
+        "import { flow, Step } from '@siglo/core';",
+        'const discount = Step.compute(',
+        "    'applyDiscount',",
+        '    ({ subtotal }: { subtotal: number }) => ({ discounted: subtotal * 0.9 }),',
+        ").cache('5m');",
+        "const charge = Step.create('chargeCard', ({ discounted }: { discounted: number }) => ({ charged: discounted }));",
+        'export const checkoutFlow = flow(discount, charge);',
+    ].join('\n');
+    writeFileSync(computeFile, computeSource, 'utf8');
+
+    const subscriptions = [];
+    activate({ subscriptions, asAbsolutePath: name => path.resolve(__dirname, '..', name) });
+    t.after(() => {
+        for (const d of subscriptions) d.dispose();
+        rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    const computeUriStr = pathToFileURL(computeFile).href;
+    const computeDoc = {
+        uri: { scheme: 'file', fsPath: computeFile, path: computeFile, toString: () => computeUriStr },
+        languageId: 'typescript',
+        version: 1,
+        isDirty: false,
+        getText: () => computeSource,
+        offsetAt: p => p.character,
+    };
+
+    vscode.workspace.openTextDocument = async () => computeDoc;
+    vscode.workspace.getWorkspaceFolder = () => ({
+        uri: { fsPath: tempDir },
+    });
+
+    await receiver({ type: 'ready' });
+    const beforeMsgCount = messages.length;
+    handlers.active({ document: computeDoc });
+
+    await waitFor(() =>
+        messages.slice(beforeMsgCount).some(m => m.type === 'setGraph' && m.document?.uri === computeUriStr),
+    );
+    const graphMsg = messages
+        .slice(beforeMsgCount)
+        .filter(m => m.type === 'setGraph' && m.document?.uri === computeUriStr)
+        .at(-1);
+    const computeNode = graphMsg.document.nodes.find(n => n.name === 'applyDiscount');
+    assert.ok(computeNode, 'Expected applyDiscount compute node in setGraph message');
+    assert.equal(computeNode.stepKind, 'compute');
+    assert.equal(computeNode.properties.operation, 'Step.compute');
+    assert.equal(computeNode.properties.networkPolicy, 'deny');
+    assert.equal(computeNode.properties.cache, "'5m'");
+    assert.equal((diagnosticsMap.get(computeUriStr) || []).length, 0);
+
+    // Execute the isolated Step.compute node through the webview -> ExecutionSession -> supervisor pipeline
+    const beforeRunCount = messages.length;
+    await receiver({
+        type: 'runSteps',
+        runId: 'compute-run-1',
+        uri: computeUriStr,
+        documentVersion: 1,
+        workflowName: graphMsg.document.workflowName,
+        nodeIds: [computeNode.id],
+        input: { subtotal: 200 },
+    });
+
+    await waitFor(
+        () =>
+            messages
+                .slice(beforeRunCount)
+                .some(
+                    m =>
+                        m.type === 'runEvent' &&
+                        m.runId === 'compute-run-1' &&
+                        ['completed', 'failed'].includes(m.status),
+                ),
+        8000,
+    );
+    const runEvents = messages.slice(beforeRunCount).filter(m => m.type === 'runEvent' && m.runId === 'compute-run-1');
+    const failedEvent = runEvents.find(e => e.status === 'failed');
+    assert.equal(failedEvent, undefined, JSON.stringify(runEvents));
+
+    const stepCompleted = runEvents.find(e => e.nodeId === computeNode.id && e.status === 'step' && e.output);
+    assert.ok(stepCompleted, 'Expected step output event for Step.compute node');
+    assert.equal(stepCompleted.output.discounted, 180);
+
+    const workflowCompleted = runEvents.find(e => e.status === 'completed');
+    assert.ok(workflowCompleted);
+    assert.equal(workflowCompleted.output.discounted, 180);
 });

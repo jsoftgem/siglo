@@ -16,6 +16,11 @@ export function toPOJO<T = Record<string, any>>(data: any): T {
     if (!data || typeof data !== 'object') {
         return data;
     }
+    if (Array.isArray(data)) {
+        return Object.freeze(
+            data.map(item => (item && typeof item === 'object' ? toPOJO(item) : item)),
+        ) as unknown as T;
+    }
     if (
         data instanceof Date ||
         data instanceof RegExp ||

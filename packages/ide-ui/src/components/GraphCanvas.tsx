@@ -1,7 +1,7 @@
 import React from 'react';
 import type { GraphNode, GraphEdge, UnresolvedNode, TelemetryRecordingDocument } from '@siglo/ide-protocol';
 import { matchTelemetryRecord } from '@siglo/ide-protocol';
-import { Globe, KeyRound, Bell, Sparkles, Cog, AlertTriangle, Clock, GitFork, List, Database } from 'lucide-react';
+import { Globe, KeyRound, Bell, Sparkles, Cog, Cpu, AlertTriangle, Clock, GitFork, List, Database } from 'lucide-react';
 
 interface GraphCanvasProps {
     nodes: GraphNode[];
@@ -121,6 +121,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         if (kind === 'map') return <List className={`${cls} text-sky-400`} />;
         if (['parallel', 'all', 'allSettled', 'race', 'when', 'branch'].includes(kind))
             return <GitFork className={`${cls} text-purple-400`} />;
+        if (kind === 'compute') return <Cpu className={`${cls} text-cyan-400`} />;
         if (kind === 'http') return <Globe className={`${cls} text-sky-400`} />;
         if (kind === 'crypto') return <KeyRound className={`${cls} text-emerald-400`} />;
         if (kind === 'notification') return <Bell className={`${cls} text-amber-400`} />;
@@ -274,7 +275,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                                     )}
                                 </span>
                                 <span className="font-medium text-xs text-[#dfe1e5] truncate flex-1">{node.name}</span>
-                                <span className="max-w-24 truncate shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[#393b40] text-[#9da0a8]">
+                                <span
+                                    className={`max-w-24 truncate shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
+                                        node.stepKind === 'compute'
+                                            ? 'bg-cyan-950/80 border border-cyan-600/40 text-cyan-300'
+                                            : 'bg-[#393b40] text-[#9da0a8]'
+                                    }`}
+                                >
                                     {node.stepKind === 'custom'
                                         ? node.properties?.operation || node.stepKind
                                         : node.stepKind}
@@ -294,11 +301,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                                             <span>RECORDED</span>
                                         </span>
                                     )}
-                                    {node.executionConfig?.retries !== undefined
-                                        ? `${node.executionConfig.retries} retries`
-                                        : node.executionConfig?.timeoutMs
-                                          ? `${node.executionConfig.timeoutMs}ms`
-                                          : ''}
+                                    {node.stepKind === 'compute'
+                                        ? 'Sync · No Network'
+                                        : node.executionConfig?.retries !== undefined
+                                          ? `${node.executionConfig.retries} retries`
+                                          : node.executionConfig?.timeoutMs
+                                            ? `${node.executionConfig.timeoutMs}ms`
+                                            : ''}
                                 </span>
                             </span>
                         </button>

@@ -151,7 +151,28 @@ function wrapLookup(existingLookup: any, store: any, target: { urlString: string
     };
 }
 
-async function patchedFetch(input: any, init?: any): Promise<Response> {
+function rejectOrThrowHttp(error: NetworkPolicyViolationException, throwSync?: boolean): any {
+    if (throwSync) {
+        throw error;
+    }
+    const req = new BlockedClientRequest();
+    process.nextTick(() => {
+        req.emit('error', error);
+    });
+    return req;
+}
+
+function destroyOrThrowSocket(socket: any, error: NetworkPolicyViolationException, throwSync?: boolean): any {
+    if (throwSync) {
+        throw error;
+    }
+    process.nextTick(() => {
+        socket.destroy(error);
+    });
+    return socket;
+}
+
+function patchedFetch(input: any, init?: any): Promise<Response> {
     const store = networkPolicyStorage.getStore();
     if (!store || !store.enabled || store.inValidatedScope) {
         return origFetch!.call(globalThis, input, init);
@@ -182,9 +203,22 @@ async function patchedFetch(input: any, init?: any): Promise<Response> {
 
     if (!isHostAllowed(urlString, host, store, port)) {
         const error = new NetworkPolicyViolationException(store.stepName, urlString, host, store.allowedHosts);
+        if (store.throwSync) {
+            throw error;
+        }
         return Promise.reject(error);
     }
 
+    return executeValidatedFetch(urlString, urlObj, host, init, store);
+}
+
+async function executeValidatedFetch(
+    urlString: string,
+    urlObj: URL,
+    host: string,
+    init: any,
+    store: any,
+): Promise<Response> {
     await validateAndPinTarget(urlObj, store);
 
     let currentUrl = urlString;
@@ -248,17 +282,13 @@ function patchedHttpRequest(...args: any[]): http.ClientRequest {
 
     const target = parseHttpArgs(args, 'http:');
     if (!isHostAllowed(target.urlString, target.host, store, target.port)) {
-        const req = new BlockedClientRequest();
         const error = new NetworkPolicyViolationException(
             store.stepName,
             target.urlString,
             target.host,
             store.allowedHosts,
         );
-        process.nextTick(() => {
-            req.emit('error', error);
-        });
-        return req as any;
+        return rejectOrThrowHttp(error, store.throwSync);
     }
 
     // prettier-ignore
@@ -286,17 +316,13 @@ function patchedHttpsRequest(...args: any[]): http.ClientRequest {
 
     const target = parseHttpArgs(args, 'https:');
     if (!isHostAllowed(target.urlString, target.host, store, target.port)) {
-        const req = new BlockedClientRequest();
         const error = new NetworkPolicyViolationException(
             store.stepName,
             target.urlString,
             target.host,
             store.allowedHosts,
         );
-        process.nextTick(() => {
-            req.emit('error', error);
-        });
-        return req as any;
+        return rejectOrThrowHttp(error, store.throwSync);
     }
 
     // prettier-ignore
@@ -352,10 +378,7 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
                 socketPath,
                 store.allowedHosts || [],
             );
-            process.nextTick(() => {
-                this.destroy(error);
-            });
-            return this;
+            return destroyOrThrowSocket(this, error, store.throwSync);
         }
         return origSocketConnect!.apply(this, args as any);
     }
@@ -383,10 +406,7 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
                 store.allowedHosts,
                 { reason: `Socket destination resolved to restricted IP: ${normIp}` } as any,
             );
-            process.nextTick(() => {
-                this.destroy(error);
-            });
-            return this;
+            return destroyOrThrowSocket(this, error, store.throwSync);
         }
     }
 
@@ -401,10 +421,7 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
             host,
             store.allowedHosts,
         );
-        process.nextTick(() => {
-            this.destroy(error);
-        });
-        return this;
+        return destroyOrThrowSocket(this, error, store.throwSync);
     }
 
     this[VALIDATED_SOCKET] = true;

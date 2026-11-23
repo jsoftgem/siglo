@@ -21,6 +21,19 @@ import Configurator from '../configurator';
 import { DurationInput, DynamicOption, generateUUID, isFunction, isObject, isReservedKey } from '../../shared';
 import { toPOJO } from '../context';
 import { CacheOptions } from '../cache';
+import {
+    ComputeStep,
+    SyncStepAction,
+    SyncValue,
+    SyncSpec,
+    SyncSpecData,
+    runSpecsSync,
+    ComputeCache,
+    ComputeCacheOptions,
+    clearComputeCaches,
+    COMPUTE_NETWORK_POLICY,
+    executeComputeStepSync,
+} from './compute';
 
 // Phase 2 imports
 import {
@@ -191,6 +204,19 @@ export {
 
 export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
+export {
+    ComputeStep,
+    SyncStepAction,
+    SyncValue,
+    SyncSpec,
+    SyncSpecData,
+    runSpecsSync,
+    ComputeCache,
+    ComputeCacheOptions,
+    clearComputeCaches,
+    COMPUTE_NETWORK_POLICY,
+    executeComputeStepSync,
+};
 
 // Phase 2 & 4 Graph Re-exports
 export {
@@ -350,7 +376,7 @@ export type OnFailAction =
 
 export interface Flow<TInput = any, TOutput = any> {
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
-    steps: Step<any, any, any>[];
+    steps: (Step<any, any, any> | ComputeStep<any, any, any>)[];
     readonly isFlow?: boolean;
     timeout: (ms: DurationInput) => Flow<TInput, TOutput>;
     timeoutMs?: number;
@@ -371,7 +397,7 @@ export interface Flow<TInput = any, TOutput = any> {
     stepExecutionHook?: StepExecutionHook;
 }
 
-export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut, any> | Flow<TIn, TOut>;
+export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut, any> | ComputeStep<TIn, TOut, any> | Flow<TIn, TOut>;
 
 export type FlowArg<TIn = any, TOut = any> = FlowItem<TIn, TOut> | FlowArg<TIn, TOut>[];
 
@@ -379,7 +405,7 @@ export function isFlow(item: any): item is Flow {
     if (!isObject(item)) {
         return false;
     }
-    if (item instanceof Step) {
+    if (item instanceof Step || item instanceof ComputeStep || item.isCompute === true) {
         return false;
     }
     return item.isFlow === true || (isFunction(item.run) && !Array.isArray(item.specs) && !isFunction(item.onbefore));
@@ -403,8 +429,8 @@ function createFlowStep(flowInstance: Flow<any, any>): Step<any, any, any> {
     return new Step(flowInstance);
 }
 
-export function flattenSteps(steps: any[]): Step<any, any, any>[] {
-    const result: Step<any, any, any>[] = [];
+export function flattenSteps(steps: any[]): (Step<any, any, any> | ComputeStep<any, any, any>)[] {
+    const result: (Step<any, any, any> | ComputeStep<any, any, any>)[] = [];
     for (const item of steps) {
         if (Array.isArray(item)) {
             result.push(...flattenSteps(item));
@@ -433,22 +459,25 @@ export type FlowContextResult<TContext, THistory = Record<string, any>> = TConte
 };
 
 // Flow overloads with Accumulated Context Inference & Typed Step History
+export type NamedFlowStep<TIn = any, TOut = any, TName extends string = string> =
+    Step<TIn, TOut, TName> | ComputeStep<TIn, TOut, TName>;
+
 export function flow<TIn, T1Out, N1 extends string>(
-    s1: Step<any, T1Out, N1>,
+    s1: NamedFlowStep<any, T1Out, N1>,
 ): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
 ): Flow<
     TIn,
     FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>
 >;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string>(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
+    s3: NamedFlowStep<any, T3Out, N3>,
 ): Flow<
     TIn,
     FlowContextResult<
@@ -468,10 +497,10 @@ export function flow<
     T4Out,
     N4 extends string,
 >(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>,
-    s4: Step<any, T4Out, N4>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
+    s3: NamedFlowStep<any, T3Out, N3>,
+    s4: NamedFlowStep<any, T4Out, N4>,
 ): Flow<
     TIn,
     FlowContextResult<
@@ -493,11 +522,11 @@ export function flow<
     T5Out,
     N5 extends string,
 >(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>,
-    s4: Step<any, T4Out, N4>,
-    s5: Step<any, T5Out, N5>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
+    s3: NamedFlowStep<any, T3Out, N3>,
+    s4: NamedFlowStep<any, T4Out, N4>,
+    s5: NamedFlowStep<any, T5Out, N5>,
 ): Flow<
     TIn,
     FlowContextResult<
@@ -592,7 +621,7 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
                             if (!handler && record.handlerName) {
                                 handler = getCompensationHandler(record.handlerName);
                             }
-                            const matchingStep = allSteps.find(
+                            const matchingStep: any = allSteps.find(
                                 (s: any) =>
                                     (s?.name && s.name === record.stepName) ||
                                     (s?.func && s.func === record.stepName) ||
@@ -732,11 +761,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         }
     }
 
-    static start<TOut = any>(
-        steps: Step | Step[] | Flow | (Step | Flow)[],
-        param?: any,
-        options?: ExecutionOptions,
-    ): Promise<TOut>;
+    static start<TOut = any>(steps: FlowItem | FlowItem[], param?: any, options?: ExecutionOptions): Promise<TOut>;
     static start(steps?: undefined, param?: any, options?: ExecutionOptions): undefined;
     static start(steps?: any, param: any = {}, options?: ExecutionOptions): any {
         if (!steps) {
@@ -777,6 +802,18 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         sequence?: Step<any, any, any>[],
     ): Step<TIn, TOut, any> {
         return new Step<TIn, TOut, any>(nameOrAction as any, action, sequence);
+    }
+
+    static compute<TName extends string, TIn = any, TOut = any>(
+        name: TName,
+        action: SyncStepAction<TIn, TOut>,
+    ): ComputeStep<TIn, TOut, TName>;
+    static compute<TIn = any, TOut = any>(action: SyncStepAction<TIn, TOut>): ComputeStep<TIn, TOut, string>;
+    static compute<TIn = any, TOut = any>(
+        nameOrAction: string | SyncStepAction<TIn, TOut>,
+        action?: SyncStepAction<TIn, TOut>,
+    ): ComputeStep<TIn, TOut, any> {
+        return new ComputeStep<TIn, TOut, any>(nameOrAction as any, action);
     }
 
     static flow = flow;
@@ -1008,7 +1045,8 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             this.idempotencyOptions = idempOpts;
             this.idempotencyKey = idempOpts.key || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
         } else {
-            this.idempotencyKey = keyOrFnOrOptions || options?.key || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
+            this.idempotencyKey =
+                keyOrFnOrOptions || options?.key || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
             this.idempotencyOptions = options;
         }
         return this;
@@ -1085,9 +1123,6 @@ export type {
     ReconcilerOptions,
     ReconcileReport,
 } from '../compensation';
-
-export default Step;
-
 export {
     Status,
     ExecutionPhase,

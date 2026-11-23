@@ -5,7 +5,7 @@ description: 'API reference for Siglo functional workflow combinators: flow, par
 
 # API Reference: Orchestration & Combinators
 
-The Orchestration & Combinators API in **Siglo** provides functional combinators and workflow orchestrators to compose modular, resilient, and type-safe async workflows. Siglo combines sequential pipelines, parallel fan-out/fan-in, conditional branching, dynamic collections mapping, durable event suspension, and workflow AST inspection.
+The Orchestration & Combinators API in **Siglo** provides functional combinators and workflow orchestrators to compose modular, resilient, and type-safe async workflows. Siglo combines sequential pipelines, synchronous `ComputeStep` batching, parallel fan-out/fan-in, conditional branching, dynamic collections mapping, durable event suspension, and workflow AST inspection.
 
 ---
 
@@ -45,19 +45,23 @@ The Orchestration & Combinators API in **Siglo** provides functional combinators
 
 ### `flow(...steps)`
 
-Composes sequential execution units (`Step`, nested `Flow`, or combinator steps) into an executable workflow with compile-time accumulated context inference and typed step history (`$steps`).
+Composes sequential execution units (`Step`, `ComputeStep`, nested `Flow`, or combinator steps) into an executable workflow with compile-time accumulated context inference and typed step history (`$steps`).
 
 #### Signatures
 
 ```typescript
-// 1 to 5+ steps with compile-time accumulated context inference
+export type FlowItem<TIn = any, TOut = any, TName extends string = string> =
+    | Step<TIn, TOut, TName>
+    | ComputeStep<TIn, TOut, TName>;
+
+// 1 to 10+ steps with compile-time accumulated context inference across mixed Step and ComputeStep items
 export function flow<TIn, T1Out, N1 extends string>(
-    s1: Step<any, T1Out, N1>,
+    s1: FlowItem<any, T1Out, N1>,
 ): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
+    s1: FlowItem<any, T1Out, N1>,
+    s2: FlowItem<any, T2Out, N2>,
 ): Flow<
     TIn,
     FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>
@@ -69,15 +73,20 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
 
 #### Parameters
 
-- `...steps`: `(Step | Flow | Array<Step | Flow>)[]` &mdash; Variable list or nested arrays of steps to execute sequentially.
+- `...steps`: `(Step | ComputeStep | Flow | Array<Step | ComputeStep | Flow>)[]` &mdash; Variable list or nested arrays of steps to execute sequentially.
 
 #### Returns
 
 A `Flow<TInput, TOutput>` object exposing execution method (`.run()`), durable controls (`.resume()`, `.compensate()`), guardrails (`.networkPolicy()`), live monitoring (`.monitor()`, `.hook()`), and export utilities (`.toMermaid()`, `.toJSON()`).
 
-#### Context Accumulation & `$steps`
+#### Context Accumulation, `$steps`, & Synchronous Compute Batching
 
 As each step executes, its output is shallow-merged into the accumulated context. Earlier step outputs remain accessible to subsequent steps. In addition, the return context includes a typed `$steps` property containing each step's output keyed by step name.
+
+When `flow()` encounters consecutive `Step.compute` (`ComputeStep`) items, it runs them in a **synchronous batching fast path**:
+- Consecutive `ComputeStep` instances execute in a tight synchronous loop inside a single `networkPolicyStorage.run(COMPUTE_NETWORK_POLICY, ...)` scope without allocating `SingleChain`, `StartChain`, `PromiseChain`, or per-step `Context` instances.
+- Outputs are merged directly into the accumulated context and recorded in `$steps[step.name]` and `$steps[index]`.
+- If a `ComputeStep` throws after earlier `Step.create` steps with `.compensate()` handlers have succeeded, `flow()` automatically triggers LIFO Saga compensation rollback for those prior steps.
 
 #### Example
 
@@ -85,24 +94,28 @@ As each step executes, its output is shallow-merged into the accumulated context
 import { Step, flow } from '@siglo/core';
 
 const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => {
-    return { name: 'Alice', role: 'admin' };
+    return { name: 'Alice', role: 'admin', baseQuota: 100 };
 });
 
-const checkPermissions = Step.create('checkPermissions', async (param: { role: string }) => {
-    return { canApprove: param.role === 'admin' };
+const computeEffectiveQuota = Step.compute('computeEffectiveQuota', (param: { role: string; baseQuota: number }) => {
+    return {
+        canApprove: param.role === 'admin',
+        effectiveQuota: param.role === 'admin' ? param.baseQuota * 10 : param.baseQuota,
+    };
 });
 
 const sendAlert = Step.create('sendAlert', async (param: { name: string; canApprove: boolean }) => {
     return { alerted: true, timestamp: Date.now() };
 });
 
-export const authFlow = flow(fetchUser, checkPermissions, sendAlert);
+export const authFlow = flow(fetchUser, computeEffectiveQuota, sendAlert);
 
 const result = await authFlow.run({ userId: 'u_100' });
 console.log(result.name); // 'Alice'
 console.log(result.canApprove); // true
+console.log(result.effectiveQuota); // 1000
 console.log(result.alerted); // true
-console.log(result.$steps.fetchUser); // { name: 'Alice', role: 'admin' }
+console.log(result.$steps.computeEffectiveQuota); // { canApprove: true, effectiveQuota: 1000 }
 ```
 
 ---
@@ -156,7 +169,7 @@ console.log(JSON.stringify(cleanData));
 
 ### `parallel(steps, options?)`
 
-Executes multiple steps, flows, or functions concurrently. By default, it operates in `fail-fast` mode: if any branch fails, all other in-flight branches are aborted via an internal `AbortController`.
+Executes multiple steps (`Step` or `ComputeStep`), flows, or functions concurrently. By default, it operates in `fail-fast` mode: if any branch fails, all other in-flight branches are aborted via an internal `AbortController`.
 
 #### Signature
 
@@ -308,7 +321,7 @@ console.log(result.source); // 'primary'
 
 ### `when(predicate, thenStep, elseStep?)`
 
-Conditional branching combinator that evaluates a predicate function against the current context. If `true`, executes `thenStep`; otherwise executes `elseStep` (if provided).
+Conditional branching combinator that evaluates a predicate function against the current context. If `true`, executes `thenStep`; otherwise executes `elseStep` (if provided). Both `thenStep` and `elseStep` accept a `Step`, `ComputeStep`, `Flow`, or inline function.
 
 #### Signatures
 
@@ -338,11 +351,11 @@ The output context is enriched with:
 ```typescript
 import { Step, flow, when } from '@siglo/core';
 
-const applyDiscount = Step.create('applyDiscount', async (ctx: { total: number }) => ({
+const applyDiscount = Step.compute('applyDiscount', (ctx: { total: number }) => ({
     discount: ctx.total * 0.1,
 }));
 
-const noDiscount = Step.create('noDiscount', async () => ({
+const noDiscount = Step.compute('noDiscount', () => ({
     discount: 0,
 }));
 
@@ -357,7 +370,7 @@ console.log(output.$branchSelected); // 'then'
 
 ### `branch(selectorOrBranches, branchesMap?, defaultBranch?)`
 
-Dynamic multi-path router that selects a branch from a map using a selector function or context key.
+Dynamic multi-path router that selects a branch (`Step`, `ComputeStep`, `Flow`, or inline function) from a map using a selector function or context key.
 
 #### Signatures
 
@@ -407,7 +420,7 @@ console.log(result.$branchSelected); // 'enterprise'
 
 ### `map(itemsOrAccessor, processItem, options?)`
 
-Maps an array or async iterable through an item processing step or subflow with bounded worker concurrency, error aggregation, and order preservation.
+Maps an array or async iterable through an item processing step (`Step` or `ComputeStep`) or subflow with bounded worker concurrency, error aggregation, and order preservation.
 
 #### Signatures
 
@@ -477,6 +490,7 @@ When an outer `Flow` defines a `networkPolicy` (via `flow.networkPolicy(...)` or
 
 - **Strict Intersection**: Child steps and nested sub-flows automatically intersect their own policies with the enclosing `networkPolicyStorage` scope.
 - **No Perimeter Widening**: A child step inside `parallel`, `when`, `branch`, `map`, or a sub-flow can further restrict allowed hosts or call `.denyNetwork()`, but cannot re-allow hosts excluded by the enclosing outer flow.
+- **`Step.compute` Always-Deny Invariant**: Any `ComputeStep` inside a flow or combinator unconditionally enforces its zero-network perimeter (`COMPUTE_NETWORK_POLICY`), regardless of outer flow permissions.
 
 ---
 
@@ -597,7 +611,7 @@ console.log(finalResult.granted); // true
 
 ### `toGraph(item)`
 
-Compiles any step, flow, or combinator into a JSON-serializable `WorkflowNode` AST.
+Compiles any step (`Step` or `ComputeStep`), flow, or combinator into a JSON-serializable `WorkflowNode` AST.
 
 #### Signature
 
@@ -607,7 +621,7 @@ export function toGraph(item: any): WorkflowNode;
 
 #### Node Types (`WorkflowNodeType`)
 
-- `'step'`: Single step execution unit.
+- `'step'`: Single step execution unit (`Step` or `ComputeStep`; compute steps include `metadata.stepKind = 'compute'`).
 - `'sequence'`: Sequential chain (`Flow`).
 - `'parallel'`: Concurrent fan-out.
 - `'branch'`: Conditional or multi-path router.
@@ -658,7 +672,7 @@ export interface GraphValidationResult {
     errors: string[];
 }
 
-export function validateGraph(node: WorkflowNode | Flow | Step): GraphValidationResult;
+export function validateGraph(node: WorkflowNode | Flow | Step | ComputeStep): GraphValidationResult;
 ```
 
 ---
@@ -670,7 +684,7 @@ Asserts graph validity, throwing `GraphValidationException` if any cycles or str
 #### Signature
 
 ```typescript
-export function assertValidGraph(node: WorkflowNode | Flow | Step): void; // Throws GraphValidationException
+export function assertValidGraph(node: WorkflowNode | Flow | Step | ComputeStep): void; // Throws GraphValidationException
 ```
 
 ---

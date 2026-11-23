@@ -1,5 +1,15 @@
-import { trace, SpanStatusCode, context as otelContext, createContextKey, Tracer } from '@opentelemetry/api';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import {
+    Context,
+    ROOT_CONTEXT,
+    SpanStatusCode,
+    Tracer,
+    context as otelContext,
+    createContextKey,
+    trace,
+} from '@opentelemetry/api';
+import {
+    ComputeStep,
     Flow,
     Step,
     StorageAdapter,
@@ -18,6 +28,45 @@ const WORKFLOW_INSTRUMENTED = Symbol.for('siglo.opentelemetry.workflow_instrumen
 const STEP_OPTIONS = Symbol.for('siglo.opentelemetry.step_options');
 const ACTIVE_STEP_KEY = createContextKey('siglo.opentelemetry.active_step');
 const ACTIVE_WORKFLOW_KEY = createContextKey('siglo.opentelemetry.active_workflow');
+const PROBE_KEY = createContextKey('siglo.opentelemetry.context_probe');
+
+const fallbackContextStorage = new AsyncLocalStorage<Context>();
+
+const fallbackAlsContextManager = {
+    active(): Context {
+        return fallbackContextStorage.getStore() ?? ROOT_CONTEXT;
+    },
+    with<A extends unknown[], F extends (...args: A) => ReturnType<F>>(
+        ctx: Context,
+        fn: F,
+        thisArg?: ThisParameterType<F>,
+        ...args: A
+    ): ReturnType<F> {
+        return fallbackContextStorage.run(ctx, () => fn.apply(thisArg as any, args));
+    },
+    bind<T>(ctx: Context, target: T): T {
+        if (typeof target === 'function') {
+            return ((...args: any[]) =>
+                fallbackContextStorage.run(ctx, () => (target as any).apply(undefined, args))) as unknown as T;
+        }
+        return target;
+    },
+    enable() {
+        return this;
+    },
+    disable() {
+        fallbackContextStorage.disable();
+        return this;
+    },
+};
+
+function ensureContextManagerRegistered(): void {
+    const probeCtx = ROOT_CONTEXT.setValue(PROBE_KEY, true);
+    const hasActiveManager = otelContext.with(probeCtx, () => otelContext.active().getValue(PROBE_KEY) === true);
+    if (!hasActiveManager && typeof (otelContext as any).setGlobalContextManager === 'function') {
+        (otelContext as any).setGlobalContextManager(fallbackAlsContextManager);
+    }
+}
 
 /**
  * Returns an OpenTelemetry tracer based on configuration.
@@ -35,6 +84,98 @@ function resolveValue<T>(valOrFn: any): T | undefined {
         }
     }
     return valOrFn;
+}
+
+function createStepExecutionHook(options: SigloTelemetryOptions = {}): StepExecutionHook {
+    const isNamespaceAllowed = options.allowNamespace ?? false;
+
+    return (stepContext: StepExecutionContext, next: () => any) => {
+        const stepId = stepContext.stepId || stepContext.step?.$stepId || stepContext.stepName;
+        const attempt = stepContext.attempt || 1;
+        const isComputeStep = stepContext.step?.isCompute === true;
+
+        // Duplicate-instrumentation protection:
+        if ((stepContext.step as any)?.[STEP_INSTRUMENTED] && !isComputeStep) {
+            return next();
+        }
+        const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as
+            { stepId: string; attempt: number } | undefined;
+        if (activeStep && activeStep.stepId === stepId && activeStep.attempt === attempt) {
+            return next();
+        }
+
+        // Check if the step had explicit instrumentStep options configured
+        const stepSpecificOptions: SigloTelemetryOptions = (stepContext.step as any)?.[STEP_OPTIONS] || options;
+        const stepTracer = getTracer(stepSpecificOptions);
+        const stepNamespaceAllowed = stepSpecificOptions.allowNamespace ?? isNamespaceAllowed;
+
+        const stackId = resolveValue<string>(stepContext.stackId || stepContext.param?.$stackId);
+        const namespace = resolveValue<string>(stepContext.namespace || stepContext.param?.$namespace);
+        const stepName = stepContext.stepName || stepContext.step?.name || stepId || 'unnamed-step';
+        const stepKind = isComputeStep ? 'compute' : 'standard';
+
+        const spanName = attempt > 1 ? `step:${stepName} (retry #${attempt})` : `step:${stepName}`;
+        const stepSpan = stepTracer.startSpan(
+            spanName,
+            {
+                attributes: {
+                    [SemanticAttributes.STEP_NAME]: stepName,
+                    ...(stepId ? { [SemanticAttributes.STEP_ID]: stepId } : {}),
+                    [SemanticAttributes.STEP_ATTEMPT]: attempt,
+                    [SemanticAttributes.STEP_KIND]: stepKind,
+                    ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
+                    ...(stepNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
+                    ...(stepContext.step?.timeoutMs
+                        ? { [SemanticAttributes.TIMEOUT]: stepContext.step.timeoutMs }
+                        : {}),
+                },
+            },
+            otelContext.active(),
+        );
+
+        const ctx = trace.setSpan(otelContext.active(), stepSpan).setValue(ACTIVE_STEP_KEY, { stepId, attempt });
+
+        return otelContext.with(ctx, () => {
+            try {
+                const result = next();
+                if (result && typeof result.then === 'function') {
+                    return result.then(
+                        (val: any) => {
+                            if (typeof stepContext.cacheHit === 'boolean') {
+                                stepSpan.setAttribute(SemanticAttributes.CACHE_HIT, stepContext.cacheHit);
+                            }
+                            stepSpan.setStatus({ code: SpanStatusCode.OK });
+                            stepSpan.end();
+                            return val;
+                        },
+                        (err: any) => {
+                            stepSpan.recordException(err);
+                            stepSpan.setStatus({
+                                code: SpanStatusCode.ERROR,
+                                message: err?.message || 'Step execution failed',
+                            });
+                            stepSpan.end();
+                            throw err;
+                        },
+                    );
+                }
+                if (typeof stepContext.cacheHit === 'boolean') {
+                    stepSpan.setAttribute(SemanticAttributes.CACHE_HIT, stepContext.cacheHit);
+                }
+                stepSpan.setStatus({ code: SpanStatusCode.OK });
+                stepSpan.end();
+                return result;
+            } catch (err: any) {
+                stepSpan.recordException(err);
+                stepSpan.setStatus({
+                    code: SpanStatusCode.ERROR,
+                    message: err?.message || 'Step execution failed',
+                });
+                stepSpan.end();
+                throw err;
+            }
+        });
+    };
 }
 
 /**
@@ -65,18 +206,27 @@ export function createTelemetryStorageAdapter(options: SigloTelemetryOptions = {
 }
 
 /**
- * Instruments an individual Step with an OpenTelemetry child span covering action execution,
- * attempt counting, and error recording.
+ * Instruments an individual Step or ComputeStep with an OpenTelemetry child span covering action execution,
+ * attempt counting, and error recording. Preserves synchronous execution when the step action returns synchronously.
  */
-export function instrumentStep<TStep extends Step<any, any, any>>(step: TStep, options?: SigloTelemetryOptions): TStep;
+export function instrumentStep<TStep extends Step<any, any, any> | ComputeStep<any, any, any>>(
+    step: TStep,
+    options?: SigloTelemetryOptions,
+): TStep;
 export function instrumentStep<TInput = any, TOutput = any, TName extends string = string>(
     step: Step<TInput, TOutput, TName>,
     options?: SigloTelemetryOptions,
 ): Step<TInput, TOutput, TName>;
+export function instrumentStep<TInput = any, TOutput = any, TName extends string = string>(
+    step: ComputeStep<TInput, TOutput, TName>,
+    options?: SigloTelemetryOptions,
+): ComputeStep<TInput, TOutput, TName>;
 export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): any {
     if (!step || typeof step !== 'object') {
         return step;
     }
+
+    ensureContextManagerRegistered();
 
     (step as any)[STEP_OPTIONS] = options;
 
@@ -90,8 +240,12 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
     }
 
     (step as any)[STEP_INSTRUMENTED] = true;
+    const isComputeStep = step.isCompute === true;
+    if (isComputeStep) {
+        (step as any).stepExecutionHook = createStepExecutionHook(options);
+    }
 
-    step.action = (async (param: any, current: any, index?: number) => {
+    step.action = ((param: any, current: any, index?: number) => {
         const stackId = resolveValue<string>(param?.$stackId);
         const retryCount = resolveValue<number>(param?.$attempt);
         const attempt = (retryCount ?? 0) + 1;
@@ -99,7 +253,7 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
 
         // Duplicate-instrumentation protection:
         // If an active step span with this stepId and attempt is already active in otelContext
-        // (for example, created by workflow-level execution hook), do not create a duplicate span!
+        // (for example, created by workflow-level or compute step execution hook), do not create a duplicate span!
         const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as
             { stepId: string; attempt: number } | undefined;
         if (activeStep && activeStep.stepId === stepId && activeStep.attempt === attempt) {
@@ -110,25 +264,50 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
         const isNamespaceAllowed = options.allowNamespace ?? false;
         const namespace = resolveValue<string>(param?.$namespace);
         const stepName = step.name || step.$stepId || 'unnamed-step';
+        const stepKind = isComputeStep ? 'compute' : 'standard';
 
         const spanName = attempt > 1 ? `step:${stepName} (retry #${attempt})` : `step:${stepName}`;
-        const stepSpan = tracer.startSpan(spanName, {
-            attributes: {
-                [SemanticAttributes.STEP_NAME]: stepName,
-                ...(step.$stepId ? { [SemanticAttributes.STEP_ID]: step.$stepId } : {}),
-                [SemanticAttributes.STEP_ATTEMPT]: attempt,
-                ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
-                ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
-                ...(step.timeoutMs ? { [SemanticAttributes.TIMEOUT]: step.timeoutMs } : {}),
+        const stepSpan = tracer.startSpan(
+            spanName,
+            {
+                attributes: {
+                    [SemanticAttributes.STEP_NAME]: stepName,
+                    ...(step.$stepId ? { [SemanticAttributes.STEP_ID]: step.$stepId } : {}),
+                    [SemanticAttributes.STEP_ATTEMPT]: attempt,
+                    [SemanticAttributes.STEP_KIND]: stepKind,
+                    ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
+                    ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
+                    ...(step.timeoutMs ? { [SemanticAttributes.TIMEOUT]: step.timeoutMs } : {}),
+                },
             },
-        });
+            otelContext.active(),
+        );
 
         const ctx = trace.setSpan(otelContext.active(), stepSpan).setValue(ACTIVE_STEP_KEY, { stepId, attempt });
 
-        return otelContext.with(ctx, async () => {
+        return otelContext.with(ctx, () => {
             try {
-                const result = await originalAction(param, current, index);
+                const result = originalAction(param, current, index);
+                if (result && typeof result.then === 'function') {
+                    return result.then(
+                        (val: any) => {
+                            stepSpan.setStatus({ code: SpanStatusCode.OK });
+                            stepSpan.end();
+                            return val;
+                        },
+                        (err: any) => {
+                            stepSpan.recordException(err);
+                            stepSpan.setStatus({
+                                code: SpanStatusCode.ERROR,
+                                message: err?.message || 'Step execution failed',
+                            });
+                            stepSpan.end();
+                            throw err;
+                        },
+                    );
+                }
                 stepSpan.setStatus({ code: SpanStatusCode.OK });
+                stepSpan.end();
                 return result;
             } catch (err: any) {
                 stepSpan.recordException(err);
@@ -136,9 +315,8 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
                     code: SpanStatusCode.ERROR,
                     message: err?.message || 'Step execution failed',
                 });
-                throw err;
-            } finally {
                 stepSpan.end();
+                throw err;
             }
         });
     }) as any;
@@ -148,7 +326,7 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
 
 /**
  * Wraps a Flow execution with end-to-end OpenTelemetry spans and instruments child steps automatically,
- * including nested branch and when combinators, concurrent operations, and sub-flows.
+ * including nested branch and when combinators, concurrent operations, compute steps, and sub-flows.
  */
 export function instrumentWorkflow<TFlow extends Flow<any, any>>(
     workflow: TFlow,
@@ -163,6 +341,8 @@ export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions
         return workflow;
     }
 
+    ensureContextManagerRegistered();
+
     if ((workflow as any)[WORKFLOW_INSTRUMENTED]) {
         return workflow;
     }
@@ -170,63 +350,7 @@ export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions
 
     const tracer = getTracer(options);
     const isNamespaceAllowed = options.allowNamespace ?? false;
-
-    // Core runtime step execution hook: wraps every executed step action (including nested branch,
-    // when, parallel, map, sub-flows) with an active child span.
-    const stepExecutionHook: StepExecutionHook = async (stepContext: StepExecutionContext, next: () => any) => {
-        const stepId = stepContext.stepId || stepContext.step?.$stepId || stepContext.stepName;
-        const attempt = stepContext.attempt || 1;
-
-        // Duplicate-instrumentation protection:
-        if ((stepContext.step as any)?.[STEP_INSTRUMENTED]) {
-            return next();
-        }
-        const activeStep = otelContext.active().getValue(ACTIVE_STEP_KEY) as
-            { stepId: string; attempt: number } | undefined;
-        if (activeStep && activeStep.stepId === stepId && activeStep.attempt === attempt) {
-            return next();
-        }
-
-        // Check if the step had explicit instrumentStep options configured
-        const stepSpecificOptions: SigloTelemetryOptions = (stepContext.step as any)?.[STEP_OPTIONS] || options;
-        const stepTracer = getTracer(stepSpecificOptions);
-        const stepNamespaceAllowed = stepSpecificOptions.allowNamespace ?? isNamespaceAllowed;
-
-        const stackId = resolveValue<string>(stepContext.stackId || stepContext.param?.$stackId);
-        const namespace = resolveValue<string>(stepContext.namespace || stepContext.param?.$namespace);
-        const stepName = stepContext.stepName || stepContext.step?.name || stepId || 'unnamed-step';
-
-        const spanName = attempt > 1 ? `step:${stepName} (retry #${attempt})` : `step:${stepName}`;
-        const stepSpan = stepTracer.startSpan(spanName, {
-            attributes: {
-                [SemanticAttributes.STEP_NAME]: stepName,
-                ...(stepId ? { [SemanticAttributes.STEP_ID]: stepId } : {}),
-                [SemanticAttributes.STEP_ATTEMPT]: attempt,
-                ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
-                ...(stepNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
-                ...(stepContext.step?.timeoutMs ? { [SemanticAttributes.TIMEOUT]: stepContext.step.timeoutMs } : {}),
-            },
-        });
-
-        const ctx = trace.setSpan(otelContext.active(), stepSpan).setValue(ACTIVE_STEP_KEY, { stepId, attempt });
-
-        return otelContext.with(ctx, async () => {
-            try {
-                const result = await next();
-                stepSpan.setStatus({ code: SpanStatusCode.OK });
-                return result;
-            } catch (err: any) {
-                stepSpan.recordException(err);
-                stepSpan.setStatus({
-                    code: SpanStatusCode.ERROR,
-                    message: err?.message || 'Step execution failed',
-                });
-                throw err;
-            } finally {
-                stepSpan.end();
-            }
-        });
-    };
+    const stepExecutionHook = createStepExecutionHook(options);
 
     const originalRun = typeof workflow.run === 'function' ? workflow.run.bind(workflow) : undefined;
     const originalExecute = typeof workflow.execute === 'function' ? workflow.execute.bind(workflow) : undefined;
@@ -246,16 +370,20 @@ export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions
             const workflowVersion = options.workflowVersion || (workflow as any).workflowVersion || '1.0.0';
             const namespace = execOptions?.namespace;
 
-            const wfSpan = tracer.startSpan(`workflow:${workflowName}`, {
-                attributes: {
-                    [SemanticAttributes.WORKFLOW_NAME]: workflowName,
-                    [SemanticAttributes.WORKFLOW_VERSION]: String(workflowVersion),
-                    ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
-                    ...(execOptions?.timeout || workflow.timeoutMs
-                        ? { [SemanticAttributes.TIMEOUT]: execOptions?.timeout || workflow.timeoutMs }
-                        : {}),
+            const wfSpan = tracer.startSpan(
+                `workflow:${workflowName}`,
+                {
+                    attributes: {
+                        [SemanticAttributes.WORKFLOW_NAME]: workflowName,
+                        [SemanticAttributes.WORKFLOW_VERSION]: String(workflowVersion),
+                        ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
+                        ...(execOptions?.timeout || workflow.timeoutMs
+                            ? { [SemanticAttributes.TIMEOUT]: execOptions?.timeout || workflow.timeoutMs }
+                            : {}),
+                    },
                 },
-            });
+                otelContext.active(),
+            );
 
             const ctx = trace.setSpan(otelContext.active(), wfSpan).setValue(ACTIVE_WORKFLOW_KEY, wfSpan);
 

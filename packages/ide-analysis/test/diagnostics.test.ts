@@ -46,6 +46,29 @@ describe('Milestone 2: Static Diagnostics', () => {
         expect(compDiags[0].fixAvailable).to.be.true;
     });
 
+    it('exempts Step.compute from SIGLO_MISSING_COMPENSATION in sagas', () => {
+        const content = `
+            import { flow, Step } from '@siglo/core';
+            import { httpStep } from '@siglo/http';
+
+            const fetchCart = Step.create('fetchCart', async () => ({ subtotal: 100 }));
+            const calculateTotals = Step.compute('calculateTotals', (ctx: { subtotal: number }) => ({
+                total: ctx.subtotal * 1.08,
+            })).cache('5m');
+            const refundCard = Step.create('refundCard', async () => {});
+            const chargeCard = httpStep('chargeCard', { method: 'POST', url: 'https://api.stripe.com/charges' })
+                .compensate(refundCard);
+
+            export const checkoutSaga = flow('checkoutSaga', fetchCart, calculateTotals, chargeCard).saga();
+        `;
+        const doc = parseWorkflowFile({ uri: '/compute-saga.ts', content });
+        const compNode = doc.nodes.find(n => n.name === 'calculateTotals')!;
+        expect(compNode).to.exist;
+        expect(compNode.stepKind).to.equal('compute');
+        const compDiags = doc.diagnostics.filter(d => d.code === 'SIGLO_MISSING_COMPENSATION');
+        expect(compDiags).to.have.lengthOf(0);
+    });
+
     it('warns on unhandled error branches in durable workflows (SIGLO_UNHANDLED_ERROR_BRANCH)', () => {
         // Durable workflow with a branch that lacks a default/fallback branch
         const content = `

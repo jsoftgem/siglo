@@ -13,6 +13,8 @@ import {
     waitForEvent,
     wait,
     toJSON,
+    toMermaid,
+    toDot,
     GraphValidationException,
 } from '../../index';
 
@@ -271,5 +273,49 @@ describe('Workflow Graph Model Unit Tests', () => {
         };
         const validDiamond = validateGraph(diamondParallel);
         expect(validDiamond.valid).to.be.true;
+    });
+
+    it('toGraph, toMermaid, toDot, and toJSON expose ComputeStep metadata and always-deny network policy', () => {
+        const ioStep = Step.create('fetchCart', async () => ({ subtotal: 100 }));
+        const calcStep = Step.compute('calculateTotals', (ctx: { subtotal: number }) => ({
+            total: ctx.subtotal,
+        })).cache({ ttl: '5m', maxEntries: 500 });
+        const anonCompute = Step.compute(() => ({ ok: true }));
+
+        const computeNode = toGraph(calcStep);
+        expect(computeNode.type).to.equal('step');
+        expect(computeNode.name).to.equal('calculateTotals');
+        expect(computeNode.metadata?.compute).to.be.true;
+        expect(computeNode.metadata?.cachedLast).to.equal(300000);
+        expect(computeNode.metadata?.cacheOptions).to.deep.equal({ ttl: '5m', maxEntries: 500 });
+        expect(computeNode.metadata?.networkPolicy).to.deep.equal({
+            enabled: true,
+            defaultPolicy: 'deny',
+            allowedHosts: [],
+            allowLocalhost: false,
+        });
+        expect((computeNode as any).step).to.equal(calcStep);
+
+        expect(toGraph(anonCompute).name).to.equal('step');
+
+        const mixedFlow = flow(ioStep, calcStep);
+        expect(validateGraph(toGraph(mixedFlow)).valid).to.be.true;
+        const inspection = inspectGraph(mixedFlow);
+        expect(inspection.totalNodes).to.equal(3);
+
+        const mermaid = toMermaid(mixedFlow);
+        expect(mermaid).to.include('calculateTotals');
+        expect(mermaid).to.include('compute');
+        expect(mermaid).to.include('cache');
+
+        const dot = toDot(mixedFlow);
+        expect(dot).to.include('calculateTotals');
+        expect(dot).to.include('compute');
+
+        const jsonStr = toJSON(mixedFlow);
+        const parsed = JSON.parse(jsonStr);
+        expect(parsed.children[1].metadata.compute).to.be.true;
+        expect(parsed.children[1].metadata.networkPolicy.defaultPolicy).to.equal('deny');
+        expect(jsonStr).to.not.include('"step":');
     });
 });

@@ -32,6 +32,7 @@ class SigloDiagnosticsTest {
         assertTrue(SigloWorkflowAnnotator.containsWorkflowKeywords("const f = flow('order', stepA)"))
         assertTrue(SigloWorkflowAnnotator.containsWorkflowKeywords("const p = pipe(s1, s2)"))
         assertTrue(SigloWorkflowAnnotator.containsWorkflowKeywords("const s = Step.create('a', () => {})"))
+        assertTrue(SigloWorkflowAnnotator.containsWorkflowKeywords("const c = Step.compute('calcTax', (x) => x)"))
         assertTrue(SigloWorkflowAnnotator.containsWorkflowKeywords("httpStep('callApi', {})"))
         assertTrue(SigloWorkflowAnnotator.containsWorkflowKeywords("waitForEvent('event.name')"))
         assertFalse(SigloWorkflowAnnotator.containsWorkflowKeywords("const x = 1 + 2; console.log(x);"))
@@ -100,6 +101,7 @@ class SigloDiagnosticsTest {
             range = SourceRange(SourcePosition(8, 0), SourcePosition(8, 15))
         )
         assertEquals("SIGLO_UNHANDLED_ERROR_BRANCH", errorBranchDiag.code)
+        assertEquals("warning", errorBranchDiag.severity)
 
         val duplicateStepDiag = Diagnostic(
             code = "SIGLO_DUPLICATE_STEP_ID",
@@ -109,5 +111,31 @@ class SigloDiagnosticsTest {
         )
         assertEquals("SIGLO_DUPLICATE_STEP_ID", duplicateStepDiag.code)
         assertEquals("error", duplicateStepDiag.severity)
+    }
+
+    @Test
+    fun testComputeStepSourceRangeHighlightingAndDuplicateDiagnosticMapping() {
+        val sourceText = """
+            import { Step, flow } from '@siglo/core';
+            const calcTax = Step.compute('calcTax', (x: any) => x).cache('5m');
+            const dupTax = Step.compute('calcTax', (x: any) => x);
+            export const wf = flow('wf', calcTax, dupTax);
+        """.trimIndent()
+        val document = DocumentImpl(sourceText)
+
+        val duplicateComputeDiag = Diagnostic(
+            code = "SIGLO_DUPLICATE_STEP_ID",
+            message = "Duplicate step ID detected: \"calcTax\"",
+            severity = "error",
+            range = SourceRange(SourcePosition(1, 16), SourcePosition(1, 66))
+        )
+        assertEquals("SIGLO_DUPLICATE_STEP_ID", duplicateComputeDiag.code)
+        assertEquals("error", duplicateComputeDiag.severity)
+        val textRange = duplicateComputeDiag.range.toTextRange(document)
+        assertNotNull(textRange)
+        assertEquals(
+            "Step.compute('calcTax', (x: any) => x).cache('5m')",
+            sourceText.substring(textRange!!.startOffset, textRange.endOffset)
+        )
     }
 }

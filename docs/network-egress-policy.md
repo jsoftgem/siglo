@@ -15,12 +15,13 @@ In workflow orchestration systems, governing external network egress and side-ef
 
 1. **Policy Activation & Default Deny**: Unconfigured workflows have no egress enforcement (unrestricted). When a network policy is declared on a flow or step, enforcement activates and defaults to denying external outbound network access unless explicitly authorized by step-level or flow-level allowlists.
 2. **Flow Supersedes Step (Outer Envelope Narrowing)**: The Flow defines the outer security perimeter. A Step can only **narrow** permissions within what the Flow permits; it cannot unilaterally expand or bypass the Flow allowlist.
-3. **Multi-Layer Egress Interception**: Outbound requests are governed across three distinct runtime layers:
+3. **Unconditional Zero-Network Invariant on `Step.compute`**: Pure compute steps (`Step.compute`) unconditionally enforce an immutable always-deny network policy (`COMPUTE_NETWORK_POLICY`) with `throwSync: true` across `.spec()` validation, `.cache()` key projection, and `action`. Neither flow-level nor execution-level network policies can grant network access to a `ComputeStep`.
+4. **Multi-Layer Egress Interception**: Outbound requests are governed across three distinct runtime layers:
     - Native `globalThis.fetch` (Fetch API, Undici)
     - `node:http` and `node:https` (`request` and `get`, Axios, Got, legacy clients)
     - `node:net.Socket.prototype.connect` (Raw TCP/TLS connections)
-4. **Localhost & Loopback Configuration**: When network policy is active, `allowLocalhost` defaults to `false`. When enabled (`allowLocalhost: true`), loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC (`allowUnixSockets`) are permitted, preserving local database pools, test mock servers, and container-local sidecars.
-5. **Zero Concurrency Cross-Talk**: Handled via `AsyncLocalStorage`. When steps execute concurrently in `parallel`, `allSettled`, or `map`, each step runs in its own isolated ASL context. Background host operations (e.g. server health checks, connection pool pings) remain unaffected.
+5. **Localhost & Loopback Configuration**: When network policy is active, `allowLocalhost` defaults to `false`. When enabled (`allowLocalhost: true`), loopback addresses (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC (`allowUnixSockets`) are permitted, preserving local database pools, test mock servers, and container-local sidecars.
+6. **Zero Concurrency Cross-Talk**: Handled via `AsyncLocalStorage`. When steps execute concurrently in `parallel`, `allSettled`, or `map`, each step runs in its own isolated ASL context. Background host operations (e.g. server health checks, connection pool pings) remain unaffected.
 
 ---
 
@@ -84,14 +85,20 @@ const chargeCustomer = Step.create('charge', async ({ amount }) => {
 }).allowNetwork(['api.stripe.com', '*.stripe.network']);
 ```
 
-### 3.2 `step.denyNetwork()`
+### 3.2 `step.denyNetwork()` and `Step.compute()`
 
-Strictly disallows all external network calls from the step. Ideal for pure business logic, cryptographic hashing, or sensitive data transformations:
+For `Step.create`, `.denyNetwork()` strictly disallows all external network calls from the step. For pure synchronous computation, **`Step.compute()`** automatically enforces an immutable always-deny network policy (`COMPUTE_NETWORK_POLICY`) with synchronous exception throwing (`throwSync: true`) across `fetch`, `http.request`, and `net.Socket.connect`—without any `.allowNetwork()` or `.networkPolicy()` methods to widen it:
 
 ```typescript
-const calculateDiscounts = Step.create('discount', ({ cart }) => {
-    // Pure computation: cannot make any external HTTP or socket calls
+// Option A: Pure synchronous ComputeStep (unconditional always-deny, zero microtasks)
+const calculateDiscounts = Step.compute('discount', ({ cart }) => {
+    // Cannot make any external HTTP, localhost, or Unix socket calls
     return { discountedTotal: applyCoupons(cart) };
+});
+
+// Option B: Async Step.create with explicit .denyNetwork()
+const asyncTransform = Step.create('asyncTransform', async ({ payload }) => {
+    return { hash: await cryptoSubtleDigest(payload) };
 }).denyNetwork();
 ```
 
@@ -160,6 +167,7 @@ When both Flow-level and Step-level policies are declared, the Flow sets the bou
 | `['api.stripe.com']`    | `['api.github.com']`   | `[]` (Blocked)            | **Blocked**: Step cannot unilaterally expand beyond Flow allowlist. |
 | `['*.stripe.com']`      | `['api.stripe.com']`   | `['api.stripe.com']`      | Permitted: Step narrows down from wildcard.                         |
 | `['api.stripe.com']`    | `.denyNetwork()`       | `[]` (Blocked)            | **Blocked**: Step can always narrow to deny all calls.              |
+| `['*']` (Allow All)     | `Step.compute(...)`    | `[]` (Always Blocked)     | **Blocked**: `Step.compute` is unconditionally zero-network.        |
 | `allowLocalhost: false` | `allowLocalhost: true` | `allowLocalhost: false`   | **Blocked**: Step cannot bypass Flow's localhost restriction.       |
 
 ---
@@ -192,12 +200,12 @@ Siglo activates interceptors lazily upon first workflow execution or via `ensure
 2. **`node:http` and `node:https` Interceptor**:
     - Intercepts `http.request`, `http.get`, `https.request`, and `https.get`.
     - Protects libraries relying on Node's native HTTP client (e.g. Axios, Got, Node core).
-    - If blocked, emits an `'error'` event with `NetworkPolicyViolationException` on the client request stream.
+    - If blocked, emits an `'error'` event with `NetworkPolicyViolationException` on the client request stream (or throws synchronously when `throwSync: true` is active inside `Step.compute`).
 
 3. **`node:net.Socket.prototype.connect` Interceptor**:
     - Deepest safety net preventing raw TCP/TLS connections to unauthorized endpoints.
     - Automatically bypasses local Unix domain socket paths and sockets already validated by higher-level HTTP interceptors.
-    - Destroys unauthorized sockets immediately with `NetworkPolicyViolationException`.
+    - Destroys unauthorized sockets immediately with `NetworkPolicyViolationException` (or throws synchronously when `throwSync: true` is active inside `Step.compute`).
 
 ---
 

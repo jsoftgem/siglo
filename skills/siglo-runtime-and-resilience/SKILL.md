@@ -13,7 +13,7 @@ Workflows running in mission-critical environments require strict deadline contr
 
 ## 1. Runtime Mental Model & Execution Options
 
-Runtime execution is governed by `flow.run(input, options)` or `step.run(input, options)`.
+Runtime execution is governed by `flow.run(input, options)` or `step.run(input, options)` (for both `Step.create` and `Step.compute`).
 
 ```typescript
 export interface ExecutionOptions<TContext = any> {
@@ -103,9 +103,10 @@ try {
 
 ### Cancellation Guarantees
 
-1. **Delays Abort Immediately**: If a step is waiting in an exponential backoff retry sleep or `wait()` timer, `signal.abort()` wakes up the timer instantly rather than waiting for the timeout to elapse.
-2. **Fetch Aborts Automatically**: If steps use `fetch` or HTTP clients with standard signals, the underlying network connection terminates immediately.
-3. **Compensations Run Safely**: Active compensations for already-completed steps execute under their captured ASL `networkPolicy` perimeter and unwind predictably.
+1. **Pre-Flight Check on Synchronous Compute Batches**: Every `Step.compute` step checks `options.signal?.aborted` prior to execution and throws `CancellationException` immediately if aborted.
+2. **Delays Abort Immediately**: If a step is waiting in an exponential backoff retry sleep or `wait()` timer, `signal.abort()` wakes up the timer instantly rather than waiting for the timeout to elapse.
+3. **Fetch Aborts Automatically**: If steps use `fetch` or HTTP clients with standard signals, the underlying network connection terminates immediately.
+4. **Compensations Run Safely**: Active compensations for already-completed steps execute under their captured ASL `networkPolicy` perimeter and unwind predictably.
 
 ---
 
@@ -173,21 +174,22 @@ export class SigloError extends Error {
 
 ### Categorized Exception Hierarchy
 
-| Category                      | Exception Class                     | `retryable` | Description                                                                  |
-| :---------------------------- | :---------------------------------- | :---------- | :--------------------------------------------------------------------------- |
-| **Deadlines & Cancellation**  | `StepTimeoutException`              | `true`      | Individual step exceeded `.timeout(ms)`.                                     |
-|                               | `FlowTimeoutException`              | `false`     | Entire workflow exceeded `options.timeout`.                                  |
-|                               | `CancellationException`             | `false`     | Execution aborted via `AbortSignal`.                                         |
-| **Validation & Schema**       | `ValidationException`               | `false`     | `.schema()` or `.spec()` rejected incoming parameter context.                |
-|                               | `GraphValidationException`          | `false`     | Static workflow graph AST validation failed (e.g. cycle detected).           |
-| **Sagas & Rollback**          | `CompensationException`             | `false`     | An error occurred during Saga compensation rollback.                         |
-|                               | `UnresolvableCompensationException` | `false`     | A compensation handler threw an error that could not be resolved (Saga DLQ). |
-| **Concurrency & Idempotency** | `IdempotencyConflictException`      | `false`     | Concurrent execution with identical key is already in progress.              |
-|                               | `FieldCollisionException`           | `false`     | Parallel branches attempted to write conflicting keys to context.            |
-| **Security & Guardrails**     | `NetworkPolicyViolationException`   | `false`     | Outbound network egress blocked by security perimeter policy.                |
-| **Durable & Storage**         | `WorkflowSuspendedException`        | `false`     | Normal suspension signal at `waitForEvent` or `wait`.                        |
-|                               | `ExpiredWaitException`              | `false`     | Event wait deadline expired before resume payload arrived.                   |
-|                               | `CheckpointConflictException`       | `true`      | Optimistic Concurrency Control (OCC) version mismatch.                       |
+| Category                      | Exception Class                     | `retryable` | Description                                                                                             |
+| :---------------------------- | :---------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------ |
+| **Deadlines & Cancellation**  | `StepTimeoutException`              | `true`      | Individual step exceeded `.timeout(ms)`.                                                                |
+|                               | `FlowTimeoutException`              | `false`     | Entire workflow exceeded `options.timeout` (checked before each step, including `Step.compute` batches). |
+|                               | `CancellationException`             | `false`     | Execution aborted via `AbortSignal`.                                                                    |
+| **Validation & Schema**       | `ValidationException`               | `false`     | `.schema()` or `.spec()` rejected context, or an async `.spec()` callback/schema was passed to `Step.compute`. |
+|                               | `SigloError` (`phase: 'action'`)    | `false`     | `Step.compute` action or `keySerializer` returned a Promise/thenable at runtime.                        |
+|                               | `GraphValidationException`          | `false`     | Static workflow graph AST validation failed (e.g. cycle detected).                                      |
+| **Sagas & Rollback**          | `CompensationException`             | `false`     | An error occurred during Saga compensation rollback.                                                    |
+|                               | `UnresolvableCompensationException` | `false`     | A compensation handler threw an error that could not be resolved (Saga DLQ).                            |
+| **Concurrency & Idempotency** | `IdempotencyConflictException`      | `false`     | Concurrent execution with identical key is already in progress.                                         |
+|                               | `FieldCollisionException`           | `false`     | Parallel branches attempted to write conflicting keys to context.                                       |
+| **Security & Guardrails**     | `NetworkPolicyViolationException`   | `false`     | Outbound network egress blocked by security perimeter policy or `Step.compute` always-deny boundary.    |
+| **Durable & Storage**         | `WorkflowSuspendedException`        | `false`     | Normal suspension signal at `waitForEvent` or `wait`.                                                   |
+|                               | `ExpiredWaitException`              | `false`     | Event wait deadline expired before resume payload arrived.                                              |
+|                               | `CheckpointConflictException`       | `true`      | Optimistic Concurrency Control (OCC) version mismatch.                                                  |
 
 ---
 
@@ -216,7 +218,7 @@ try {
 
 ## 6. Saga Failure Escalation & Dead-Letter Handling
 
-When a regular step fails, Siglo executes registered compensations in reverse LIFO order. Each compensation record captures the effective ASL `networkPolicy` perimeter (intersected across step, flow, run options, and any enclosing `networkPolicyStorage`) and enforces it during both automatic rollbacks and checkpoint-hydrated `flow.compensate(stackId, options)` calls.
+When a regular step or downstream `Step.compute` step fails, Siglo executes registered compensations from prior completed steps in reverse LIFO order. Each compensation record captures the effective ASL `networkPolicy` perimeter (intersected across step, flow, run options, and any enclosing `networkPolicyStorage`) and enforces it during both automatic rollbacks and checkpoint-hydrated `flow.compensate(stackId, options)` calls.
 
 If a **compensation itself** fails, Siglo captures the failure as an `UnresolvableCompensationException` to prevent masking the root cause and registers a dead-letter compensation record:
 
@@ -247,45 +249,39 @@ try {
 
 ## 7. Global Step Execution Interception (`stepExecutionHook`)
 
-Attach custom monitoring, logging, or security audits to every step without modifying individual step code:
+Use `stepExecutionHook` (or `flow.hook(fn)`) to wrap every step execution with custom profiling, OpenTelemetry spans, or audit logging:
 
 ```typescript
-import { flow } from '@siglo/core';
-
-export const auditedWorkflow = flow(stepA, stepB, stepC).hook(async event => {
-    console.log(`[HOOK] Step: ${event.stepName}, Status: ${event.status}, Phase: ${event.phase}`);
-    if (event.status === 'FAILED') {
-        console.error(`Step ${event.stepName} failed: ${event.error?.message}`);
-    }
+const result = await orderFlow.run(input, {
+    stepExecutionHook: async (stepContext, next) => {
+        const start = performance.now();
+        try {
+            const output = await next();
+            console.log(`[Metric] Step ${stepContext.stepName} completed in ${performance.now() - start}ms`);
+            return output;
+        } catch (err) {
+            console.error(`[Alert] Step ${stepContext.stepName} failed on attempt ${stepContext.attempt}`);
+            throw err;
+        }
+    },
 });
 ```
 
 ---
 
-## 8. Static Graph Pre-Flight Validation (`validateGraph`)
+## 8. Pre-Flight Graph Validation (`validateGraph`, `assertValidGraph`)
 
-Before deploying or running workflows, validate the AST to catch recursive cycles, duplicate step names, or invalid combinator nestings at build time:
+Before deploying or booting a service, validate workflow AST structures to catch cycles, orphaned branches, or duplicate step IDs at startup:
 
 ```typescript
-import { validateGraph, assertValidGraph } from '@siglo/core';
-import { orderFlow } from './order.flow';
+import { validateGraph, assertValidGraph, GraphValidationException } from '@siglo/core';
 
-// 1. Soft validation returning issue array
-const issues = validateGraph(orderFlow.toGraph());
-if (issues.length > 0) {
-    console.error('Workflow graph issues detected:', issues);
+// 1. Non-throwing inspection
+const report = validateGraph(orderFlow.toGraph());
+if (!report.valid) {
+    console.error('Graph validation issues:', report.errors);
 }
 
-// 2. Strict assertion (throws GraphValidationException if invalid)
+// 2. Strict startup assertion (throws GraphValidationException if invalid)
 assertValidGraph(orderFlow.toGraph());
 ```
-
----
-
-## 9. Golden Rules for Runtime Resilience
-
-1. **Propagate `AbortSignal` Everywhere**: Always forward HTTP request cancellation signals or container SIGTERM signals into `flow.run(input, { signal })`.
-2. **Make Compensations Safe**: Wrap compensation handlers in try/catch or configure compensation retries (`step.compensate(fn, { maxRetries: 3, delay: '500ms' })`) to prevent `UnresolvableCompensationException`.
-3. **Distinguish Retryable Errors**: In `.onFail({ retryIf })`, keep `retryIf` synchronous (`(err, attempt) => boolean`) and check `err.retryable` or transient network codes (502, 503, 504, `ECONNRESET`); never retry validation or contract errors.
-4. **Use DI for External Clients**: Inject database pools and SDK clients via `options.services` to keep workflows clean, testable, and mockable.
-5. **Run Pre-Flight AST Checks**: Call `assertValidGraph(flow.toGraph())` in CI test suites to catch cycles and duplicate step IDs before production deployment.

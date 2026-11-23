@@ -196,6 +196,60 @@ describe('package step coverage', () => {
         expect(doc.nodes.find(n => n.name === 'model')?.stepKind).to.equal('ai');
     });
 
+    it('detects Step.compute and new ComputeStep with chained .spec(), .cache(), always-deny networkPolicy, and executionTarget', () => {
+        const doc = parseWorkflowFile({
+            uri: '/compute-workflow.ts',
+            content: `
+      import { Step, ComputeStep, flow } from '@siglo/core';
+
+      const fetchCart = Step.create('fetchCart', async (ctx: { cartId: string }) => ({
+          subtotal: 100,
+      }));
+
+      const calculateTotals = Step.compute(
+          'calculateTotals',
+          (ctx: { subtotal: number; discount: number; taxRate: number }) => {
+              const taxable = Math.max(0, ctx.subtotal - ctx.discount);
+              const tax = Math.round(taxable * ctx.taxRate * 100) / 100;
+              return { tax, total: taxable + tax };
+          },
+      )
+          .spec('subtotal', { require: true, validate: v => typeof v === 'number' && v >= 0 })
+          .spec('discount', { default: 0, transform: v => Math.max(0, Number(v)) })
+          .spec('taxRate', { default: 0.08 })
+          .cache({ ttl: '5m', maxEntries: 500 });
+
+      const scoreRisk = new ComputeStep('scoreRisk', (ctx: { total: number }) => ({
+          riskScore: ctx.total > 500 ? 'high' : 'low',
+      })).cache('1m');
+
+      export const checkoutFlow = flow(fetchCart, calculateTotals, scoreRisk);
+    `,
+        });
+
+        expect(doc.unresolved).to.have.lengthOf(0);
+        expect(doc.diagnostics).to.have.lengthOf(0);
+        expect(doc.nodes).to.have.lengthOf(3);
+
+        const totalsNode = doc.nodes.find(n => n.name === 'calculateTotals')!;
+        expect(totalsNode).to.exist;
+        expect(totalsNode.stepKind).to.equal('compute');
+        expect(totalsNode.properties?.operation).to.equal('Step.compute');
+        expect(totalsNode.properties?.networkPolicy).to.equal('deny');
+        expect(totalsNode.properties?.cache).to.equal("{ ttl: '5m', maxEntries: 500 }");
+        expect(totalsNode.specs).to.have.lengthOf(3);
+        expect(totalsNode.specs!.map(s => s.field)).to.deep.equal(['subtotal', 'discount', 'taxRate']);
+        expect(totalsNode.executionTarget).to.deep.equal({ exportName: 'checkoutFlow', stepIndex: 1 });
+
+        const riskNode = doc.nodes.find(n => n.name === 'scoreRisk')!;
+        expect(riskNode).to.exist;
+        expect(riskNode.stepKind).to.equal('compute');
+        expect(riskNode.properties?.operation).to.equal('ComputeStep');
+        expect(riskNode.properties?.networkPolicy).to.equal('deny');
+        expect(riskNode.properties?.cache).to.equal("'1m'");
+        expect(riskNode.executionTarget).to.deep.equal({ exportName: 'checkoutFlow', stepIndex: 2 });
+    });
+
     it('extracts dynamic (ctx) => ... expressions and DurationInput across durable waits and ecosystem steps without leaking secrets', () => {
         const doc = parseWorkflowFile({
             uri: '/dynamic-options.ts',

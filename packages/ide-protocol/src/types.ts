@@ -67,7 +67,7 @@ export interface GraphNode {
     executionTarget?: import('./execution').ExecutionTarget;
     id: string; // Deterministic AST node ID (e.g. "step_callStripe_L14_C5")
     name: string; // Display label
-    stepKind: 'generic' | 'http' | 'crypto' | 'notification' | 'ai' | 'custom';
+    stepKind: 'generic' | 'compute' | 'http' | 'crypto' | 'notification' | 'ai' | 'custom';
     location: SourceRange; // Precise definition range in source (or call/spread site in active document)
     declarationRange: SourceRange; // Outer enclosing statement range
     sourceUri?: string; // Target file URI when defined in a related file

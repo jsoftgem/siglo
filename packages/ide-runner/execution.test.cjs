@@ -178,3 +178,38 @@ test('pretty and raw json are equivalent representations of output', async () =>
     const rawJson = JSON.stringify(output);
     assert.deepEqual(JSON.parse(prettyJson), JSON.parse(rawJson));
 });
+test('executes single and ranged Step.compute steps with .spec() and .cache()', async () => {
+    const computeSource = `import { Step, flow } from '@siglo/core';
+        const fetchCart = Step.create('fetchCart', () => ({ subtotal: 120 }));
+        const calcTax = Step.compute('calcTax', (ctx: { subtotal: number; taxRate: number }) => ({
+            tax: Math.round(ctx.subtotal * ctx.taxRate),
+        }))
+            .spec('subtotal', { require: true })
+            .spec('taxRate', { default: 0.1 })
+            .cache('1m');
+        const calcTotal = Step.compute('calcTotal', (ctx: { subtotal: number; tax: number }) => ({
+            total: ctx.subtotal + ctx.tax,
+        }));
+        export const workflow = flow(fetchCart, calcTax, calcTotal);`;
+
+    // 1. Run single Step.compute selection (calcTax)
+    const singleEvents = await run(computeSource, doc => ids(doc, [1]), { input: { subtotal: 200 } });
+    assert.equal(
+        singleEvents.find(event => event.status === 'failed'),
+        undefined,
+        JSON.stringify(singleEvents),
+    );
+    assert.deepEqual(singleEvents.find(event => event.status === 'completed')?.output, {
+        tax: 20,
+    });
+
+    // 2. Run mixed Step.create + Step.compute range (fetchCart -> calcTax -> calcTotal)
+    const rangeEvents = await run(computeSource, doc => ids(doc, [0, 2]), { input: {} });
+    assert.equal(
+        rangeEvents.find(event => event.status === 'failed'),
+        undefined,
+        JSON.stringify(rangeEvents),
+    );
+    assert.equal(rangeEvents.filter(event => event.status === 'step' && event.output).length, 3);
+    assert.equal(rangeEvents.find(event => event.status === 'completed')?.output.total, 132);
+});

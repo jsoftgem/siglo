@@ -19,6 +19,9 @@ function formatBadges(node: { name: string; type: string; metadata?: any }): str
     const badges: string[] = [];
     const meta = node.metadata;
     if (meta) {
+        if (meta.compute) {
+            badges.push('⚡ compute');
+        }
         if (meta.timeoutMs) {
             badges.push(`⏱️ ${meta.timeoutMs}ms`);
         }
