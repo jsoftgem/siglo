@@ -12,7 +12,7 @@ export class RemoteMonitorClient implements MonitorClientInstance {
     private readonly customHeaders: Record<string, string>;
     private readonly maxQueueSize: number;
     private queue: WorkflowExecutionEvent[] = [];
-    private flushTimer: any = null;
+    private flushTimer: ReturnType<typeof setTimeout> | null = null;
     private isClosing = false;
     private activeFlushPromise: Promise<void> | null = null;
 
@@ -25,8 +25,8 @@ export class RemoteMonitorClient implements MonitorClientInstance {
             this.baseUrl = `http://${host}:${port}`;
         }
 
-        this.batchSize = options.batchSize || 10;
-        this.flushIntervalMs = options.flushIntervalMs || 25;
+        this.batchSize = options.batchSize ?? 10;
+        this.flushIntervalMs = options.flushIntervalMs ?? 25;
         this.redaction = options.redaction;
         this.apiKey = options.apiKey || options.authToken;
         this.customHeaders = options.headers ? { ...options.headers } : {};
@@ -155,7 +155,7 @@ export function attachToMonitorServer(
 ): (event: WorkflowExecutionEvent) => void {
     // 1. If target is a MonitorServerInstance in memory
     if (target && typeof target === 'object' && 'emitter' in target) {
-        const instance = target as MonitorServerInstance;
+        const instance = target;
         return (event: WorkflowExecutionEvent) => {
             instance.emitter.emit(event);
         };
@@ -193,7 +193,7 @@ export function attachToMonitorServer(
 
     // 5. If target is MonitorClientOptions
     const mergedOptions: MonitorClientOptions = {
-        ...(target as MonitorClientOptions),
+        ...target,
         ...clientOptions,
     };
     const client = createMonitorClient(mergedOptions);

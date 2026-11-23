@@ -45,13 +45,13 @@
   },
   "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/notifications#readme",
   "dependencies": {
-    "@siglo/crypto": "^1.0.0",
-    "@siglo/http": "^1.0.0",
-    "@siglo/core": "^1.0.0"
+    "@siglo/crypto": "^1.3.0",
+    "@siglo/http": "^1.3.0",
+    "@siglo/core": "^1.3.0"
   },
   "devDependencies": {
-    "@siglo/scheduler": "^1.0.0",
-    "@siglo/testing": "^1.0.0",
+    "@siglo/scheduler": "^1.3.0",
+    "@siglo/testing": "^1.3.0",
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.6.5",
@@ -61,7 +61,7 @@
     "pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "~5.7.0",
-    "@siglo/postgres": "^1.0.0"
+    "@siglo/postgres": "^1.3.0"
   },
   "keywords": [
     "siglo",

@@ -305,7 +305,7 @@ describe('Step.compute — Synchronous Compute Steps', () => {
 
             // Missing values fail with ValidationException
             try {
-                await step.run({ count: '' as any });
+                await step.run({ count: '' } as any);
                 expect.fail('Expected ValidationException');
             } catch (err: any) {
                 expect(err).to.be.instanceOf(ValidationException);
@@ -1106,6 +1106,34 @@ describe('Step.compute — Synchronous Compute Steps', () => {
                 expect(err.message).to.include('Validation failed for field "age"');
                 expect(err.message).to.include('code: Invalid promo code');
             }
+        });
+
+        it('supports ttl: 0 immediate expiry and non-primitive cache keySerializer values', async () => {
+            let zeroTtlRuns = 0;
+            const zeroTtlStep = Step.compute('zeroTtlStep', (ctx: { x: number }) => {
+                zeroTtlRuns++;
+                return { out: ctx.x + zeroTtlRuns };
+            }).cache({ ttl: 0 });
+
+            const r1 = await zeroTtlStep.run({ x: 10 });
+            await new Promise(r => setTimeout(r, 2));
+            const r2 = await zeroTtlStep.run({ x: 10 });
+            expect(r1.out).to.equal(11);
+            expect(r2.out).to.equal(12);
+            expect(zeroTtlRuns).to.equal(2);
+
+            let objKeyRuns = 0;
+            const objKeyStep = Step.compute('objKeyStep', (ctx: { a: number; b: number }) => {
+                objKeyRuns++;
+                return { sum: ctx.a + ctx.b };
+            }).cache({
+                ttl: 5000,
+                keySerializer: (_id, ctx) => ({ b: ctx.b, a: ctx.a }) as unknown as string,
+            });
+
+            await objKeyStep.run({ a: 1, b: 2 });
+            await objKeyStep.run({ a: 1, b: 2 });
+            expect(objKeyRuns).to.equal(1);
         });
     });
 });

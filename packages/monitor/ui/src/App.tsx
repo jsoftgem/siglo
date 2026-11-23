@@ -17,7 +17,7 @@ export const App: React.FC = () => {
 
     const { workflows, events, isConnected, refresh } = useWorkflowMonitor();
 
-    const handleResumeWorkflow = async (stackId: string, eventName: string, payload: any) => {
+    const handleResumeWorkflow = async (stackId: string, eventName: string, payload: unknown): Promise<void> => {
         await resumeWorkflow(stackId, eventName, payload);
         await refresh();
     };

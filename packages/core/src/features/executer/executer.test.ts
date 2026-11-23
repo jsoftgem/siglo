@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { ArrayChain, Executer, Reducer, Runner, Util } from './index';
+import { ArrayChain, Executer, normalizeError, Reducer, Runner, Util } from './index';
 import Context from '../context';
 import OnBefore from './SingleChain/LifeCycle/OnBefore';
 import OnFail from './SingleChain/LifeCycle/OnFail';
@@ -869,7 +869,6 @@ describe('executer.unit.test', () => {
             () => {},
             () => {},
             () => {},
-            () => {},
             () => Promise.resolve(),
             () => Promise.resolve(),
         );
@@ -1174,5 +1173,47 @@ describe('executer.unit.test', () => {
             expect(res).to.be.null;
             done();
         });
+    });
+
+    it('OnFail handles frozen and primitive errors plus legacy maxAttempts, and normalizeError tolerates non-string message', async () => {
+        const norm = normalizeError({ message: 123, code: 'E_NON_STR' });
+        expect(norm.message).to.equal('Execution failed');
+
+        let attempts = 0;
+        const frozenErr = Object.freeze(new Error('Frozen boom'));
+        const exec = new Executer();
+        const recovered: any = await exec.start(
+            {},
+            {
+                func: 'frozenRetryStep',
+                specs: [],
+                onbefore: () => true,
+                action: () => {
+                    attempts++;
+                    if (attempts === 1) throw frozenErr;
+                    return { ok: true };
+                },
+                onfail: { maxAttempts: 1, delay: 1 },
+            },
+        );
+        expect(recovered.ok).to.be.true;
+
+        try {
+            await exec.start(
+                {},
+                {
+                    func: 'primFailStep',
+                    specs: [],
+                    onbefore: () => true,
+                    action: () => {
+                        throw 'raw-string-error';
+                    },
+                    onfail: { maxRetries: 0 },
+                },
+            );
+            expect.fail('Should reject with primitive error');
+        } catch (err: any) {
+            expect(err.error).to.equal('raw-string-error');
+        }
     });
 });

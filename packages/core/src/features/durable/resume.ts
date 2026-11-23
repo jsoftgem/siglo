@@ -3,34 +3,34 @@ import { WorkflowAlreadyResumedException, ExpiredWaitException } from '../execut
 import { defaultDurableManager } from './manager';
 import { defaultStorageManager } from '../storage';
 import { validateWorkflowVersion } from './versioning';
-import { flow, Flow } from '../step';
+import { flow, Flow, ExecutionOptions } from '../step';
 import { toPOJO } from '../context';
-import { ExecutionOptions } from '../step';
 import { emitMonitoringEvent } from '../events';
-import { STEPS, HISTORY, safeClone } from '../../shared';
+import { STEPS, HISTORY, safeClone, isObject } from '../../shared';
+import { StateMigrationFn, WaitingWorkflowRecord } from './types';
 
 export interface ResumeOptions extends ExecutionOptions {
-    migrations?: any;
+    migrations?: Record<string, StateMigrationFn> | StateMigrationFn;
     targetVersion?: string | number;
     allowExpired?: boolean;
 }
 
-export async function resumeWorkflow(
-    flowInstance: Flow<any, any>,
+export async function resumeWorkflow<TOutput = any>(
+    flowInstance: Flow<any, TOutput>,
     correlationKeyOrStackId: string,
     eventPayload: any = {},
     options?: ResumeOptions,
-): Promise<any> {
+): Promise<TOutput> {
     let isByStack = defaultDurableManager.getWaitingByStack(correlationKeyOrStackId);
     let correlationKey = isByStack ? isByStack.correlationKey : correlationKeyOrStackId;
 
     if (!isByStack && !defaultDurableManager.getWaiting(correlationKey)) {
         // Fallback: check storage adapter or checkpoint
         const adapter = defaultStorageManager.getAdapter();
-        let fallbackRecord: any;
-        if (adapter && typeof (adapter as any).getWaitRecord === 'function') {
+        let fallbackRecord: WaitingWorkflowRecord | undefined;
+        if (adapter && typeof adapter.getWaitRecord === 'function') {
             try {
-                fallbackRecord = await (adapter as any).getWaitRecord(correlationKeyOrStackId);
+                fallbackRecord = await adapter.getWaitRecord(correlationKeyOrStackId);
                 /* c8 ignore next 3 */
             } catch {
                 // ignore
@@ -54,13 +54,14 @@ export async function resumeWorkflow(
         }
     }
 
-    const isTimerExpired = eventPayload?.event?.type === 'timer:expired' || options?.allowExpired === true;
+    const isTimerExpired =
+        (isObject(eventPayload) && eventPayload.event?.type === 'timer:expired') || options?.allowExpired === true;
     const adapter = defaultStorageManager.getAdapter();
     const storedRecord = adapter?.getWaitRecord
         ? await adapter.getWaitRecord(correlationKey)
         : defaultDurableManager.getWaiting(correlationKey);
-    const execute = async () => {
-        let waitRecord: any;
+    const execute = async (): Promise<TOutput> => {
+        let waitRecord: WaitingWorkflowRecord | undefined;
         const claimantId = options?.stackId || `resume-${Date.now()}-${Math.random()}`;
         const checkpoint = storedRecord
             ? adapter?.getCheckpoint
@@ -76,8 +77,8 @@ export async function resumeWorkflow(
         }
         if (checkpoint?.status === 'cancelled') throw new WorkflowAlreadyResumedException(correlationKey);
 
-        if (adapter && typeof (adapter as any).claimWaitRecord === 'function') {
-            waitRecord = await (adapter as any).claimWaitRecord(correlationKey, claimantId, {
+        if (adapter && typeof adapter.claimWaitRecord === 'function') {
+            waitRecord = await adapter.claimWaitRecord(correlationKey, claimantId, {
                 namespace: options?.namespace,
                 allowExpired: isTimerExpired,
                 eventPayload,
@@ -95,11 +96,11 @@ export async function resumeWorkflow(
         } else {
             waitRecord = defaultDurableManager.resumeWait(correlationKey, isTimerExpired);
         }
-        if (!adapter?.completeWaitRecord && adapter && typeof (adapter as any).saveWaitRecord === 'function') {
+        if (!adapter?.completeWaitRecord && adapter && typeof adapter.saveWaitRecord === 'function') {
             try {
-                const saveRes = (adapter as any).saveWaitRecord(waitRecord);
-                if (saveRes && typeof saveRes.catch === 'function') {
-                    saveRes.catch(() => {});
+                const saveRes = adapter.saveWaitRecord(waitRecord);
+                if (saveRes && typeof (saveRes as Promise<void>).catch === 'function') {
+                    (saveRes as Promise<void>).catch(() => {});
                 }
                 /* c8 ignore next 3 */
             } catch {
@@ -109,10 +110,10 @@ export async function resumeWorkflow(
 
         const effectiveMonitor =
             options?.monitor ||
-            (flowInstance as any)?.monitorEmitter ||
+            flowInstance?.monitorEmitter ||
             defaultStorageManager.getStack(waitRecord.stackId)?.monitor;
-        const effectiveNamespace = options?.namespace || waitRecord.namespace;
-        const targetVersion = options?.targetVersion ?? (flowInstance as any)?.workflowVersion ?? waitRecord.version;
+        const effectiveNamespace = options?.namespace ?? waitRecord.namespace;
+        const targetVersion = options?.targetVersion ?? flowInstance?.workflowVersion ?? waitRecord.version;
 
         const effectiveOptions: ResumeOptions = {
             ...options,
@@ -124,10 +125,13 @@ export async function resumeWorkflow(
             durable: options?.durable ?? true,
         };
 
+        const effectivePayload = waitRecord.resumePayload ?? eventPayload;
         emitMonitoringEvent(effectiveOptions, {
             type: 'flow:resumed',
             resumeReason:
-                (waitRecord.resumePayload ?? eventPayload)?.event?.type === 'timer:expired' ? 'timer-expired' : 'event',
+                isObject(effectivePayload) && effectivePayload.event?.type === 'timer:expired'
+                    ? 'timer-expired'
+                    : 'event',
             stackId: waitRecord.stackId,
             stepId: waitRecord.stepId,
             correlationKey: waitRecord.correlationKey,
@@ -194,13 +198,13 @@ export async function resumeWorkflow(
             emitMonitoringEvent(effectiveOptions, {
                 type: 'flow:complete',
                 stackId: waitRecord.stackId,
-                durationMs: Date.now() - (waitRecord.createdAt || Date.now()),
+                durationMs: Date.now() - (waitRecord.createdAt ?? Date.now()),
                 status: 'COMPLETED',
                 timestamp: Date.now(),
                 namespace: effectiveNamespace,
             });
             await adapter?.completeWaitRecord?.(correlationKey, claimantId);
-            return cleanInput;
+            return cleanInput as TOutput;
         }
 
         const resumedFlow = flow(...remainingSteps);
@@ -211,7 +215,7 @@ export async function resumeWorkflow(
         // and suspension are handoffs; failures leave the accepted event recoverable.
         const result = await resumedFlow.run(cleanInput, effectiveOptions);
         await adapter?.completeWaitRecord?.(correlationKey, claimantId);
-        return result;
+        return result as TOutput;
     };
     return adapter?.withWorkflowLock && storedRecord
         ? adapter.withWorkflowLock(storedRecord.stackId, execute)

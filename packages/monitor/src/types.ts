@@ -1,5 +1,15 @@
 import * as http from 'http';
-import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions, EcosystemInspection } from '@siglo/core';
+import { WorkflowEventEmitter, WorkflowExecutionEvent, RedactionOptions, EcosystemInspection, Flow } from '@siglo/core';
+
+export type MonitorFlowLike =
+    Flow<any, any> | { id?: string; name?: string; workflowId?: string; resumeSchema?: unknown };
+
+export interface MonitorWorkflowStoreLike {
+    addEvent(event: WorkflowExecutionEvent): void;
+    getRun(stackId: string): WorkflowRunRecord | undefined;
+    listRuns(filter?: { namespace?: string; status?: string }): WorkflowRunRecord[];
+    clear(): void;
+}
 
 export interface StepRunRecord {
     selectedRoute?: string;
@@ -13,7 +23,7 @@ export interface StepRunRecord {
     durationMs?: number;
     waitState?: 'waiting' | 'resumed' | 'expired';
     waitExpiresAt?: number;
-    outputSummary?: any;
+    outputSummary?: unknown;
     inspections?: { attempt: number; timestamp: number; data: EcosystemInspection }[];
     error?: { message: string; code?: string; stack?: string };
 }
@@ -21,7 +31,7 @@ export interface StepRunRecord {
 export interface ContextDiffRecord {
     stepId: string;
     field: string;
-    value: any;
+    value: unknown;
     timestamp: number;
 }
 
@@ -34,9 +44,9 @@ export interface WorkflowRunRecord {
     startTime: number;
     endTime?: number;
     durationMs?: number;
-    ast?: any;
+    ast?: unknown;
     steps: Record<string, StepRunRecord>;
-    context: Record<string, any>;
+    context: Record<string, unknown>;
     contextDiffs: ContextDiffRecord[];
     events: WorkflowExecutionEvent[];
     error?: { message: string; stack?: string };
@@ -68,18 +78,18 @@ export interface MonitorSecurityOptions {
     /** List of field names to redact in context diffs and telemetry events (e.g. ['password', 'secret', 'token']) */
     redactedKeys?: string[];
     /** Custom masking function for sensitive values */
-    maskFn?: (key: string, value: any) => any;
+    maskFn?: (key: string, value: unknown) => unknown;
 }
 
 export interface MonitorServerOptions {
     port?: number;
     host?: string;
     emitter?: WorkflowEventEmitter;
-    store?: any;
+    store?: MonitorWorkflowStoreLike;
     redaction?: RedactionOptions;
     namespaceFilter?: string;
-    flow?: any;
-    workflows?: any;
+    flow?: MonitorFlowLike;
+    workflows?: Map<string, MonitorFlowLike>;
     open?: boolean;
     reuseExisting?: boolean;
     /** Authentication settings (or string shorthand for apiKey) */
@@ -123,7 +133,7 @@ export interface MonitorClientMessage {
     action: 'resume' | 'replay' | 'subscribe' | 'ping' | 'event';
     stackId?: string;
     eventName?: string;
-    payload?: any;
+    payload?: unknown;
     namespace?: string;
     stepId?: string;
     event?: WorkflowExecutionEvent;

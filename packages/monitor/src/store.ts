@@ -33,7 +33,7 @@ export class WorkflowExecutionStore {
                 stackId: event.stackId,
                 namespace: event.namespace,
                 status: 'RUNNING',
-                startTime: event.timestamp || Date.now(),
+                startTime: event.timestamp ?? Date.now(),
                 steps: {},
                 context: {},
                 contextDiffs: [],
@@ -67,7 +67,7 @@ export class WorkflowExecutionStore {
                     step.inspections = [
                         ...(step.inspections || []),
                         {
-                            attempt: event.attempt || step.attempts,
+                            attempt: event.attempt ?? step.attempts,
                             timestamp: event.timestamp,
                             data,
                         },
@@ -81,7 +81,7 @@ export class WorkflowExecutionStore {
                 // Nested flows share a stack ID; keep the first (root) definition.
                 run.ast = run.ast || event.ast;
                 run.namespace = event.namespace || run.namespace;
-                run.startTime = event.timestamp || run.startTime;
+                run.startTime = event.timestamp ?? run.startTime;
                 run.status = 'RUNNING';
                 break;
 
@@ -89,7 +89,7 @@ export class WorkflowExecutionStore {
                 const step = this.getOrCreateStep(run, event.stepId, event.stepName);
                 step.status = 'RUNNING';
                 step.selectedRoute = undefined;
-                step.attempts = event.attempt || 1;
+                step.attempts = event.attempt ?? 1;
                 step.startTime = event.timestamp;
                 break;
             }
@@ -161,8 +161,19 @@ export class WorkflowExecutionStore {
                 run.error = event.error;
                 break;
 
-            default:
+            case 'flow:error':
+            case 'cache:hit':
+            case 'cache:miss':
+            case 'checkpoint:save':
+            case 'notification:dispatched':
+            case 'approval:requested':
                 break;
+
+            default: {
+                const _exhaustive: never = event;
+                void _exhaustive;
+                break;
+            }
         }
     }
 

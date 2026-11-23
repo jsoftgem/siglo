@@ -1,3 +1,4 @@
+import type { EcosystemInspection, WorkflowNode } from '@siglo/core';
 import { WorkflowStatus, StepStatus } from './workflow';
 
 export type SigloEventType =
@@ -22,7 +23,7 @@ export type SigloEventType =
     | 'checkpoint:save';
 
 export interface MonitoringEvent {
-    type: SigloEventType | string;
+    type: SigloEventType;
     stackId?: string;
     flowName?: string;
     stepId?: string;
@@ -33,8 +34,13 @@ export interface MonitoringEvent {
     attempt?: number;
     error?: string;
     field?: string;
-    value?: any;
+    value?: unknown;
     waitingForEvent?: string;
+    expiresAt?: unknown;
+    resumeReason?: unknown;
+    route?: string;
+    ast?: WorkflowNode;
+    inspection?: EcosystemInspection;
+    outputSummary?: unknown;
     timestamp?: number;
-    [key: string]: any;
 }

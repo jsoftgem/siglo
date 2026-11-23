@@ -7,6 +7,7 @@ import {
     subscribe,
     validate,
 } from 'graphql';
+import { getErrorMessage, isPlainObject } from '@siglo/core';
 import { queryNamespace, type WorkflowGraphQLContext } from './resolvers';
 
 export interface SSEEvent {
@@ -43,10 +44,10 @@ export async function* createWorkflowSSEStream(options: WorkflowSSEStreamOptions
     let document;
     try {
         document = typeof query === 'string' ? parse(query) : parse(query);
-    } catch (err: any) {
+    } catch (err: unknown) {
         yield formatSSEEvent({
             event: 'error',
-            data: { errors: [{ message: err.message || 'Syntax Error' }] },
+            data: { errors: [{ message: getErrorMessage(err) || 'Syntax Error' }] },
         });
         yield formatSSEEvent({ event: 'complete', data: null });
         return;
@@ -76,10 +77,10 @@ export async function* createWorkflowSSEStream(options: WorkflowSSEStreamOptions
             contextValue: context,
             operationName,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         yield formatSSEEvent({
             event: 'error',
-            data: { errors: [{ message: err.message || 'Subscription failed' }] },
+            data: { errors: [{ message: getErrorMessage(err) || 'Subscription failed' }] },
         });
         yield formatSSEEvent({ event: 'complete', data: null });
         return;
@@ -230,15 +231,19 @@ export function pipeWorkflowSSEToResponse(res: NodeServerResponseLike, stream: A
     };
 }
 
+export interface GraphQLWSConnectionContextLike {
+    connectionParams?: Record<string, unknown>;
+}
+
 export interface WorkflowWSHandlerOptions {
     schema: GraphQLSchema;
-    context?: (ctx: any) => Promise<WorkflowGraphQLContext> | WorkflowGraphQLContext;
+    context?: (ctx: GraphQLWSConnectionContextLike) => Promise<WorkflowGraphQLContext> | WorkflowGraphQLContext;
 }
 
 /**
  * Creates a graphql-ws server handler if graphql-ws is available in the environment.
  */
-export function createWorkflowWSHandler(options: WorkflowWSHandlerOptions, wsServer?: any) {
+export function createWorkflowWSHandler(options: WorkflowWSHandlerOptions, wsServer?: unknown) {
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { useServer } = require('graphql-ws/use/ws');
@@ -247,10 +252,14 @@ export function createWorkflowWSHandler(options: WorkflowWSHandlerOptions, wsSer
         const authenticated = new WeakMap<object, WorkflowGraphQLContext>();
         const serverOptions = {
             schema,
-            onConnect: async (ctx: any) => {
+            onConnect: async (ctx: GraphQLWSConnectionContextLike) => {
                 const baseContext = context ? await context(ctx) : {};
                 try {
-                    queryNamespace(ctx.connectionParams?.namespace, baseContext.namespace);
+                    const requestedNs =
+                        isPlainObject(ctx.connectionParams) && typeof ctx.connectionParams.namespace === 'string'
+                            ? ctx.connectionParams.namespace
+                            : undefined;
+                    queryNamespace(requestedNs, baseContext.namespace);
                 } catch {
                     return false;
                 }
@@ -264,7 +273,7 @@ export function createWorkflowWSHandler(options: WorkflowWSHandlerOptions, wsSer
             return useServer(serverOptions, wsServer);
         }
 
-        return (server: any) => useServer(serverOptions, server);
+        return (server: unknown) => useServer(serverOptions, server);
     } catch {
         throw new Error(
             'graphql-ws is required to create a WebSocket handler. Please install graphql-ws as a dependency.',

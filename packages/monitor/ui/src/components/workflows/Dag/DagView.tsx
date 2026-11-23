@@ -82,15 +82,16 @@ export const DagView: React.FC<DagViewProps> = ({ steps, ast }) => {
                                         ))}
                                     </defs>
                                     {graph.edges.map((edge, i) => {
-                                        const from = positions.get(edge.from)!;
-                                        const to = positions.get(edge.to)!;
+                                        const from = positions.get(edge.from);
+                                        const to = positions.get(edge.to);
+                                        if (!from || !to) return null;
                                         const x1 = from.x + NODE_WIDTH / 2;
                                         const y1 = from.y + (from.height ?? NODE_HEIGHT);
                                         const x2 = to.x + NODE_WIDTH / 2;
                                         const y2 = to.y;
                                         const middle =
                                             to.kind === 'join' || to.kind === 'merge' ? y2 - 36 : y1 + (y2 - y1) / 2;
-                                        const state = highlights!.edges[i];
+                                        const state = highlights?.edges[i] ?? 'unknown';
                                         return (
                                             <g
                                                 key={i}
@@ -136,7 +137,7 @@ export const DagView: React.FC<DagViewProps> = ({ steps, ast }) => {
                                 {graph.nodes.map(node => {
                                     if (node.kind === 'merge') return null;
                                     const step = matches.get(node.key);
-                                    const state = highlights!.nodes.get(node.key);
+                                    const state = highlights?.nodes.get(node.key) ?? 'unknown';
                                     const placeholderStyle =
                                         node.kind === 'skip' && state === 'taken'
                                             ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-300'

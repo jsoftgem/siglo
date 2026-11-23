@@ -1,4 +1,5 @@
 import { SerializedExecutionStack } from './state';
+import { WaitingWorkflowRecord } from '../durable/types';
 
 export interface ContextChangeEvent {
     namespace?: string;
@@ -18,6 +19,12 @@ export interface CacheEvent {
     timestamp: number;
 }
 
+export interface ClaimWaitRecordOptions {
+    allowExpired?: boolean;
+    eventPayload?: any;
+    namespace?: string;
+}
+
 export interface StorageAdapter {
     name: string;
 
@@ -30,13 +37,13 @@ export interface StorageAdapter {
     cleanExpiredCheckpoints?(): Promise<number> | number | void;
 
     // 3. Durable Wait Persistence
-    saveWaitRecord?(record: any): Promise<void> | void;
-    getWaitRecord?(correlationKeyOrStackId: string): Promise<any | undefined>;
+    saveWaitRecord?(record: WaitingWorkflowRecord): Promise<void> | void;
+    getWaitRecord?(correlationKeyOrStackId: string): Promise<WaitingWorkflowRecord | undefined>;
     claimWaitRecord?(
         correlationKey: string,
         claimantId?: string,
-        options?: { allowExpired?: boolean; eventPayload?: any; namespace?: string },
-    ): Promise<any>;
+        options?: ClaimWaitRecordOptions,
+    ): Promise<WaitingWorkflowRecord | undefined>;
     completeWaitRecord?(correlationKey: string, claimantId: string): Promise<void>;
     withWorkflowLock?<T>(stackId: string, action: () => Promise<T>): Promise<T>;
     cancelWaitRecord?(correlationKey: string): Promise<void>;

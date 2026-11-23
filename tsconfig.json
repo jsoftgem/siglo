@@ -4,5 +4,13 @@
     "noEmit": true
   },
   "include": ["packages/*/src/**/*", "test/**/*"],
-  "exclude": ["node_modules", "dist", "packages/*/dist", "packages/*/src/**/*.test.ts", "packages/*/src/**/*.test.js"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages/*/dist",
+    "packages/*/src/**/*.test.ts",
+    "packages/*/src/**/*.test.js",
+    "packages/ide-ui/**/*",
+    "test/exploratory/**/*"
+  ]
 }

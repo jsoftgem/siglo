@@ -6,6 +6,7 @@ import {
     CompensationException,
     clearStorage,
     defaultStorageManager,
+    isWorkflowSuspended,
 } from '../../index';
 
 describe('Compensation and Sagas Unit Tests', () => {
@@ -268,6 +269,7 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         const f = flow(step1, waitStep);
         const suspension = await f.run({}, { durable: true });
+        if (!isWorkflowSuspended(suspension)) expect.fail('Expected workflow suspension');
         const stackId = suspension.stackId;
 
         // Verify checkpoint contains compensations

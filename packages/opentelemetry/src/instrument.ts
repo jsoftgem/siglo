@@ -1,7 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
     Context,
+    Exception,
     ROOT_CONTEXT,
+    Span,
     SpanStatusCode,
     Tracer,
     context as otelContext,
@@ -15,13 +17,16 @@ import {
     StorageAdapter,
     StepExecutionContext,
     StepExecutionHook,
+    getErrorMessage,
+    isObject,
+    isPlainObject,
     withStepExecutionHook,
 } from '@siglo/core';
 import { SemanticAttributes } from './attributes';
 import { SigloTelemetryOptions } from './types';
 
 const DEFAULT_TRACER_NAME = '@siglo/opentelemetry';
-const DEFAULT_TRACER_VERSION = '1.2.4';
+const DEFAULT_TRACER_VERSION = '1.3.0';
 
 const STEP_INSTRUMENTED = Symbol.for('siglo.opentelemetry.step_instrumented');
 const WORKFLOW_INSTRUMENTED = Symbol.for('siglo.opentelemetry.workflow_instrumented');
@@ -75,15 +80,36 @@ export function getTracer(options?: SigloTelemetryOptions): Tracer {
     return options?.tracer || trace.getTracer(options?.serviceName || DEFAULT_TRACER_NAME, DEFAULT_TRACER_VERSION);
 }
 
-function resolveValue<T>(valOrFn: any): T | undefined {
+function resolveValue<T>(valOrFn: unknown): T | undefined {
     if (typeof valOrFn === 'function') {
         try {
-            return valOrFn();
+            return (valOrFn as () => T)();
         } catch {
             return undefined;
         }
     }
-    return valOrFn;
+    return valOrFn as T | undefined;
+}
+
+function recordAndSetErrorStatus(span: Span, err: unknown, fallbackMessage: string): void {
+    const errorMessage = getErrorMessage(err) || fallbackMessage;
+    let exception: Exception = errorMessage;
+    if (err instanceof Error) {
+        exception = err;
+    } else if (isPlainObject(err)) {
+        if (typeof err.name === 'string') {
+            exception = { name: err.name, message: typeof err.message === 'string' ? err.message : errorMessage };
+        } else if (typeof err.message === 'string') {
+            exception = { message: err.message };
+        } else if (typeof err.code === 'string' || typeof err.code === 'number') {
+            exception = { code: err.code };
+        }
+    }
+    span.recordException(exception);
+    span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: errorMessage,
+    });
 }
 
 function createStepExecutionHook(options: SigloTelemetryOptions = {}): StepExecutionHook {
@@ -125,7 +151,7 @@ function createStepExecutionHook(options: SigloTelemetryOptions = {}): StepExecu
                     [SemanticAttributes.STEP_KIND]: stepKind,
                     ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
                     ...(stepNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
-                    ...(stepContext.step?.timeoutMs
+                    ...(stepContext.step?.timeoutMs !== undefined
                         ? { [SemanticAttributes.TIMEOUT]: stepContext.step.timeoutMs }
                         : {}),
                 },
@@ -140,7 +166,7 @@ function createStepExecutionHook(options: SigloTelemetryOptions = {}): StepExecu
                 const result = next();
                 if (result && typeof result.then === 'function') {
                     return result.then(
-                        (val: any) => {
+                        (val: unknown) => {
                             if (typeof stepContext.cacheHit === 'boolean') {
                                 stepSpan.setAttribute(SemanticAttributes.CACHE_HIT, stepContext.cacheHit);
                             }
@@ -148,12 +174,8 @@ function createStepExecutionHook(options: SigloTelemetryOptions = {}): StepExecu
                             stepSpan.end();
                             return val;
                         },
-                        (err: any) => {
-                            stepSpan.recordException(err);
-                            stepSpan.setStatus({
-                                code: SpanStatusCode.ERROR,
-                                message: err?.message || 'Step execution failed',
-                            });
+                        (err: unknown) => {
+                            recordAndSetErrorStatus(stepSpan, err, 'Step execution failed');
                             stepSpan.end();
                             throw err;
                         },
@@ -165,12 +187,8 @@ function createStepExecutionHook(options: SigloTelemetryOptions = {}): StepExecu
                 stepSpan.setStatus({ code: SpanStatusCode.OK });
                 stepSpan.end();
                 return result;
-            } catch (err: any) {
-                stepSpan.recordException(err);
-                stepSpan.setStatus({
-                    code: SpanStatusCode.ERROR,
-                    message: err?.message || 'Step execution failed',
-                });
+            } catch (err: unknown) {
+                recordAndSetErrorStatus(stepSpan, err, 'Step execution failed');
                 stepSpan.end();
                 throw err;
             }
@@ -277,7 +295,7 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
                     [SemanticAttributes.STEP_KIND]: stepKind,
                     ...(stackId ? { [SemanticAttributes.STACK_ID]: stackId } : {}),
                     ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
-                    ...(step.timeoutMs ? { [SemanticAttributes.TIMEOUT]: step.timeoutMs } : {}),
+                    ...(step.timeoutMs !== undefined ? { [SemanticAttributes.TIMEOUT]: step.timeoutMs } : {}),
                 },
             },
             otelContext.active(),
@@ -290,17 +308,13 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
                 const result = originalAction(param, current, index);
                 if (result && typeof result.then === 'function') {
                     return result.then(
-                        (val: any) => {
+                        (val: unknown) => {
                             stepSpan.setStatus({ code: SpanStatusCode.OK });
                             stepSpan.end();
                             return val;
                         },
-                        (err: any) => {
-                            stepSpan.recordException(err);
-                            stepSpan.setStatus({
-                                code: SpanStatusCode.ERROR,
-                                message: err?.message || 'Step execution failed',
-                            });
+                        (err: unknown) => {
+                            recordAndSetErrorStatus(stepSpan, err, 'Step execution failed');
                             stepSpan.end();
                             throw err;
                         },
@@ -309,12 +323,8 @@ export function instrumentStep(step: any, options: SigloTelemetryOptions = {}): 
                 stepSpan.setStatus({ code: SpanStatusCode.OK });
                 stepSpan.end();
                 return result;
-            } catch (err: any) {
-                stepSpan.recordException(err);
-                stepSpan.setStatus({
-                    code: SpanStatusCode.ERROR,
-                    message: err?.message || 'Step execution failed',
-                });
+            } catch (err: unknown) {
+                recordAndSetErrorStatus(stepSpan, err, 'Step execution failed');
                 stepSpan.end();
                 throw err;
             }
@@ -370,6 +380,7 @@ export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions
             const workflowVersion = options.workflowVersion || (workflow as any).workflowVersion || '1.0.0';
             const namespace = execOptions?.namespace;
 
+            const effectiveTimeout = execOptions?.timeout ?? workflow.timeoutMs;
             const wfSpan = tracer.startSpan(
                 `workflow:${workflowName}`,
                 {
@@ -377,9 +388,7 @@ export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions
                         [SemanticAttributes.WORKFLOW_NAME]: workflowName,
                         [SemanticAttributes.WORKFLOW_VERSION]: String(workflowVersion),
                         ...(isNamespaceAllowed && namespace ? { [SemanticAttributes.NAMESPACE]: namespace } : {}),
-                        ...(execOptions?.timeout || workflow.timeoutMs
-                            ? { [SemanticAttributes.TIMEOUT]: execOptions?.timeout || workflow.timeoutMs }
-                            : {}),
+                        ...(effectiveTimeout !== undefined ? { [SemanticAttributes.TIMEOUT]: effectiveTimeout } : {}),
                     },
                 },
                 otelContext.active(),
@@ -394,22 +403,18 @@ export function instrumentWorkflow(workflow: any, options: SigloTelemetryOptions
                         stepExecutionHook,
                     };
                     const executeCall = () => targetFn(input, effectiveExecOptions);
-                    const result: any = withStepExecutionHook
+                    const result: unknown = withStepExecutionHook
                         ? await withStepExecutionHook(stepExecutionHook, executeCall)
                         : await executeCall();
 
-                    const stackId = resolveValue<string>(result?.$stackId);
+                    const stackId = resolveValue<string>(isObject(result) ? result.$stackId : undefined);
                     if (stackId) {
                         wfSpan.setAttribute(SemanticAttributes.STACK_ID, stackId);
                     }
                     wfSpan.setStatus({ code: SpanStatusCode.OK });
                     return result;
-                } catch (err: any) {
-                    wfSpan.recordException(err);
-                    wfSpan.setStatus({
-                        code: SpanStatusCode.ERROR,
-                        message: err?.message || 'Workflow execution failed',
-                    });
+                } catch (err: unknown) {
+                    recordAndSetErrorStatus(wfSpan, err, 'Workflow execution failed');
                     throw err;
                 } finally {
                     wfSpan.end();

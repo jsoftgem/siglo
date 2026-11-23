@@ -14,6 +14,7 @@ import {
     defaultStorageManager,
     clearStorage,
     Status,
+    isWorkflowSuspended,
 } from '../../index';
 
 describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
@@ -180,10 +181,11 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
                 expect(compEx.compensationErrors).to.have.length(1);
                 const firstErr = compEx.compensationErrors[0].error;
                 expect(firstErr).to.be.instanceOf(UnresolvableCompensationException);
-                expect(firstErr.name).to.equal('UnresolvableCompensationException');
-                expect(firstErr.handlerName).to.equal('nonExistentHandler');
-                expect(firstErr.phase).to.equal('compensation');
-                expect(firstErr.retryable).to.be.false;
+                const typedErr = firstErr as UnresolvableCompensationException;
+                expect(typedErr.name).to.equal('UnresolvableCompensationException');
+                expect(typedErr.handlerName).to.equal('nonExistentHandler');
+                expect(typedErr.phase).to.equal('compensation');
+                expect(typedErr.retryable).to.be.false;
             }
         });
 
@@ -350,6 +352,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
 
             const wf = flow(step1, waitStep);
             const suspension = await wf.run({}, { durable: true });
+            if (!isWorkflowSuspended(suspension)) expect.fail('Expected workflow suspension');
             const stackId = suspension.stackId;
 
             // Check checkpoint metadata
@@ -403,7 +406,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const stackId = 'abandoned-fail-stack';
 
             defaultStorageManager.createStack(stackId);
-            const stack = defaultStorageManager.getStack(stackId);
+            const stack = defaultStorageManager.getStack(stackId)!;
             stack.timestamp = staleTime;
 
             const report = await reconcileAbandonedStacks({
@@ -427,7 +430,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             });
 
             defaultStorageManager.createStack(stackId);
-            const stack = defaultStorageManager.getStack(stackId);
+            const stack = defaultStorageManager.getStack(stackId)!;
             stack.timestamp = staleTime;
             stack.metadata = {
                 compensations: [
@@ -474,7 +477,7 @@ describe('Phase 4: Named Compensation Registry, DLQ & Stack Reconciler', () => {
             const stackId = 'abandoned-unresolvable';
 
             defaultStorageManager.createStack(stackId);
-            const stack = defaultStorageManager.getStack(stackId);
+            const stack = defaultStorageManager.getStack(stackId)!;
             stack.timestamp = staleTime;
             stack.metadata = {
                 compensations: [

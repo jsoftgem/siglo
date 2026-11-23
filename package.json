@@ -14,7 +14,7 @@
   "scripts": {
     "build": "npm run build --workspace=@siglo/core && npm run build --workspace=@siglo/query && npm run build --workspace=@siglo/http && npm run build --workspace=@siglo/ide-protocol && npm run build:ui --workspace=@siglo/monitor && npm run build --workspace=@siglo/monitor && npm run build --workspaces --if-present",
     "compile": "npm run build",
-    "lint": "eslint packages/*/src examples/src examples/zero-code-apm-dashboards/src/order-routing test",
+    "lint": "eslint packages/*/src examples/src examples/zero-code-apm-dashboards/src/order-routing test plugins/vscode/src packages/ide-ui/src packages/monitor/ui/src packages/ide-protocol/test packages/ide-analysis/test packages/http/test packages/crypto/test",
     "test": "npm run build --workspace=@siglo/core && c8 --check-coverage --lines 100 --statements 100 mocha 'packages/core/src/**/*.test.ts'",
     "test:packages": "mocha 'packages/*/src/**/*.test.ts' 'packages/http/test/**/*.test.ts' 'packages/crypto/test/**/*.test.ts' --exit",
     "test:ide": "npm test --workspace=@siglo/ide-protocol && npm test --workspace=@siglo/ide-analysis && npm test --workspace=@siglo/vscode",

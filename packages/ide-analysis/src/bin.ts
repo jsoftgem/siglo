@@ -4,6 +4,9 @@ import readline from 'readline';
 import {
     PROTOCOL_METHODS,
     JsonRpcErrorCode,
+    type JsonRpcNotification,
+    type JsonRpcRequest,
+    type JsonRpcResponse,
     createResponse,
     createErrorResponse,
     isJsonRpcRequest,
@@ -70,13 +73,29 @@ rl.on('line', line => {
         }
 
         handleRequest(message);
-    } catch (err: any) {
-        send(createErrorResponse(null, JsonRpcErrorCode.ParseError, 'JSON parse error', String(err?.message || err)));
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        send(createErrorResponse(null, JsonRpcErrorCode.ParseError, 'JSON parse error', message));
     }
 });
 
-function handleRequest(req: { id: string | number; method: string; params?: any }) {
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isSourcePosition(value: unknown): value is { line: number; character: number } {
+    if (!isPlainRecord(value)) return false;
+    return (
+        typeof value.line === 'number' &&
+        Number.isFinite(value.line) &&
+        typeof value.character === 'number' &&
+        Number.isFinite(value.character)
+    );
+}
+
+function handleRequest(req: JsonRpcRequest): void {
     const { id, method, params } = req;
+    const p = isPlainRecord(params) ? params : undefined;
 
     switch (method) {
         case PROTOCOL_METHODS.INITIALIZE: {
@@ -91,37 +110,43 @@ function handleRequest(req: { id: string | number; method: string; params?: any 
         }
 
         case PROTOCOL_METHODS.DISCOVER_WORKFLOWS: {
-            const workflows = discoverWorkflows(params || {});
+            const workflows = discoverWorkflows({
+                documentUri: typeof p?.documentUri === 'string' ? p.documentUri : undefined,
+                workspaceUri: typeof p?.workspaceUri === 'string' ? p.workspaceUri : undefined,
+            });
             send(createResponse(id, { workflows }));
             break;
         }
 
         case PROTOCOL_METHODS.GET_GRAPH: {
-            if (!params || !params.uri) {
+            if (!p || typeof p.uri !== 'string' || !p.uri) {
                 send(createErrorResponse(id, JsonRpcErrorCode.InvalidParams, 'Missing uri in params'));
                 return;
             }
             const graph = parseWorkflowFile({
-                uri: params.uri,
-                documentVersion: params.documentVersion ?? 1,
-                content: params.content,
-                workflowName: params.workflowName,
+                uri: p.uri,
+                documentVersion:
+                    typeof p.documentVersion === 'number' && Number.isFinite(p.documentVersion) ? p.documentVersion : 1,
+                content: typeof p.content === 'string' ? p.content : undefined,
+                workflowName: typeof p.workflowName === 'string' ? p.workflowName : undefined,
             });
             send(createResponse(id, graph));
             break;
         }
 
         case PROTOCOL_METHODS.RESOLVE_LOCATION: {
-            if (!params || !params.uri || !params.position) {
-                send(createErrorResponse(id, JsonRpcErrorCode.InvalidParams, 'Missing uri or position in params'));
+            if (!p || typeof p.uri !== 'string' || !p.uri || !isSourcePosition(p.position)) {
+                send(
+                    createErrorResponse(id, JsonRpcErrorCode.InvalidParams, 'Missing valid uri or position in params'),
+                );
                 return;
             }
             const graph = parseWorkflowFile({
-                uri: params.uri,
-                content: params.content,
-                workflowName: params.workflowName,
+                uri: p.uri,
+                content: typeof p.content === 'string' ? p.content : undefined,
+                workflowName: typeof p.workflowName === 'string' ? p.workflowName : undefined,
             });
-            const resolved = resolveLocationInDocument(graph, params.position);
+            const resolved = resolveLocationInDocument(graph, p.position);
             send(createResponse(id, resolved));
             break;
         }
@@ -139,6 +164,6 @@ function handleRequest(req: { id: string | number; method: string; params?: any 
     }
 }
 
-function send(obj: any) {
+function send(obj: JsonRpcResponse | JsonRpcNotification): void {
     process.stdout.write(JSON.stringify(obj) + '\n');
 }

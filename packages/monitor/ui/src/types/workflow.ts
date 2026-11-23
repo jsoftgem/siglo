@@ -1,4 +1,4 @@
-import type { EcosystemInspection } from '@siglo/core';
+import type { EcosystemInspection, WorkflowNode } from '@siglo/core';
 export type WorkflowStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SUSPENDED' | 'SKIPPED';
 export type StepStatus =
     'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING' | 'SUSPENDED' | 'RETRYING' | 'PENDING';
@@ -15,12 +15,12 @@ export interface StepRun {
     inspections?: { attempt: number; timestamp: number; data: EcosystemInspection }[];
     startTime?: number;
     durationMs?: number;
-    error?: string | { message?: string; code?: string; stack?: string } | any;
+    error?: unknown;
 }
 
 export interface ContextDiff {
     field: string;
-    value: any;
+    value: unknown;
     timestamp: number;
 }
 
@@ -33,7 +33,7 @@ export interface WorkflowRun {
     durationMs?: number;
     waitingForEvent?: string | null;
     steps: Record<string, StepRun>;
-    context: Record<string, any>;
+    context: Record<string, unknown>;
     contextDiffs?: ContextDiff[];
-    ast?: any;
+    ast?: WorkflowNode;
 }

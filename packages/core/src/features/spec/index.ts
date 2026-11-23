@@ -3,18 +3,19 @@ import { SpecFailedException } from './SpecFailedException';
 import { Transformer } from './transformer';
 import { Translator } from './translator';
 import { Validators } from './validators';
+import { getErrorMessage } from '../../shared';
 
-export interface SpecData {
-    defaultValue?: any;
-    default?: any;
+export interface SpecData<TVal = any, TCtx = any> {
+    defaultValue?: TVal | any;
+    default?: TVal | any;
     require?: boolean | (() => boolean);
     requireMessage?: string;
-    validator?: (currentValue?: any) => Promise<any>;
-    validate?: (currentValue?: any) => Promise<any>;
-    transformer?: (currentValue?: any) => Promise<any>;
-    transform?: (currentValue?: any) => Promise<any>;
-    translator?: (currentValue?: any, context?: any) => Promise<any>;
-    translate?: (currentValue?: any, context?: any) => Promise<any>;
+    validator?(currentValue: TVal): Promise<any> | any;
+    validate?(currentValue: TVal): Promise<any> | any;
+    transformer?(currentValue: TVal): Promise<any> | any;
+    transform?(currentValue: TVal): Promise<any> | any;
+    translator?(currentValue: TVal, context: TCtx): Promise<any> | any;
+    translate?(currentValue: TVal, context: TCtx): Promise<any> | any;
     schema?: any;
 }
 
@@ -170,9 +171,9 @@ export default class Spec {
                     }
                 }
                 return;
-            } catch (err: any) {
+            } catch (err: unknown) {
                 new SpecFailedException(() => {
-                    throw new Error(err?.message || 'Schema validation failed');
+                    throw new Error(getErrorMessage(err, 'Schema validation failed'));
                 }, this.field);
                 return;
             }
@@ -192,9 +193,9 @@ export default class Spec {
                     }
                 }
                 return;
-            } catch (err: any) {
+            } catch (err: unknown) {
                 new SpecFailedException(() => {
-                    throw new Error(err?.message || 'Schema validation failed');
+                    throw new Error(getErrorMessage(err, 'Schema validation failed'));
                 }, this.field);
                 return;
             }

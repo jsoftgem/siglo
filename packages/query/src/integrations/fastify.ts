@@ -1,28 +1,51 @@
 import { graphql, Kind, parse, type GraphQLSchema } from 'graphql';
+import { getErrorMessage, isPlainObject } from '@siglo/core';
 import type { WorkflowQueryEngine } from '../engine';
 import { createWorkflowGraphQLSchema } from '../graphql/schema';
 import type { WorkflowGraphQLContext } from '../graphql/resolvers';
-import { createWorkflowSSEStream, pipeWorkflowSSEToResponse } from '../graphql/transport';
+import { createWorkflowSSEStream, type NodeServerResponseLike, pipeWorkflowSSEToResponse } from '../graphql/transport';
+
+export interface QueryFastifyRequestLike {
+    query?: Record<string, unknown>;
+    body?: unknown;
+    headers?: Record<string, string | string[] | undefined>;
+}
+
+export interface QueryFastifyReplyLike {
+    raw: NodeServerResponseLike;
+    status(code: number): QueryFastifyReplyLike;
+    type(contentType: string): QueryFastifyReplyLike;
+    send(payload: unknown): unknown;
+}
+
+export interface QueryFastifyInstanceLike {
+    get(path: string, handler: (request: QueryFastifyRequestLike, reply: QueryFastifyReplyLike) => unknown): unknown;
+    post(path: string, handler: (request: QueryFastifyRequestLike, reply: QueryFastifyReplyLike) => unknown): unknown;
+}
 
 export interface FastifyQueryOptions {
     engine: WorkflowQueryEngine;
     schema?: GraphQLSchema;
     path?: string;
-    namespace?: string | ((req: any) => Promise<string | undefined> | string | undefined);
-    context?: (req: any, reply: any) => Promise<WorkflowGraphQLContext> | WorkflowGraphQLContext;
+    namespace?: string | ((req: QueryFastifyRequestLike) => Promise<string | undefined> | string | undefined);
+    context?: (
+        req: QueryFastifyRequestLike,
+        reply: QueryFastifyReplyLike,
+    ) => Promise<WorkflowGraphQLContext> | WorkflowGraphQLContext;
     keepAliveIntervalMs?: number;
     allowHeaderNamespace?: boolean;
 }
 
-function parseMaybeJson(val: unknown): unknown {
+function parseMaybeObjectJson(val: unknown): Record<string, unknown> | undefined {
     if (typeof val === 'string') {
         try {
-            return JSON.parse(val);
+            const parsed: unknown = JSON.parse(val);
+            return isPlainObject(parsed) ? parsed : undefined;
         } catch {
-            return val;
+            return undefined;
         }
     }
-    return val;
+    return isPlainObject(val) ? val : undefined;
 }
 
 function isSubscriptionOperation(query: string, operationName?: string): boolean {
@@ -44,20 +67,25 @@ function isSubscriptionOperation(query: string, operationName?: string): boolean
 /**
  * Fastify plugin mounting the Siglo GraphQL query, mutation, and SSE subscription endpoint.
  */
-export function fastifyQueryPlugin(fastify: any, options: FastifyQueryOptions, done: (err?: any) => void) {
+export function fastifyQueryPlugin(
+    fastify: QueryFastifyInstanceLike,
+    options: FastifyQueryOptions,
+    done: (err?: Error) => void,
+): void {
     const { engine } = options;
     const schema = options.schema ?? createWorkflowGraphQLSchema(engine);
     const routePath = options.path ?? '/graphql';
 
-    const handler = async (request: any, reply: any) => {
+    const handler = async (request: QueryFastifyRequestLike, reply: QueryFastifyReplyLike) => {
         try {
-            const querySource = request.query || {};
-            const bodySource = request.body || {};
+            const querySource = isPlainObject(request.query) ? request.query : {};
+            const bodySource = isPlainObject(request.body) ? request.body : {};
 
-            const query = (bodySource.query || querySource.query) as string | undefined;
-            const variables = parseMaybeJson(bodySource.variables ?? querySource.variables) as
-                Record<string, unknown> | undefined;
-            const operationName = (bodySource.operationName || querySource.operationName) as string | undefined;
+            const rawQuery = bodySource.query ?? querySource.query;
+            const query = typeof rawQuery === 'string' && rawQuery.length > 0 ? rawQuery : undefined;
+            const variables = parseMaybeObjectJson(bodySource.variables ?? querySource.variables);
+            const rawOp = bodySource.operationName ?? querySource.operationName;
+            const operationName = typeof rawOp === 'string' && rawOp.length > 0 ? rawOp : undefined;
 
             if (!query) {
                 return reply
@@ -74,7 +102,8 @@ export function fastifyQueryPlugin(fastify: any, options: FastifyQueryOptions, d
             } else if (typeof options.namespace === 'string') {
                 authenticatedNamespace = options.namespace;
             } else if (options.allowHeaderNamespace && request.headers?.['x-namespace']) {
-                authenticatedNamespace = request.headers['x-namespace'];
+                const nsHeader = request.headers['x-namespace'];
+                authenticatedNamespace = typeof nsHeader === 'string' ? nsHeader : undefined;
             }
 
             const userContext = options.context ? await options.context(request, reply) : {};
@@ -85,7 +114,8 @@ export function fastifyQueryPlugin(fastify: any, options: FastifyQueryOptions, d
                 subscriptionManager: engine.getSubscriptionManager(),
             };
 
-            const accept = request.headers?.accept || '';
+            const acceptHeader = request.headers?.accept;
+            const accept = typeof acceptHeader === 'string' ? acceptHeader : '';
             const wantsSSE = accept.includes('text/event-stream') || isSubscriptionOperation(query, operationName);
 
             if (wantsSSE) {
@@ -111,12 +141,12 @@ export function fastifyQueryPlugin(fastify: any, options: FastifyQueryOptions, d
 
             const status = result.errors && !result.data ? 400 : 200;
             return reply.status(status).type('application/json; charset=utf-8').send(result);
-        } catch (err: any) {
+        } catch (err: unknown) {
             return reply
                 .status(500)
                 .type('application/json; charset=utf-8')
                 .send({
-                    errors: [{ message: err.message || 'Internal error' }],
+                    errors: [{ message: getErrorMessage(err) || 'Internal error' }],
                 });
         }
     };

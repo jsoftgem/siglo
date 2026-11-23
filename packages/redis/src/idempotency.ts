@@ -14,8 +14,8 @@ export class RedisIdempotencyStore implements IdempotencyStore {
             throw new Error('RedisIdempotencyStore requires a valid Redis client instance.');
         }
         this.client = options.client;
-        this.keyPrefix = options.keyPrefix || 'siglo:idemp:';
-        this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours default
+        this.keyPrefix = options.keyPrefix ?? 'siglo:idemp:';
+        this.defaultTtlMs = options.defaultTtlMs ?? 86400000; // 24 hours default
     }
 
     private formatKey(key: string): string {
@@ -24,7 +24,7 @@ export class RedisIdempotencyStore implements IdempotencyStore {
 
     async claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'> {
         const fullKey = this.formatKey(key);
-        const effectiveTtl = ttlMs || this.defaultTtlMs;
+        const effectiveTtl = ttlMs ?? this.defaultTtlMs;
 
         // Atomic lock attempt: SET fullKey "in-progress" NX PX effectiveTtl
         const response = await this.client.set(fullKey, IN_PROGRESS_VAL, 'PX', effectiveTtl, 'NX');
@@ -43,7 +43,7 @@ export class RedisIdempotencyStore implements IdempotencyStore {
 
     async complete(key: string, result: unknown, ttlMs?: number): Promise<void> {
         const fullKey = this.formatKey(key);
-        const effectiveTtl = ttlMs || this.defaultTtlMs;
+        const effectiveTtl = ttlMs ?? this.defaultTtlMs;
         const payload = COMPLETED_PREFIX + JSON.stringify(result ?? null);
         await this.client.set(fullKey, payload, 'PX', effectiveTtl);
     }

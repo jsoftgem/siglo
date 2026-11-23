@@ -18,21 +18,21 @@ export interface JsonRpcError {
     data?: unknown;
 }
 
-export interface JsonRpcRequest<TParams = any> {
+export interface JsonRpcRequest<TParams = unknown> {
     jsonrpc: '2.0';
     id: string | number;
     method: string;
     params: TParams;
 }
 
-export interface JsonRpcResponse<TResult = any> {
+export interface JsonRpcResponse<TResult = unknown> {
     jsonrpc: '2.0';
     id: string | number | null;
     result?: TResult;
     error?: JsonRpcError;
 }
 
-export interface JsonRpcNotification<TParams = any> {
+export interface JsonRpcNotification<TParams = unknown> {
     jsonrpc: '2.0';
     method: string;
     params?: TParams;
@@ -154,21 +154,32 @@ export function createNotification<TParams>(method: string, params?: TParams): J
 }
 
 export function isJsonRpcRequest(msg: unknown): msg is JsonRpcRequest {
-    if (typeof msg !== 'object' || msg === null) return false;
+    if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return false;
     const m = msg as Record<string, unknown>;
     return (
-        m.jsonrpc === '2.0' && (typeof m.id === 'string' || typeof m.id === 'number') && typeof m.method === 'string'
+        m.jsonrpc === '2.0' &&
+        (typeof m.id === 'string' || (typeof m.id === 'number' && Number.isFinite(m.id))) &&
+        typeof m.method === 'string'
     );
 }
 
 export function isJsonRpcResponse(msg: unknown): msg is JsonRpcResponse {
-    if (typeof msg !== 'object' || msg === null) return false;
+    if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return false;
     const m = msg as Record<string, unknown>;
-    return m.jsonrpc === '2.0' && ('result' in m || 'error' in m);
+    if (m.jsonrpc !== '2.0') return false;
+    const validId = m.id === null || typeof m.id === 'string' || (typeof m.id === 'number' && Number.isFinite(m.id));
+    if (!validId) return false;
+    if ('error' in m && m.error !== undefined) {
+        if (typeof m.error !== 'object' || m.error === null || Array.isArray(m.error)) return false;
+        const err = m.error as Record<string, unknown>;
+        if (typeof err.code !== 'number' || typeof err.message !== 'string') return false;
+        return true;
+    }
+    return 'result' in m;
 }
 
 export function isJsonRpcNotification(msg: unknown): msg is JsonRpcNotification {
-    if (typeof msg !== 'object' || msg === null) return false;
+    if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return false;
     const m = msg as Record<string, unknown>;
     return m.jsonrpc === '2.0' && typeof m.method === 'string' && !('id' in m);
 }

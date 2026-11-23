@@ -9,6 +9,7 @@ import {
     recordInspection,
     EcosystemInspection,
     resolveDynamic,
+    isPlainObject,
 } from '@siglo/core';
 import { WebhookVerifyOptions, WebhookVerificationResult, WebhookProtocol, WebhookPayloadRef } from '../types';
 import { getWebhookProtocol } from '../registry';
@@ -255,20 +256,20 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string> exte
             if (options.headers) {
                 headers = options.headers(ctx);
             }
+            const ctxHeaders =
+                isPlainObject(ctx) && isPlainObject(ctx.headers)
+                    ? (ctx.headers as Record<string, string | string[] | undefined>)
+                    : undefined;
 
             if (typeof signatureOrHeaders === 'string') {
                 signatureHeader = signatureOrHeaders;
-                if (
-                    Object.keys(headers).length === 0 &&
-                    (ctx as any)?.headers &&
-                    typeof (ctx as any).headers === 'object'
-                ) {
-                    headers = (ctx as any).headers;
+                if (Object.keys(headers).length === 0 && ctxHeaders) {
+                    headers = ctxHeaders;
                 }
             } else if (typeof signatureOrHeaders === 'object' && signatureOrHeaders !== null) {
                 headers = signatureOrHeaders;
-            } else if ((ctx as any)?.headers && typeof (ctx as any).headers === 'object') {
-                headers = (ctx as any).headers;
+            } else if (ctxHeaders) {
+                headers = ctxHeaders;
             }
 
             const normalized = normalizeHeaders(headers);

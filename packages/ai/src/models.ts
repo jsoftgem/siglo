@@ -21,7 +21,10 @@ export function resolveModel<T>(config: AiModelConfig<T>, ctx: T, stepName: stri
     const apiKey = resolveDynamic(config.apiKey, ctx);
     const environmentKey =
         config.provider in keyNames ? process.env[keyNames[config.provider as keyof typeof keyNames]] : undefined;
-    return { ...config, requestTimeoutMs, baseUrl: url.href.replace(/\/$/, ''), apiKey: apiKey ?? environmentKey };
+    const resolvedApiKey =
+        (apiKey && apiKey.length > 0 ? apiKey : undefined) ??
+        (environmentKey && environmentKey.length > 0 ? environmentKey : undefined);
+    return { ...config, requestTimeoutMs, baseUrl: url.href.replace(/\/$/, ''), apiKey: resolvedApiKey };
 }
 
 export function modelBaseUrl(config: Pick<AiModelConfig, 'provider' | 'baseUrl'>): string {

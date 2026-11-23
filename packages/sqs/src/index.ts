@@ -1,11 +1,18 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from '@siglo/core';
+import { Flow, ExecutionOptions, IdempotencyStore, isObject } from '@siglo/core';
+
+export interface SigloSqsMessageAttribute {
+    stringValue?: string;
+    binaryValue?: unknown;
+    dataType?: string;
+    [key: string]: unknown;
+}
 
 export interface SigloSqsRecord {
     messageId: string;
     receiptHandle: string;
     body: string;
     attributes?: Record<string, string>;
-    messageAttributes?: Record<string, any>;
+    messageAttributes?: Record<string, SigloSqsMessageAttribute>;
 }
 
 export interface SigloSqsEvent {
@@ -14,30 +21,29 @@ export interface SigloSqsEvent {
 
 export interface SigloSqsOptions<TInput = any, TOutput = any> {
     input?: (record: SigloSqsRecord) => Promise<TInput> | TInput;
-    output?: (result: any, record: SigloSqsRecord) => Promise<TOutput> | TOutput;
+    output?: (result: unknown, record: SigloSqsRecord) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
     timeout?: number;
     namespace?: string | ((record: SigloSqsRecord) => string | undefined);
 }
 
-function unwrapContext(obj: any): any {
-    if (!obj || typeof obj !== 'object') {
+function unwrapContext(obj: unknown): unknown {
+    if (!isObject(obj)) {
         return obj;
     }
-    const clean: Record<string, any> = {};
-    for (const key of Object.keys(obj)) {
+    const source = obj;
+    const clean: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) {
         if (key.startsWith('$')) {
             continue;
         }
-        const val =
-            typeof obj[key] === 'function'
-                ? obj[key].val !== undefined
-                    ? obj[key].val
-                    : obj[key].length === 0
-                      ? obj[key]()
-                      : obj[key]
-                : obj[key];
+        const rawVal = source[key];
+        let val = rawVal;
+        if (typeof rawVal === 'function') {
+            const fn = rawVal as (() => unknown) & { val?: unknown };
+            val = fn.val !== undefined ? fn.val : fn.length === 0 ? fn() : fn;
+        }
         clean[key] = val;
     }
     return clean;
@@ -75,7 +81,7 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
             }
 
             try {
-                let parsedInput: any = {};
+                let parsedInput: unknown = {};
                 if (options.input) {
                     parsedInput = await options.input(record);
                 } else if (record.body) {
@@ -89,9 +95,9 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
                 let namespace: string | undefined;
                 if (typeof options.namespace === 'function') {
                     namespace = options.namespace(record);
-                } else if (options.namespace) {
+                } else if (options.namespace !== undefined) {
                     namespace = options.namespace;
-                } else if (record.messageAttributes?.namespace?.stringValue) {
+                } else if (typeof record.messageAttributes?.namespace?.stringValue === 'string') {
                     namespace = record.messageAttributes.namespace.stringValue;
                 }
 
@@ -100,7 +106,7 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
                     namespace,
                 };
 
-                const rawResult: any = await workflow.run(parsedInput, execOptions);
+                const rawResult: unknown = await workflow.run(parsedInput as TInput, execOptions);
                 const cleanResult = unwrapContext(rawResult);
 
                 if (options.idempotencyStore) {
@@ -108,7 +114,7 @@ export function createSqsBatchHandler<TInput = any, TOutput = any>(
                 }
 
                 processedCount++;
-            } catch (err: any) {
+            } catch (err: unknown) {
                 if (options.idempotencyStore) {
                     await options.idempotencyStore.fail(idempKey, err);
                 }

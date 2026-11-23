@@ -1,4 +1,5 @@
 import { Step, flow } from '../step';
+import { CombinatorTarget } from './branch';
 import { toPOJO } from '../context';
 import { generateUUID, isReservedKey, VALUE, Status, isFunction, isObject, WorkflowNodeType } from '../../shared';
 import { toGraph, MapNode } from '../graph';
@@ -12,11 +13,14 @@ export interface MapOptions {
     preserveOrder?: boolean;
 }
 
-export type MapItemAccessor =
-    | any[]
-    | AsyncIterable<any>
-    | Iterable<any>
-    | ((ctx: any) => any[] | AsyncIterable<any> | Iterable<any> | Promise<any[] | AsyncIterable<any> | Iterable<any>>);
+export type MapItemAccessor<TItem = any, TContext = any> =
+    | TItem[]
+    | AsyncIterable<TItem>
+    | Iterable<TItem>
+    | ((
+          ctx: TContext,
+      ) =>
+          TItem[] | AsyncIterable<TItem> | Iterable<TItem> | Promise<TItem[] | AsyncIterable<TItem> | Iterable<TItem>>);
 
 const MAP_METADATA_KEYS = new Set(['item', 'index', 'total']);
 
@@ -74,7 +78,11 @@ function executeItem(
     return p.then(cleanStepOutput);
 }
 
-export function map(itemsOrAccessor: MapItemAccessor, processItem: any, options?: MapOptions): Step<any, any> {
+export function map<TItem = any>(
+    itemsOrAccessor: MapItemAccessor<TItem>,
+    processItem: CombinatorTarget,
+    options?: MapOptions,
+): Step<any, any> {
     const concurrency = Math.max(1, options?.concurrency ?? 10);
     const stopOnError = options?.stopOnError !== false; // default true
     const preserveOrder = options?.preserveOrder !== false; // default true

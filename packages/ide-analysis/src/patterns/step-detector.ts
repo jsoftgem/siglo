@@ -418,7 +418,7 @@ export function extractEcosystemConfig(
                         if (ts.isArrayLiteralExpression(prop.initializer)) {
                             config.retryOnStatus = prop.initializer.elements.map(e =>
                                 ts.isNumericLiteral(e) ? Number(e.text) : e.getText(sourceFile),
-                            ) as any;
+                            );
                         } else {
                             config.retryOnStatus = prop.initializer.getText(sourceFile);
                         }

@@ -191,6 +191,13 @@ describe('notification adverse cases and dynamic resolution', () => {
                 ),
             );
         }
+        const nonObjBody = Buffer.from(JSON.stringify(null)).toString('base64url');
+        await assert.rejects(
+            verifyActionToken(
+                `${nonObjBody}.${createHmac('sha256', 'secret').update(nonObjBody).digest('base64url')}`,
+                'secret',
+            ),
+        );
     });
     it('rejects malformed SMS configurations, identities, forms, and unsupported replies', () => {
         const publicUrl = 'https://example.com/sms',

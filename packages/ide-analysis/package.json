@@ -39,7 +39,7 @@
   "author": "Jerico de Guzman",
   "license": "MIT",
   "dependencies": {
-    "@siglo/ide-protocol": "^1.0.0",
+    "@siglo/ide-protocol": "^1.3.0",
     "typescript": "~5.7.0"
   },
   "devDependencies": {

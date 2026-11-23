@@ -1,4 +1,12 @@
-import { Step, observeEcosystem, recordInspection, resolveDynamic, parseDuration } from '@siglo/core';
+import {
+    Step,
+    observeEcosystem,
+    recordInspection,
+    resolveDynamic,
+    parseDuration,
+    getErrorName,
+    isPlainObject,
+} from '@siglo/core';
 import { HttpMethod, HttpStepOptions, HttpStepResult, CompensationHttpConfig, HttpStepInstance } from './types';
 import { extractHostInfo, assertNetworkPolicy, extractStaticHostname } from './policy/asl-bridge';
 import { validatePayload } from './schema/validator';
@@ -42,8 +50,10 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
                 maxRetries: options.maxRetries,
                 allowNotFound: options.allowNotFound,
                 timeoutMs: parseDuration(options.timeoutMs) ?? parseDuration(options.timeout),
-                signal: (ctx as any)?.$signal || (ctx as any)?.signal,
-                span: (ctx as any)?.span || (ctx as any)?.$span,
+                signal: isPlainObject(ctx) ? (ctx.$signal ?? ctx.signal) : undefined,
+                span: isPlainObject(ctx)
+                    ? ((ctx.span ?? ctx.$span) as Parameters<typeof executeHttpRequest>[0]['span'])
+                    : undefined,
                 clock: options.clock,
                 sleep: options.sleep,
             });
@@ -70,7 +80,7 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
                 typeof validatedData === 'object' &&
                 validatedData !== null &&
                 !Array.isArray(validatedData) &&
-                typeof (validatedData as any).then !== 'function' &&
+                !('then' in validatedData && typeof (validatedData as { then?: unknown }).then === 'function') &&
                 !(typeof Blob !== 'undefined' && validatedData instanceof Blob) &&
                 !(typeof ArrayBuffer !== 'undefined' && validatedData instanceof ArrayBuffer)
             ) {
@@ -119,14 +129,14 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
 
                 // Asserts hostname against active AsyncLocalStorage (ASL) network policy
                 assertNetworkPolicy(name, resolvedUrl, hostname, port);
-            } catch (error) {
+            } catch (error: unknown) {
                 recordInspection({
                     version: 1,
                     kind: 'http',
                     outcome: 'failure',
                     method: options.method || 'GET',
                     url: typeof options.url === 'string' ? options.url : undefined,
-                    policy: (error as any)?.name === 'NetworkPolicyViolationException' ? 'denied' : 'unknown',
+                    policy: getErrorName(error) === 'NetworkPolicyViolationException' ? 'denied' : 'unknown',
                 });
                 throw error;
             }
@@ -134,23 +144,31 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
         });
 
         // 4. AFTER Phase: Safely attach telemetry if context is extensible
-        this.onAfter(async (output: any, ctx: any) => {
+        this.onAfter(async (output: unknown, ctx: unknown) => {
             try {
-                if (output && output.$httpMetadata && ctx && typeof ctx === 'object') {
+                if (
+                    isPlainObject(output) &&
+                    '$httpMetadata' in output &&
+                    output.$httpMetadata &&
+                    ctx &&
+                    typeof ctx === 'object'
+                ) {
                     if (!Object.isFrozen(ctx) && Object.isExtensible(ctx)) {
-                        if (!ctx.$steps) {
-                            ctx.$steps = {};
+                        const ctxRecord = ctx as Record<string, unknown>;
+                        if (!isPlainObject(ctxRecord.$steps)) {
+                            ctxRecord.$steps = {};
                         }
-                        if (!ctx.$steps[name]) {
-                            ctx.$steps[name] = {};
+                        const stepsRecord = ctxRecord.$steps as Record<string, unknown>;
+                        if (!isPlainObject(stepsRecord[name])) {
+                            stepsRecord[name] = {};
                         }
-                        ctx.$steps[name].httpMetadata = output.$httpMetadata;
+                        (stepsRecord[name] as Record<string, unknown>).httpMetadata = output.$httpMetadata;
                     }
                 }
             } catch {
                 // Ignore if context is immutable or sealed
             }
-            return output;
+            return output as HttpStepResult<TOutput>;
         });
 
         // 5. COMPENSATION Phase: Register declarative saga compensation if configured
@@ -163,7 +181,7 @@ export class HttpStep<TInput = any, TOutput = Record<string, any>, TName extends
      * Declarative saga rollback compensation via HTTP request.
      */
     compensateWithHttp(config: CompensationHttpConfig<TInput, TOutput>): this {
-        this.compensate(async (res: any, ctx: any) => {
+        this.compensate(async (res: TOutput, ctx: TInput) => {
             const compUrl = typeof config.url === 'function' ? config.url(ctx, res) : config.url;
             const compMethod = config.method || 'DELETE';
             const compHeaders = typeof config.headers === 'function' ? config.headers(ctx, res) : config.headers || {};

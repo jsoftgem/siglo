@@ -10,6 +10,7 @@ import {
     STACK_ID_KEY,
     STEPS,
     generateUUID,
+    getErrorMessage,
     isObject,
     parseDuration,
     tagErrorPhase,
@@ -106,6 +107,11 @@ export class ComputeStep<TInput = any, TOutput = any, TName extends string = str
         this.specs = [];
     }
 
+    spec<TKey extends keyof TInput & string>(
+        field: TKey,
+        json: SyncSpecData<TInput[TKey], TInput> | Record<string, any>,
+    ): ComputeStep<TInput, TOutput, TName>;
+    spec(fieldOrSchema: string | any, json?: SyncSpecData<any, TInput> | any): ComputeStep<TInput, TOutput, TName>;
     spec(fieldOrSchema: string | any, json: SyncSpecData | any = {}): ComputeStep<TInput, TOutput, TName> {
         const isFieldString = typeof fieldOrSchema === 'string';
         const field = isFieldString ? fieldOrSchema : '$root$';
@@ -144,13 +150,13 @@ export class ComputeStep<TInput = any, TOutput = any, TName extends string = str
     cache(ttlOrOptions?: DurationInput | ComputeCacheOptions): ComputeStep<TInput, TOutput, TName> {
         if (isObject(ttlOrOptions)) {
             this.cacheOptions = ttlOrOptions;
-            this.cachedLast = parseDuration(ttlOrOptions.ttl) || DEFAULT_COMPUTE_CACHE_TTL_MS;
+            this.cachedLast = parseDuration(ttlOrOptions.ttl) ?? DEFAULT_COMPUTE_CACHE_TTL_MS;
             this._computeCache = new ComputeCache({
                 ...ttlOrOptions,
                 ttl: this.cachedLast,
             });
         } else {
-            this.cachedLast = parseDuration(ttlOrOptions) || DEFAULT_COMPUTE_CACHE_TTL_MS;
+            this.cachedLast = parseDuration(ttlOrOptions) ?? DEFAULT_COMPUTE_CACHE_TTL_MS;
             this.cacheOptions = undefined;
             this._computeCache = new ComputeCache({ ttl: this.cachedLast });
         }
@@ -206,10 +212,11 @@ export function executeComputeStepSync(step: ComputeStep<any, any, any>, rawInpu
         throwSync: true,
     };
 
-    const emitErrorAndRethrow = (err: any): never => {
+    const emitErrorAndRethrow = (err: unknown): never => {
+        const errObj = isObject(err) ? err : undefined;
         const isNetworkErr =
-            err instanceof NetworkPolicyViolationException || err?.name === 'NetworkPolicyViolationException';
-        if (!isNetworkErr && err?.phase !== ExecutionPhase.VALIDATION) {
+            err instanceof NetworkPolicyViolationException || errObj?.name === 'NetworkPolicyViolationException';
+        if (!isNetworkErr && errObj?.phase !== ExecutionPhase.VALIDATION) {
             tagErrorPhase(err, ExecutionPhase.ACTION, stepName);
         }
         emitMonitoringEvent(options, {
@@ -219,9 +226,9 @@ export function executeComputeStepSync(step: ComputeStep<any, any, any>, rawInpu
             stepName,
             attempt: 1,
             error: {
-                message: err?.message || String(err),
-                code: err?.code,
-                stack: err?.stack,
+                message: getErrorMessage(err),
+                code: typeof errObj?.code === 'string' ? errObj.code : undefined,
+                stack: typeof errObj?.stack === 'string' ? errObj.stack : undefined,
             },
             timestamp: Date.now(),
             namespace,
@@ -266,7 +273,7 @@ export function executeComputeStepSync(step: ComputeStep<any, any, any>, rawInpu
                 validatedInput = networkPolicyStorage.run(policyContext, () =>
                     runSpecsSync(step.specs, cleanInput, stepName),
                 );
-            } catch (specErr: any) {
+            } catch (specErr: unknown) {
                 tagErrorPhase(specErr, ExecutionPhase.VALIDATION, stepName);
                 throw specErr;
             }
@@ -337,7 +344,7 @@ export function executeComputeStepSync(step: ComputeStep<any, any, any>, rawInpu
     let rawResult: any;
     try {
         rawResult = activeHook ? activeHook(stepContext, executeCore) : executeCore();
-    } catch (err: any) {
+    } catch (err: unknown) {
         emitErrorAndRethrow(err);
     }
 
@@ -345,7 +352,7 @@ export function executeComputeStepSync(step: ComputeStep<any, any, any>, rawInpu
     if (isThenable(rawResult)) {
         return (rawResult as Promise<any>).then(
             (val: any) => emitComplete(val),
-            (err: any) => emitErrorAndRethrow(err),
+            (err: unknown) => emitErrorAndRethrow(err),
         );
     }
 

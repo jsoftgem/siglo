@@ -35,7 +35,7 @@ export const HttpInspector: React.FC<HttpInspectorProps> = ({ config, telemetry 
     };
 
     const getStatusBadge = (status?: number) => {
-        if (!status) return null;
+        if (status === undefined) return null;
         if (status >= 200 && status < 300) {
             return (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
@@ -123,7 +123,7 @@ export const HttpInspector: React.FC<HttpInspectorProps> = ({ config, telemetry 
                     <div className="flex items-center justify-between">
                         <span className="text-[#868a98]">Retry On Status:</span>
                         <span className="font-mono text-[#dfe1e5]">
-                            {config?.retryOnStatus ? (
+                            {config?.retryOnStatus !== undefined ? (
                                 Array.isArray(config.retryOnStatus) ? (
                                     config.retryOnStatus.join(', ')
                                 ) : (

@@ -32,6 +32,8 @@ import {
     resolveDynamic,
     isObject,
     isReservedKey,
+    getErrorMessage,
+    getErrorName,
 } from '../../../shared';
 import { StepTimeoutException, IdempotencyConflictException, NetworkPolicyViolationException } from '../exceptions';
 import { combineAbortSignals } from '../signals';
@@ -435,7 +437,7 @@ export default class StartChain {
                                                                 const stepSettleTimeout =
                                                                     chain.idempotencyOptions?.settleTimeoutMs;
                                                                 const stepPollInterval =
-                                                                    chain.idempotencyOptions?.pollIntervalMs || 50;
+                                                                    chain.idempotencyOptions?.pollIntervalMs ?? 50;
 
                                                                 if (
                                                                     claim === Status.IN_PROGRESS &&
@@ -604,7 +606,7 @@ export default class StartChain {
                                                                         stepOptions,
                                                                     );
                                                                 },
-                                                                (afterErr: any) => {
+                                                                (afterErr: unknown) => {
                                                                     if (stepIdempKey) {
                                                                         if (
                                                                             isPermanentBusinessError(
@@ -614,9 +616,9 @@ export default class StartChain {
                                                                         ) {
                                                                             stepIdempStore
                                                                                 .complete(stepIdempKey, {
-                                                                                    error: afterErr.message,
+                                                                                    error: getErrorMessage(afterErr),
                                                                                     isPermanentError: true,
-                                                                                    name: afterErr.name,
+                                                                                    name: getErrorName(afterErr),
                                                                                 })
                                                                                 .catch(() => {});
                                                                         } else {
@@ -672,7 +674,7 @@ export default class StartChain {
                                                                     propertyToContext,
                                                                     undefined,
                                                                     stackId,
-                                                                ).reduce((err: any, result: any) => {
+                                                                ).reduce((err: unknown, result: any) => {
                                                                     clearStepTimeout();
                                                                     if (err) {
                                                                         if (stepIdempKey) {
@@ -684,9 +686,9 @@ export default class StartChain {
                                                                             ) {
                                                                                 stepIdempStore
                                                                                     .complete(stepIdempKey, {
-                                                                                        error: err.message,
+                                                                                        error: getErrorMessage(err),
                                                                                         isPermanentError: true,
-                                                                                        name: err.name,
+                                                                                        name: getErrorName(err),
                                                                                     })
                                                                                     .catch(() => {});
                                                                             } else {
@@ -856,9 +858,12 @@ export default class StartChain {
                                                                 (actionParam as any)[ATTEMPT] = attVal;
                                                                 (actionParam as any).$attempt = attVal;
                                                             }
-                                                            if (initialParam?.[RETRY_DELAY] || param[RETRY_DELAY]) {
+                                                            if (
+                                                                initialParam?.[RETRY_DELAY] !== undefined ||
+                                                                param[RETRY_DELAY] !== undefined
+                                                            ) {
                                                                 const delVal =
-                                                                    param[RETRY_DELAY] || initialParam[RETRY_DELAY];
+                                                                    param[RETRY_DELAY] ?? initialParam?.[RETRY_DELAY];
                                                                 (actionParam as any)[RETRY_DELAY] = delVal;
                                                                 (actionParam as any).$retryDelay = delVal;
                                                             }
@@ -910,7 +915,7 @@ export default class StartChain {
                                                                 } else {
                                                                     rawAction = runAction();
                                                                 }
-                                                            } catch (actionErr: any) {
+                                                            } catch (actionErr: unknown) {
                                                                 if (stepIdempKey) {
                                                                     if (
                                                                         isPermanentBusinessError(
@@ -920,9 +925,9 @@ export default class StartChain {
                                                                     ) {
                                                                         stepIdempStore
                                                                             .complete(stepIdempKey, {
-                                                                                error: actionErr.message,
+                                                                                error: getErrorMessage(actionErr),
                                                                                 isPermanentError: true,
-                                                                                name: actionErr.name,
+                                                                                name: getErrorName(actionErr),
                                                                             })
                                                                             .catch(() => {});
                                                                     } else {
@@ -1017,7 +1022,7 @@ export default class StartChain {
                                                                             propertyToContext(context, props);
                                                                             executeOnAfterAndResolve(props, context);
                                                                         })
-                                                                        .catch(err => {
+                                                                        .catch((err: unknown) => {
                                                                             if (stepIdempKey) {
                                                                                 if (
                                                                                     isPermanentBusinessError(
@@ -1027,9 +1032,9 @@ export default class StartChain {
                                                                                 ) {
                                                                                     stepIdempStore
                                                                                         .complete(stepIdempKey, {
-                                                                                            error: err.message,
+                                                                                            error: getErrorMessage(err),
                                                                                             isPermanentError: true,
-                                                                                            name: err.name,
+                                                                                            name: getErrorName(err),
                                                                                         })
                                                                                         .catch(() => {});
                                                                                 } else {

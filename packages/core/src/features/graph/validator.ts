@@ -1,4 +1,4 @@
-import { isObject } from '../../shared';
+import { assertNever, isObject } from '../../shared';
 import { WorkflowNode, GraphValidationResult } from './types';
 import { GraphValidationException } from '../executer/exceptions';
 
@@ -93,6 +93,9 @@ export function validateGraph(node: WorkflowNode): GraphValidationResult {
                     errors.push(`Map node '${curr.id}' concurrency must be greater than 0, got ${curr.concurrency}`);
                 }
                 break;
+            /* c8 ignore next 2 */
+            default:
+                assertNever(curr, 'Unknown workflow node type');
         }
 
         visiting.delete(curr.id);

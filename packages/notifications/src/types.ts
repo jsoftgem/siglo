@@ -72,7 +72,7 @@ export interface CallbackHandlerOptions {
     /** Explicit opt-in to link-possession authorization. Prefer authorize for sensitive actions. */
     allowBearerApproval?: boolean;
     /** Bind the signed request to an authenticated approver. Throw or return false to deny. */
-    authorize?: (payload: import('./tokens').ActionTokenPayload, request?: any) => boolean | Promise<boolean>;
+    authorize?: (payload: import('./tokens').ActionTokenPayload, request?: unknown) => boolean | Promise<boolean>;
     responseFormat?: 'json' | 'html';
     allowedOrigins?: string[];
     signingSecret: string | KeyRing;

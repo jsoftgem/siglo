@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2026-11-20
+## [1.3.0] - 2026-11-23
 
 ### Added
 
@@ -25,10 +25,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **In-Process ASL Network Egress Policy Inheritance**:
     - Hardened `StartChain.ts` to merge and intersect enclosing `networkPolicyStorage.getStore()` with step/sub-flow policies, guaranteeing nested `parallel`, `branch`, `map`, and `Step.create(subFlow)` cannot widen outer perimeters.
     - Hardened `CompensationManager` and `flow.compensate(stackId)` to capture and re-apply effective step network policies during automatic and checkpoint-hydrated Saga rollback compensations.
+- **Synchronous Compute Steps (`Step.compute`) (`@siglo/core`, `@siglo/opentelemetry`, `@siglo/testing`, IDE Tooling)**:
+    - Added `Step.compute` / `ComputeStep` for synchronous non-I/O CPU logic with zero-microtask fast-path batching in `ArrayChain` and `StartChain`, unconditional always-deny ASL network guardrails (`COMPUTE_NETWORK_POLICY`), fail-fast thenable guards, synchronous `.spec()` validation (`runSpecsSync`), bounded LRU + TTL in-memory `.cache()` (`ComputeCache`), and graph/diagram annotations (`toGraph`, `toMermaid`, `toDot`, `toJSON`).
+    - Added dual sync/async `stepExecutionHook` and `siglo.step.kind = 'compute'` / `siglo.cache.hit` span attribution in `@siglo/opentelemetry`.
+    - Extended `@siglo/testing` (`WorkflowHarness`) to preserve synchronous wrapping, spies, mocks, assertions, and trace parity for `ComputeStep`.
+    - Extended `@siglo/ide-protocol`, `@siglo/ide-analysis`, `@siglo/ide-ui`, `@siglo/vscode`, and the IntelliJ IDEA plugin to parse, render, exempt from `SIGLO_MISSING_COMPENSATION`, and execute single or ranged `Step.compute` steps.
+
+### Fixed
+
+- **Type Safety, Boundary Validation & Strictness Hardening**:
+    - Replaced unsafe `any` signatures and catch bindings with `unknown` and runtime validation across JSON-RPC messages, telemetry sanitization, `.siglo/run.json`, webhook/API payloads, and IDE/Monitor UI bridges.
+    - Added exhaustive `never` checks on discriminated status/ecosystem switches and fixed falsy `0` / `0ms` duration and status handling across UI and core helpers.
+    - Tightened TypeScript and ESLint coverage (`noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`) across IDE UI, Monitor UI, and test suites.
 
 ### Changed
 
 - Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.3.0`.
+- Updated internal `@siglo/*` workspace and example dependency ranges to `^1.3.0`.
+- Synchronized bundled IntelliJ plugin assets (`analyzer.js`, `prepare.cjs`, `ide-ui/index.html`) for `1.3.0`.
 
 ## [1.2.8] - 2026-11-18
 

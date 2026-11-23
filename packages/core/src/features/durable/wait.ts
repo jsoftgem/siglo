@@ -8,7 +8,7 @@ import {
     WorkflowNodeType,
 } from '../../shared';
 import { WaitNode } from '../graph';
-import { WaitForEventOptions } from './types';
+import { WaitForEventOptions, WaitForEventResult, WaitTimerResult } from './types';
 import { WorkflowSuspendedException } from '../executer';
 
 export { parseDuration };
@@ -16,7 +16,7 @@ export { parseDuration };
 export function waitForEvent<TContext = any>(
     eventName: string,
     options: WaitForEventOptions<NoInfer<TContext>>,
-): Step<TContext, any> {
+): Step<TContext, WaitForEventResult> {
     const hasDynamicTimeout = options.timeoutMs === undefined && isFunction(options.timeout);
     const staticTimeoutMs =
         options.timeoutMs ?? (isFunction(options.timeout) ? undefined : parseDuration(options.timeout));
@@ -32,7 +32,7 @@ export function waitForEvent<TContext = any>(
         ...(hasDynamicTimeout ? { timeout: options.timeout as DynamicDuration } : {}),
     };
 
-    const step = Step.create<string, TContext, any>(stepName, async (param: any) => {
+    const step = Step.create<string, TContext, WaitForEventResult>(stepName, async (param: any) => {
         const correlationKey = resolveDynamic(options.correlationKey, param);
 
         const isDurable = param?.$isDurable === true;
@@ -41,7 +41,7 @@ export function waitForEvent<TContext = any>(
             const timeoutMs =
                 options.timeoutMs ??
                 (options.timeout !== undefined ? parseDuration(resolveDynamic(options.timeout, param)) : undefined);
-            const expiresAt = timeoutMs ? Date.now() + timeoutMs : undefined;
+            const expiresAt = timeoutMs !== undefined ? Date.now() + timeoutMs : undefined;
             throw new WorkflowSuspendedException(
                 `Workflow suspended waiting for event '${eventName}' with correlationKey '${correlationKey}'.`,
                 {
@@ -61,7 +61,7 @@ export function waitForEvent<TContext = any>(
         };
     });
 
-    (step as any).workflowNode = waitNode;
+    step.workflowNode = waitNode;
     (step as any).waitConfig = {
         eventName,
         correlationKey: options.correlationKey,
@@ -71,7 +71,9 @@ export function waitForEvent<TContext = any>(
     return step;
 }
 
-export function wait<TContext = any>(durationOrMs: DynamicDuration<NoInfer<TContext>>): Step<TContext, any> {
+export function wait<TContext = any>(
+    durationOrMs: DynamicDuration<NoInfer<TContext>>,
+): Step<TContext, WaitTimerResult> {
     const isDynamic = isFunction(durationOrMs);
     const staticDurationMs = isDynamic ? undefined : (parseDuration(durationOrMs) ?? 0);
     const stepName = isDynamic ? 'wait:dynamic' : `wait:${staticDurationMs}ms`;
@@ -83,7 +85,7 @@ export function wait<TContext = any>(durationOrMs: DynamicDuration<NoInfer<TCont
         ...(isDynamic ? { duration: durationOrMs as DynamicDuration } : { durationMs: staticDurationMs }),
     };
 
-    const step = Step.create<string, TContext, any>(stepName, async (param: any) => {
+    const step = Step.create<string, TContext, WaitTimerResult>(stepName, async (param: any) => {
         const durationMs = (isDynamic ? parseDuration(resolveDynamic(durationOrMs, param)) : staticDurationMs) ?? 0;
         const isDurable = param?.$isDurable === true;
         if (isDurable) {
@@ -103,6 +105,6 @@ export function wait<TContext = any>(durationOrMs: DynamicDuration<NoInfer<TCont
         return { waitedMs: durationMs };
     });
 
-    (step as any).workflowNode = waitNode;
+    step.workflowNode = waitNode;
     return step;
 }

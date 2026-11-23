@@ -1,7 +1,9 @@
 import { DurationInput } from '../../shared';
 import { NetworkPolicyConfig } from '../network/types';
 
-export type CompensationHandler = (output: any, input: any, context?: any) => any | Promise<any>;
+export type CompensationHandler =
+    | ((output: any, input: any, context?: any) => any | Promise<any>)
+    | { execute: (ctx: { output: any; input: any }) => any | Promise<any> };
 
 export interface CompensationOptions {
     maxRetries?: number;

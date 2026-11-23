@@ -10,6 +10,7 @@ import {
     PostgresApprovalRevocationStore,
     createNotificationHonoHandler,
     createNotificationExpressMiddleware,
+    createNotificationFastifyHandler,
     signActionToken,
     createSmsApprovalReference,
     PushWebhookTransport,
@@ -299,6 +300,37 @@ describe('notification boundary failures', () => {
             res,
         );
         assert.match(html, /Confirm rejection/);
+        await createNotificationExpressMiddleware({ workflow, signingSecret: 'secret' })({ query: { token } }, res);
+        assert.match(html, /Confirm rejection/);
+        let fastifyStatus = 0;
+        let fastifySent: unknown;
+        const fastifyReply: any = {
+            header() {
+                return this;
+            },
+            code(n: number) {
+                fastifyStatus = n;
+                return this;
+            },
+            type() {
+                return this;
+            },
+            send(payload: unknown) {
+                fastifySent = payload;
+            },
+            redirect() {},
+        };
+        await createNotificationFastifyHandler({ workflow, signingSecret: 'secret' })(
+            { query: { token } },
+            fastifyReply,
+        );
+        assert.equal(fastifyStatus, 200);
+        assert.ok(String(fastifySent).includes('Confirm rejection'));
+        await createNotificationFastifyHandler({ workflow, signingSecret: 'secret' })(
+            { query: { token }, headers: { origin: 'https://app.example' } },
+            fastifyReply,
+        );
+        assert.equal(fastifyStatus, 200);
         const request = { method: 'POST', body: { token }, headers: { origin: 'https://evil.example' } };
         await createNotificationExpressMiddleware({ workflow, signingSecret: 'secret', allowedOrigins: [] })(
             request,
@@ -329,6 +361,31 @@ describe('notification boundary failures', () => {
             (await createNotificationHonoHandler({ workflow, signingSecret: 'secret', authorize: () => false })(c))
                 .status,
             403,
+        );
+        const badJsonReq: any = {
+            header() {},
+            req: {
+                method: 'POST',
+                header: (name: string) => (name === 'content-type' ? 'application/json' : undefined),
+                query() {},
+                json: async () => {
+                    throw new SyntaxError('bad json');
+                },
+            },
+            json: (_: any, code: number) => new Response(null, { status: code }),
+            html: (_: any, code: number) => new Response(null, { status: code }),
+        };
+        assert.equal(
+            (await createNotificationHonoHandler({ workflow, signingSecret: 'secret' })(badJsonReq)).status,
+            400,
+        );
+        assert.equal(
+            (
+                await createNotificationHonoHandler({ workflow, signingSecret: 'secret', responseFormat: 'html' })(
+                    badJsonReq,
+                )
+            ).status,
+            400,
         );
         assert.throws(() => createSmsApprovalReference('invalid prefix'));
         let sent: any;

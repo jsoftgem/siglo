@@ -1,4 +1,4 @@
-import { buildSchema, type GraphQLSchema } from 'graphql';
+import { buildSchema, GraphQLObjectType, type GraphQLSchema, type ValueNode } from 'graphql';
 import type { WorkflowQueryEngine } from '../engine';
 import type { WorkflowGraphQLSchemaOptions } from '../types';
 import { createResolvers } from './resolvers';
@@ -182,7 +182,8 @@ export function createWorkflowGraphQLSchema(
     if (jsonType) {
         const serializeJson = (val: unknown) => GraphQLJSON.serialize(val);
         const parseValueJson = (val: unknown) => GraphQLJSON.parseValue(val);
-        const parseLiteralJson = (ast: any, vars?: any) => GraphQLJSON.parseLiteral(ast, vars);
+        const parseLiteralJson = (ast: ValueNode, vars?: Record<string, unknown> | null) =>
+            GraphQLJSON.parseLiteral(ast, vars);
         Object.assign(jsonType, {
             serialize: serializeJson,
             coerceOutputValue: serializeJson,
@@ -196,7 +197,8 @@ export function createWorkflowGraphQLSchema(
     if (dateTimeType) {
         const serializeDateTime = (val: unknown) => GraphQLDateTime.serialize(val);
         const parseValueDateTime = (val: unknown) => GraphQLDateTime.parseValue(val);
-        const parseLiteralDateTime = (ast: any, vars?: any) => GraphQLDateTime.parseLiteral(ast, vars);
+        const parseLiteralDateTime = (ast: ValueNode, vars?: Record<string, unknown> | null) =>
+            GraphQLDateTime.parseLiteral(ast, vars);
         Object.assign(dateTimeType, {
             serialize: serializeDateTime,
             coerceOutputValue: serializeDateTime,
@@ -209,22 +211,22 @@ export function createWorkflowGraphQLSchema(
     const resolvers = createResolvers(engine, options);
 
     const queryType = schema.getType('Query');
-    if (queryType && 'getFields' in queryType) {
-        const queryFields = (queryType as any).getFields();
+    if (queryType instanceof GraphQLObjectType) {
+        const queryFields = queryType.getFields();
         if (queryFields.workflow) queryFields.workflow.resolve = resolvers.Query.workflow;
         if (queryFields.workflows) queryFields.workflows.resolve = resolvers.Query.workflows;
     }
 
     const mutationType = schema.getType('Mutation');
-    if (mutationType && 'getFields' in mutationType) {
-        const mutationFields = (mutationType as any).getFields();
+    if (mutationType instanceof GraphQLObjectType) {
+        const mutationFields = mutationType.getFields();
         if (mutationFields.resumeWorkflow) mutationFields.resumeWorkflow.resolve = resolvers.Mutation.resumeWorkflow;
         if (mutationFields.cancelWorkflow) mutationFields.cancelWorkflow.resolve = resolvers.Mutation.cancelWorkflow;
     }
 
     const subscriptionType = schema.getType('Subscription');
-    if (subscriptionType && 'getFields' in subscriptionType) {
-        const subFields = (subscriptionType as any).getFields();
+    if (subscriptionType instanceof GraphQLObjectType) {
+        const subFields = subscriptionType.getFields();
         if (subFields.workflowUpdated) {
             subFields.workflowUpdated.subscribe = resolvers.Subscription.workflowUpdated.subscribe;
             subFields.workflowUpdated.resolve = resolvers.Subscription.workflowUpdated.resolve;
@@ -236,8 +238,8 @@ export function createWorkflowGraphQLSchema(
     }
 
     const executionType = schema.getType('WorkflowExecution');
-    if (executionType && 'getFields' in executionType) {
-        const execFields = (executionType as any).getFields();
+    if (executionType instanceof GraphQLObjectType) {
+        const execFields = executionType.getFields();
         if (execFields.status) execFields.status.resolve = resolvers.WorkflowExecution.status;
         if (execFields.context) execFields.context.resolve = resolvers.WorkflowExecution.context;
         if (execFields.steps) execFields.steps.resolve = resolvers.WorkflowExecution.steps;
@@ -246,8 +248,8 @@ export function createWorkflowGraphQLSchema(
     }
 
     const stepType = schema.getType('StepExecution');
-    if (stepType && 'getFields' in stepType) {
-        const stepFields = (stepType as any).getFields();
+    if (stepType instanceof GraphQLObjectType) {
+        const stepFields = stepType.getFields();
         if (stepFields.output) stepFields.output.resolve = resolvers.StepExecution.output;
     }
 

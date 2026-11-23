@@ -1,4 +1,4 @@
-import { Step, ValidationException, ExecutionOptions, resolveDynamic } from '@siglo/core';
+import { Step, ValidationException, ExecutionOptions, resolveDynamic, isPlainObject } from '@siglo/core';
 import { FieldCipherOptions, KeyRing } from '../types';
 import { decryptAESGCM, isEncryptedEnvelope } from './aes-gcm';
 import { isKeyRing } from './key-ring';
@@ -44,7 +44,7 @@ export class DecryptFieldsStep<TInput = any, TName extends string = string> exte
             let hasRekeyNeeded = false;
 
             // 3. Decrypt fields using structural sharing
-            const result = transformFields(ctx, options.fields as any, (val, concretePath) => {
+            const result = transformFields(ctx, options.fields, (val, concretePath) => {
                 if (!isEncryptedEnvelope(val)) {
                     return val;
                 }
@@ -60,7 +60,11 @@ export class DecryptFieldsStep<TInput = any, TName extends string = string> exte
                     activeKid = active instanceof Promise ? undefined : active.kid;
 
                     if (val.kid) {
-                        keyToUse = keyOrRing.getKey(val.kid) as any;
+                        const candidateKey = keyOrRing.getKey(val.kid);
+                        keyToUse =
+                            candidateKey && typeof (candidateKey as PromiseLike<unknown>).then === 'function'
+                                ? undefined
+                                : (candidateKey as string | Buffer | null | undefined);
                         if (!keyToUse) {
                             throw new ValidationException(
                                 [
@@ -99,7 +103,7 @@ export class DecryptFieldsStep<TInput = any, TName extends string = string> exte
                         aad: resolvedAad,
                         deriveKeyContext: resolvedDeriveCtx,
                     });
-                } catch (err: any) {
+                } catch (err: unknown) {
                     throw new ValidationException(
                         [
                             {
@@ -112,8 +116,8 @@ export class DecryptFieldsStep<TInput = any, TName extends string = string> exte
                 }
             });
 
-            if (hasRekeyNeeded && !options.onNeedsRekey && typeof result === 'object' && result !== null) {
-                (result as any).$needsRekey = true;
+            if (hasRekeyNeeded && !options.onNeedsRekey && isPlainObject(result)) {
+                (result as Record<string, unknown>).$needsRekey = true;
             }
 
             return result;

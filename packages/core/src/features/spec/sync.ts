@@ -1,21 +1,21 @@
-import { ExecutionPhase, isObject, isReservedKey, tagErrorPhase } from '../../shared';
+import { assertNever, ExecutionPhase, getErrorMessage, isObject, isReservedKey, tagErrorPhase } from '../../shared';
 import { NetworkPolicyViolationException, ValidationErrorDetail, ValidationException } from '../executer/exceptions';
 
 export type SyncValue<T> = T extends PromiseLike<any> ? never : T;
 
 export type SyncSpecAction = 'default' | 'require' | 'validate' | 'transform' | 'translate' | 'schema';
 
-export interface SyncSpecData {
-    defaultValue?: any;
-    default?: any;
+export interface SyncSpecData<TVal = any, TCtx = Record<string, any>> {
+    defaultValue?: TVal | any;
+    default?: TVal | any;
     require?: boolean | (() => boolean);
     requireMessage?: string;
-    validator?: (currentValue?: any) => SyncValue<any>;
-    validate?: (currentValue?: any) => SyncValue<any>;
-    transformer?: (currentValue?: any) => SyncValue<any>;
-    transform?: (currentValue?: any) => SyncValue<any>;
-    translator?: (currentValue?: any, context?: Record<string, any>) => SyncValue<void>;
-    translate?: (currentValue?: any, context?: Record<string, any>) => SyncValue<void>;
+    validator?(currentValue: TVal): SyncValue<any>;
+    validate?(currentValue: TVal): SyncValue<any>;
+    transformer?(currentValue: TVal): SyncValue<any>;
+    transform?(currentValue: TVal): SyncValue<any>;
+    translator?(currentValue: TVal, context: TCtx): SyncValue<void>;
+    translate?(currentValue: TVal, context: TCtx): SyncValue<void>;
     schema?: any;
 }
 
@@ -218,61 +218,75 @@ export function runSpecsSync(specs: SyncSpec[], input: Record<string, any>, step
 
         for (const action of spec.actions) {
             try {
-                if (action === 'default') {
-                    if (data[field] === undefined) {
-                        data[field] = spec.data.defaultValue;
-                    }
-                } else if (action === 'require') {
-                    const req = spec.data.require;
-                    const isRequired = typeof req === 'function' ? req() : req;
-                    if (isThenable(isRequired)) {
-                        suppressUnhandledRejection(isRequired);
-                        throwAsyncSpecError(field, 'require', stepName);
-                    }
-                    if (isRequired && (data[field] === undefined || data[field] === null || data[field] === '')) {
-                        errors.push({
-                            field,
-                            message: spec.data.requireMessage || `Field ${field} is required.`,
-                        });
-                    }
-                } else if (action === 'validate') {
-                    const validator = spec.data.validator;
-                    if (validator) {
-                        const result = validator(data[field]);
-                        if (isThenable(result)) {
-                            suppressUnhandledRejection(result);
-                            throwAsyncSpecError(field, 'validator', stepName);
+                switch (action) {
+                    case 'default':
+                        if (data[field] === undefined) {
+                            data[field] = spec.data.defaultValue;
                         }
-                        if (result === false) {
+                        break;
+                    case 'require': {
+                        const req = spec.data.require;
+                        const isRequired = typeof req === 'function' ? req() : req;
+                        if (isThenable(isRequired)) {
+                            suppressUnhandledRejection(isRequired);
+                            throwAsyncSpecError(field, 'require', stepName);
+                        }
+                        if (isRequired && (data[field] === undefined || data[field] === null || data[field] === '')) {
                             errors.push({
                                 field,
-                                message: `Validation failed for field "${field}"`,
+                                message: spec.data.requireMessage || `Field ${field} is required.`,
                             });
                         }
+                        break;
                     }
-                } else if (action === 'transform') {
-                    const transformer = spec.data.transformer;
-                    if (transformer && data[field] !== undefined) {
-                        const transformed = transformer(data[field]);
-                        if (isThenable(transformed)) {
-                            suppressUnhandledRejection(transformed);
-                            throwAsyncSpecError(field, 'transformer', stepName);
+                    case 'validate': {
+                        const validator = spec.data.validator;
+                        if (validator) {
+                            const result = validator(data[field]);
+                            if (isThenable(result)) {
+                                suppressUnhandledRejection(result);
+                                throwAsyncSpecError(field, 'validator', stepName);
+                            }
+                            if (result === false) {
+                                errors.push({
+                                    field,
+                                    message: `Validation failed for field "${field}"`,
+                                });
+                            }
                         }
-                        data[field] = transformed;
+                        break;
                     }
-                } else if (action === 'translate') {
-                    const translator = spec.data.translator;
-                    if (translator && data[field] !== undefined) {
-                        const res = translator(data[field], data);
-                        if (isThenable(res)) {
-                            suppressUnhandledRejection(res);
-                            throwAsyncSpecError(field, 'translator', stepName);
+                    case 'transform': {
+                        const transformer = spec.data.transformer;
+                        if (transformer && data[field] !== undefined) {
+                            const transformed = transformer(data[field]);
+                            if (isThenable(transformed)) {
+                                suppressUnhandledRejection(transformed);
+                                throwAsyncSpecError(field, 'transformer', stepName);
+                            }
+                            data[field] = transformed;
                         }
+                        break;
                     }
-                } else if (action === 'schema') {
-                    runSchemaSync(spec, data, errors, stepName);
+                    case 'translate': {
+                        const translator = spec.data.translator;
+                        if (translator && data[field] !== undefined) {
+                            const res = translator(data[field], data);
+                            if (isThenable(res)) {
+                                suppressUnhandledRejection(res);
+                                throwAsyncSpecError(field, 'translator', stepName);
+                            }
+                        }
+                        break;
+                    }
+                    case 'schema':
+                        runSchemaSync(spec, data, errors, stepName);
+                        break;
+                    /* c8 ignore next 2 */
+                    default:
+                        assertNever(action, 'Unsupported sync spec action');
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 if (err instanceof ValidationException) {
                     throw err;
                 }
@@ -283,7 +297,7 @@ export function runSpecsSync(specs: SyncSpec[], input: Record<string, any>, step
                 errors.push({
                     field,
                     error: err,
-                    message: err?.message || String(err),
+                    message: getErrorMessage(err),
                 });
             }
         }

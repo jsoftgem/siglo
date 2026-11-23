@@ -22,7 +22,9 @@ export class InMemoryNotificationDispatchStore implements NotificationDispatchSt
     }
 }
 export class PostgresNotificationDispatchStore implements NotificationDispatchStore {
-    constructor(private client: { query(sql: string, values?: any[]): Promise<{ rows: any[] }> }) {}
+    constructor(
+        private client: { query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }> },
+    ) {}
     async initialize(): Promise<void> {
         await this.client.query(
             'CREATE TABLE IF NOT EXISTS siglo_notification_dispatches (dispatch_key TEXT PRIMARY KEY, intent JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())',
@@ -33,14 +35,14 @@ export class PostgresNotificationDispatchStore implements NotificationDispatchSt
             'SELECT intent FROM siglo_notification_dispatches WHERE dispatch_key = $1',
             [key],
         );
-        if (existing.rows.length) return existing.rows[0].intent;
+        if (existing.rows.length) return existing.rows[0].intent as DispatchIntent;
         const intent = await create();
         const result = await this.client.query(
             `INSERT INTO siglo_notification_dispatches (dispatch_key, intent) VALUES ($1, $2::jsonb)
       ON CONFLICT (dispatch_key) DO UPDATE SET dispatch_key = EXCLUDED.dispatch_key RETURNING intent`,
             [key, JSON.stringify(intent)],
         );
-        return result.rows[0].intent;
+        return result.rows[0].intent as DispatchIntent;
     }
 }
 let store: NotificationDispatchStore = new InMemoryNotificationDispatchStore();

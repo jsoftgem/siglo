@@ -53,7 +53,7 @@ export class EncryptFieldsStep<TInput = any, TName extends string = string> exte
             const resolvedDeriveCtx = resolveDynamic(options.deriveKeyContext, ctx);
 
             // 3. Encrypt target fields using structural sharing
-            const result = transformFields(ctx, options.fields as any, val => {
+            const result = transformFields(ctx, options.fields, val => {
                 if (val !== undefined && val !== null && !isEncryptedEnvelope(val)) {
                     return encryptAESGCM(val, activeKey, {
                         kid: activeKid,

@@ -8,7 +8,15 @@ export interface HonoMonitorOptions {
     store?: WorkflowExecutionStore;
 }
 
-export function honoMonitorMiddleware(options: HonoMonitorOptions = {}) {
+export interface MonitorHonoContextLike {
+    req: { path: string };
+    html(body: string): Response | Promise<Response>;
+    json(body: unknown): Response | Promise<Response>;
+}
+
+export function honoMonitorMiddleware(
+    options: HonoMonitorOptions = {},
+): (c: MonitorHonoContextLike, next: () => Promise<void>) => Promise<Response | void> {
     const store = options.store || new WorkflowExecutionStore();
     const emitter = options.emitter || new WorkflowEventEmitter();
     const sse = new SSEBroadcaster();
@@ -18,7 +26,7 @@ export function honoMonitorMiddleware(options: HonoMonitorOptions = {}) {
         sse.broadcast(event);
     });
 
-    return async (c: any, next: any) => {
+    return async (c, next): Promise<Response | void> => {
         const path = c.req.path;
         if (path === '' || path === '/' || path.endsWith('/dashboard')) {
             return c.html(getDashboardHtml());
@@ -26,6 +34,6 @@ export function honoMonitorMiddleware(options: HonoMonitorOptions = {}) {
         if (path.endsWith('/api/workflows')) {
             return c.json(store.listRuns());
         }
-        await next();
+        return next();
     };
 }

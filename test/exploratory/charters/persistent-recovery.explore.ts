@@ -81,8 +81,10 @@ export async function runPersistentRecoveryCharter(iterations = 3, seed = 1515) 
                     await exited;
                 }
                 const accepted = await adapter.getWaitRecord(key);
+                assert.ok(accepted);
                 assert.equal(accepted.status, 'RESUMING');
-                assert.equal(accepted.resumePayload.approved, true);
+                const acceptedPayload = accepted.resumePayload as { approved?: unknown } | undefined;
+                assert.equal(acceptedPayload?.approved, true);
                 const pollerOptions = {
                     client: pool,
                     waitRecordsTable: tables.waitRecordsTable,
@@ -96,7 +98,8 @@ export async function runPersistentRecoveryCharter(iterations = 3, seed = 1515) 
                     reports.reduce((sum, report) => sum + report.failed, 0),
                     0,
                 );
-                assert.equal((await adapter.getWaitRecord(key)).status, 'RESUMED');
+                const resumedRecord = await adapter.getWaitRecord(key);
+                assert.equal(resumedRecord?.status, 'RESUMED');
                 const storedEffects = await pool.query(`SELECT * FROM ${effects} WHERE request_id=$1`, [key]);
                 assert.equal(storedEffects.rowCount, 1);
                 assert.equal(storedEffects.rows[0].approved, true);

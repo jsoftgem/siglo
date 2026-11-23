@@ -16,8 +16,11 @@ describe('durable acceptance safety', () => {
     const record = {
         stackId: 'safety-stack',
         correlationKey: 'safety-key',
-        status: 'WAITING',
+        eventName: 'safety.event',
+        status: 'waiting' as const,
         continuationStepIndex: 0,
+        stepId: 'safety-step',
+        createdAt: Date.now(),
     };
     it('checks cancellation inside the workflow lock before claiming', async () => {
         let locked = false;
@@ -48,6 +51,7 @@ describe('durable acceptance safety', () => {
             getWaitRecord: async () => ({ ...record, namespace: 'owner' }),
             claimWaitRecord: async () => {
                 claims++;
+                return undefined;
             },
         });
         await assert.rejects(

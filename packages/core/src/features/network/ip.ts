@@ -1,5 +1,6 @@
 import net from 'node:net';
 import dns from 'node:dns/promises';
+import { getErrorMessage } from '../../shared';
 import { EffectiveNetworkPolicy } from './types';
 import { NetworkPolicyViolationException } from '../executer/exceptions';
 
@@ -150,11 +151,12 @@ export function isPrivateOrRestrictedIP(ip: string, allowLocalhost: boolean = fa
 
 /**
  * Validates target host via pre-flight DNS lookup against private and link-local ranges.
- * Throws NetworkPolicyViolationException if any resolved IP violates the perimeter.\n */
+ * Throws NetworkPolicyViolationException if any resolved IP violates the perimeter.
+ */
 export async function validateAndPinTarget(
     targetUrl: URL,
     policy: EffectiveNetworkPolicy,
-    dnsLookupFn?: (host: string, opts: any) => Promise<Array<{ address: string; family: number }>>,
+    dnsLookupFn?: (host: string, opts: { all: true }) => Promise<Array<{ address: string; family: number }>>,
 ): Promise<string[]> {
     const rawHostname = targetUrl.hostname;
     const directIP = normalizeIP(rawHostname);
@@ -189,14 +191,14 @@ export async function validateAndPinTarget(
         } else {
             addresses = await dns.lookup(rawHostname, { all: true });
         }
-    } catch (err: any) {
+    } catch (err: unknown) {
         // DNS lookup failure
         throw new NetworkPolicyViolationException(
             policy.stepName || 'flow',
             targetUrl.href,
             targetUrl.host,
             policy.allowedHosts || [],
-            { reason: `DNS lookup failed for ${rawHostname}: ${err.message}` } as any,
+            { reason: `DNS lookup failed for ${rawHostname}: ${getErrorMessage(err)}` },
         );
     }
 
@@ -216,7 +218,7 @@ export async function validateAndPinTarget(
                     targetUrl.href,
                     targetUrl.host,
                     policy.allowedHosts || [],
-                    { reason: `Target host '${rawHostname}' resolved to restricted IP: ${addr.address}` } as any,
+                    { reason: `Target host '${rawHostname}' resolved to restricted IP: ${addr.address}` },
                 );
             }
         }

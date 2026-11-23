@@ -5,8 +5,21 @@ import {
     DuplicateEventException,
     WorkflowAlreadyResumedException,
     WorkflowSuspendedException,
+    Flow,
+    isPlainObject,
 } from '@siglo/core';
 import { PostgresPollerOptions, PollerReport, WaitRecord } from './types';
+
+function parseJsonSafe(raw: unknown): unknown {
+    if (typeof raw !== 'string') {
+        return raw;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return undefined;
+    }
+}
 
 function validateIdentifier(name: string, label: string): string {
     if (!name || typeof name !== 'string') {
@@ -122,7 +135,7 @@ export class PostgresWaitPoller {
                 continuationStepIndex:
                     row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
                 version: row.version,
-                data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+                data: parseJsonSafe(row.data),
                 lockedAt: row.locked_at ? new Date(row.locked_at) : undefined,
                 lockedBy: row.locked_by,
                 resumedAt: row.resumed_at ? new Date(row.resumed_at) : undefined,
@@ -131,12 +144,12 @@ export class PostgresWaitPoller {
             };
 
             try {
-                let targetFlow: any;
+                let targetFlow: Flow<any, any> | undefined;
                 if (this.flowLookup) {
                     targetFlow = this.flowLookup(record.version, record.stackId);
                 }
 
-                let result: any;
+                let result: unknown;
                 if (targetFlow) {
                     if (
                         !defaultDurableManager.getWaitingByStack(record.stackId) &&
@@ -160,14 +173,15 @@ export class PostgresWaitPoller {
                         });
                     }
 
-                    const savedEvent =
-                        typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload;
+                    const parsedSavedEvent = parseJsonSafe(row.resume_payload);
+                    const savedEvent = isPlainObject(parsedSavedEvent) ? parsedSavedEvent : undefined;
+                    const recordData = isPlainObject(record.data) ? record.data : {};
                     try {
                         result = await resumeWorkflow(
                             targetFlow,
                             record.correlationKey,
                             savedEvent ?? {
-                                ...record.data,
+                                ...recordData,
                                 event: { type: 'timer:expired', timestamp: Date.now() },
                             },
                             { allowExpired: !savedEvent, stackId: this.workerId },
@@ -183,7 +197,7 @@ export class PostgresWaitPoller {
                     await this.onResumed(record, result);
                 }
                 report.resumed++;
-            } catch (err: any) {
+            } catch (err: unknown) {
                 if (err instanceof DuplicateEventException || err instanceof WorkflowAlreadyResumedException) continue;
                 // Leave accepted decisions recoverable; never turn them into timer events.
                 if (this.onFailed) {

@@ -107,19 +107,32 @@ var require_protocol = __commonJS({
       };
     }
     function isJsonRpcRequest(msg) {
-      if (typeof msg !== "object" || msg === null)
+      if (typeof msg !== "object" || msg === null || Array.isArray(msg))
         return false;
       const m = msg;
-      return m.jsonrpc === "2.0" && (typeof m.id === "string" || typeof m.id === "number") && typeof m.method === "string";
+      return m.jsonrpc === "2.0" && (typeof m.id === "string" || typeof m.id === "number" && Number.isFinite(m.id)) && typeof m.method === "string";
     }
     function isJsonRpcResponse(msg) {
-      if (typeof msg !== "object" || msg === null)
+      if (typeof msg !== "object" || msg === null || Array.isArray(msg))
         return false;
       const m = msg;
-      return m.jsonrpc === "2.0" && ("result" in m || "error" in m);
+      if (m.jsonrpc !== "2.0")
+        return false;
+      const validId = m.id === null || typeof m.id === "string" || typeof m.id === "number" && Number.isFinite(m.id);
+      if (!validId)
+        return false;
+      if ("error" in m && m.error !== void 0) {
+        if (typeof m.error !== "object" || m.error === null || Array.isArray(m.error))
+          return false;
+        const err = m.error;
+        if (typeof err.code !== "number" || typeof err.message !== "string")
+          return false;
+        return true;
+      }
+      return "result" in m;
     }
     function isJsonRpcNotification(msg) {
-      if (typeof msg !== "object" || msg === null)
+      if (typeof msg !== "object" || msg === null || Array.isArray(msg))
         return false;
       const m = msg;
       return m.jsonrpc === "2.0" && typeof m.method === "string" && !("id" in m);
@@ -167,6 +180,9 @@ var require_telemetry = __commonJS({
     ]);
     var ALLOWED_TOKEN_STATUSES = /* @__PURE__ */ new Set(["issued", "unavailable"]);
     var ALLOWED_AI_PHASES = /* @__PURE__ */ new Set(["attempt", "completion", "preflight"]);
+    function isPlainRecord2(val) {
+      return typeof val === "object" && val !== null && !Array.isArray(val);
+    }
     function sanitizeOriginUrl2(rawUrl) {
       if (!rawUrl || typeof rawUrl !== "string")
         return void 0;
@@ -188,134 +204,143 @@ var require_telemetry = __commonJS({
       return `curl -X ${cleanMethod} ${origin}`;
     }
     function sanitizeTelemetryInspection(val) {
-      if (!val || typeof val !== "object" || val.version !== 1)
+      if (!isPlainRecord2(val) || val.version !== 1)
         return void 0;
       if (val.outcome !== "success" && val.outcome !== "failure")
         return void 0;
       const kind = val.kind;
-      if (!["http", "crypto", "notification", "ai"].includes(kind))
-        return void 0;
-      const clean = {
+      const base = {
         version: 1,
-        kind,
         outcome: val.outcome
       };
       if (typeof val.durationMs === "number" && Number.isFinite(val.durationMs) && val.durationMs >= 0) {
-        clean.durationMs = val.durationMs;
+        base.durationMs = val.durationMs;
       }
       if (val.truncated === true) {
-        clean.truncated = true;
+        base.truncated = true;
       }
       if (kind === "http") {
+        const http = { kind: "http" };
         if (typeof val.method === "string" && ALLOWED_HTTP_METHODS.has(val.method.toUpperCase())) {
-          clean.method = val.method.toUpperCase();
+          http.method = val.method.toUpperCase();
         }
-        const origin = sanitizeOriginUrl2(val.url);
+        const origin = typeof val.url === "string" ? sanitizeOriginUrl2(val.url) : void 0;
         if (origin) {
-          clean.url = origin;
+          http.url = origin;
         }
         if (typeof val.status === "number" && Number.isInteger(val.status) && val.status >= 100 && val.status <= 599) {
-          clean.status = val.status;
+          http.status = val.status;
         }
         if (typeof val.retryAttempts === "number" && Number.isInteger(val.retryAttempts) && val.retryAttempts >= 0) {
-          clean.retryAttempts = val.retryAttempts;
+          http.retryAttempts = val.retryAttempts;
         }
         if (typeof val.requestAttempt === "number" && Number.isInteger(val.requestAttempt) && val.requestAttempt >= 0) {
-          clean.requestAttempt = val.requestAttempt;
+          http.requestAttempt = val.requestAttempt;
         }
         if (typeof val.retryDelayMs === "number" && Number.isFinite(val.retryDelayMs) && val.retryDelayMs >= 0) {
-          clean.retryDelayMs = val.retryDelayMs;
+          http.retryDelayMs = val.retryDelayMs;
         }
         if (typeof val.retryAfterMs === "number" && Number.isFinite(val.retryAfterMs) && val.retryAfterMs >= 0) {
-          clean.retryAfterMs = val.retryAfterMs;
+          http.retryAfterMs = val.retryAfterMs;
         }
         if (typeof val.retryDelaySource === "string" && ALLOWED_RETRY_SOURCES.has(val.retryDelaySource)) {
-          clean.retryDelaySource = val.retryDelaySource;
+          http.retryDelaySource = val.retryDelaySource;
         }
         if (typeof val.traceId === "string") {
-          clean.traceId = val.traceId.slice(0, 128);
+          http.traceId = val.traceId.slice(0, 128);
         }
         if (typeof val.policy === "string" && ALLOWED_HTTP_POLICIES.has(val.policy)) {
-          clean.policy = val.policy;
+          http.policy = val.policy;
         }
-      } else if (kind === "crypto") {
+        return { ...base, ...http };
+      }
+      if (kind === "crypto") {
+        const crypto = { kind: "crypto" };
         if (typeof val.provider === "string") {
-          clean.provider = val.provider.slice(0, 64);
+          crypto.provider = val.provider.slice(0, 64);
         }
         if (typeof val.payloadBytes === "number" && Number.isInteger(val.payloadBytes) && val.payloadBytes >= 0) {
-          clean.payloadBytes = val.payloadBytes;
+          crypto.payloadBytes = val.payloadBytes;
         }
         if (typeof val.category === "string" && ALLOWED_CRYPTO_CATEGORIES.has(val.category)) {
-          clean.category = val.category;
+          crypto.category = val.category;
         }
         if (typeof val.timestampCheck === "string" && ALLOWED_CHECKS.has(val.timestampCheck)) {
-          clean.timestampCheck = val.timestampCheck;
+          crypto.timestampCheck = val.timestampCheck;
         }
         if (typeof val.replayCheck === "string" && ALLOWED_CHECKS.has(val.replayCheck)) {
-          clean.replayCheck = val.replayCheck;
+          crypto.replayCheck = val.replayCheck;
         }
-      } else if (kind === "notification") {
+        return { ...base, ...crypto };
+      }
+      if (kind === "notification") {
+        const notification = { kind: "notification" };
         if (typeof val.channel === "string" && ALLOWED_NOTIFICATION_CHANNELS.has(val.channel)) {
-          clean.channel = val.channel;
+          notification.channel = val.channel;
         }
         if (typeof val.notificationId === "string") {
-          clean.notificationId = val.notificationId.slice(0, 128);
+          notification.notificationId = val.notificationId.slice(0, 128);
         }
         if (typeof val.approval === "boolean") {
-          clean.approval = val.approval;
+          notification.approval = val.approval;
         }
         if (typeof val.approvalExpiresAt === "number" && Number.isFinite(val.approvalExpiresAt)) {
-          clean.approvalExpiresAt = val.approvalExpiresAt;
+          notification.approvalExpiresAt = val.approvalExpiresAt;
         }
         if (typeof val.approvalState === "string" && ALLOWED_APPROVAL_STATES.has(val.approvalState)) {
-          clean.approvalState = val.approvalState;
+          notification.approvalState = val.approvalState;
         }
         if (typeof val.tokenStatus === "string" && ALLOWED_TOKEN_STATUSES.has(val.tokenStatus)) {
-          clean.tokenStatus = val.tokenStatus;
+          notification.tokenStatus = val.tokenStatus;
         }
-        if (val.contentPreview && typeof val.contentPreview === "object") {
-          clean.contentPreview = {
-            ...typeof val.contentPreview.subject === "string" ? { subject: val.contentPreview.subject.slice(0, 128) } : {},
-            ...typeof val.contentPreview.bodySnippet === "string" ? { bodySnippet: val.contentPreview.bodySnippet.slice(0, 256) } : {},
-            ...typeof val.contentPreview.recipientMasked === "string" ? { recipientMasked: val.contentPreview.recipientMasked.slice(0, 64) } : {}
+        if (isPlainRecord2(val.contentPreview)) {
+          const preview = val.contentPreview;
+          notification.contentPreview = {
+            ...typeof preview.subject === "string" ? { subject: preview.subject.slice(0, 128) } : {},
+            ...typeof preview.bodySnippet === "string" ? { bodySnippet: preview.bodySnippet.slice(0, 256) } : {},
+            ...typeof preview.recipientMasked === "string" ? { recipientMasked: preview.recipientMasked.slice(0, 64) } : {}
           };
         }
-      } else if (kind === "ai") {
+        return { ...base, ...notification };
+      }
+      if (kind === "ai") {
+        const ai = { kind: "ai" };
         if (typeof val.provider === "string") {
-          clean.provider = val.provider.slice(0, 64);
+          ai.provider = val.provider.slice(0, 64);
         }
         if (typeof val.model === "string") {
-          clean.model = val.model.slice(0, 128);
+          ai.model = val.model.slice(0, 128);
         }
         if (typeof val.inferenceAttempt === "number" && Number.isInteger(val.inferenceAttempt)) {
-          clean.inferenceAttempt = val.inferenceAttempt;
+          ai.inferenceAttempt = val.inferenceAttempt;
         }
         if (typeof val.phase === "string" && ALLOWED_AI_PHASES.has(val.phase)) {
-          clean.phase = val.phase;
+          ai.phase = val.phase;
         }
         if (typeof val.promptTokens === "number" && Number.isInteger(val.promptTokens) && val.promptTokens >= 0) {
-          clean.promptTokens = val.promptTokens;
+          ai.promptTokens = val.promptTokens;
         }
         if (typeof val.completionTokens === "number" && Number.isInteger(val.completionTokens) && val.completionTokens >= 0) {
-          clean.completionTokens = val.completionTokens;
+          ai.completionTokens = val.completionTokens;
         }
         if (typeof val.totalTokens === "number" && Number.isInteger(val.totalTokens) && val.totalTokens >= 0) {
-          clean.totalTokens = val.totalTokens;
+          ai.totalTokens = val.totalTokens;
         }
         if (typeof val.estimatedCostUsd === "number" && Number.isFinite(val.estimatedCostUsd) && val.estimatedCostUsd >= 0) {
-          clean.estimatedCostUsd = val.estimatedCostUsd;
+          ai.estimatedCostUsd = val.estimatedCostUsd;
         }
         if (typeof val.repairAttempts === "number" && Number.isInteger(val.repairAttempts) && val.repairAttempts >= 0) {
-          clean.repairAttempts = val.repairAttempts;
+          ai.repairAttempts = val.repairAttempts;
         }
         if (typeof val.fallbackCount === "number" && Number.isInteger(val.fallbackCount) && val.fallbackCount >= 0) {
-          clean.fallbackCount = val.fallbackCount;
+          ai.fallbackCount = val.fallbackCount;
         }
+        return { ...base, ...ai };
       }
-      return clean;
+      return void 0;
     }
     function sanitizeTelemetryEnvelope(val) {
-      if (!val || typeof val !== "object" || val.version !== 1)
+      if (!isPlainRecord2(val) || val.version !== 1)
         return void 0;
       if (typeof val.workflowName !== "string" || !val.workflowName.trim())
         return void 0;
@@ -324,13 +349,15 @@ var require_telemetry = __commonJS({
       const cleanInspection = sanitizeTelemetryInspection(val.inspection);
       if (!cleanInspection)
         return void 0;
+      const workflowVersion = typeof val.workflowVersion === "string" || typeof val.workflowVersion === "number" && Number.isFinite(val.workflowVersion) ? val.workflowVersion : void 0;
+      const timestamp = typeof val.timestamp === "string" || typeof val.timestamp === "number" && Number.isFinite(val.timestamp) ? val.timestamp : void 0;
       return {
         version: 1,
         workflowName: val.workflowName.trim(),
-        ...val.workflowVersion !== void 0 ? { workflowVersion: val.workflowVersion } : {},
+        ...workflowVersion !== void 0 ? { workflowVersion } : {},
         stepIdentity: val.stepIdentity.trim(),
-        ...typeof val.attempt === "number" && val.attempt >= 0 ? { attempt: val.attempt } : {},
-        ...val.timestamp !== void 0 ? { timestamp: val.timestamp } : {},
+        ...typeof val.attempt === "number" && Number.isFinite(val.attempt) && val.attempt >= 0 ? { attempt: val.attempt } : {},
+        ...timestamp !== void 0 ? { timestamp } : {},
         inspection: cleanInspection
       };
     }
@@ -211699,6 +211726,12 @@ function parseWorkflowFile(options) {
 }
 
 // packages/ide-analysis/src/execution.ts
+function isPlainRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isErrnoWithCode(error, code) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
+}
 function prepareExecution(message) {
   const file = (0, import_node_url.fileURLToPath)(message.document.uri);
   if (message.uri !== message.document.uri || message.documentVersion !== message.document.documentVersion)
@@ -211714,14 +211747,31 @@ function prepareExecution(message) {
   const selected = (0, import_ide_protocol2.executionRange)(saved.nodes, saved.edges, message.nodeIds);
   const cwd = message.cwd || (0, import_node_path.dirname)(file);
   let settings = {};
+  let parsedConfig;
+  let hasConfig = false;
   try {
-    settings = JSON.parse((0, import_node_fs.readFileSync)((0, import_node_path.resolve)(cwd, ".siglo/run.json"), "utf8"));
+    parsedConfig = JSON.parse((0, import_node_fs.readFileSync)((0, import_node_path.resolve)(cwd, ".siglo/run.json"), "utf8"));
+    hasConfig = true;
   } catch (error) {
-    if (error.code !== "ENOENT")
-      throw new Error("Invalid .siglo/run.json configuration.");
+    if (!isErrnoWithCode(error, "ENOENT")) throw new Error("Invalid .siglo/run.json configuration.");
   }
-  if (settings.env && Object.values(settings.env).some((value) => typeof value !== "string"))
-    throw new Error("Run environment values must be strings.");
+  if (hasConfig) {
+    if (!isPlainRecord(parsedConfig)) throw new Error("Invalid .siglo/run.json configuration.");
+    if (parsedConfig.cwd !== void 0 && typeof parsedConfig.cwd !== "string")
+      throw new Error("Invalid .siglo/run.json configuration.");
+    if (parsedConfig.setupModule !== void 0 && typeof parsedConfig.setupModule !== "string")
+      throw new Error("Invalid .siglo/run.json configuration.");
+    let env;
+    if (parsedConfig.env !== void 0) {
+      if (!isPlainRecord(parsedConfig.env)) throw new Error("Invalid .siglo/run.json configuration.");
+      if (Object.values(parsedConfig.env).some((value) => typeof value !== "string"))
+        throw new Error("Run environment values must be strings.");
+      env = parsedConfig.env;
+    }
+    settings = { cwd: parsedConfig.cwd, setupModule: parsedConfig.setupModule, env };
+  }
+  const entryTarget = selected[0]?.executionTarget;
+  if (!entryTarget) throw new Error("Selection is not independently executable.");
   return {
     runId: message.runId,
     file,
@@ -211729,9 +211779,9 @@ function prepareExecution(message) {
     cwd: (0, import_node_path.resolve)(cwd, settings.cwd || "."),
     setupModule: settings.setupModule,
     env: settings.env,
-    exportName: selected[0].executionTarget.exportName,
-    signature: saved.nodes.filter((n) => n.executionTarget).sort((a, b) => a.executionTarget.stepIndex - b.executionTarget.stepIndex).map((n) => n.name),
-    targets: selected.map((n) => ({ id: n.id, index: n.executionTarget.stepIndex }))
+    exportName: entryTarget.exportName,
+    signature: saved.nodes.flatMap((n) => n.executionTarget ? [{ name: n.name, stepIndex: n.executionTarget.stepIndex }] : []).sort((a, b) => a.stepIndex - b.stepIndex).map((n) => n.name),
+    targets: selected.map((n) => ({ id: n.id, index: n.executionTarget?.stepIndex ?? entryTarget.stepIndex }))
   };
 }
 // Annotate the CommonJS export names for ESM import in node:

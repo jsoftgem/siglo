@@ -1,9 +1,25 @@
 import { rawCheckpoints, rawOutputs } from './backing';
+import { isPlainObject } from '@siglo/core';
 import type { GraphQLResolveInfo } from 'graphql';
 import type { WorkflowQueryEngine } from '../engine';
 import { getWorkflowSelectionFlags } from './projection';
 import type { WorkflowSubscriptionManager } from './subscriptions';
-import type { StepExecution, WorkflowExecution, WorkflowFilterInput, WorkflowSortInput } from '../types';
+import type {
+    StepExecution,
+    WorkflowExecution,
+    WorkflowFilterInput,
+    WorkflowSortInput,
+    WorkflowStatus,
+} from '../types';
+
+const VALID_WORKFLOW_STATUSES = new Set<WorkflowStatus>(['running', 'completed', 'failed', 'waiting', 'cancelled']);
+
+function parseFilterStatus(status?: string): WorkflowStatus | undefined {
+    if (!status) return undefined;
+    const normalized = status.toLowerCase();
+    if (VALID_WORKFLOW_STATUSES.has(normalized as WorkflowStatus)) return normalized as WorkflowStatus;
+    throw new Error(`Invalid workflow status: ${status}`);
+}
 
 export interface WorkflowGraphQLContext {
     namespace?: string;
@@ -100,7 +116,7 @@ export function createResolvers(
                 const filter: WorkflowFilterInput = {
                     ...args.filter,
                     namespace,
-                    status: args.filter?.status ? (args.filter.status.toLowerCase() as any) : undefined,
+                    status: parseFilterStatus(args.filter?.status),
                 };
                 const sort: WorkflowSortInput | undefined = args.sort
                     ? {
@@ -162,8 +178,8 @@ export function createResolvers(
                         context?.subscriptionManager ?? options?.subscriptionManager ?? engine.getSubscriptionManager();
                     return manager.subscribeWorkflowUpdated(args.stackId, namespace);
                 },
-                resolve(payload: any) {
-                    return payload?.workflowUpdated ?? payload;
+                resolve(payload: unknown) {
+                    return isPlainObject(payload) && 'workflowUpdated' in payload ? payload.workflowUpdated : payload;
                 },
             },
 
@@ -174,8 +190,10 @@ export function createResolvers(
                         context?.subscriptionManager ?? options?.subscriptionManager ?? engine.getSubscriptionManager();
                     return manager.subscribeWorkflowCompleted(namespace);
                 },
-                resolve(payload: any) {
-                    return payload?.workflowCompleted ?? payload;
+                resolve(payload: unknown) {
+                    return isPlainObject(payload) && 'workflowCompleted' in payload
+                        ? payload.workflowCompleted
+                        : payload;
                 },
             },
         },

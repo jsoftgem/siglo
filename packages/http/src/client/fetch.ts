@@ -8,8 +8,9 @@ import {
     SigloError,
     StepTimeoutException,
     CancellationException,
+    getErrorMessage,
+    isPlainObject,
 } from '@siglo/core';
-import { Span } from '@opentelemetry/api';
 import { HttpMethod, HttpMetadata } from '../types';
 import {
     parseRetryAfter,
@@ -23,8 +24,14 @@ import {
     recordRequestSpanAttributes,
     recordResponseSpanAttributes,
     getActiveTraceId,
+    type SpanLike,
 } from './trace';
 import { extractHostInfo } from '../policy/asl-bridge';
+
+type SigloHttpError = SigloError & {
+    status?: number;
+    httpMetadata?: HttpMetadata;
+};
 
 export interface ExecuteHttpRequestOptions {
     capture?: InspectionCapturePolicy;
@@ -40,8 +47,8 @@ export interface ExecuteHttpRequestOptions {
     allowNotFound?: boolean;
     timeout?: DurationInput;
     timeoutMs?: DurationInput;
-    signal?: any;
-    span?: Span;
+    signal?: unknown;
+    span?: SpanLike;
     clock?: { now(): number };
     sleep?: (ms: number) => Promise<void>;
     customFetch?: typeof globalThis.fetch;
@@ -56,25 +63,31 @@ export interface HttpResponseResult<T = any> {
 /**
  * Resolves an AbortSignal from a candidate which could be an AbortSignal or a Siglo getter function.
  */
-export function resolveAbortSignal(candidate: any): AbortSignal | undefined {
+function isAbortSignalLike(val: unknown): val is AbortSignal {
+    return (
+        val !== null &&
+        typeof val === 'object' &&
+        (val instanceof AbortSignal || typeof (val as { addEventListener?: unknown }).addEventListener === 'function')
+    );
+}
+
+export function resolveAbortSignal(candidate: unknown): AbortSignal | undefined {
     if (!candidate) return undefined;
     if (typeof candidate === 'function') {
         try {
-            const res = candidate();
-            if (res && (res instanceof AbortSignal || typeof res.addEventListener === 'function')) {
+            const res = (candidate as () => unknown)();
+            if (isAbortSignalLike(res)) {
                 return res;
             }
         } catch {
             // Ignore getter call error
         }
-        if (
-            candidate.val &&
-            (candidate.val instanceof AbortSignal || typeof candidate.val.addEventListener === 'function')
-        ) {
-            return candidate.val;
+        const valProp = (candidate as { val?: unknown }).val;
+        if (isAbortSignalLike(valProp)) {
+            return valProp;
         }
     }
-    if (candidate instanceof AbortSignal || typeof candidate.addEventListener === 'function') {
+    if (isAbortSignalLike(candidate)) {
         return candidate;
     }
     return undefined;
@@ -177,7 +190,7 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
     const headers: Record<string, string> = { ...rawHeaders };
 
     // Set default Content-Type for JSON body if not present
-    let requestBody: any = undefined;
+    let requestBody: BodyInit | undefined = undefined;
     if (body !== undefined && body !== null && normalizedMethod !== 'GET' && normalizedMethod !== 'HEAD') {
         const hasContentType = Object.keys(headers).some(k => k.toLowerCase() === 'content-type');
         if (typeof body === 'object' && !(body instanceof ArrayBuffer) && !(body instanceof Uint8Array)) {
@@ -185,8 +198,15 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
                 headers['Content-Type'] = 'application/json';
             }
             requestBody = JSON.stringify(body);
+        } else if (
+            typeof body === 'string' ||
+            body instanceof ArrayBuffer ||
+            body instanceof Uint8Array ||
+            (typeof Blob !== 'undefined' && body instanceof Blob)
+        ) {
+            requestBody = body as BodyInit;
         } else {
-            requestBody = body;
+            requestBody = String(body);
         }
     }
 
@@ -237,7 +257,7 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
         };
         // Setup cooperative AbortController combining externalSignal and step timeout
         const controller = new AbortController();
-        let timeoutId: any = undefined;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
         let timedOut = false;
 
         if (timeoutMs && timeoutMs > 0) {
@@ -301,7 +321,7 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
             if (response.status === 404 && allowNotFound) {
                 inspectAttempt(response.status);
                 return {
-                    data: null as any,
+                    data: null as unknown as T,
                     notFound: true,
                     metadata,
                 };
@@ -335,9 +355,9 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
                         status: response.status,
                         metadata: { httpMetadata: metadata },
                     },
-                );
-                (error as any).status = response.status;
-                (error as any).httpMetadata = metadata;
+                ) as SigloHttpError;
+                error.status = response.status;
+                error.httpMetadata = metadata;
                 throw error;
             }
 
@@ -355,14 +375,14 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
                         status: response.status,
                         metadata: { httpMetadata: metadata },
                     },
-                );
-                (error as any).status = response.status;
-                (error as any).httpMetadata = metadata;
+                ) as SigloHttpError;
+                error.status = response.status;
+                error.httpMetadata = metadata;
                 throw error;
             }
 
             // Parse successful response body
-            let parsedData: any;
+            let parsedData: unknown;
             if (response.status === 204) {
                 parsedData = null;
             } else if (responseType === 'text') {
@@ -381,16 +401,24 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
             Object.assign(content, captureInspection(options.capture, 'responseBody', parsedData));
             inspectAttempt(response.status, undefined, retryAfterMs);
             return {
-                data: parsedData,
+                data: parsedData as T,
                 metadata,
             };
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const errObj =
+                isPlainObject(err) || err instanceof Error
+                    ? (err as { name?: unknown; message?: unknown; code?: unknown })
+                    : undefined;
+            const errName = typeof errObj?.name === 'string' ? errObj.name : undefined;
+            const errRawMsg = typeof errObj?.message === 'string' ? errObj.message : undefined;
+            const errCode = typeof errObj?.code === 'string' ? errObj.code : undefined;
+            const errMessage = getErrorMessage(err);
             const transportRetryDelay =
                 !responseObserved &&
                 !timedOut &&
                 !externalSignal?.aborted &&
-                err?.name !== 'AbortError' &&
-                !err?.message?.includes('aborted') &&
+                errName !== 'AbortError' &&
+                !errRawMsg?.includes('aborted') &&
                 !(err instanceof SigloError) &&
                 isTransientNetworkError(err) &&
                 retryAttempts < maxRetries
@@ -417,8 +445,8 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
                 });
             }
 
-            if (err?.name === 'AbortError' || err?.message?.includes('aborted') || externalSignal?.aborted) {
-                throw new CancellationException(err?.message || 'HTTP request aborted', {
+            if (errName === 'AbortError' || errRawMsg?.includes('aborted') || externalSignal?.aborted) {
+                throw new CancellationException(errRawMsg || 'HTTP request aborted', {
                     stepName,
                     phase: 'action',
                     cause: err,
@@ -442,7 +470,7 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
             const durationMs = nowFn() - startTime;
             const metadata: HttpMetadata = {
                 status: 0,
-                statusText: err?.code || 'FETCH_ERROR',
+                statusText: errCode || 'FETCH_ERROR',
                 durationMs,
                 url: finalUrl,
                 method: normalizedMethod,
@@ -452,14 +480,14 @@ export async function executeHttpRequest<T = any>(options: ExecuteHttpRequestOpt
                 cUrl,
             };
 
-            const error = new SigloError(`HTTP request failed to ${finalUrl}: ${err?.message || err}`, {
+            const error = new SigloError(`HTTP request failed to ${finalUrl}: ${errMessage}`, {
                 stepName,
                 phase: 'action',
                 retryable: isTransientNetworkError(err),
                 cause: err,
                 metadata: { httpMetadata: metadata },
-            });
-            (error as any).httpMetadata = metadata;
+            }) as SigloHttpError;
+            error.httpMetadata = metadata;
             throw error;
         }
     }

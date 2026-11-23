@@ -1,4 +1,4 @@
-import type { GraphDocument, GraphNode, TelemetryRecordingDocument } from '@siglo/ide-protocol';
+import type { GraphDocument, GraphNode, RunEvent, SourceRange, TelemetryRecordingDocument } from '@siglo/ide-protocol';
 
 interface VsCodeApi {
     postMessage: (msg: unknown) => void;
@@ -15,19 +15,67 @@ declare global {
         }) => void;
         acquireVsCodeApi?: () => VsCodeApi;
         __SIGLO_BRIDGE__?: {
-            dispatch: (msg: any) => void;
+            dispatch: (msg: unknown) => void;
         };
     }
 }
 
 export type HostMessage =
-    | import('@siglo/ide-protocol').RunEvent
+    | RunEvent
     | { type: 'setGraph'; document: GraphDocument }
     | { type: 'setStatus'; message: string | null; level?: 'info' | 'warning' | 'error' }
     | { type: 'selectNode'; nodeId: string }
     | { type: 'clearSelection' }
     | { type: 'setTelemetry'; document: TelemetryRecordingDocument | null }
     | { type: 'clearTelemetry' };
+
+export type OutgoingMessage =
+    | { type: 'ready' }
+    | { type: 'reload' }
+    | { type: 'setAutoReload'; enabled: boolean }
+    | { type: 'importTelemetry' }
+    | {
+          type: 'nodeSelected';
+          nodeId: string;
+          location: SourceRange;
+          name: string;
+          stepKind: GraphNode['stepKind'];
+      }
+    | { type: 'workflowSelected'; workflowName: string }
+    | { type: 'openRelatedFile'; uri: string }
+    | {
+          type: 'runSteps';
+          runId: string;
+          uri: string;
+          documentVersion: number;
+          workflowName: string;
+          nodeIds: string[];
+          input: unknown;
+      }
+    | { type: 'cancelRun'; runId?: string }
+    | { type: 'copyRunOutput'; text: string };
+
+function isHostMessage(msg: unknown): msg is HostMessage {
+    if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return false;
+    const record = msg as Record<string, unknown>;
+    switch (record.type) {
+        case 'runEvent':
+            return typeof record.runId === 'string' && typeof record.status === 'string';
+        case 'setGraph':
+            return typeof record.document === 'object' && record.document !== null;
+        case 'setStatus':
+            return record.message === null || typeof record.message === 'string';
+        case 'selectNode':
+            return typeof record.nodeId === 'string';
+        case 'setTelemetry':
+            return record.document === null || (typeof record.document === 'object' && record.document !== null);
+        case 'clearSelection':
+        case 'clearTelemetry':
+            return true;
+        default:
+            return false;
+    }
+}
 
 type MessageHandler = (msg: HostMessage) => void;
 
@@ -47,10 +95,12 @@ class IdeBridge {
 
         // Setup the receiver function for Kotlin JBCefBrowser executeJavaScript
         window.__SIGLO_BRIDGE__ = {
-            dispatch: (msg: any) => {
+            dispatch: (msg: unknown) => {
                 try {
-                    const parsed = typeof msg === 'string' ? JSON.parse(msg) : msg;
-                    this.notifyHandlers(parsed);
+                    const parsed: unknown = typeof msg === 'string' ? JSON.parse(msg) : msg;
+                    if (isHostMessage(parsed)) {
+                        this.notifyHandlers(parsed);
+                    }
                 } catch (err) {
                     console.error('[Siglo Bridge] Failed to parse message from host:', err);
                 }
@@ -59,7 +109,7 @@ class IdeBridge {
 
         // Also listen to window.message for VS Code webview or iframe contexts
         window.addEventListener('message', event => {
-            if (event.data && typeof event.data === 'object' && event.data.type) {
+            if (isHostMessage(event.data)) {
                 this.notifyHandlers(event.data);
             }
         });
@@ -70,7 +120,7 @@ class IdeBridge {
         return () => this.handlers.delete(handler);
     }
 
-    private notifyHandlers(msg: HostMessage) {
+    private notifyHandlers(msg: HostMessage): void {
         for (const h of this.handlers) {
             try {
                 h(msg);
@@ -80,7 +130,7 @@ class IdeBridge {
         }
     }
 
-    public sendToHost(payload: Record<string, unknown>): Promise<string | void> {
+    public sendToHost(payload: OutgoingMessage): Promise<string | void> {
         const raw = JSON.stringify(payload);
         return new Promise((resolve, reject) => {
             if (typeof window.cefQuery === 'function') {
@@ -100,8 +150,8 @@ class IdeBridge {
         });
     }
 
-    public notifyNodeSelected(node: GraphNode) {
-        this.sendToHost({
+    public notifyNodeSelected(node: GraphNode): void {
+        void this.sendToHost({
             type: 'nodeSelected',
             nodeId: node.id,
             location: node.location,
@@ -110,22 +160,22 @@ class IdeBridge {
         });
     }
 
-    public notifyWorkflowSelected(workflowName: string) {
-        this.sendToHost({
+    public notifyWorkflowSelected(workflowName: string): void {
+        void this.sendToHost({
             type: 'workflowSelected',
             workflowName,
         });
     }
 
-    public notifyOpenRelatedFile(uri: string) {
-        this.sendToHost({
+    public notifyOpenRelatedFile(uri: string): void {
+        void this.sendToHost({
             type: 'openRelatedFile',
             uri,
         });
     }
 
-    public notifyImportTelemetry() {
-        this.sendToHost({
+    public notifyImportTelemetry(): void {
+        void this.sendToHost({
             type: 'importTelemetry',
         });
     }

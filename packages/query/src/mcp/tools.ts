@@ -1,4 +1,5 @@
 import { graphql, Kind, parse, visit, type GraphQLSchema } from 'graphql';
+import { getErrorMessage } from '@siglo/core';
 import type { WorkflowQueryEngine } from '../engine';
 import { createWorkflowGraphQLSchema } from '../graphql/schema';
 import type { WorkflowExecution, WorkflowStatus } from '../types';
@@ -216,7 +217,10 @@ export async function executeMcpTool(
     try {
         switch (name) {
             case 'search_workflows': {
-                const namespace = resolveMcpNamespace(args.namespace as string | undefined, ctx);
+                const namespace = resolveMcpNamespace(
+                    typeof args.namespace === 'string' ? args.namespace : undefined,
+                    ctx,
+                );
                 const status = parseWorkflowStatus(args.status);
                 const createdAfter = parseIsoDate(args.createdAfter, 'createdAfter');
                 const createdBefore = parseIsoDate(args.createdBefore, 'createdBefore');
@@ -257,7 +261,10 @@ export async function executeMcpTool(
                 if (!stackId) {
                     throw new Error('stackId is required for inspect_workflow');
                 }
-                const namespace = resolveMcpNamespace(args.namespace as string | undefined, ctx);
+                const namespace = resolveMcpNamespace(
+                    typeof args.namespace === 'string' ? args.namespace : undefined,
+                    ctx,
+                );
                 const contextPath =
                     typeof args.contextPath === 'string' && args.contextPath.trim()
                         ? args.contextPath.trim()
@@ -296,7 +303,10 @@ export async function executeMcpTool(
                 if (!query) {
                     throw new Error('query is required for execute_workflow_query');
                 }
-                const namespace = resolveMcpNamespace(args.namespace as string | undefined, ctx);
+                const namespace = resolveMcpNamespace(
+                    typeof args.namespace === 'string' ? args.namespace : undefined,
+                    ctx,
+                );
                 const variables =
                     args.variables && typeof args.variables === 'object' && !Array.isArray(args.variables)
                         ? (args.variables as Record<string, unknown>)
@@ -328,7 +338,10 @@ export async function executeMcpTool(
                 if (!correlationKey) {
                     throw new Error('correlationKey is required for resume_workflow');
                 }
-                const namespace = resolveMcpNamespace(args.namespace as string | undefined, ctx);
+                const namespace = resolveMcpNamespace(
+                    typeof args.namespace === 'string' ? args.namespace : undefined,
+                    ctx,
+                );
                 const resumed = await engine.resumeWorkflow(correlationKey, args.payload, namespace);
 
                 return {
@@ -352,13 +365,13 @@ export async function executeMcpTool(
                     ],
                 };
         }
-    } catch (err: any) {
+    } catch (err: unknown) {
         return {
             isError: true,
             content: [
                 {
                     type: 'text',
-                    text: JSON.stringify({ error: err?.message || 'MCP tool execution failed' }),
+                    text: JSON.stringify({ error: getErrorMessage(err) || 'MCP tool execution failed' }),
                 },
             ],
         };

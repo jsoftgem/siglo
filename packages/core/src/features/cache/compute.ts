@@ -81,7 +81,7 @@ export class ComputeCache {
 
     constructor(options: ComputeCacheOptions = {}) {
         const parsedTtl = parseDuration(options.ttl);
-        this.ttlMs = parsedTtl !== undefined && parsedTtl > 0 ? parsedTtl : DEFAULT_COMPUTE_CACHE_TTL_MS;
+        this.ttlMs = parsedTtl !== undefined && parsedTtl >= 0 ? parsedTtl : DEFAULT_COMPUTE_CACHE_TTL_MS;
         this.maxEntries =
             options.maxEntries !== undefined && options.maxEntries > 0
                 ? Math.floor(options.maxEntries)
@@ -107,7 +107,13 @@ export class ComputeCache {
                     },
                 );
             }
-            paramKey = String(customKey);
+            paramKey =
+                typeof customKey === 'string' ||
+                typeof customKey === 'number' ||
+                typeof customKey === 'boolean' ||
+                typeof customKey === 'bigint'
+                    ? String(customKey)
+                    : serializeParam(customKey);
         } else {
             paramKey = serializeParam(stripped);
         }
@@ -119,7 +125,7 @@ export class ComputeCache {
         if (!entry) {
             return { hit: false };
         }
-        if (Date.now() > entry.expiresAt) {
+        if (this.ttlMs === 0 || Date.now() > entry.expiresAt) {
             this.entries.delete(key);
             if (this.entries.size === 0) {
                 activeComputeCaches.delete(this);

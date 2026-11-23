@@ -18,6 +18,7 @@ import {
     networkPolicyStorage,
     uninstallNetworkInterceptors,
     ExecutionPhase,
+    isWorkflowSuspended,
 } from '../../index';
 
 describe('Network Egress Policy End-to-End Integration Suite', () => {
@@ -724,6 +725,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             });
 
             const suspension = await f.run({}, { durable: true });
+            if (!isWorkflowSuspended(suspension)) expect.fail('Expected workflow suspension');
             const stackId = suspension.stackId;
 
             const cp = await defaultStorageManager.getCheckpoint(stackId);
@@ -762,6 +764,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                     defaultPolicy: 'deny',
                     allowedHosts: ['api.stripe.com'],
                     allowLocalhost: false,
+                    stepName: 'manual-asl',
                 },
                 async () => {
                     try {
@@ -948,6 +951,30 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             } catch (err: any) {
                 expect(err).to.be.instanceOf(NetworkPolicyViolationException);
                 expect(err.stepName).to.equal('keyNet');
+            }
+        });
+
+        it('enforces DNS pinning on 1-arg http.get(url) when allowLocalhost is false', async () => {
+            const dnsPinStep = Step.create('dnsPin1ArgHttp', () => {
+                return new Promise((resolve, reject) => {
+                    const req = http.get(`http://localhost:${localPort}/`);
+                    req.on('error', reject);
+                    req.on('response', res => {
+                        res.resume();
+                        resolve({ ok: true });
+                    });
+                });
+            }).networkPolicy({
+                allowedHosts: [`localhost:${localPort}`],
+                allowLocalhost: false,
+            });
+
+            try {
+                await dnsPinStep.execute();
+                expect.fail('Should have blocked 1-arg http.get resolving localhost to loopback IP');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.reason || err.message).to.include('restricted IP');
             }
         });
     });

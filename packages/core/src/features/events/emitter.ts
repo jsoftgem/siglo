@@ -2,7 +2,12 @@ import { WorkflowExecutionEvent, WorkflowExecutionEventType, WorkflowExecutionEv
 import { redactEvent } from './redaction';
 import { StorageAdapter } from '../storage';
 
-export type EventListener<T = WorkflowExecutionEvent> = (event: T) => void | Promise<void>;
+export type EventListener<T = WorkflowExecutionEvent> = (event: T) => unknown;
+
+export type WorkflowEventPayload<T extends WorkflowExecutionEvent> = Omit<T, 'type' | 'timestamp'> & {
+    type?: T['type'];
+    timestamp?: number;
+};
 
 export class WorkflowEventEmitter {
     private listeners: Map<string, Set<EventListener<any>>> = new Map();
@@ -77,13 +82,16 @@ export class WorkflowEventEmitter {
     }
 
     emit(event: WorkflowExecutionEvent): void;
-    emit<K extends WorkflowExecutionEventType>(type: K, event: WorkflowExecutionEventMap[K]): void;
+    emit<K extends WorkflowExecutionEventType>(
+        type: K,
+        event: WorkflowEventPayload<WorkflowExecutionEventMap[K]>,
+    ): void;
     emit(eventOrType: WorkflowExecutionEvent | string, maybePayload?: any): void {
         const event: WorkflowExecutionEvent =
             typeof eventOrType === 'string'
                 ? Object.assign({}, maybePayload, {
                       type: eventOrType,
-                      timestamp: maybePayload?.timestamp || Date.now(),
+                      timestamp: maybePayload?.timestamp ?? Date.now(),
                   })
                 : eventOrType;
 
@@ -193,7 +201,7 @@ export class WorkflowEventEmitter {
                     type: 'checkpoint:save',
                     stackId: checkpoint.stackId,
                     status: checkpoint.status,
-                    timestamp: checkpoint.timestamp || Date.now(),
+                    timestamp: checkpoint.timestamp ?? Date.now(),
                     namespace: checkpoint.namespace,
                 });
             },

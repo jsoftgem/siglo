@@ -27,7 +27,7 @@ export class AsyncPushQueue<T> implements AsyncIterable<T>, AsyncIterator<T> {
         this.closed = true;
         while (this.resolvers.length > 0) {
             const resolve = this.resolvers.shift()!;
-            resolve({ value: undefined as any, done: true });
+            resolve({ value: undefined as unknown as T, done: true });
         }
         this.onDispose?.();
         this.onDispose = undefined;
@@ -38,7 +38,7 @@ export class AsyncPushQueue<T> implements AsyncIterable<T>, AsyncIterator<T> {
             return Promise.resolve({ value: this.queue.shift()!, done: false });
         }
         if (this.closed) {
-            return Promise.resolve({ value: undefined as any, done: true });
+            return Promise.resolve({ value: undefined as unknown as T, done: true });
         }
         return new Promise<IteratorResult<T>>(resolve => {
             this.resolvers.push(resolve);
@@ -47,7 +47,7 @@ export class AsyncPushQueue<T> implements AsyncIterable<T>, AsyncIterator<T> {
 
     return(): Promise<IteratorResult<T>> {
         this.close();
-        return Promise.resolve({ value: undefined as any, done: true });
+        return Promise.resolve({ value: undefined as unknown as T, done: true });
     }
 
     throw(err?: unknown): Promise<IteratorResult<T>> {
@@ -99,8 +99,26 @@ function mapEventToStatus(event: WorkflowExecutionEvent): WorkflowStatus {
                 }
             }
             return 'running';
-        default:
+        case 'branch:selected':
+        case 'step:inspection':
+        case 'ai:complete':
+        case 'flow:start':
+        case 'step:start':
+        case 'step:complete':
+        case 'step:retry':
+        case 'step:error':
+        case 'step:skipped':
+        case 'context:change':
+        case 'cache:hit':
+        case 'cache:miss':
+        case 'notification:dispatched':
+        case 'approval:requested':
             return 'running';
+        default: {
+            const _exhaustive: never = event;
+            void _exhaustive;
+            return 'running';
+        }
     }
 }
 
@@ -109,7 +127,7 @@ function createExecutionFromEvent(event: WorkflowExecutionEvent, namespace: stri
     return {
         stackId: event.stackId ?? 'unknown',
         namespace: event.namespace ?? namespace,
-        workflowId: (event as any).flowName,
+        workflowId: 'flowName' in event ? event.flowName : undefined,
         status,
         revision: 1,
         createdAt: new Date(event.timestamp),

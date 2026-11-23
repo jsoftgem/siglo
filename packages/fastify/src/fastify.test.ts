@@ -99,7 +99,8 @@ describe('@siglo/fastify Adapter Suite', () => {
         };
 
         const handler = sigloFastifyHandler(failingFlow, {
-            onError: (err, reply) => reply.status(403).send({ message: err.message }),
+            onError: (err, reply) =>
+                reply.status?.(403).send?.({ message: err instanceof Error ? err.message : String(err) }),
         });
 
         await handler({}, mockReply);

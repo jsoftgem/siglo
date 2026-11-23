@@ -1,14 +1,25 @@
 import {
     ComputeCache,
+    ComputeStep,
+    ContextChangeEvent,
+    ExecutionOptions,
     ExecutionPhase,
+    Flow,
     flow,
     isFlow,
     resumeWorkflow,
+    SerializedExecutionStack,
     SigloError,
+    Step,
     StorageAdapter,
+    getErrorMessage,
+    isObject,
     toPOJO,
     useStorage,
 } from '@siglo/core';
+
+export type TestableWorkflow<TInput = any, TOutput = any> =
+    Flow<TInput, TOutput> | Step<TInput, TOutput, string> | ComputeStep<TInput, TOutput, string>;
 
 export interface StepTraceRecord {
     stepName: string;
@@ -67,32 +78,48 @@ export class FakeClock {
     }
 }
 
+function cloneCachedValue<T>(val: T): T {
+    if (val === undefined || val === null || typeof val !== 'object') {
+        return val;
+    }
+    try {
+        return structuredClone(val);
+    } catch {
+        try {
+            return JSON.parse(JSON.stringify(val)) as T;
+        } catch {
+            return val;
+        }
+    }
+}
+
 export class InMemoryStorageFake implements StorageAdapter {
     readonly name = 'in-memory-fake';
-    private checkpoints = new Map<string, any>();
+    private checkpoints = new Map<string, SerializedExecutionStack>();
     private cache = new Map<string, any>();
-    public contextChanges: any[] = [];
+    public contextChanges: ContextChangeEvent[] = [];
 
-    async onContextChange(event: any): Promise<void> {
+    async onContextChange(event: ContextChangeEvent): Promise<void> {
         this.contextChanges.push(event);
     }
 
-    async saveCheckpoint(checkpoint: any): Promise<void> {
-        const key = checkpoint.stackId || checkpoint.id || 'default';
-        this.checkpoints.set(key, JSON.parse(JSON.stringify(checkpoint)));
+    async saveCheckpoint(checkpoint: SerializedExecutionStack): Promise<void> {
+        const cpRecord = checkpoint as SerializedExecutionStack & { id?: string };
+        const key = cpRecord.stackId || cpRecord.id || 'default';
+        this.checkpoints.set(key, JSON.parse(JSON.stringify(checkpoint)) as SerializedExecutionStack);
     }
 
-    async getCheckpoint(key: string): Promise<any> {
+    async getCheckpoint(key: string): Promise<SerializedExecutionStack | undefined> {
         const item = this.checkpoints.get(key);
-        return item ? JSON.parse(JSON.stringify(item)) : undefined;
+        return item ? (JSON.parse(JSON.stringify(item)) as SerializedExecutionStack) : undefined;
     }
 
     async getCachedStep(key: string): Promise<any> {
-        return this.cache.get(key);
+        return cloneCachedValue(this.cache.get(key));
     }
 
     async setCachedStep(key: string, val: any): Promise<void> {
-        this.cache.set(key, val);
+        this.cache.set(key, cloneCachedValue(val));
     }
 
     clear(): void {
@@ -101,7 +128,7 @@ export class InMemoryStorageFake implements StorageAdapter {
         this.contextChanges = [];
     }
 
-    getCheckpoints(): Map<string, any> {
+    getCheckpoints(): Map<string, SerializedExecutionStack> {
         return new Map(this.checkpoints);
     }
 }
@@ -180,7 +207,7 @@ export function sanitizeExecutionRecord(
         recordedAt: record.recordedAt,
         input: sanitizeVal(record.input),
         output: sanitizeVal(record.output),
-        error: record.error ? record.error.message || String(record.error) : undefined,
+        error: record.error !== undefined && record.error !== null ? getErrorMessage(record.error) : undefined,
         trace: record.trace.map(t => ({
             ...t,
             input: sanitizeVal(t.input),
@@ -190,7 +217,7 @@ export function sanitizeExecutionRecord(
 }
 
 export interface HarnessOptions {
-    services?: Record<string, any>;
+    services?: Record<string, unknown>;
     clock?: FakeClock;
     storage?: InMemoryStorageFake;
     recordTrace?: boolean;
@@ -200,12 +227,13 @@ function isThenable(value: unknown): value is PromiseLike<any> {
     return (
         value !== null &&
         (typeof value === 'object' || typeof value === 'function') &&
-        typeof (value as any).then === 'function'
+        'then' in value &&
+        typeof (value as { then?: unknown }).then === 'function'
     );
 }
 
-export class WorkflowHarness {
-    private workflow: any;
+export class WorkflowHarness<TInput = any, TOutput = any> {
+    private workflow: TestableWorkflow<TInput, TOutput>;
     private options: HarnessOptions;
     private mocks = new Map<string, (param: any) => any>();
     private spies = new Map<string, StepSpy>();
@@ -215,7 +243,7 @@ export class WorkflowHarness {
     public clock: FakeClock;
     public storage: InMemoryStorageFake;
 
-    constructor(workflow: any, options: HarnessOptions = {}) {
+    constructor(workflow: TestableWorkflow<TInput, TOutput>, options: HarnessOptions = {}) {
         this.workflow = workflow;
         this.options = options;
         this.clock = options.clock || new FakeClock();
@@ -241,12 +269,12 @@ export class WorkflowHarness {
         return [...this.trace];
     }
 
-    async injectEvent(eventName: string, correlationKey: string, payload?: any): Promise<any> {
-        const res = await resumeWorkflow(this.workflow, correlationKey, payload, { pojo: true });
+    async injectEvent(_eventName: string, correlationKey: string, payload?: Record<string, unknown>): Promise<any> {
+        const res = await resumeWorkflow(this.workflow as Flow<any, any>, correlationKey, payload, { pojo: true });
         return toPOJO(res);
     }
 
-    private wrapWorkflowSteps(): any {
+    private wrapWorkflowSteps(): Flow<any, any> {
         const rawSteps = isFlow(this.workflow) ? this.workflow.steps : [this.workflow];
         const wrappedSteps = rawSteps.map((origStep: any) => {
             const name = origStep.name || origStep.func || 'anonymous';
@@ -292,7 +320,7 @@ export class WorkflowHarness {
                             output: out,
                         });
                         return out;
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                         if (spy) {
                             spy.record({ input: toPOJO(param), error: err, timestamp: ts });
                         }
@@ -301,7 +329,7 @@ export class WorkflowHarness {
                             phase: 'fail',
                             timestamp: this.clock.now(),
                             input: toPOJO(param),
-                            error: err?.message || String(err),
+                            error: getErrorMessage(err),
                         });
                         throw err;
                     }
@@ -353,7 +381,7 @@ export class WorkflowHarness {
                         output: out,
                     });
                     return out;
-                } catch (err: any) {
+                } catch (err: unknown) {
                     if (spy) {
                         spy.record({ input: toPOJO(param), error: err, timestamp: ts });
                     }
@@ -362,7 +390,7 @@ export class WorkflowHarness {
                         phase: 'fail',
                         timestamp: this.clock.now(),
                         input: toPOJO(param),
-                        error: err?.message || String(err),
+                        error: getErrorMessage(err),
                     });
                     throw err;
                 }
@@ -376,7 +404,7 @@ export class WorkflowHarness {
         return flow(...wrappedSteps);
     }
 
-    async run(input: any = {}, execOptions: any = {}): Promise<any> {
+    async run(input: any = {}, execOptions: ExecutionOptions = {}): Promise<any> {
         useStorage(this.storage);
         const instrumented = this.wrapWorkflowSteps();
         const mergedServices = {
@@ -392,8 +420,14 @@ export class WorkflowHarness {
             });
             this.lastRunResult = result;
             return result;
-        } catch (err: any) {
-            const failedStepName = err?.stepName || err?.func;
+        } catch (err: unknown) {
+            const errRecord = isObject(err) ? err : undefined;
+            const failedStepName =
+                typeof errRecord?.stepName === 'string'
+                    ? errRecord.stepName
+                    : typeof errRecord?.func === 'string'
+                      ? errRecord.func
+                      : undefined;
             if (failedStepName) {
                 const alreadyRecorded = this.trace.some(t => t.stepName === failedStepName && t.phase === 'fail');
                 if (!alreadyRecorded) {
@@ -414,7 +448,7 @@ export class WorkflowHarness {
                         phase: 'fail',
                         timestamp: ts,
                         input: toPOJO(input),
-                        error: err?.message || String(err),
+                        error: getErrorMessage(err),
                     });
                 }
             }
@@ -422,7 +456,7 @@ export class WorkflowHarness {
         }
     }
 
-    async execute(input: any = {}, execOptions: any = {}): Promise<any> {
+    async execute(input: any = {}, execOptions: ExecutionOptions = {}): Promise<any> {
         return this.run(input, execOptions);
     }
 
@@ -488,8 +522,11 @@ export class WorkflowHarness {
     }
 }
 
-export function createWorkflowHarness(workflow: any, options: HarnessOptions = {}): WorkflowHarness {
-    return new WorkflowHarness(workflow, options);
+export function createWorkflowHarness<TInput = any, TOutput = any>(
+    workflow: TestableWorkflow<TInput, TOutput>,
+    options: HarnessOptions = {},
+): WorkflowHarness<TInput, TOutput> {
+    return new WorkflowHarness<TInput, TOutput>(workflow, options);
 }
 
 function normalizeForComparison(val: any): any {
@@ -507,7 +544,7 @@ function normalizeForComparison(val: any): any {
 
 export async function replayExecution(
     record: ExecutionRecord,
-    workflow: any,
+    workflow: TestableWorkflow<any, any>,
     options: ReplayOptions = {},
 ): Promise<ReplayResult> {
     const harness = createWorkflowHarness(workflow);
@@ -519,11 +556,11 @@ export async function replayExecution(
     }
 
     let actualOutput: any;
-    let actualError: any;
+    let actualError: string | undefined;
     try {
         actualOutput = await harness.run(record.input);
-    } catch (err: any) {
-        actualError = err.message || String(err);
+    } catch (err: unknown) {
+        actualError = getErrorMessage(err);
     }
 
     const discrepancies: string[] = [];

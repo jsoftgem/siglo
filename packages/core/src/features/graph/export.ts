@@ -1,5 +1,7 @@
+import { assertNever } from '../../shared';
 import { toGraph } from './toGraph';
 import { inspectGraph } from './inspector';
+import { WorkflowNodeType } from './types';
 
 export interface MermaidExportOptions {
     direction?: 'TD' | 'LR' | 'TB';
@@ -15,14 +17,14 @@ function sanitizeId(id: string): string {
     return id.replace(/[^a-zA-Z0-9_]/g, '_');
 }
 
-function formatBadges(node: { name: string; type: string; metadata?: any }): string {
+function formatBadges(node: { name: string; type: WorkflowNodeType; metadata?: any }): string {
     const badges: string[] = [];
     const meta = node.metadata;
     if (meta) {
         if (meta.compute) {
             badges.push('⚡ compute');
         }
-        if (meta.timeoutMs) {
+        if (meta.timeoutMs !== undefined) {
             badges.push(`⏱️ ${meta.timeoutMs}ms`);
         }
         if (meta.retryConfig) {
@@ -32,7 +34,7 @@ function formatBadges(node: { name: string; type: string; metadata?: any }): str
         if (meta.hasCompensation) {
             badges.push('⏪ saga');
         }
-        if (meta.cachedLast || meta.cacheOptions) {
+        if (meta.cachedLast !== undefined || meta.cacheOptions) {
             badges.push('💾 cache');
         }
     }
@@ -71,9 +73,12 @@ export function toMermaid(workflowOrNode: any, options: MermaidExportOptions = {
             case 'parallel':
                 lines.push(`    ${sid}[["${label}"]]`);
                 break;
-            default:
+            case 'sequence':
                 lines.push(`    ${sid}["${label}"]`);
                 break;
+            /* c8 ignore next 2 */
+            default:
+                assertNever(node.type, 'Unknown workflow node type');
         }
     }
 
@@ -150,10 +155,13 @@ export function toDot(workflowOrNode: any, options: DotExportOptions = {}): stri
                 fillcolor = '#e2e3e5';
                 break;
             case 'step':
-            default:
+            case 'sequence':
                 shape = 'box';
                 fillcolor = '#f0f4f8';
                 break;
+            /* c8 ignore next 2 */
+            default:
+                assertNever(node.type, 'Unknown workflow node type');
         }
 
         lines.push(`  ${sid} [label="${label}", shape=${shape}, style="${style}", fillcolor="${fillcolor}"];`);

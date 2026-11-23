@@ -5,13 +5,16 @@ import {
     stepInspectionStorage,
     sanitizeInspection,
     InspectionContent,
+    isPlainObject,
 } from '@siglo/core';
+import type { SpanLike } from '@siglo/http';
 import type { AiMetrics } from './types';
 
-export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any, content?: InspectionContent): void {
+export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: unknown, content?: InspectionContent): void {
+    const ctxRecord = isPlainObject(ctx) ? ctx : undefined;
     try {
-        const span = ctx?.$span ?? ctx?.span ?? trace.getActiveSpan();
-        if (span) {
+        const rawSpan = (ctxRecord?.$span ?? ctxRecord?.span ?? trace.getActiveSpan()) as SpanLike | undefined;
+        if (rawSpan && typeof rawSpan.setAttribute === 'function') {
             for (const [key, value] of Object.entries({
                 'gen_ai.system': metrics.providerUsed,
                 'gen_ai.provider.name': metrics.providerUsed === 'gemini' ? 'gcp.gemini' : metrics.providerUsed,
@@ -21,7 +24,7 @@ export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any, c
                 'gen_ai.usage.input_tokens': metrics.promptTokens,
                 'gen_ai.usage.output_tokens': metrics.completionTokens,
             }))
-                span.setAttribute(key, value);
+                rawSpan.setAttribute(key, value);
         }
     } catch {
         /* Observability must not change inference outcomes. */
@@ -29,10 +32,15 @@ export function recordAiCompletion(name: string, metrics: AiMetrics, ctx: any, c
     try {
         const scope = stepInspectionStorage.getStore();
         if (scope) scope.ecosystemKind = 'ai';
-        const stackId = scope?.stackId ?? (typeof ctx?.$stackId === 'function' ? ctx.$stackId() : ctx?.$stackId);
+        const rawStackId =
+            typeof ctxRecord?.$stackId === 'function' ? (ctxRecord.$stackId as () => unknown)() : ctxRecord?.$stackId;
+        const stackId = scope?.stackId ?? (typeof rawStackId === 'string' ? rawStackId : undefined);
         if (stackId) {
-            const namespace =
-                scope?.namespace ?? (typeof ctx?.$namespace === 'function' ? ctx.$namespace() : ctx?.$namespace);
+            const rawNs =
+                typeof ctxRecord?.$namespace === 'function'
+                    ? (ctxRecord.$namespace as () => unknown)()
+                    : ctxRecord?.$namespace;
+            const namespace = scope?.namespace ?? (typeof rawNs === 'string' ? rawNs : undefined);
             emitMonitoringEvent(
                 { monitor: scope?.monitor ?? defaultStorageManager.getStack(stackId)?.monitor },
                 {

@@ -1,9 +1,15 @@
-import { WorkflowExecutionEvent, WorkflowEventEmitter, redactEvent, RedactionOptions } from '@siglo/core';
+import {
+    WorkflowExecutionEvent,
+    WorkflowEventEmitter,
+    redactEvent,
+    RedactionOptions,
+    isPlainObject,
+} from '@siglo/core';
 
 export interface RedisPubSubClient {
-    publish(channel: string, message: string): Promise<number | any> | number | any;
-    subscribe(channel: string, listener?: (message: string) => void): Promise<any> | any;
-    on?(event: 'message', listener: (channel: string, message: string) => void): any;
+    publish(channel: string, message: string): Promise<unknown> | unknown;
+    subscribe(channel: string, listener?: (message: string) => void): Promise<unknown> | unknown;
+    on?(event: 'message', listener: (channel: string, message: string) => void): unknown;
 }
 
 export interface RedisMonitoringOptions {
@@ -52,9 +58,12 @@ export class RedisMonitoringAdapter {
 
     private handleIncoming(raw: string): void {
         try {
-            const event = JSON.parse(raw) as WorkflowExecutionEvent;
+            const parsed: unknown = JSON.parse(raw);
+            if (!isPlainObject(parsed) || typeof parsed.type !== 'string' || typeof parsed.stackId !== 'string') {
+                return;
+            }
             if (this.emitter) {
-                this.emitter.emit(event);
+                this.emitter.emit(parsed as unknown as WorkflowExecutionEvent);
             }
         } catch {
             // Ignore corrupted json

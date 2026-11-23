@@ -1,27 +1,39 @@
 import { graphql, Kind, parse, type GraphQLSchema } from 'graphql';
+import { getErrorMessage, isPlainObject } from '@siglo/core';
 import type { WorkflowQueryEngine } from '../engine';
 import { createWorkflowGraphQLSchema } from '../graphql/schema';
 import type { WorkflowGraphQLContext } from '../graphql/resolvers';
 import { createWorkflowSSEResponse, createWorkflowSSEStream } from '../graphql/transport';
 
+export interface QueryHonoContextLike {
+    req: {
+        method?: string;
+        query(name: string): string | undefined;
+        header?(name: string): string | undefined;
+        json(): Promise<unknown>;
+    };
+    json(data: unknown, status?: number): Response | Promise<Response>;
+}
+
 export interface HonoQueryOptions {
     engine: WorkflowQueryEngine;
     schema?: GraphQLSchema;
-    namespace?: string | ((c: any) => Promise<string | undefined> | string | undefined);
-    context?: (c: any) => Promise<WorkflowGraphQLContext> | WorkflowGraphQLContext;
+    namespace?: string | ((c: QueryHonoContextLike) => Promise<string | undefined> | string | undefined);
+    context?: (c: QueryHonoContextLike) => Promise<WorkflowGraphQLContext> | WorkflowGraphQLContext;
     keepAliveIntervalMs?: number;
     allowHeaderNamespace?: boolean;
 }
 
-function parseMaybeJson(val: unknown): unknown {
+function parseMaybeObjectJson(val: unknown): Record<string, unknown> | undefined {
     if (typeof val === 'string') {
         try {
-            return JSON.parse(val);
+            const parsed: unknown = JSON.parse(val);
+            return isPlainObject(parsed) ? parsed : undefined;
         } catch {
-            return val;
+            return undefined;
         }
     }
-    return val;
+    return isPlainObject(val) ? val : undefined;
 }
 
 function isSubscriptionOperation(query: string, operationName?: string): boolean {
@@ -48,7 +60,7 @@ export function createHonoQueryHandler(options: HonoQueryOptions) {
     const { engine } = options;
     const schema = options.schema ?? createWorkflowGraphQLSchema(engine);
 
-    return async (c: any, next?: () => Promise<void>): Promise<any> => {
+    return async (c: QueryHonoContextLike, next?: () => Promise<void>): Promise<Response | void> => {
         try {
             const method = c.req?.method || 'POST';
             if (method === 'OPTIONS') {
@@ -64,19 +76,21 @@ export function createHonoQueryHandler(options: HonoQueryOptions) {
 
             if (method === 'GET') {
                 query = c.req.query('query');
-                variables = parseMaybeJson(c.req.query('variables')) as Record<string, unknown> | undefined;
+                variables = parseMaybeObjectJson(c.req.query('variables'));
                 operationName = c.req.query('operationName');
             } else {
-                let body: any = {};
+                let rawBody: unknown = {};
                 try {
-                    body = await c.req.json();
+                    rawBody = await c.req.json();
                 } catch {
-                    body = {};
+                    rawBody = {};
                 }
-                query = body.query ?? c.req.query?.('query');
-                variables = parseMaybeJson(body.variables ?? c.req.query?.('variables')) as
-                    Record<string, unknown> | undefined;
-                operationName = body.operationName ?? c.req.query?.('operationName');
+                const body = isPlainObject(rawBody) ? rawBody : {};
+                const rawQuery = body.query ?? c.req.query?.('query');
+                query = typeof rawQuery === 'string' && rawQuery.length > 0 ? rawQuery : undefined;
+                variables = parseMaybeObjectJson(body.variables ?? c.req.query?.('variables'));
+                const rawOp = body.operationName ?? c.req.query?.('operationName');
+                operationName = typeof rawOp === 'string' && rawOp.length > 0 ? rawOp : undefined;
             }
 
             if (!query) {
@@ -128,11 +142,11 @@ export function createHonoQueryHandler(options: HonoQueryOptions) {
 
             const status = result.errors && !result.data ? 400 : 200;
             return c.json(result, status);
-        } catch (err: any) {
+        } catch (err: unknown) {
             if (typeof next === 'function') {
                 return next();
             }
-            return c.json({ errors: [{ message: err.message || 'Internal error' }] }, 500);
+            return c.json({ errors: [{ message: getErrorMessage(err) || 'Internal error' }] }, 500);
         }
     };
 }

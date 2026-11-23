@@ -1,3 +1,4 @@
+import { isPlainObject } from '@siglo/core';
 import type { QueryCheckpoint, WorkflowSortInput } from './types';
 
 export function sortOrder(sort?: WorkflowSortInput) {
@@ -34,15 +35,17 @@ export function encodeCursor(record: QueryCheckpoint, order: Order) {
 export function decodeCursor(cursor: string, order: Order): Position {
     try {
         const bytes = Buffer.from(cursor, 'base64url');
-        const data = JSON.parse(bytes.toString());
+        const data: unknown = JSON.parse(bytes.toString());
         if (
+            isPlainObject(data) &&
             bytes.toString('base64url') === cursor &&
             data.field === order.field &&
             data.direction === order.direction &&
             typeof data.stackId === 'string' &&
-            (order.field === 'status' ? typeof data.value === 'string' : Number.isFinite(data.value))
+            ((order.field === 'status' && typeof data.value === 'string') ||
+                (order.field !== 'status' && typeof data.value === 'number' && Number.isFinite(data.value)))
         )
-            return data;
+            return { value: data.value, stackId: data.stackId };
     } catch {
         // Treat malformed and incompatible tokens alike.
     }

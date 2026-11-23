@@ -1,15 +1,38 @@
 import { CancellationException } from '@siglo/core';
 
+export interface DisconnectRequestLike {
+    aborted?: boolean;
+    complete?: boolean;
+    on?: (event: string, listener: (...args: unknown[]) => void) => unknown;
+    removeListener?: (event: string, listener: (...args: unknown[]) => void) => unknown;
+}
+
+export interface DisconnectResponseLike {
+    writableFinished?: boolean;
+    destroyed?: boolean;
+    on?: (event: string, listener: (...args: unknown[]) => void) => unknown;
+    removeListener?: (event: string, listener: (...args: unknown[]) => void) => unknown;
+}
+
+export interface RequestCancellationHandle {
+    signal: AbortSignal;
+    cleanup: () => void;
+}
+
 /** Node request close also fires after a normal body read; response close detects a lost client. */
-export function requestCancellation(request: any, response: any, source?: AbortSignal) {
+export function requestCancellation(
+    request?: DisconnectRequestLike,
+    response?: DisconnectResponseLike,
+    source?: AbortSignal,
+): RequestCancellationHandle {
     const controller = new AbortController();
     const abort = () => controller.abort(new CancellationException('Client connection closed'));
     const forward = () => controller.abort(source?.reason);
     const requestClosed = () => {
-        if (request.aborted || request.complete === false) abort();
+        if (request?.aborted || request?.complete === false) abort();
     };
     const responseClosed = () => {
-        if (!response.writableFinished) abort();
+        if (!response?.writableFinished) abort();
     };
     request?.on?.('aborted', abort);
     request?.on?.('close', requestClosed);

@@ -26,7 +26,7 @@ export interface HttpEcosystemConfig {
     url?: string;
     isDynamicUrl?: boolean;
     maxRetries?: number | string;
-    retryOnStatus?: number[] | string;
+    retryOnStatus?: (number | string)[] | string;
     timeoutMs?: number | string;
     allowNotFound?: boolean | string;
     responseType?: string;

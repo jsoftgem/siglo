@@ -1,5 +1,5 @@
 export function formatTime(timestamp?: number): string {
-    if (!timestamp) return '--:--:--';
+    if (timestamp === undefined || timestamp === null || !Number.isFinite(timestamp)) return '--:--:--';
     return new Date(timestamp).toLocaleTimeString();
 }
 
@@ -17,7 +17,7 @@ export function truncateId(id: string, maxLen: number = 8): string {
     return `${id.slice(0, maxLen)}...`;
 }
 
-export function formatJson(data: any): string {
+export function formatJson(data: unknown): string {
     try {
         return JSON.stringify(data, null, 2);
     } catch {

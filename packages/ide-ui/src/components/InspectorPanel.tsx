@@ -1,19 +1,6 @@
 import React from 'react';
 import { StepProperties } from './StepProperties';
-import type {
-    GraphNode,
-    Diagnostic,
-    TelemetryRecordingDocument,
-    HttpEcosystemConfig,
-    CryptoEcosystemConfig,
-    NotificationEcosystemConfig,
-    AiEcosystemConfig,
-    HttpTelemetryRecord,
-    CryptoTelemetryRecord,
-    NotificationTelemetryRecord,
-    AiTelemetryRecord,
-    EcosystemInspectionData,
-} from '@siglo/ide-protocol';
+import type { GraphNode, Diagnostic, TelemetryRecordingDocument } from '@siglo/ide-protocol';
 import { matchTelemetryRecord } from '@siglo/ide-protocol';
 import { HttpInspector } from './inspectors/HttpInspector';
 import { CryptoInspector } from './inspectors/CryptoInspector';
@@ -126,45 +113,39 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 {/* Dedicated Ecosystem Deep-Dive Inspectors (Milestone 4) */}
                 {selectedNode.stepKind === 'http' && (
                     <HttpInspector
-                        config={selectedNode.ecosystemConfig as HttpEcosystemConfig | undefined}
-                        telemetry={
-                            matchedEnvelope?.inspection.kind === 'http'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & HttpTelemetryRecord)
-                                : null
+                        config={
+                            selectedNode.ecosystemConfig?.kind === 'http' ? selectedNode.ecosystemConfig : undefined
                         }
+                        telemetry={matchedEnvelope?.inspection.kind === 'http' ? matchedEnvelope.inspection : null}
                     />
                 )}
 
                 {selectedNode.stepKind === 'crypto' && (
                     <CryptoInspector
-                        config={selectedNode.ecosystemConfig as CryptoEcosystemConfig | undefined}
-                        telemetry={
-                            matchedEnvelope?.inspection.kind === 'crypto'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & CryptoTelemetryRecord)
-                                : null
+                        config={
+                            selectedNode.ecosystemConfig?.kind === 'crypto' ? selectedNode.ecosystemConfig : undefined
                         }
+                        telemetry={matchedEnvelope?.inspection.kind === 'crypto' ? matchedEnvelope.inspection : null}
                     />
                 )}
 
                 {selectedNode.stepKind === 'notification' && (
                     <NotificationInspector
-                        config={selectedNode.ecosystemConfig as NotificationEcosystemConfig | undefined}
+                        config={
+                            selectedNode.ecosystemConfig?.kind === 'notification'
+                                ? selectedNode.ecosystemConfig
+                                : undefined
+                        }
                         telemetry={
-                            matchedEnvelope?.inspection.kind === 'notification'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & NotificationTelemetryRecord)
-                                : null
+                            matchedEnvelope?.inspection.kind === 'notification' ? matchedEnvelope.inspection : null
                         }
                     />
                 )}
 
                 {selectedNode.stepKind === 'ai' && (
                     <AiInspector
-                        config={selectedNode.ecosystemConfig as AiEcosystemConfig | undefined}
-                        telemetry={
-                            matchedEnvelope?.inspection.kind === 'ai'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & AiTelemetryRecord)
-                                : null
-                        }
+                        config={selectedNode.ecosystemConfig?.kind === 'ai' ? selectedNode.ecosystemConfig : undefined}
+                        telemetry={matchedEnvelope?.inspection.kind === 'ai' ? matchedEnvelope.inspection : null}
                     />
                 )}
 

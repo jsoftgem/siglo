@@ -1,4 +1,11 @@
-import { Flow, ExecutionOptions, IdempotencyStore, FlowTimeoutException, StepTimeoutException } from '@siglo/core';
+import {
+    Flow,
+    ExecutionOptions,
+    IdempotencyStore,
+    FlowTimeoutException,
+    StepTimeoutException,
+    isObject,
+} from '@siglo/core';
 
 /** A Kafka record enriched with its topic and partition for adapter callbacks. */
 export interface SigloKafkaMessage {
@@ -92,21 +99,36 @@ export function getKafkaRecordId(message: Pick<SigloKafkaMessage, 'topic' | 'par
     return `kafka:${message.topic}:${message.partition}:${message.offset}`;
 }
 
-type Outcome = { $sigloKafka: 1; kind: 'processed' | 'skipped' | 'dead-lettered'; value: any };
+type Outcome = { $sigloKafka: 1; kind: 'processed' | 'skipped' | 'dead-lettered'; value: unknown };
 
-function unwrapContext(obj: any): any {
+function isKafkaOutcome(value: unknown): value is Outcome {
+    return (
+        isObject(value) &&
+        value.$sigloKafka === 1 &&
+        (value.kind === 'processed' || value.kind === 'skipped' || value.kind === 'dead-lettered')
+    );
+}
+
+function normalizeKafkaHeader(value: Buffer | string | (Buffer | string)[] | undefined): string | undefined {
+    if (value === undefined) return undefined;
+    const entry = Array.isArray(value) ? value[0] : value;
+    if (typeof entry === 'string') return entry;
+    if (Buffer.isBuffer(entry)) return entry.toString('utf8');
+    return undefined;
+}
+
+function unwrapContext(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') return obj;
-    const clean: Record<string, any> = {};
-    for (const key of Object.keys(obj)) {
+    const source = obj as Record<string, unknown>;
+    const clean: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) {
         if (key.startsWith('$')) continue;
-        const val =
-            typeof obj[key] === 'function'
-                ? obj[key].val !== undefined
-                    ? obj[key].val
-                    : obj[key].length === 0
-                      ? obj[key]()
-                      : obj[key]
-                : obj[key];
+        const rawVal = source[key];
+        let val = rawVal;
+        if (typeof rawVal === 'function') {
+            const fn = rawVal as (() => unknown) & { val?: unknown };
+            val = fn.val !== undefined ? fn.val : fn.length === 0 ? fn() : fn;
+        }
         if (key === 'signal' && val instanceof AbortSignal) continue;
         clean[key] = val;
     }
@@ -240,7 +262,7 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
         let namespace: string | undefined;
         if (typeof options.namespace === 'function') namespace = options.namespace(message);
         else if (options.namespace !== undefined) namespace = options.namespace;
-        else if (message.headers?.['x-namespace']) namespace = String(message.headers['x-namespace']);
+        else namespace = normalizeKafkaHeader(message.headers?.['x-namespace']);
         // JSON encoding preserves scope boundaries even when IDs contain delimiters.
         const idempKey = `kafka:${JSON.stringify([options.groupId, namespace ?? null, options.idempotencyKey?.(message) ?? recordId])}`;
         const controller = new AbortController();
@@ -256,9 +278,9 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
             if (status === 'completed') {
                 return guarded(
                     async signal => {
-                        const result: any = store.get ? await store.get(idempKey) : undefined;
+                        const result: unknown = store.get ? await store.get(idempKey) : undefined;
                         signal.throwIfAborted();
-                        return result?.$sigloKafka === 1
+                        return isKafkaOutcome(result)
                             ? mapOutcome(result)
                             : mapOutcome({
                                   $sigloKafka: 1,
@@ -304,7 +326,7 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
                                 throw new KafkaInvalidMessageError('Kafka tombstone is not accepted');
                             return finish('skipped', { skipped: true, recordId });
                         }
-                        let input: any = {};
+                        let input: unknown = {};
                         if (options.input) input = await options.input(message);
                         else if (message.value != null) {
                             const text = String(message.value);
@@ -321,7 +343,7 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
                         checkActive();
                         if (options.validate) {
                             try {
-                                await options.validate(input, message);
+                                await options.validate(input as TInput, message);
                             } catch (cause) {
                                 throw new KafkaInvalidMessageError('Kafka workflow input validation failed', { cause });
                             }
@@ -331,7 +353,7 @@ export function createKafkaMessageHandler<TInput = any, TOutput = any>(
                             attempts++;
                             try {
                                 const execOptions: ExecutionOptions = { namespace, signal, timeout: options.timeout };
-                                const result = await workflow.run(input, execOptions);
+                                const result = await workflow.run(input as TInput, execOptions);
                                 checkActive();
                                 outcome = { $sigloKafka: 1, kind: 'processed', value: unwrapContext(result) };
                                 break;

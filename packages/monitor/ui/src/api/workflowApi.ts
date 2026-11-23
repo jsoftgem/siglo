@@ -1,5 +1,9 @@
 import { WorkflowRun } from '../types/workflow';
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function getAuthHeaders(): Record<string, string> {
     const urlParams = new URLSearchParams(window.location.search);
     const token =
@@ -34,7 +38,11 @@ export async function fetchWorkflows(namespace?: string): Promise<WorkflowRun[]>
     if (!res.ok) {
         throw new Error(`Failed to fetch workflows: ${res.statusText}`);
     }
-    return res.json();
+    const data: unknown = await res.json();
+    if (!Array.isArray(data)) {
+        throw new Error('Invalid workflows response payload');
+    }
+    return data as WorkflowRun[];
 }
 
 export async function fetchWorkflowById(stackId: string): Promise<WorkflowRun> {
@@ -47,13 +55,17 @@ export async function fetchWorkflowById(stackId: string): Promise<WorkflowRun> {
     if (!res.ok) {
         throw new Error(`Failed to fetch workflow ${stackId}: ${res.statusText}`);
     }
-    return res.json();
+    const data: unknown = await res.json();
+    if (!isPlainRecord(data) || typeof data.stackId !== 'string') {
+        throw new Error('Invalid workflow response payload');
+    }
+    return data as unknown as WorkflowRun;
 }
 
 export async function resumeWorkflow(
     stackId: string,
     eventName: string,
-    payload: any,
+    payload: unknown,
 ): Promise<{ ok: boolean; stackId: string }> {
     const url = appendTokenQuery(`/api/workflows/${encodeURIComponent(stackId)}/resume`);
     const res = await fetch(url, {
@@ -66,11 +78,17 @@ export async function resumeWorkflow(
     });
 
     if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to resume workflow: ${res.statusText}`);
+        const errorData: unknown = await res.json().catch(() => ({}));
+        const errorMessage =
+            isPlainRecord(errorData) && typeof errorData.error === 'string' ? errorData.error : undefined;
+        throw new Error(errorMessage || `Failed to resume workflow: ${res.statusText}`);
     }
 
-    return res.json();
+    const data: unknown = await res.json();
+    if (!isPlainRecord(data) || typeof data.ok !== 'boolean' || typeof data.stackId !== 'string') {
+        throw new Error('Invalid resume response payload');
+    }
+    return { ok: data.ok, stackId: data.stackId };
 }
 
 export async function replayWorkflow(stackId: string): Promise<{ ok: boolean; stackId: string }> {
@@ -83,9 +101,15 @@ export async function replayWorkflow(stackId: string): Promise<{ ok: boolean; st
     });
 
     if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to replay workflow: ${res.statusText}`);
+        const errorData: unknown = await res.json().catch(() => ({}));
+        const errorMessage =
+            isPlainRecord(errorData) && typeof errorData.error === 'string' ? errorData.error : undefined;
+        throw new Error(errorMessage || `Failed to replay workflow: ${res.statusText}`);
     }
 
-    return res.json();
+    const data: unknown = await res.json();
+    if (!isPlainRecord(data) || typeof data.ok !== 'boolean' || typeof data.stackId !== 'string') {
+        throw new Error('Invalid replay response payload');
+    }
+    return { ok: data.ok, stackId: data.stackId };
 }

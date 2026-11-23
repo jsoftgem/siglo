@@ -126,6 +126,10 @@ const ALLOWED_APPROVAL_STATES = new Set([
 const ALLOWED_TOKEN_STATUSES = new Set(['issued', 'unavailable']);
 const ALLOWED_AI_PHASES = new Set(['attempt', 'completion', 'preflight']);
 
+function isPlainRecord(val: unknown): val is Record<string, unknown> {
+    return typeof val === 'object' && val !== null && !Array.isArray(val);
+}
+
 /**
  * Sanitizes URLs down to scheme + host origin only.
  * Completely strips path, query parameters, credentials, fragments, and port if default.
@@ -159,170 +163,191 @@ export function formatOriginCurl(method?: string, url?: string): string {
  * Sanitizes raw telemetry inspection objects with fail-closed validation.
  * Never allows raw secrets, signatures, headers, or unallowlisted fields.
  */
-export function sanitizeTelemetryInspection(val: any): EcosystemInspectionData | undefined {
-    if (!val || typeof val !== 'object' || val.version !== 1) return undefined;
+export function sanitizeTelemetryInspection(val: unknown): EcosystemInspectionData | undefined {
+    if (!isPlainRecord(val) || val.version !== 1) return undefined;
     if (val.outcome !== 'success' && val.outcome !== 'failure') return undefined;
 
     const kind = val.kind;
-    if (!['http', 'crypto', 'notification', 'ai'].includes(kind)) return undefined;
-
-    const clean: any = {
+    const base: { version: 1; outcome: 'success' | 'failure'; durationMs?: number; truncated?: boolean } = {
         version: 1,
-        kind,
         outcome: val.outcome,
     };
 
     if (typeof val.durationMs === 'number' && Number.isFinite(val.durationMs) && val.durationMs >= 0) {
-        clean.durationMs = val.durationMs;
+        base.durationMs = val.durationMs;
     }
     if (val.truncated === true) {
-        clean.truncated = true;
+        base.truncated = true;
     }
 
     if (kind === 'http') {
+        const http: HttpTelemetryRecord = { kind: 'http' };
         if (typeof val.method === 'string' && ALLOWED_HTTP_METHODS.has(val.method.toUpperCase())) {
-            clean.method = val.method.toUpperCase();
+            http.method = val.method.toUpperCase();
         }
-        const origin = sanitizeOriginUrl(val.url);
+        const origin = typeof val.url === 'string' ? sanitizeOriginUrl(val.url) : undefined;
         if (origin) {
-            clean.url = origin;
+            http.url = origin;
         }
         if (typeof val.status === 'number' && Number.isInteger(val.status) && val.status >= 100 && val.status <= 599) {
-            clean.status = val.status;
+            http.status = val.status;
         }
         if (typeof val.retryAttempts === 'number' && Number.isInteger(val.retryAttempts) && val.retryAttempts >= 0) {
-            clean.retryAttempts = val.retryAttempts;
+            http.retryAttempts = val.retryAttempts;
         }
         if (typeof val.requestAttempt === 'number' && Number.isInteger(val.requestAttempt) && val.requestAttempt >= 0) {
-            clean.requestAttempt = val.requestAttempt;
+            http.requestAttempt = val.requestAttempt;
         }
         if (typeof val.retryDelayMs === 'number' && Number.isFinite(val.retryDelayMs) && val.retryDelayMs >= 0) {
-            clean.retryDelayMs = val.retryDelayMs;
+            http.retryDelayMs = val.retryDelayMs;
         }
         if (typeof val.retryAfterMs === 'number' && Number.isFinite(val.retryAfterMs) && val.retryAfterMs >= 0) {
-            clean.retryAfterMs = val.retryAfterMs;
+            http.retryAfterMs = val.retryAfterMs;
         }
         if (typeof val.retryDelaySource === 'string' && ALLOWED_RETRY_SOURCES.has(val.retryDelaySource)) {
-            clean.retryDelaySource = val.retryDelaySource;
+            http.retryDelaySource = val.retryDelaySource as HttpTelemetryRecord['retryDelaySource'];
         }
         if (typeof val.traceId === 'string') {
-            clean.traceId = val.traceId.slice(0, 128);
+            http.traceId = val.traceId.slice(0, 128);
         }
         if (typeof val.policy === 'string' && ALLOWED_HTTP_POLICIES.has(val.policy)) {
-            clean.policy = val.policy;
+            http.policy = val.policy as HttpTelemetryRecord['policy'];
         }
-    } else if (kind === 'crypto') {
+        return { ...base, ...http };
+    }
+
+    if (kind === 'crypto') {
+        const crypto: CryptoTelemetryRecord = { kind: 'crypto' };
         if (typeof val.provider === 'string') {
-            clean.provider = val.provider.slice(0, 64);
+            crypto.provider = val.provider.slice(0, 64);
         }
         if (typeof val.payloadBytes === 'number' && Number.isInteger(val.payloadBytes) && val.payloadBytes >= 0) {
-            clean.payloadBytes = val.payloadBytes;
+            crypto.payloadBytes = val.payloadBytes;
         }
         if (typeof val.category === 'string' && ALLOWED_CRYPTO_CATEGORIES.has(val.category)) {
-            clean.category = val.category;
+            crypto.category = val.category as CryptoTelemetryRecord['category'];
         }
         if (typeof val.timestampCheck === 'string' && ALLOWED_CHECKS.has(val.timestampCheck)) {
-            clean.timestampCheck = val.timestampCheck;
+            crypto.timestampCheck = val.timestampCheck as CryptoTelemetryRecord['timestampCheck'];
         }
         if (typeof val.replayCheck === 'string' && ALLOWED_CHECKS.has(val.replayCheck)) {
-            clean.replayCheck = val.replayCheck;
+            crypto.replayCheck = val.replayCheck as CryptoTelemetryRecord['replayCheck'];
         }
         // Exclude ANY raw signatures, keys, tokens, or secret fields
-    } else if (kind === 'notification') {
+        return { ...base, ...crypto };
+    }
+
+    if (kind === 'notification') {
+        const notification: NotificationTelemetryRecord = { kind: 'notification' };
         if (typeof val.channel === 'string' && ALLOWED_NOTIFICATION_CHANNELS.has(val.channel)) {
-            clean.channel = val.channel;
+            notification.channel = val.channel;
         }
         if (typeof val.notificationId === 'string') {
-            clean.notificationId = val.notificationId.slice(0, 128);
+            notification.notificationId = val.notificationId.slice(0, 128);
         }
         if (typeof val.approval === 'boolean') {
-            clean.approval = val.approval;
+            notification.approval = val.approval;
         }
         if (typeof val.approvalExpiresAt === 'number' && Number.isFinite(val.approvalExpiresAt)) {
-            clean.approvalExpiresAt = val.approvalExpiresAt;
+            notification.approvalExpiresAt = val.approvalExpiresAt;
         }
         if (typeof val.approvalState === 'string' && ALLOWED_APPROVAL_STATES.has(val.approvalState)) {
-            clean.approvalState = val.approvalState;
+            notification.approvalState = val.approvalState as NotificationTelemetryRecord['approvalState'];
         }
         if (typeof val.tokenStatus === 'string' && ALLOWED_TOKEN_STATUSES.has(val.tokenStatus)) {
-            clean.tokenStatus = val.tokenStatus;
+            notification.tokenStatus = val.tokenStatus as NotificationTelemetryRecord['tokenStatus'];
         }
-        if (val.contentPreview && typeof val.contentPreview === 'object') {
-            clean.contentPreview = {
-                ...(typeof val.contentPreview.subject === 'string'
-                    ? { subject: val.contentPreview.subject.slice(0, 128) }
-                    : {}),
-                ...(typeof val.contentPreview.bodySnippet === 'string'
-                    ? { bodySnippet: val.contentPreview.bodySnippet.slice(0, 256) }
-                    : {}),
-                ...(typeof val.contentPreview.recipientMasked === 'string'
-                    ? { recipientMasked: val.contentPreview.recipientMasked.slice(0, 64) }
+        if (isPlainRecord(val.contentPreview)) {
+            const preview = val.contentPreview;
+            notification.contentPreview = {
+                ...(typeof preview.subject === 'string' ? { subject: preview.subject.slice(0, 128) } : {}),
+                ...(typeof preview.bodySnippet === 'string' ? { bodySnippet: preview.bodySnippet.slice(0, 256) } : {}),
+                ...(typeof preview.recipientMasked === 'string'
+                    ? { recipientMasked: preview.recipientMasked.slice(0, 64) }
                     : {}),
             };
         }
-    } else if (kind === 'ai') {
+        return { ...base, ...notification };
+    }
+
+    if (kind === 'ai') {
+        const ai: AiTelemetryRecord = { kind: 'ai' };
         if (typeof val.provider === 'string') {
-            clean.provider = val.provider.slice(0, 64);
+            ai.provider = val.provider.slice(0, 64);
         }
         if (typeof val.model === 'string') {
-            clean.model = val.model.slice(0, 128);
+            ai.model = val.model.slice(0, 128);
         }
         if (typeof val.inferenceAttempt === 'number' && Number.isInteger(val.inferenceAttempt)) {
-            clean.inferenceAttempt = val.inferenceAttempt;
+            ai.inferenceAttempt = val.inferenceAttempt;
         }
         if (typeof val.phase === 'string' && ALLOWED_AI_PHASES.has(val.phase)) {
-            clean.phase = val.phase;
+            ai.phase = val.phase as AiTelemetryRecord['phase'];
         }
         if (typeof val.promptTokens === 'number' && Number.isInteger(val.promptTokens) && val.promptTokens >= 0) {
-            clean.promptTokens = val.promptTokens;
+            ai.promptTokens = val.promptTokens;
         }
         if (
             typeof val.completionTokens === 'number' &&
             Number.isInteger(val.completionTokens) &&
             val.completionTokens >= 0
         ) {
-            clean.completionTokens = val.completionTokens;
+            ai.completionTokens = val.completionTokens;
         }
         if (typeof val.totalTokens === 'number' && Number.isInteger(val.totalTokens) && val.totalTokens >= 0) {
-            clean.totalTokens = val.totalTokens;
+            ai.totalTokens = val.totalTokens;
         }
         if (
             typeof val.estimatedCostUsd === 'number' &&
             Number.isFinite(val.estimatedCostUsd) &&
             val.estimatedCostUsd >= 0
         ) {
-            clean.estimatedCostUsd = val.estimatedCostUsd;
+            ai.estimatedCostUsd = val.estimatedCostUsd;
         }
         if (typeof val.repairAttempts === 'number' && Number.isInteger(val.repairAttempts) && val.repairAttempts >= 0) {
-            clean.repairAttempts = val.repairAttempts;
+            ai.repairAttempts = val.repairAttempts;
         }
         if (typeof val.fallbackCount === 'number' && Number.isInteger(val.fallbackCount) && val.fallbackCount >= 0) {
-            clean.fallbackCount = val.fallbackCount;
+            ai.fallbackCount = val.fallbackCount;
         }
+        return { ...base, ...ai };
     }
 
-    return clean;
+    return undefined;
 }
 
 /**
  * Validates and sanitizes a single telemetry recording envelope.
  * Returns undefined if required envelope fields are invalid.
  */
-export function sanitizeTelemetryEnvelope(val: any): EcosystemTelemetryEnvelope | undefined {
-    if (!val || typeof val !== 'object' || val.version !== 1) return undefined;
+export function sanitizeTelemetryEnvelope(val: unknown): EcosystemTelemetryEnvelope | undefined {
+    if (!isPlainRecord(val) || val.version !== 1) return undefined;
     if (typeof val.workflowName !== 'string' || !val.workflowName.trim()) return undefined;
     if (typeof val.stepIdentity !== 'string' || !val.stepIdentity.trim()) return undefined;
 
     const cleanInspection = sanitizeTelemetryInspection(val.inspection);
     if (!cleanInspection) return undefined;
 
+    const workflowVersion =
+        typeof val.workflowVersion === 'string' ||
+        (typeof val.workflowVersion === 'number' && Number.isFinite(val.workflowVersion))
+            ? val.workflowVersion
+            : undefined;
+
+    const timestamp =
+        typeof val.timestamp === 'string' || (typeof val.timestamp === 'number' && Number.isFinite(val.timestamp))
+            ? val.timestamp
+            : undefined;
+
     return {
         version: 1,
         workflowName: val.workflowName.trim(),
-        ...(val.workflowVersion !== undefined ? { workflowVersion: val.workflowVersion } : {}),
+        ...(workflowVersion !== undefined ? { workflowVersion } : {}),
         stepIdentity: val.stepIdentity.trim(),
-        ...(typeof val.attempt === 'number' && val.attempt >= 0 ? { attempt: val.attempt } : {}),
-        ...(val.timestamp !== undefined ? { timestamp: val.timestamp } : {}),
+        ...(typeof val.attempt === 'number' && Number.isFinite(val.attempt) && val.attempt >= 0
+            ? { attempt: val.attempt }
+            : {}),
+        ...(timestamp !== undefined ? { timestamp } : {}),
         inspection: cleanInspection,
     };
 }

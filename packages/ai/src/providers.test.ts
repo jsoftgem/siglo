@@ -207,6 +207,8 @@ describe('@siglo/ai provider adapters (offline transport)', () => {
 
     it('fails closed on provider refusals, truncation, malformed payloads and invalid token accounting', async () => {
         const invalid: [AiProvider, any][] = [
+            ['openai', null],
+            ['anthropic', []],
             ['openai', {}],
             ['openai', { choices: [{ finish_reason: 'length', message: { content: 'partial' } }] }],
             ['openai', { choices: [{ finish_reason: 'stop', message: { content: '', refusal: 'no' } }] }],

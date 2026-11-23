@@ -9,7 +9,7 @@ export type GenerateStepOptions =
 export function validateStepOptions(name: string, options: GenerateStepOptions): void {
     if (!/^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$/.test(name))
         throw new Error('Step name must be a TypeScript identifier or kebab-case name');
-    const o = options as any;
+    const o = options as unknown as Record<string, unknown>;
     const keys: Record<string, string[]> = {
         generic: ['type'],
         http: ['type', 'url'],
@@ -17,12 +17,13 @@ export function validateStepOptions(name: string, options: GenerateStepOptions):
         ai: ['type', 'provider', 'model'],
         notification: ['type', 'channel', 'interactive'],
     };
-    const type = o.type ?? 'generic';
-    if (!keys[type]) throw new Error(`Unsupported step type: ${type}`);
+    const type = typeof o.type === 'string' ? o.type : 'generic';
+    if (!(type in keys)) throw new Error(`Unsupported step type: ${type}`);
     if (Object.keys(o).some(k => !keys[type].includes(k))) throw new Error('Unsupported option for step type');
     if (type === 'http') {
         let url: URL;
         try {
+            if (typeof o.url !== 'string') throw new Error('HTTP requires an absolute URL');
             url = new URL(o.url);
         } catch {
             throw new Error('HTTP requires an absolute URL');
@@ -30,17 +31,22 @@ export function validateStepOptions(name: string, options: GenerateStepOptions):
         if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash)
             throw new Error('HTTP URL must use http(s), without credentials or fragment');
     }
-    if (type === 'crypto' && !['stripe', 'github', 'shopify', 'slack', 'svix', 'generic-hmac'].includes(o.provider))
+    if (
+        type === 'crypto' &&
+        (typeof o.provider !== 'string' ||
+            !['stripe', 'github', 'shopify', 'slack', 'svix', 'generic-hmac'].includes(o.provider))
+    )
         throw new Error('Unsupported webhook provider');
     if (
         type === 'ai' &&
-        (!['openai', 'anthropic', 'gemini', 'ollama'].includes(o.provider) ||
+        (typeof o.provider !== 'string' ||
+            !['openai', 'anthropic', 'gemini', 'ollama'].includes(o.provider) ||
             typeof o.model !== 'string' ||
             !o.model.trim())
     )
         throw new Error('AI requires a supported provider and model');
     if (type === 'notification') {
-        if (!['email', 'slack', 'discord', 'sms', 'push'].includes(o.channel))
+        if (typeof o.channel !== 'string' || !['email', 'slack', 'discord', 'sms', 'push'].includes(o.channel))
             throw new Error('Unsupported notification channel');
         if (o.interactive !== undefined && typeof o.interactive !== 'boolean')
             throw new Error('interactive must be true or false');

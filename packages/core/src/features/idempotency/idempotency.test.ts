@@ -8,6 +8,7 @@ import {
     IdempotencyConflictException,
     clearStorage,
     isPermanentBusinessError,
+    IdempotencyStore,
 } from '../../index';
 
 describe('Idempotency Unit and Workflow Tests', () => {
@@ -521,7 +522,7 @@ describe('Idempotency Unit and Workflow Tests', () => {
         expect(executions).to.equal(1);
 
         // Retry returns the cached decline record without re-executing
-        const retryRes = await p.run(
+        const retryRes: any = await p.run(
             {},
             {
                 idempotencyKey: 'card-declined-key',

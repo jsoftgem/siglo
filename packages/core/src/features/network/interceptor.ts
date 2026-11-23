@@ -6,6 +6,7 @@ import stream from 'node:stream';
 import { networkPolicyStorage } from './storage';
 import { isHostAllowed, isUnixSocketAllowed } from './matcher';
 import { normalizeIP, isPrivateOrRestrictedIP, validateAndPinTarget } from './ip';
+import { ActiveNetworkPolicyContext } from './types';
 import { NetworkPolicyViolationException } from '../executer/exceptions';
 
 const VALIDATED_SOCKET = Symbol.for('siglo.network.validated');
@@ -91,7 +92,10 @@ class BlockedClientRequest extends http.ClientRequest {
     override flushHeaders(): void {}
 }
 
-function parseHttpArgs(args: any[], defaultProto: string): { urlString: string; host: string; port?: string | number } {
+function parseHttpArgs(
+    args: unknown[],
+    defaultProto: string,
+): { urlString: string; host: string; port?: string | number } {
     const first = args[0];
 
     if (typeof first === 'string') {
@@ -106,10 +110,17 @@ function parseHttpArgs(args: any[], defaultProto: string): { urlString: string; 
         return { urlString: first.href, host: first.host, port: first.port };
     }
     if (first && typeof first === 'object') {
-        const hostname = first.hostname || first.host || 'localhost';
-        const port = first.port;
-        const proto = first.protocol || defaultProto;
-        const path = first.path || '/';
+        const opts = first as {
+            hostname?: string;
+            host?: string;
+            port?: string | number;
+            protocol?: string;
+            path?: string;
+        };
+        const hostname = opts.hostname || opts.host || 'localhost';
+        const port = opts.port;
+        const proto = opts.protocol || defaultProto;
+        const path = opts.path || '/';
         const hostWithPort = port ? `${hostname}:${port}` : hostname;
         const urlString = `${proto}//${hostWithPort}${path}`;
         return { urlString, host: hostWithPort, port };
@@ -117,17 +128,21 @@ function parseHttpArgs(args: any[], defaultProto: string): { urlString: string; 
     return { urlString: `${defaultProto}//localhost/`, host: 'localhost' };
 }
 
-function wrapLookup(existingLookup: any, store: any, target: { urlString: string; host: string }) {
+function wrapLookup(
+    existingLookup: http.RequestOptions['lookup'] | undefined,
+    store: ActiveNetworkPolicyContext,
+    target: { urlString: string; host: string },
+) {
     const baseLookup = existingLookup || dns.lookup;
     return (hostname: string, opts: any, cb: any) => {
         const callback = typeof opts === 'function' ? opts : cb;
         const lookupOpts = typeof opts === 'object' ? opts : {};
-        baseLookup(hostname, lookupOpts, (err: any, address: any, family: any) => {
+        (baseLookup as any)(hostname, lookupOpts, (err: any, address: any, family: any) => {
             if (err) return callback(err);
             const addrs = Array.isArray(address) ? address : [{ address, family }];
             for (const item of addrs) {
                 if (isPrivateOrRestrictedIP(item.address, store.allowLocalhost)) {
-                    const isExplicitlyAllowed = (store.allowedHosts || []).some((pat: any) => {
+                    const isExplicitlyAllowed = (store.allowedHosts || []).some(pat => {
                         if (typeof pat === 'string') {
                             const normPat = normalizeIP(pat);
                             return normPat === item.address || pat === item.address;
@@ -140,7 +155,7 @@ function wrapLookup(existingLookup: any, store: any, target: { urlString: string
                             target.urlString,
                             target.host,
                             store.allowedHosts,
-                            { reason: `Target host '${hostname}' resolved to restricted IP: ${item.address}` } as any,
+                            { reason: `Target host '${hostname}' resolved to restricted IP: ${item.address}` },
                         );
                         return callback(blockErr);
                     }
@@ -149,6 +164,30 @@ function wrapLookup(existingLookup: any, store: any, target: { urlString: string
             callback(null, address, family);
         });
     };
+}
+
+function injectPinnedLookup(
+    args: unknown[],
+    store: ActiveNetworkPolicyContext,
+    target: { urlString: string; host: string },
+): unknown[] {
+    if (typeof args[0] === 'string' || args[0] instanceof URL) {
+        if (typeof args[1] === 'object' && args[1] !== null) {
+            const opts: http.RequestOptions = { ...(args[1] as http.RequestOptions) };
+            opts.lookup = wrapLookup(opts.lookup, store, target) as http.RequestOptions['lookup'];
+            return [args[0], opts, ...args.slice(2)];
+        }
+        const opts: http.RequestOptions = {
+            lookup: wrapLookup(undefined, store, target) as http.RequestOptions['lookup'],
+        };
+        return [args[0], opts, ...args.slice(1)];
+    }
+    const baseOpts = (typeof args[0] === 'object' && args[0] !== null ? args[0] : {}) as http.RequestOptions;
+    const opts: http.RequestOptions = {
+        ...baseOpts,
+        lookup: wrapLookup(baseOpts.lookup, store, target) as http.RequestOptions['lookup'],
+    };
+    return [opts, ...args.slice(1)];
 }
 
 function rejectOrThrowHttp(error: NetworkPolicyViolationException, throwSync?: boolean): any {
@@ -217,7 +256,7 @@ async function executeValidatedFetch(
     urlObj: URL,
     host: string,
     init: any,
-    store: any,
+    store: ActiveNetworkPolicyContext,
 ): Promise<Response> {
     await validateAndPinTarget(urlObj, store);
 
@@ -245,7 +284,7 @@ async function executeValidatedFetch(
             if (redirectCount > maxRedirects) {
                 throw new NetworkPolicyViolationException(store.stepName, currentUrl, host, store.allowedHosts, {
                     reason: 'Maximum redirect count exceeded',
-                } as any);
+                });
             }
 
             const targetUrlObj = new URL(location, currentUrl);
@@ -291,11 +330,9 @@ function patchedHttpRequest(...args: any[]): http.ClientRequest {
         return rejectOrThrowHttp(error, store.throwSync);
     }
 
-    // prettier-ignore
-    const opts = typeof args[0] === 'string' || args[0] instanceof URL ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {}) : (args[0] || {});
-    opts.lookup = wrapLookup(opts.lookup, store, target);
+    const patchedArgs = injectPinnedLookup(args, store, target);
 
-    const req = origHttpRequest!.apply(http, args as any);
+    const req = origHttpRequest!.apply(http, patchedArgs as any);
     req.on('socket', (socket: any) => {
         socket[VALIDATED_SOCKET] = true;
     });
@@ -325,11 +362,9 @@ function patchedHttpsRequest(...args: any[]): http.ClientRequest {
         return rejectOrThrowHttp(error, store.throwSync);
     }
 
-    // prettier-ignore
-    const opts = typeof args[0] === 'string' || args[0] instanceof URL ? (typeof args[1] === 'object' && args[1] !== null ? args[1] : {}) : (args[0] || {});
-    opts.lookup = wrapLookup(opts.lookup, store, target);
+    const patchedArgs = injectPinnedLookup(args, store, target);
 
-    const req = origHttpsRequest!.apply(https, args as any);
+    const req = origHttpsRequest!.apply(https, patchedArgs as any);
     req.on('socket', (socket: any) => {
         socket[VALIDATED_SOCKET] = true;
     });
@@ -404,7 +439,7 @@ function patchedSocketConnect(this: any, ...args: any[]): any {
                 `tcp://${hostWithPort}`,
                 host,
                 store.allowedHosts,
-                { reason: `Socket destination resolved to restricted IP: ${normIp}` } as any,
+                { reason: `Socket destination resolved to restricted IP: ${normIp}` },
             );
             return destroyOrThrowSocket(this, error, store.throwSync);
         }

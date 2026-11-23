@@ -12,27 +12,27 @@
     "demo:distributed-domains": "tsx src/distributed-domains-stackid/run.ts"
   },
   "dependencies": {
-    "@siglo/bullmq": "^1.0.0",
-    "@siglo/cli": "^1.0.0",
-    "@siglo/express": "^1.0.0",
-    "@siglo/fastify": "^1.0.0",
-    "@siglo/hono": "^1.0.0",
-    "@siglo/kafka": "^1.0.0",
-    "@siglo/opentelemetry": "^1.0.0",
-    "@siglo/postgres": "^1.0.0",
-    "@siglo/redis": "^1.0.0",
-    "@siglo/sqs": "^1.0.0",
-    "@siglo/core": "^1.0.0",
+    "@siglo/bullmq": "^1.3.0",
+    "@siglo/cli": "^1.3.0",
+    "@siglo/express": "^1.3.0",
+    "@siglo/fastify": "^1.3.0",
+    "@siglo/hono": "^1.3.0",
+    "@siglo/kafka": "^1.3.0",
+    "@siglo/opentelemetry": "^1.3.0",
+    "@siglo/postgres": "^1.3.0",
+    "@siglo/redis": "^1.3.0",
+    "@siglo/sqs": "^1.3.0",
+    "@siglo/core": "^1.3.0",
     "ioredis": "^6.0.0",
     "mongodb": "^7.7.0",
-    "@siglo/monitor": "^1.0.0",
+    "@siglo/monitor": "^1.3.0",
     "pg": "^8.23.1",
     "kafkajs": "^2.2.4",
-    "@siglo/crypto": "^1.0.0",
-    "@siglo/ide-protocol": "^1.0.0"
+    "@siglo/crypto": "^1.3.0",
+    "@siglo/ide-protocol": "^1.3.0"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
-    "@siglo/ide-analysis": "^1.0.0"
+    "@siglo/ide-analysis": "^1.3.0"
   }
 }
