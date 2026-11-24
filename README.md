@@ -116,6 +116,7 @@ What you get immediately by wrapping existing functions in `Step.create`:
 
 - **Automatic LIFO Saga Rollbacks**: If `shipOrder` throws, `chargeCard` is refunded first, then `reserveInventory` is released.
 - **Zero-Boilerplate Type Inference**: `shipOrder` statically knows `reservationId` exists in its input context because `reserveInventory` returned it upstream.
+- **Zero-Microtask Compute Steps (`Step.compute`)**: For pure calculations and data shaping, `Step.compute(...)` batches consecutive steps synchronously with an always-deny network perimeter.
 - **Instant Architecture Diagrams & Live Telemetry**: Call `checkoutFlow.toMermaid()` to render the pipeline in PRs, or inspect live execution waterfalls in `@siglo/monitor` and OpenTelemetry (`@siglo/opentelemetry`).
 
 ---
@@ -730,6 +731,7 @@ npm install --save-dev @siglo/testing @siglo/cli
 | Method                                                | Description                                                                                          |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `Step.create<TIn, TOut, TName>(name?, action)`        | Instantiates a new typed `Step` execution unit with input/output contracts.                          |
+| `Step.compute<TIn, TOut, TName>(name?, action)`       | Instantiates a lightweight synchronous `ComputeStep` (`.spec()`, `.cache()`, `.run()`) with zero microtasks and always-deny network guardrails. |
 | `Step.setDefaultMonitor(monitor)`                     | Sets global default event emitter for all workflow runs in the process.                              |
 | `Step.getDefaultMonitor()`                            | Returns the active default workflow event emitter.                                                   |
 | `step.allowNetwork(hosts)`                            | Configures allowed outbound network hosts/patterns for this step.                                    |
@@ -739,9 +741,9 @@ npm install --save-dev @siglo/testing @siglo/cli
 | `step.requireDependency<T>(key)`                      | Retrieves a required injected dependency or throws a descriptive error if missing.                   |
 | `step.compensate(handler, options?)`                  | Registers a compensation rollback handler to execute in reverse order if downstream steps fail.      |
 | `step.idempotent(keyOrFn?, options?)`                 | Attaches idempotency deduplication and claim locking with TTL.                                       |
-| `step.timeout(ms)`                                    | Sets per-step SLA deadline (throws `StepTimeoutException` on breach).                                |
+| `step.timeout(duration)`                              | Sets per-step SLA deadline using `DurationInput` (`number` ms or `'5s'`, `'2m'`; throws `StepTimeoutException`). |
 | `step.onFail(config \| callback)`                     | Configures structured retry policies (`RetryConfig` with backoff/jitter) or error fallback handler.  |
-| `step.cache(ms \| options)`                           | Caches step results with namespace-aware partition keys and configurable TTL.                        |
+| `step.cache(duration \| options)`                     | Caches step results with namespace-aware keys and `DurationInput` TTL (`Step` or `ComputeStep` LRU). |
 | `step.spec(field, options)`                           | Declares parameter validation, default values, transforms, and translations.                         |
 | `step.schema(schema)`                                 | Validates context against Standard Schema (`~standard`), Zod, Valibot, or ArkType contracts.         |
 | `step.strict()`                                       | Filters input context to declared spec fields rather than throwing validation error on extra fields. |
@@ -762,15 +764,15 @@ npm install --save-dev @siglo/testing @siglo/cli
 | `mode`                      | `'pojo' \| 'wrapped'`                                    | Specifies return mode (`'pojo'` recommended for modern workflows).                                                                                 |
 | `networkPolicy`             | `NetworkPolicyConfig`                                    | Overrides or specifies flow-level network policy for a specific execution run.                                                                     |
 | `signal`                    | `AbortSignal`                                            | Cooperative cancellation signal that aborts in-flight async steps and retry delay timers.                                                          |
-| `timeout` / `timeoutMs`     | `number`                                                 | Workflow-level SLA deadline in milliseconds.                                                                                                       |
+| `timeout` / `timeoutMs`     | `DurationInput`                                          | Workflow-level SLA deadline (`number` in ms or duration string such as `'30s'`, `'5m'`).                                                           |
 | `services` / `dependencies` | `Record<string, any>`                                    | Dependency injection container accessible inside steps via `param.$services`.                                                                      |
 | `durable`                   | `boolean`                                                | Enables durable execution state tracking and checkpoint persistence upon wait/suspend.                                                             |
 | `workflowVersion`           | `string \| number`                                       | Declared workflow version for schema migration verification upon checkpoint resumption.                                                            |
 | `workflowId`                | `string`                                                 | Custom workflow identifier attached to telemetry, logs, and checkpoints.                                                                           |
 | `namespace`                 | `string`                                                 | Logical partition namespace scoping checkpoints, caches, and idempotency keys (requires application authorization).                                |
-| `idempotencyKey`            | `string \| ((ctx) => string)`                            | Workflow-level idempotency deduplication key or generator function.                                                                                |
+| `idempotencyKey`            | `DynamicOption<string, TContext>`                        | Workflow-level idempotency deduplication key (`string` or `(ctx) => string`).                                                                      |
 | `idempotencyStore`          | `IdempotencyStore`                                       | Custom idempotency store adapter (e.g. `PostgresIdempotencyStore`, `RedisIdempotencyStore`).                                                       |
-| `idempotencyTtlMs`          | `number`                                                 | Retention TTL for idempotency records in milliseconds (Redis/Postgres default: 24h; InMemory has no default expiration unless ttlMs is specified). |
+| `idempotencyTtlMs`          | `DurationInput`                                          | Retention TTL for idempotency records (`number` ms or duration string; Redis/Postgres default: `'24h'`; InMemory has no default expiration unless specified). |
 | `migrations`                | `Record<string, (fromVersion, toVersion, state) => any>` | State transformation functions keyed by version transitions (e.g. `'v1->v2'`) for upgrading suspended checkpoints.                                 |
 
 ### 💾 [Storage & Persistence Utilities](docs/api/storage-and-persistence.md)

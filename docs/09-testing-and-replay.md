@@ -57,6 +57,23 @@ harness.mockStep('callStripe', async param => {
 });
 ```
 
+### Testing `Step.compute` Steps
+
+`WorkflowHarness` accepts both standalone `ComputeStep` instances and workflows combining `Step.create` and `Step.compute` (`TestableWorkflow`):
+
+- **Full Trace & Assertion Parity**: Compute steps flow synchronously through `spyStep`, `assertStepExecuted`, `assertStepFailed`, and `replayExecution` while preserving `.spec()` validation.
+- **Isolated Per-Harness Caches**: Each harness creates isolated in-memory `ComputeCache` instances for cached compute steps so cache state never leaks between test runs. Calling `harness.mockStep(stepName, impl)` invalidates the harness's cache entry for that step.
+- **Synchronous Mock Requirement**: Mock implementations targeting a `Step.compute` step must return synchronously (non-Promise); returning a Promise or thenable fails with a non-retryable `SigloError`.
+
+```typescript
+const scoreOrder = Step.compute('scoreOrder', (p: { total: number }) => ({ tier: p.total > 100 ? 'VIP' : 'STD' }));
+const harness = createWorkflowHarness(flow(scoreOrder));
+
+harness.mockStep('scoreOrder', () => ({ tier: 'MOCK_VIP' }));
+const res = await harness.run({ total: 25 });
+harness.assertStepExecuted('scoreOrder', 1);
+```
+
 ---
 
 ## 4. Fake Clock & Virtual Timers

@@ -7,7 +7,7 @@ description: 'Mental model and architecture of Siglo: AST and DAG graph represen
 
 In `Siglo`, a workflow is not a simple promise chain. Internally, it is represented as a declarative **Abstract Syntax Tree (AST)** of `WorkflowNode` objects (`pipeline.toGraph()`), which flattens into a **Directed Acyclic Graph (DAG)** of nodes and directed edges (`pipeline.inspect()`) for static analysis, cycle detection, and visual rendering:
 
-- `StepNode`: An isolated unit of work with input schemas, lifecycles, retries, and policies.
+- `StepNode`: An isolated unit of work representing either a standard asynchronous `Step.create` step (with full lifecycle hooks, retries, timeouts, and sagas) or a lightweight synchronous `Step.compute` step (`ComputeStep` with `metadata.compute = true`).
 - `SequenceNode`: Sequential execution pipeline created with `flow(...)`.
 - `ParallelNode`: Concurrent fan-out/fan-in with merge strategies (`parallel`, `race`).
 - `BranchNode`: Dynamic conditional routing and predicate dispatch (`branch`, `when`).
@@ -88,6 +88,41 @@ flowchart TD
 3. **Action**: Executes the primary asynchronous business logic. If idempotency (`step.idempotent(...)`) or caching (`step.cache(...)`) is configured, cached results short-circuit execution.
 4. **After Hook (`onAfter`)**: Transforms or augments the action output before it is merged into accumulated context.
 5. **OnFail Hook (`onFail`)**: Invoked when an exception occurs in `validation`, `before`, `action`, or `after` (unless the error is non-retryable, such as `ValidationException` or `CancellationException`). Evaluates retry predicates, calculates backoff delay (fixed, linear, exponential with jitter), and escalates to workflow-level saga compensations if retries are exhausted.
+
+### `Step.compute` Synchronous Fast Path
+
+Pure in-memory transformations created with `Step.compute(name?, action)` bypass the asynchronous lifecycle machinery (`SingleChain`, `onBefore`/`onSkip`/`onAfter`/`onFail`, timers, and per-step `Context` allocation) and execute consecutive compute steps in a tight synchronous loop inside `flow()`:
+
+1. **Sync Validation (`spec`)**: Runs synchronous `SyncSpec` rules (`default`, `require`, `validate`, `transform`, `translate`, synchronous `schema`) under the unconditional always-deny network perimeter. Any error or async thenable throws `ValidationException` (`phase: 'validation'`).
+2. **In-Memory LRU/TTL Cache Lookup (`cache`)**: Computes cache keys synchronously (using `keySerializer` if configured) and serves hits directly from the bounded in-memory `ComputeCache` (default `ttl: 1500ms`, `maxEntries: 1000`).
+3. **Sync Action & Network Perimeter**: Executes `action` synchronously inside `COMPUTE_NETWORK_POLICY` (`defaultPolicy: 'deny'`, `allowedHosts: []`, `allowLocalhost: false`, `throwSync: true`), rejecting any returned `Promise` or thenable with a non-retryable `SigloError` (`phase: 'action'`).
+
+> Compute steps receive clean plain inputs with `$steps` / `$history` preserved, omitting async wrapper keys (`$signal`, `$services`, `$stackId`, `$namespace`).
+
+```typescript
+import { Step, flow } from '@siglo/core';
+
+const applyDiscount = Step.compute('applyDiscount', (p: { subtotal: number; discountRate: number }) => ({
+    discounted: Math.max(0, p.subtotal * (1 - p.discountRate)),
+}))
+    .spec('subtotal', { require: true, validate: v => typeof v === 'number' && v >= 0 })
+    .spec('discountRate', { default: 0 });
+
+const calculateTax = Step.compute('calculateTax', (p: { discounted: number }) => ({
+    tax: Math.round(p.discounted * 0.08 * 100) / 100,
+    total: Math.round(p.discounted * 1.08 * 100) / 100,
+})).cache('5m');
+
+const saveInvoice = Step.create('saveInvoice', async (p: { total: number }) => {
+    return { invoiceId: 'inv_101', billed: p.total };
+});
+
+// `applyDiscount` and `calculateTax` execute in a single synchronous batch before `saveInvoice`
+const checkoutFlow = flow(applyDiscount, calculateTax, saveInvoice);
+const res = await checkoutFlow.run({ subtotal: 100, discountRate: 0.1 });
+console.log(res.total); // 97.2
+console.log(res.$steps.applyDiscount.discounted); // 90
+```
 
 ---
 

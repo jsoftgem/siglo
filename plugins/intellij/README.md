@@ -162,7 +162,7 @@ The static analyzer extracts graph topology across core Siglo patterns and ecosy
 
 | Category | Supported Syntax & Patterns |
 |---|---|
-| **Core Steps** | `Step.create(...)`, `new Step(...)`, compatibility `Func`/`Chain` constructors and `.create(...)`, inline functions |
+| **Core Steps** | `Step.create(...)`, `Step.compute(...)`, `new Step(...)`, `new ComputeStep(...)`, compatibility `Func`/`Chain` constructors and `.create(...)`, inline functions |
 | **Composition** | `flow(...)`, `pipe(...)`, `Step.flow(...)`, `Step.pipe(...)`, nested flows (e.g. `flow(flow1, flow2)`), sequential arrays |
 | **Combinators** | `parallel(...)`, `all(...)`, `allSettled(...)`, `race(...)`, `branch(...)`, `when(...)`, `map(...)`, static helper equivalents (`Step.parallel`, etc.) |
 | **Durable Waits** | `wait(...)`, `waitForEvent(...)`, static `Step.wait(...)`, `Step.waitForEvent(...)` |
@@ -172,6 +172,8 @@ The static analyzer extracts graph topology across core Siglo patterns and ecosy
 | **Crypto** | `verifyWebhookStep(...)`, `encryptFieldsStep(...)`, `decryptFieldsStep(...)`, `maskFieldsStep(...)` (verification status, fail-closed redaction) |
 | **Execution Options** | `.timeout(...)`, `.compensate(...)`, `.catch(...)`, `.retry(...)`, `.cache(...)`, `.idempotent(...)`, `.spec(...)`, `.schema(...)` |
 | **Workflow Options** | `.timeout(...)` (workflow deadline), `.version(...)` (schema version), `.networkPolicy(...)`, `.monitor(...)` |
+
+> Pure synchronous `Step.compute(...)` / `ComputeStep` nodes render with a `compute` (`Sync · No Network`) badge, expose `.spec()` and in-memory `.cache()` settings in the inspector, execute cleanly in the **Run** tab, and are automatically exempt from `SIGLO_MISSING_COMPENSATION` side-effect warnings.
 
 ---
 

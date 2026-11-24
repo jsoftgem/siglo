@@ -52,6 +52,27 @@ When defining a step with `Step.create(name, action)`:
     }));
     ```
 
+### Synchronous Compute Generics: `ComputeStep<TInput, TOutput, TName>`
+
+`Step.compute(name?, action)` shares the same name-first, input-first, and automatic inference overloads as `Step.create`, returning a `ComputeStep<TInput, TOutput, TName>`:
+
+```typescript
+export type SyncValue<T> = T extends PromiseLike<any> ? never : T;
+export type SyncStepAction<TInput = any, TOutput = any> = (parameter: TInput) => SyncValue<TOutput>;
+
+export class ComputeStep<TInput = any, TOutput = any, TName extends string = string> {
+    readonly isCompute = true as const;
+    readonly name: TName;
+    readonly action: SyncStepAction<TInput, TOutput>;
+    spec(fieldOrSchema: string | any, json?: SyncSpecData | any): ComputeStep<TInput, TOutput, TName>;
+    cache(ttlOrOptions?: DurationInput | ComputeCacheOptions): ComputeStep<TInput, TOutput, TName>;
+    run(param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
+}
+```
+
+- **`SyncValue<T>`**: Rejects `Promise` and `PromiseLike` return types at compile time for `action`, `SyncSpecData` callbacks (`validate`, `transform`, `translate`), and `ComputeCacheOptions.keySerializer`.
+- **Narrow Surface & Typed History**: `ComputeStep` integrates seamlessly into `flow(...)` and registers `TName: TOutput` in `$steps`, while omitting async lifecycle methods (`.timeout()`, `.onFail()`, `.compensate()`, `.allowNetwork()`, etc.) from the type surface.
+
 ---
 
 ## 2. Accumulated Context Inference
@@ -150,6 +171,21 @@ const validateStep = Step.create('validate', async param => {
     .schema(UserSchema)
     .strict();
 ```
+
+---
+
+## 6. Dynamic Options and Human-Readable Durations
+
+Across `@siglo/core` (`ExecutionOptions`, `wait`, `waitForEvent`, `.timeout()`, `.cache()`, `.idempotent()`) and ecosystem packages (`@siglo/http`, `@siglo/notifications`, `@siglo/crypto`), configuration options use shared utility types exported from `@siglo/core`:
+
+```typescript
+export type DynamicOption<T, TContext = any> = T | ((ctx: TContext) => T);
+export type DurationInput = number | string; // e.g. 5000, '5s', '1.5m', '24h', '7d'
+export type DynamicDuration<TContext = any> = DynamicOption<DurationInput, TContext>;
+```
+
+- **`DurationInput` & `parseDuration()`**: Accepts numeric milliseconds or duration strings with `ms`, `s`, `m`, `h`, or `d` suffixes (e.g. `'500ms'`, `'5s'`, `'15m'`, `'24h'`, `'7d'`).
+- **`DynamicOption<T, TContext>`**: Allows options like `idempotencyKey`, `url`, `headers`, `query`, `body`, `correlationKey`, `provider`, `secret`, and `aad` to be specified as either a static literal or a context-aware resolver `(ctx: TContext) => T`.
 
 ---
 

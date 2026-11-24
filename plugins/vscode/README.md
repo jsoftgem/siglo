@@ -5,8 +5,8 @@ See how your Siglo workflows fit together without leaving VS Code. Explore inter
 ## Features
 
 - **Understand the flow:** Follow sequential steps, parallel paths, conditional branches, races, compensation paths, and fallbacks. Compare workflows in the same file with **All Flows**.
-- **Inspect each step:** Review required inputs, defaults, validation rules, retries, and timeouts. Inspect configuration for HTTP, AI, notification, and crypto steps.
-- **Find problems while editing:** See editor diagnostics for cycles, duplicate step IDs, missing compensation, and unhandled durable error branches.
+- **Inspect each step:** Review required inputs, defaults, validation rules, retries, and timeouts. Inspect configuration for synchronous `Step.compute` steps (`Sync · No Network`), HTTP, AI, notification, and crypto steps.
+- **Find problems while editing:** See editor diagnostics for cycles, duplicate step IDs, missing compensation (with pure `Step.compute` steps automatically exempt), and unhandled durable error branches.
 - **Move between graph and code:** Click a step to open its definition. Move your cursor into a step to highlight it in the graph.
 - **Keep up with changes:** Use **Auto-Reload** to refresh the graph as you edit, or refresh manually with **Reload**.
 - **Review recorded runs:** Import a local Siglo telemetry recording to inspect available execution status, retry attempts, HTTP timings, and AI token usage alongside your workflow.

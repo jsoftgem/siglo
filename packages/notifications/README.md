@@ -265,6 +265,8 @@ registerNotificationTransport(
 
 ## 5. Workflow Step API
 
+All context-dependent notification fields (`channel`, `recipient`, `subject`, `template`, `data`, `title`, `description`, `correlationKey`) accept `DynamicOption<T, TInput>` (static values or `(ctx) => value` resolvers). Duration options accept human-readable `DurationInput` strings (`'1h'`, `'48h'`) or numeric values (`deduplicationTtl` uses seconds when a number; `timeout` accepts `DynamicDuration<TInput>`, supporting `DurationInput` or `(ctx) => DurationInput`).
+
 ### `sendNotificationStep(name, options)`
 
 Dispatches one-way alerts (email, chat, SMS, push) with automatic idempotency deduplication and context redaction:
@@ -276,7 +278,7 @@ const alertOps = sendNotificationStep('alertOps', {
     channel: 'slack',
     recipient: { slackChannelId: 'C_OPS_ALERTS' },
     template: ctx => `High latency detected on ${ctx.serviceName}: ${ctx.p99}ms`,
-    deduplicationTtl: 3600, // Suppresses duplicate alerts within 1 hour
+    deduplicationTtl: '1h', // Suppresses duplicate alerts within 1 hour (also accepts seconds: 3600)
 });
 ```
 

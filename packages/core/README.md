@@ -21,7 +21,7 @@
 | Dimension         | `Siglo`                                                                                                                                                                  | Distributed Engines (Temporal, Inngest)                   |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | **Architecture**  | Lightweight, zero-infrastructure in-process library                                                                                                                      | Heavy multi-cluster / external orchestrator daemon        |
-| **Latency**       | Microsecond direct async function invocation                                                                                                                             | Millisecond-to-second RPC / polling overhead              |
+| **Latency**       | Microsecond async invocation or zero-microtask synchronous `Step.compute` batching                                                                                       | Millisecond-to-second RPC / polling overhead              |
 | **Footprint**     | Zero external dependencies, pure TypeScript                                                                                                                              | Requires persistent workers, queue servers, and databases |
 | **Primary Focus** | Modular workflows, parallel fan-out/fan-in, bounded worker mapping, request-scoped sagas, idempotency, durable event waits, retry backoff with jitter, OCC checkpointing | Months-long durable human-in-the-loop workflows           |
 
@@ -61,7 +61,7 @@ const fetchUser = Step.create('fetchUser', async (param: { userId: string }) => 
     return { name: 'Alice', tier: 'PRO' };
 });
 
-const calculateDiscount = Step.create('calculateDiscount', async (param: { tier: string }) => {
+const calculateDiscount = Step.compute('calculateDiscount', (param: { tier: string }) => {
     const discount = param.tier === 'PRO' ? 0.2 : 0.05;
     return { discountPercentage: discount };
 });
@@ -85,6 +85,7 @@ main();
 ## Key Features
 
 - ⚡ **Composable Flows (`flow`)** &mdash; Compose steps directly into workflows without global registries; steps are pure execution units.
+- 🧮 **Zero-Microtask Compute Steps (`Step.compute`)** &mdash; Run pure synchronous logic (`ComputeStep`) in tight sync batches with sync `.spec()` validation, bounded LRU+TTL `.cache()`, and an unconditional always-deny network perimeter.
 - 🧠 **Accumulated Context Inference** &mdash; TypeScript automatically computes the accumulated output type across composed sequential steps at compile time.
 - 📜 **Typed Step History (`$steps`)** &mdash; Statically typed access to any step's output using string literal names (`context.$steps.loadUser.user`).
 - 🗺️ **Workflow Graph Visualization** &mdash; Export workflow graphs directly to Mermaid diagrams (`flow.toMermaid()`), Graphviz DOT (`flow.toDot()`), and JSON AST (`flow.toJSON()`) with policy badges.
@@ -96,7 +97,7 @@ main();
 - ⏪ **Sagas & LIFO Compensations** &mdash; Attach rollback handlers (`step.compensate(handler)`) that run automatically in reverse execution order upon failure.
 - ⏳ **Durable Waits & Event Resumption** &mdash; Pause execution with `waitForEvent(eventName)` or `wait('30m')`, persist suspended checkpoints, and safely resume workflows.
 - 🏷️ **Workflow Versioning & State Migrations** &mdash; Declare workflow versions (`flow.version('v2')`), detect version mismatches upon resumption, and run registered state transformation functions.
-- ⏱️ **Resilient Deadlines & Two-Tier Timeouts** &mdash; Enforce per-step SLA (`step.timeout(ms)`) and workflow-level deadlines (`flow.timeout(ms)`).\
+- ⏱️ **Resilient Deadlines & Human-Readable Durations** &mdash; Enforce per-step SLA (`step.timeout('5s')`) and workflow-level deadlines (`flow.timeout('30s')`) using `DurationInput` (`number | string`) and `DynamicOption<T, TContext>` resolvers.\
 - 🔁 **Structured Retry Strategies** &mdash; Automatic retries with exponential, linear, or fixed backoff, jitter, and `onRetry` hooks right in `onFail`.\
 - 📦 **Standard Schema Integration (`spec` / `schema`)** &mdash; Native Standard Schema, Zod, Valibot, and ArkType contract enforcement.\
 - 🛑 **Graceful Cancellation & AbortSignals** &mdash; Cancel flows, in-flight async steps, and retry timers seamlessly using standard `AbortSignal`.
