@@ -12,14 +12,16 @@ import {
     NAMESPACE,
     NAMESPACE_KEY,
     STACK_ID_KEY,
+    DurationInput,
+    parseDuration,
 } from '../../shared';
 import { cacheChainAction, clearCache, defaultStorageManager, getCachedChainAction, hasCached } from '../storage';
 import { toPOJO } from '../context';
 
 export interface CacheOptions {
-    ttl?: number;
-    staleWhileRevalidate?: number;
-    swr?: boolean | number;
+    ttl?: DurationInput;
+    staleWhileRevalidate?: DurationInput;
+    swr?: boolean | DurationInput;
     keySerializer?: (stepId: string, param: any, namespace?: string) => string;
     stampedeProtection?: boolean;
 }
@@ -64,10 +66,10 @@ export function cache(
 
     const effectiveCacheKey = namespace ? `${namespace}:${stepId}:${paramKey}` : `${stepId}:${paramKey}`;
 
+    const parsedSwr = typeof options?.swr === 'boolean' ? undefined : parseDuration(options?.swr);
+    const parsedStaleWhileRevalidate = parseDuration(options?.staleWhileRevalidate);
     const swrWindow =
-        typeof options?.swr === 'number'
-            ? options.swr
-            : options?.staleWhileRevalidate || (options?.swr ? cachedLast : 0);
+        parsedSwr !== undefined ? parsedSwr : (parsedStaleWhileRevalidate ?? (options?.swr === true ? cachedLast : 0));
 
     // 1. In-Memory Cache Lookup
     if (hasCached(stackId, effectiveCacheKey, paramKey)) {

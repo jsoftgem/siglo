@@ -92,3 +92,54 @@ test('bundled analyzer stays under 150 MB RSS through 1,000 edits', { timeout: 3
     t.diagnostic(`Peak sampled analyzer RSS: ${peak.toFixed(1)} MB`);
     assert.ok(peak < 150, `Peak RSS ${peak.toFixed(1)} MB exceeds budget`);
 });
+
+test('extracts Step.compute nodes, properties, specs, and saga compensation exemptions via bundled analyzer', async t => {
+    const client = make();
+    t.after(() => client.dispose());
+    const computeSource = [
+        "import { Step, ComputeStep, flow } from '@siglo/core';",
+        "import { httpStep } from '@siglo/http';",
+        "import { encryptFieldsStep } from '@siglo/crypto';",
+        'const calcTotals = Step.compute(',
+        "    'calcTotals',",
+        '    ({ amount }: { amount: number }) => ({ total: amount * 1.15 }),',
+        ')',
+        "    .spec('amount', { require: true, validate: (v: number) => v > 0 })",
+        "    .cache({ ttl: '5m', maxEntries: 500 });",
+        "const scoreRisk = new ComputeStep('scoreRisk', ({ total }: { total: number }) => ({ risk: total > 100 ? 'high' : 'low' })).cache('1m');",
+        "const refundCard = Step.create('refundCard', () => {});",
+        "const chargeCard = httpStep('chargeCard', { method: 'POST', url: 'https://api.stripe.com/charges' }).compensate(refundCard);",
+        "const encryptReceipt = encryptFieldsStep('encryptReceipt', { fields: ['cardNumber'] });",
+        "export const pricingSaga = flow('pricingSaga', calcTotals, scoreRisk, chargeCard, encryptReceipt);",
+    ].join('\n');
+
+    const graph = await client.request('siglo/getGraph', {
+        uri: 'file:///tmp/compute-workflow.ts',
+        documentVersion: 1,
+        content: computeSource,
+    });
+
+    assert.equal(graph.workflowName, 'pricingSaga');
+    const calcNode = graph.nodes.find(node => node.name === 'calcTotals');
+    assert.ok(calcNode, 'Expected calcTotals compute node');
+    assert.equal(calcNode.stepKind, 'compute');
+    assert.equal(calcNode.properties.operation, 'Step.compute');
+    assert.equal(calcNode.properties.networkPolicy, 'deny');
+    assert.equal(calcNode.properties.cache, "{ ttl: '5m', maxEntries: 500 }");
+    assert.ok(Array.isArray(calcNode.specs) && calcNode.specs.length > 0);
+    assert.equal(calcNode.specs[0].field, 'amount');
+    assert.deepEqual(calcNode.executionTarget, { exportName: 'pricingSaga', stepIndex: 0 });
+
+    const riskNode = graph.nodes.find(node => node.name === 'scoreRisk');
+    assert.ok(riskNode, 'Expected scoreRisk ComputeStep node');
+    assert.equal(riskNode.stepKind, 'compute');
+    assert.equal(riskNode.properties.operation, 'ComputeStep');
+    assert.equal(riskNode.properties.networkPolicy, 'deny');
+    assert.equal(riskNode.properties.cache, "'1m'");
+    assert.deepEqual(riskNode.executionTarget, { exportName: 'pricingSaga', stepIndex: 1 });
+
+    // Only encryptReceipt (uncompensated crypto side-effect step) triggers SIGLO_MISSING_COMPENSATION; compute steps are exempt
+    const missingCompDiags = (graph.diagnostics || []).filter(d => d.code === 'SIGLO_MISSING_COMPENSATION');
+    assert.equal(missingCompDiags.length, 1);
+    assert.match(missingCompDiags[0].message, /encryptReceipt/);
+});

@@ -28,10 +28,26 @@ class ProtocolModelsTest {
             executionTarget = ExecutionTarget(exportName = "orderWorkflow", stepIndex = 0)
         )
 
+        val computeNode = GraphNode(
+            id = "step_totals_L15_C2",
+            name = "calculateTotals",
+            stepKind = "compute",
+            location = SourceRange(
+                start = SourcePosition(line = 14, character = 1),
+                end = SourcePosition(line = 18, character = 4)
+            ),
+            declarationRange = SourceRange(
+                start = SourcePosition(line = 14, character = 0),
+                end = SourcePosition(line = 19, character = 0)
+            ),
+            properties = mapOf("operation" to "Step.compute", "networkPolicy" to "deny", "cache" to "'5m'"),
+            executionTarget = ExecutionTarget(exportName = "orderWorkflow", stepIndex = 1)
+        )
+
         val edge = GraphEdge(
             id = "edge_1",
             from = "step_charge_L10_C2",
-            to = "step_receipt_L15_C2",
+            to = "step_totals_L15_C2",
             type = "sequential"
         )
 
@@ -40,7 +56,7 @@ class ProtocolModelsTest {
             documentVersion = 1,
             workflowName = "orderWorkflow",
             properties = mapOf("timeoutMs" to "1000", "workflowVersion" to "v2"),
-            nodes = listOf(node),
+            nodes = listOf(node, computeNode),
             edges = listOf(edge),
             unresolved = emptyList(),
             diagnostics = emptyList(),
@@ -48,7 +64,7 @@ class ProtocolModelsTest {
                 WorkflowGraph(
                     name = "orderWorkflow",
                     properties = mapOf("timeoutMs" to "1000", "workflowVersion" to "v2"),
-                    nodes = listOf(node),
+                    nodes = listOf(node, computeNode),
                     edges = listOf(edge)
                 ),
                 WorkflowGraph(
@@ -63,12 +79,16 @@ class ProtocolModelsTest {
         val deserialized = gson.fromJson(json, GraphDocument::class.java)
 
         assertEquals("orderWorkflow", deserialized.workflowName)
-        assertEquals(1, deserialized.nodes.size)
+        assertEquals(2, deserialized.nodes.size)
         assertEquals("http", deserialized.nodes[0].stepKind)
         assertEquals(2, deserialized.nodes[0].executionConfig?.retries)
         assertEquals(true, deserialized.nodes[0].executionConfig?.hasCompensation)
         assertEquals("orderWorkflow", deserialized.nodes[0].executionTarget?.exportName)
         assertEquals(0, deserialized.nodes[0].executionTarget?.stepIndex)
+        assertEquals("compute", deserialized.nodes[1].stepKind)
+        assertEquals("Step.compute", deserialized.nodes[1].properties?.get("operation"))
+        assertEquals("deny", deserialized.nodes[1].properties?.get("networkPolicy"))
+        assertEquals(1, deserialized.nodes[1].executionTarget?.stepIndex)
         assertEquals("sequential", deserialized.edges[0].type)
         assertEquals("v2", deserialized.properties?.get("workflowVersion"))
         assertEquals("1000", deserialized.workflows[0].properties?.get("timeoutMs"))

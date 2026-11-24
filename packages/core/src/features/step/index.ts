@@ -18,9 +18,22 @@ import {
 } from '../executer/hooks';
 import Spec, { SpecData } from '../spec';
 import Configurator from '../configurator';
-import { generateUUID, isFunction, isObject, isReservedKey } from '../../shared';
+import { DurationInput, DynamicOption, generateUUID, isFunction, isObject, isReservedKey } from '../../shared';
 import { toPOJO } from '../context';
 import { CacheOptions } from '../cache';
+import {
+    ComputeStep,
+    SyncStepAction,
+    SyncValue,
+    SyncSpec,
+    SyncSpecData,
+    runSpecsSync,
+    ComputeCache,
+    ComputeCacheOptions,
+    clearComputeCaches,
+    COMPUTE_NETWORK_POLICY,
+    executeComputeStepSync,
+} from './compute';
 
 // Phase 2 imports
 import {
@@ -103,7 +116,12 @@ import {
     wait,
     waitForEvent,
     WaitForEventOptions,
+    WaitForEventResult,
+    WaitRecordStatus,
     WaitingWorkflowRecord,
+    isWorkflowSuspended,
+    WaitTimerResult,
+    WorkflowSuspensionResult,
 } from '../durable';
 
 import {
@@ -191,6 +209,19 @@ export {
 
 export { CacheOptions } from '../cache';
 export { toPOJO } from '../context/proxy';
+export {
+    ComputeStep,
+    SyncStepAction,
+    SyncValue,
+    SyncSpec,
+    SyncSpecData,
+    runSpecsSync,
+    ComputeCache,
+    ComputeCacheOptions,
+    clearComputeCaches,
+    COMPUTE_NETWORK_POLICY,
+    executeComputeStepSync,
+};
 
 // Phase 2 & 4 Graph Re-exports
 export {
@@ -257,7 +288,12 @@ export {
 
 export {
     WaitForEventOptions,
+    WaitForEventResult,
+    WaitRecordStatus,
     WaitingWorkflowRecord,
+    isWorkflowSuspended,
+    WaitTimerResult,
+    WorkflowSuspensionResult,
     StateMigrationFn,
     ResumeOptions,
     parseDuration,
@@ -303,25 +339,25 @@ export {
     isUnixSocketAllowed,
 };
 
-export interface ExecutionOptions {
+export interface ExecutionOptions<TContext = any> {
     signal?: AbortSignal;
     pojo?: boolean;
     mode?: 'pojo' | 'wrapped';
     namespace?: string;
-    timeout?: number;
-    timeoutMs?: number;
+    timeout?: DurationInput;
+    timeoutMs?: DurationInput;
     workflowId?: string;
     checkpoint?: boolean;
     // Phase 2
     durable?: boolean;
     workflowVersion?: string | number;
-    idempotencyKey?: string | ((ctx: any) => string);
+    idempotencyKey?: DynamicOption<string, TContext>;
     idempotencyStore?: IdempotencyStore;
-    idempotencyTtlMs?: number;
+    idempotencyTtlMs?: DurationInput;
     settleTimeoutMs?: number;
     pollIntervalMs?: number;
-    isPermanentError?: (err: any) => boolean;
-    migrations?: any;
+    isPermanentError?: (err: unknown) => boolean;
+    migrations?: Record<string, StateMigrationFn> | StateMigrationFn;
     stackId?: string;
     isResume?: boolean;
     // Phase 4 Dependency Injection
@@ -349,10 +385,16 @@ export type OnFailAction =
     ((error: any, retry: (fallback?: any) => void, reject: (err?: any) => void) => any) | RetryConfig;
 
 export interface Flow<TInput = any, TOutput = any> {
-    run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
-    steps: Step<any, any, any>[];
+    run: {
+        (
+            param: TInput | undefined,
+            options: ExecutionOptions & { durable: true },
+        ): Promise<TOutput | WorkflowSuspensionResult>;
+        (param?: TInput, options?: ExecutionOptions): Promise<TOutput>;
+    };
+    steps: (Step<any, any, any> | ComputeStep<any, any, any>)[];
     readonly isFlow?: boolean;
-    timeout: (ms: number) => Flow<TInput, TOutput>;
+    timeout: (ms: DurationInput) => Flow<TInput, TOutput>;
     timeoutMs?: number;
     workflowVersion?: string | number;
     version: (v: string | number) => Flow<TInput, TOutput>;
@@ -361,17 +403,17 @@ export interface Flow<TInput = any, TOutput = any> {
     toMermaid: (options?: MermaidExportOptions) => string;
     toJSON: () => string;
     toDot: (options?: DotExportOptions) => string;
-    resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
-    compensate: (stackId: string, options?: any) => Promise<any>;
+    resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ResumeOptions) => Promise<any>;
+    compensate: (stackId: string, options?: CompensationRunOptions) => Promise<CompensationRunResult>;
     networkPolicy: (policy?: NetworkPolicyConfig) => Flow<TInput, TOutput>;
     networkPolicyConfig?: NetworkPolicyConfig;
     monitor: (emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) => Flow<TInput, TOutput>;
-    monitorEmitter?: any;
+    monitorEmitter?: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void);
     hook: (h: StepExecutionHook) => Flow<TInput, TOutput>;
     stepExecutionHook?: StepExecutionHook;
 }
 
-export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut, any> | Flow<TIn, TOut>;
+export type FlowItem<TIn = any, TOut = any> = Step<TIn, TOut, any> | ComputeStep<TIn, TOut, any> | Flow<TIn, TOut>;
 
 export type FlowArg<TIn = any, TOut = any> = FlowItem<TIn, TOut> | FlowArg<TIn, TOut>[];
 
@@ -379,7 +421,7 @@ export function isFlow(item: any): item is Flow {
     if (!isObject(item)) {
         return false;
     }
-    if (item instanceof Step) {
+    if (item instanceof Step || item instanceof ComputeStep || item.isCompute === true) {
         return false;
     }
     return item.isFlow === true || (isFunction(item.run) && !Array.isArray(item.specs) && !isFunction(item.onbefore));
@@ -403,8 +445,8 @@ function createFlowStep(flowInstance: Flow<any, any>): Step<any, any, any> {
     return new Step(flowInstance);
 }
 
-export function flattenSteps(steps: any[]): Step<any, any, any>[] {
-    const result: Step<any, any, any>[] = [];
+export function flattenSteps(steps: any[]): (Step<any, any, any> | ComputeStep<any, any, any>)[] {
+    const result: (Step<any, any, any> | ComputeStep<any, any, any>)[] = [];
     for (const item of steps) {
         if (Array.isArray(item)) {
             result.push(...flattenSteps(item));
@@ -422,33 +464,44 @@ export function flattenSteps(steps: any[]): Step<any, any, any>[] {
 }
 
 // Phase 4 Accumulated Context Inference Type Helpers
-export type MergeStepContext<TAcc, TOut> = [TOut] extends [void | undefined]
-    ? TAcc
-    : [TOut] extends [object]
-      ? Omit<TAcc, keyof TOut> & TOut
-      : TAcc;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type IsNever<T> = [T] extends [never] ? true : false;
+
+export type MergeStepContext<TAcc, TOut> =
+    IsAny<TOut> extends true
+        ? TAcc & Record<string, any>
+        : IsNever<TOut> extends true
+          ? TAcc
+          : [TOut] extends [void | undefined]
+            ? TAcc
+            : [TOut] extends [object]
+              ? Omit<TAcc, keyof TOut> & TOut
+              : TAcc;
 
 export type FlowContextResult<TContext, THistory = Record<string, any>> = TContext & {
-    $steps: THistory;
+    $steps: THistory & Record<number, any>;
 };
 
 // Flow overloads with Accumulated Context Inference & Typed Step History
+export type NamedFlowStep<TIn = any, TOut = any, TName extends string = string> =
+    Step<TIn, TOut, TName> | ComputeStep<TIn, TOut, TName>;
+
 export function flow<TIn, T1Out, N1 extends string>(
-    s1: Step<any, T1Out, N1>,
+    s1: NamedFlowStep<any, T1Out, N1>,
 ): Flow<TIn, FlowContextResult<MergeStepContext<TIn, T1Out>, Record<N1, T1Out>>>;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string>(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
 ): Flow<
     TIn,
     FlowContextResult<MergeStepContext<MergeStepContext<TIn, T1Out>, T2Out>, Record<N1, T1Out> & Record<N2, T2Out>>
 >;
 
 export function flow<TIn, T1Out, N1 extends string, T2Out, N2 extends string, T3Out, N3 extends string>(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
+    s3: NamedFlowStep<any, T3Out, N3>,
 ): Flow<
     TIn,
     FlowContextResult<
@@ -468,10 +521,10 @@ export function flow<
     T4Out,
     N4 extends string,
 >(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>,
-    s4: Step<any, T4Out, N4>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
+    s3: NamedFlowStep<any, T3Out, N3>,
+    s4: NamedFlowStep<any, T4Out, N4>,
 ): Flow<
     TIn,
     FlowContextResult<
@@ -493,11 +546,11 @@ export function flow<
     T5Out,
     N5 extends string,
 >(
-    s1: Step<any, T1Out, N1>,
-    s2: Step<any, T2Out, N2>,
-    s3: Step<any, T3Out, N3>,
-    s4: Step<any, T4Out, N4>,
-    s5: Step<any, T5Out, N5>,
+    s1: NamedFlowStep<any, T1Out, N1>,
+    s2: NamedFlowStep<any, T2Out, N2>,
+    s3: NamedFlowStep<any, T3Out, N3>,
+    s4: NamedFlowStep<any, T4Out, N4>,
+    s5: NamedFlowStep<any, T5Out, N5>,
 ): Flow<
     TIn,
     FlowContextResult<
@@ -516,10 +569,10 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
     let defaultTimeoutMs: number | undefined;
     let declaredVersion: string | number | undefined;
     let flowPolicyConfig: NetworkPolicyConfig | undefined;
-    let flowMonitor: any;
+    let flowMonitor: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void) | undefined;
     let flowHook: StepExecutionHook | undefined;
 
-    const runFn = (param: any = {}, options?: ExecutionOptions) => {
+    const runFn = (param: any = {}, options?: ExecutionOptions): Promise<any> => {
         let resolvedNetworkPolicy = options?.networkPolicy;
         if (flowPolicyConfig) {
             resolvedNetworkPolicy = options?.networkPolicy
@@ -545,12 +598,13 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
     };
 
     const flowObj: Flow<TInput, TOutput> = {
-        run: runFn,
+        run: runFn as Flow<TInput, TOutput>['run'],
         steps: flatSteps,
         isFlow: true,
-        timeout(ms: number) {
-            defaultTimeoutMs = ms;
-            flowObj.timeoutMs = ms;
+        timeout(ms: DurationInput) {
+            const parsed = parseDuration(ms);
+            defaultTimeoutMs = parsed;
+            flowObj.timeoutMs = parsed;
             return flowObj;
         },
         timeoutMs: undefined,
@@ -575,7 +629,7 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
         toDot(options?: DotExportOptions) {
             return toDot(flowObj, options);
         },
-        resume(correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) {
+        resume(correlationKeyOrStackId: string, eventPayload?: any, options?: ResumeOptions) {
             return resumeWorkflow(flowObj, correlationKeyOrStackId, eventPayload, options);
         },
         async compensate(stackId: string, options?: CompensationRunOptions) {
@@ -591,19 +645,22 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
                             if (!handler && record.handlerName) {
                                 handler = getCompensationHandler(record.handlerName);
                             }
+                            const matchingStep: any = allSteps.find(
+                                (s: any) =>
+                                    (s?.name && s.name === record.stepName) ||
+                                    (s?.func && s.func === record.stepName) ||
+                                    (s?.$stepId && s.$stepId === record.stepId),
+                            );
                             if (!handler) {
-                                const matchingStep = allSteps.find(
-                                    (s: any) =>
-                                        (s?.name && s.name === record.stepName) ||
-                                        (s?.func && s.func === record.stepName) ||
-                                        (s?.$stepId && s.$stepId === record.stepId),
-                                );
                                 if (matchingStep?.compensationHandler) {
                                     handler = matchingStep.compensationHandler;
                                 } else if (matchingStep?.compensationHandlerName) {
                                     handler = getCompensationHandler(matchingStep.compensationHandlerName);
                                 }
                             }
+                            const recordPolicy =
+                                record.networkPolicy ||
+                                resolveEffectiveNetworkPolicy(matchingStep?.networkPolicyConfig, flowPolicyConfig);
 
                             if (!handler && !record.handlerName) {
                                 throw new UnresolvableCompensationException(record.stepName, undefined, { stackId });
@@ -618,19 +675,28 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
                                 handlerName: record.handlerName,
                                 payload: record.payload,
                                 options: record.options,
+                                networkPolicy: recordPolicy,
                                 status: record.status,
                                 completedAt: record.completedAt,
                             });
                         }
                     }
-                } catch (err: any) {
+                } catch (err: unknown) {
                     if (err instanceof UnresolvableCompensationException) {
                         throw err;
                     }
                     // best-effort checkpoint hydration
                 }
             }
-            return defaultCompensationManager.runCompensations(stackId, undefined, options);
+            const resolvedNetworkPolicy = flowPolicyConfig
+                ? options?.networkPolicy
+                    ? resolveEffectiveNetworkPolicy(options.networkPolicy, flowPolicyConfig)
+                    : flowPolicyConfig
+                : options?.networkPolicy;
+            const effectiveOptions = resolvedNetworkPolicy
+                ? { ...options, networkPolicy: resolvedNetworkPolicy }
+                : options;
+            return defaultCompensationManager.runCompensations(stackId, undefined, effectiveOptions);
         },
         networkPolicy(policy?: NetworkPolicyConfig) {
             flowPolicyConfig = {
@@ -644,7 +710,7 @@ export function flow<TInput = any, TOutput = any>(...steps: FlowArg[]): Flow<TIn
             return flowObj;
         },
         networkPolicyConfig: undefined,
-        monitor(emitter: any) {
+        monitor(emitter: WorkflowEventEmitter | ((event: WorkflowExecutionEvent) => void)) {
             flowMonitor = emitter;
             flowObj.monitorEmitter = emitter;
             return flowObj;
@@ -666,7 +732,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     specs: Spec[];
     onbefore: OnBeforeAction<TInput>;
     onskip?: OnSkipAction<TInput>;
-    onafter?: OnAfterAction<TOutput, TInput>;
+    onafter?: OnAfterAction<any, TInput>;
     onfail?: OnFailAction;
     sequence: Step<any, any, any>[];
     reducer?: string;
@@ -677,11 +743,11 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     $stepId?: string;
     func?: string;
     // Phase 2
-    compensationHandler?: any;
+    compensationHandler?: CompensationHandler;
     compensationHandlerName?: string;
     compensationPayloadMapper?: (output: any, input: any) => any;
     compensationOptions?: CompensationOptions;
-    idempotencyKey?: string | ((ctx: any) => string);
+    idempotencyKey?: DynamicOption<string>;
     idempotencyOptions?: IdempotencyOptions;
     workflowNode?: WorkflowNode;
     // Phase 4
@@ -719,25 +785,11 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         }
     }
 
-    static start<TOut = any>(
-        steps: Step | Step[] | Flow | (Step | Flow)[],
-        param?: any,
-        options?: ExecutionOptions,
-    ): Promise<TOut>;
+    static start<TOut = any>(steps: FlowItem | FlowItem[], param?: any, options?: ExecutionOptions): Promise<TOut>;
     static start(steps?: undefined, param?: any, options?: ExecutionOptions): undefined;
     static start(steps?: any, param: any = {}, options?: ExecutionOptions): any {
         if (!steps) {
             return new Executer().start(param, steps, options);
-        }
-        let effParam = param;
-        let effOptions = options;
-        if (
-            options === undefined &&
-            param &&
-            (param.signal || param.namespace || param.timeout || param.timeoutMs || param.pojo)
-        ) {
-            effOptions = param;
-            effParam = {};
         }
         const normalizedSteps = isFlow(steps)
             ? Array.isArray(steps.steps)
@@ -746,24 +798,40 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
             : Array.isArray(steps)
               ? flattenSteps(steps)
               : steps;
-        if (effOptions && !effOptions.ast) {
-            effOptions = Object.assign({}, effOptions, { ast: toGraph(normalizedSteps) });
-        }
-        return new Executer().start(effParam, normalizedSteps, effOptions);
+        const effOptions =
+            options && !options.ast ? Object.assign({}, options, { ast: toGraph(normalizedSteps) }) : options;
+        return new Executer().start(param, normalizedSteps, effOptions);
     }
 
     static create<TName extends string, TIn = any, TOut = any>(
         name: TName,
         action?: StepAction<TIn, TOut>,
+        sequence?: Step<any, any, any>[],
     ): Step<TIn, TOut, TName>;
     static create<TIn = any, TOut = any>(action: StepAction<TIn, TOut> | Flow<TIn, TOut>): Step<TIn, TOut, string>;
-    static create<TIn, TOut, TName extends string>(name: TName, action: StepAction<TIn, TOut>): Step<TIn, TOut, TName>;
+    static create<TIn, TOut, TName extends string>(
+        name: TName,
+        action: StepAction<TIn, TOut>,
+        sequence?: Step<any, any, any>[],
+    ): Step<TIn, TOut, TName>;
     static create<TIn = any, TOut = any>(
         nameOrAction?: string | StepAction<TIn, TOut> | Flow<TIn, TOut>,
         action?: StepAction<TIn, TOut>,
         sequence?: Step<any, any, any>[],
     ): Step<TIn, TOut, any> {
         return new Step<TIn, TOut, any>(nameOrAction as any, action, sequence);
+    }
+
+    static compute<TName extends string, TIn = any, TOut = any>(
+        name: TName,
+        action: SyncStepAction<TIn, TOut>,
+    ): ComputeStep<TIn, TOut, TName>;
+    static compute<TIn = any, TOut = any>(action: SyncStepAction<TIn, TOut>): ComputeStep<TIn, TOut, string>;
+    static compute<TIn = any, TOut = any>(
+        nameOrAction: string | SyncStepAction<TIn, TOut>,
+        action?: SyncStepAction<TIn, TOut>,
+    ): ComputeStep<TIn, TOut, any> {
+        return new ComputeStep<TIn, TOut, any>(nameOrAction as any, action);
     }
 
     static flow = flow;
@@ -866,14 +934,14 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    timeout(ms: number): Step<TInput, TOutput, TName> {
-        this.timeoutMs = ms;
+    timeout(ms: DurationInput): Step<TInput, TOutput, TName> {
+        this.timeoutMs = parseDuration(ms);
         return this;
     }
 
-    reduce(field: string): Step<TInput, TOutput, TName> {
+    reduce<TField extends string>(field: TField): Step<Record<TField, TInput[]> & Record<string, any>, TOutput, TName> {
         this.reducer = field;
-        return this;
+        return this as any;
     }
 
     withDependencies(dependencies: Record<string, any>): this {
@@ -896,6 +964,11 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
+    spec<TKey extends keyof TInput & string>(
+        field: TKey,
+        json: SpecData<TInput[TKey], TInput> | Record<string, any>,
+    ): Step<TInput, TOutput, TName>;
+    spec(fieldOrSchema: string | any, json?: SpecData<any, TInput> | any): Step<TInput, TOutput, TName>;
     spec(fieldOrSchema: string | any, json: SpecData | any = {}): Step<TInput, TOutput, TName> {
         const isFieldString = typeof fieldOrSchema === 'string';
         const field = isFieldString ? fieldOrSchema : '$root$';
@@ -956,18 +1029,18 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    cache(cachedLastOrOptions?: number | CacheOptions): Step<TInput, TOutput, TName> {
+    cache(cachedLastOrOptions?: DurationInput | CacheOptions): Step<TInput, TOutput, TName> {
         if (isObject(cachedLastOrOptions)) {
             this.cacheOptions = cachedLastOrOptions;
-            this.cachedLast = cachedLastOrOptions.ttl || 1500;
+            this.cachedLast = parseDuration(cachedLastOrOptions.ttl) ?? 1500;
         } else {
-            this.cachedLast = cachedLastOrOptions || 1500;
+            this.cachedLast = parseDuration(cachedLastOrOptions) ?? 1500;
         }
         return this;
     }
 
     compensate(
-        handlerOrName: string | any,
+        handlerOrName: string | CompensationHandler,
         payloadMapperOrOptions?: ((output: any, input: any) => any) | CompensationOptions,
         options?: CompensationOptions,
     ): Step<TInput, TOutput, TName> {
@@ -986,9 +1059,19 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
         return this;
     }
 
-    idempotent(keyOrFn?: string | ((ctx: any) => string), options?: IdempotencyOptions): Step<TInput, TOutput, TName> {
-        this.idempotencyKey = keyOrFn || ((ctx: any) => ctx.idempotencyKey || ctx.id || this.name);
-        this.idempotencyOptions = options;
+    idempotent(
+        keyOrFnOrOptions?: DynamicOption<string> | IdempotencyOptions,
+        options?: IdempotencyOptions,
+    ): Step<TInput, TOutput, TName> {
+        if (isObject(keyOrFnOrOptions) && !isFunction(keyOrFnOrOptions)) {
+            const idempOpts = keyOrFnOrOptions as IdempotencyOptions;
+            this.idempotencyOptions = idempOpts;
+            this.idempotencyKey = idempOpts.key ?? ((ctx: any) => ctx.idempotencyKey ?? ctx.id ?? this.name);
+        } else {
+            this.idempotencyKey =
+                keyOrFnOrOptions ?? options?.key ?? ((ctx: any) => ctx.idempotencyKey ?? ctx.id ?? this.name);
+            this.idempotencyOptions = options;
+        }
         return this;
     }
 
@@ -1001,23 +1084,7 @@ export class Step<TInput = any, TOutput = any, TName extends string = string> {
     }
 
     execute(param?: TInput, options?: ExecutionOptions): Promise<TOutput> {
-        let effParam = param;
-        let effOptions = options;
-        /* c8 ignore start */
-        if (
-            options === undefined &&
-            param &&
-            ((param as any).signal ||
-                (param as any).namespace ||
-                (param as any).timeout ||
-                (param as any).timeoutMs ||
-                (param as any).pojo)
-        ) {
-            effOptions = param as any;
-            effParam = {} as any;
-        }
-        /* c8 ignore stop */
-        return Step.start<TOutput>(this.sequence.length ? [...this.sequence] : this, effParam, effOptions);
+        return Step.start<TOutput>(this.sequence.length ? [...this.sequence] : this, param, options);
     }
 
     run(param?: TInput, options?: ExecutionOptions): Promise<TOutput> {
@@ -1063,7 +1130,17 @@ export type {
     ReconcilerOptions,
     ReconcileReport,
 } from '../compensation';
-
-export default Step;
-
-export { Status, ExecutionPhase, tagErrorPhase, isReservedKey, isFunction, isObject } from '../../shared';
+export {
+    Status,
+    ExecutionPhase,
+    tagErrorPhase,
+    isReservedKey,
+    isFunction,
+    isObject,
+    isPlainObject,
+    assertNever,
+    getErrorMessage,
+    getErrorName,
+    resolveDynamic,
+} from '../../shared';
+export type { DynamicOption, DurationInput, DynamicDuration } from '../../shared';

@@ -1,6 +1,6 @@
 {
   "name": "@siglo/query",
-  "version": "1.2.8",
+  "version": "1.3.0",
   "description": "Query and project Siglo workflow checkpoints.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -49,7 +49,7 @@
   "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/query#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "@siglo/core": "^1.0.0",
+    "@siglo/core": "^1.3.0",
     "graphql": "^17.1.0"
   },
   "peerDependencies": {

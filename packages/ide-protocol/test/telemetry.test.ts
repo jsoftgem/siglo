@@ -49,8 +49,9 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
                 body: { card: '4111111111111111' }, // must be omitted!
             };
 
-            const clean = sanitizeTelemetryInspection(raw) as any;
+            const clean = sanitizeTelemetryInspection(raw);
             expect(clean).to.exist;
+            if (!clean || clean.kind !== 'http') throw new Error('Expected http inspection');
             expect(clean.version).to.equal(1);
             expect(clean.kind).to.equal('http');
             expect(clean.outcome).to.equal('success');
@@ -63,8 +64,8 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
             expect(clean.retryDelaySource).to.equal('retry-after');
             expect(clean.policy).to.equal('allowed');
             expect(clean.durationMs).to.equal(142.5);
-            expect(clean.sensitiveHeader).to.be.undefined;
-            expect(clean.body).to.be.undefined;
+            expect('sensitiveHeader' in clean).to.be.false;
+            expect('body' in clean).to.be.false;
         });
 
         it('sanitizes Crypto telemetry records without exposing secrets or raw signatures', () => {
@@ -81,16 +82,17 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
                 secretKey: 'whsec_test', // forbidden
             };
 
-            const clean = sanitizeTelemetryInspection(raw) as any;
+            const clean = sanitizeTelemetryInspection(raw);
             expect(clean).to.exist;
+            if (!clean || clean.kind !== 'crypto') throw new Error('Expected crypto inspection');
             expect(clean.kind).to.equal('crypto');
             expect(clean.provider).to.equal('stripe');
             expect(clean.category).to.equal('timestamp-rejected');
             expect(clean.timestampCheck).to.equal('failed');
             expect(clean.replayCheck).to.equal('passed');
             expect(clean.payloadBytes).to.equal(1024);
-            expect(clean.rawSignature).to.be.undefined;
-            expect(clean.secretKey).to.be.undefined;
+            expect('rawSignature' in clean).to.be.false;
+            expect('secretKey' in clean).to.be.false;
         });
 
         it('sanitizes Notification telemetry and bounds preview content safely', () => {
@@ -110,14 +112,15 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
                 },
             };
 
-            const clean = sanitizeTelemetryInspection(raw) as any;
+            const clean = sanitizeTelemetryInspection(raw);
             expect(clean).to.exist;
+            if (!clean || clean.kind !== 'notification') throw new Error('Expected notification inspection');
             expect(clean.channel).to.equal('email');
             expect(clean.approval).to.be.true;
             expect(clean.approvalState).to.equal('approved');
             expect(clean.tokenStatus).to.equal('issued');
-            expect(clean.contentPreview.subject).to.equal('Order Confirmation #1234');
-            expect(clean.contentPreview.recipientMasked).to.equal('u***@example.com');
+            expect(clean.contentPreview?.subject).to.equal('Order Confirmation #1234');
+            expect(clean.contentPreview?.recipientMasked).to.equal('u***@example.com');
         });
 
         it('sanitizes AI telemetry including tokens, repair attempts, and fallback counts', () => {
@@ -135,8 +138,9 @@ describe('Milestone 4: Ecosystem Telemetry & Fail-Closed Sanitization', () => {
                 fallbackCount: 0,
             };
 
-            const clean = sanitizeTelemetryInspection(raw) as any;
+            const clean = sanitizeTelemetryInspection(raw);
             expect(clean).to.exist;
+            if (!clean || clean.kind !== 'ai') throw new Error('Expected ai inspection');
             expect(clean.provider).to.equal('openai');
             expect(clean.model).to.equal('gpt-4o');
             expect(clean.promptTokens).to.equal(150);

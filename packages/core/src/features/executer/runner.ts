@@ -2,6 +2,9 @@ import {
     Status,
     isReservedKey,
     isFunction,
+    isObject,
+    getErrorMessage,
+    getErrorName,
     SIGNAL,
     SIGNAL_KEY,
     NAMESPACE,
@@ -10,13 +13,20 @@ import {
     VALUE,
     STEPS,
     HISTORY,
+    parseDuration,
+    resolveDynamic,
 } from '../../shared';
 import { toPOJO } from '../context';
 import { FlowTimeoutException, normalizeError, IdempotencyConflictException } from './exceptions';
 import { combineAbortSignals } from './signals';
 import { defaultStorageManager } from '../storage';
 import { defaultCompensationManager } from '../compensation';
-import { defaultIdempotencyStore, buildIdempotencyKey, isPermanentBusinessError } from '../idempotency';
+import {
+    defaultIdempotencyStore,
+    buildIdempotencyKey,
+    isPermanentBusinessError,
+    IdempotencyStore,
+} from '../idempotency';
 import { emitMonitoringEvent } from '../events/emitter';
 import { stepExecutionHookStorage } from './hooks';
 
@@ -84,12 +94,13 @@ export class Runner {
                 );
             }
 
-            const timeoutMs: number | undefined = rawOptions?.timeout ?? rawOptions?.timeoutMs;
+            const timeoutMs: number | undefined =
+                parseDuration(rawOptions?.timeout) ?? parseDuration(rawOptions?.timeoutMs);
             let flowController: AbortController | undefined;
-            let flowTimer: any;
+            let flowTimer: ReturnType<typeof setTimeout> | undefined;
             let completedSteps = 0;
 
-            if (timeoutMs && timeoutMs > 0) {
+            if (timeoutMs !== undefined && timeoutMs > 0) {
                 flowController = new AbortController();
                 flowTimer = setTimeout(() => {
                     const err = new FlowTimeoutException(stackId, timeoutMs, completedSteps);
@@ -206,14 +217,11 @@ export class Runner {
                 newParam.isDurable = durFn;
             }
 
-            const idempotencyStore = rawOptions?.idempotencyStore || defaultIdempotencyStore;
+            const idempotencyStore: IdempotencyStore = rawOptions?.idempotencyStore ?? defaultIdempotencyStore;
             let idempotencyKeyScoped: string | undefined;
 
             if (rawOptions?.idempotencyKey) {
-                const rawKey =
-                    typeof rawOptions.idempotencyKey === 'function'
-                        ? rawOptions.idempotencyKey(toPOJO(param))
-                        : rawOptions.idempotencyKey;
+                const rawKey = resolveDynamic(rawOptions.idempotencyKey, toPOJO(param));
                 idempotencyKeyScoped = buildIdempotencyKey(rawKey, {
                     namespace: namespace,
                     workflowVersion: rawOptions?.workflowVersion,
@@ -234,14 +242,15 @@ export class Runner {
                 this.executeBefore,
             );
 
+            const idempotencyTtlMs = parseDuration(rawOptions?.idempotencyTtlMs);
             const runFlowExecution = async () => {
                 if (idempotencyKeyScoped) {
-                    let claim = await idempotencyStore.claim(idempotencyKeyScoped, rawOptions?.idempotencyTtlMs);
+                    let claim = await idempotencyStore.claim(idempotencyKeyScoped, idempotencyTtlMs);
 
                     const settleTimeoutMs = rawOptions?.settleTimeoutMs;
-                    const pollIntervalMs = rawOptions?.pollIntervalMs || 50;
+                    const pollIntervalMs = rawOptions?.pollIntervalMs ?? 50;
 
-                    if (claim === Status.IN_PROGRESS && settleTimeoutMs && settleTimeoutMs > 0) {
+                    if (claim === Status.IN_PROGRESS && settleTimeoutMs !== undefined && settleTimeoutMs > 0) {
                         const deadline = Date.now() + settleTimeoutMs;
                         while (Date.now() < deadline) {
                             await new Promise(res =>
@@ -255,10 +264,7 @@ export class Runner {
                                     break;
                                 }
                                 if (!rec) {
-                                    claim = await idempotencyStore.claim(
-                                        idempotencyKeyScoped,
-                                        rawOptions?.idempotencyTtlMs,
-                                    );
+                                    claim = await idempotencyStore.claim(idempotencyKeyScoped, idempotencyTtlMs);
                                     if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
                                         break;
                                     }
@@ -338,7 +344,8 @@ export class Runner {
                             stackId,
                             stepId: result.stepId,
                             waitingForEvent: result.eventName || 'wait',
-                            timeoutMs: result.expiresAt ? Math.max(0, result.expiresAt - Date.now()) : undefined,
+                            timeoutMs:
+                                result.expiresAt !== undefined ? Math.max(0, result.expiresAt - Date.now()) : undefined,
                             expiresAt: result.expiresAt,
                             correlationKey: result.correlationKey,
                             timestamp: Date.now(),
@@ -386,7 +393,7 @@ export class Runner {
                     });
 
                     return finalResult;
-                } catch (error: any) {
+                } catch (error: unknown) {
                     clearFlowTimer();
                     this.logError('Runner', error);
 
@@ -394,9 +401,9 @@ export class Runner {
                         try {
                             if (isPermanentBusinessError(error, rawOptions)) {
                                 await idempotencyStore.complete(idempotencyKeyScoped, {
-                                    error: error.message,
+                                    error: getErrorMessage(error),
                                     isPermanentError: true,
-                                    name: error.name,
+                                    name: getErrorName(error),
                                 });
                             } else {
                                 await idempotencyStore.fail(idempotencyKeyScoped, error);
@@ -407,13 +414,13 @@ export class Runner {
                         }
                     }
 
-                    let effectiveError = error;
+                    let effectiveError: unknown = error;
                     if (!isSubStack) {
                         const compensations = defaultCompensationManager.getCompensations(stackId);
                         if (compensations.length > 0) {
                             try {
                                 await defaultCompensationManager.runCompensations(stackId, error, rawOptions);
-                            } catch (compErr: any) {
+                            } catch (compErr: unknown) {
                                 effectiveError = compErr;
                             } finally {
                                 defaultCompensationManager.clearCompensations(stackId);
@@ -431,12 +438,13 @@ export class Runner {
                         }
                     }
                     /* c8 ignore stop */
+                    const errObj = isObject(effectiveError) ? effectiveError : undefined;
                     const normalized = normalizeError(effectiveError, {
                         stackId,
                         namespace,
                         workflowId: rawOptions?.workflowId,
-                        stepName: (effectiveError as any)?.func || (effectiveError as any)?.stepName,
-                        phase: (effectiveError as any)?.phase || 'action',
+                        stepName: errObj?.func || errObj?.stepName,
+                        phase: errObj?.phase || 'action',
                     });
                     (normalized as any).stackId = stackId;
 

@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { timingSafeCompare, KeyRing } from '@siglo/crypto';
-import { ValidationException } from '@siglo/core';
+import { ValidationException, isPlainObject } from '@siglo/core';
 export interface ActionTokenPayload {
     stackId: string;
     correlationKey: string;
@@ -36,8 +36,16 @@ export async function verifyActionToken(
         if (token.length > 16384) invalidToken();
         if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(token)) invalidToken();
         const parts = token.split('.');
-        const p = JSON.parse(Buffer.from(parts[0], 'base64url').toString()) as ActionTokenPayload;
-        const key = typeof secret === 'string' ? secret : await secret.getKey(p.kid!);
+        const parsedRaw: unknown = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
+        if (!isPlainObject(parsedRaw)) invalidToken();
+        const p = parsedRaw as unknown as ActionTokenPayload;
+        let key: string | Buffer | null | undefined;
+        if (typeof secret === 'string') {
+            key = secret;
+        } else {
+            if (typeof p.kid !== 'string' || p.kid.length === 0) invalidToken();
+            key = await secret.getKey(p.kid);
+        }
         if (
             !key ||
             !timingSafeCompare(createHmac('sha256', key).update(parts[0]).digest('base64url'), parts[1], 'base64url')

@@ -1,4 +1,20 @@
-import { context, propagation, trace, defaultTextMapSetter, SpanStatusCode } from '@opentelemetry/api';
+import { context, propagation, trace, defaultTextMapSetter, SpanStatusCode, type Span } from '@opentelemetry/api';
+
+export type SpanLike =
+    | Span
+    | {
+          spanContext?:
+              | (() => {
+                    traceId?: string;
+                    spanId?: string;
+                    traceFlags?: number;
+                    traceState?: { serialize?: () => string };
+                })
+              | { traceId?: string; spanId?: string; traceFlags?: number; traceState?: { serialize?: () => string } };
+          setAttribute?: (key: string, value: string | number | boolean) => unknown;
+          setStatus?: (status: { code: SpanStatusCode; message?: string }) => unknown;
+          traceId?: string;
+      };
 
 export interface TraceContextHeaders {
     traceparent?: string;
@@ -10,7 +26,10 @@ export interface TraceContextHeaders {
  * Injects W3C distributed trace context (traceparent and tracestate) into request headers
  * from the active OpenTelemetry span and context.
  */
-export function injectTraceHeaders(carrier: Record<string, string> = {}, customSpan?: any): Record<string, string> {
+export function injectTraceHeaders(
+    carrier: Record<string, string> = {},
+    customSpan?: SpanLike,
+): Record<string, string> {
     const activeCtx = context.active();
     try {
         propagation.inject(activeCtx, carrier, defaultTextMapSetter);
@@ -50,7 +69,7 @@ export function recordRequestSpanAttributes(
     method: string,
     url: string,
     serverAddress: string,
-    customSpan?: any,
+    customSpan?: SpanLike,
 ): void {
     const activeSpan = customSpan || trace.getActiveSpan();
     if (activeSpan && typeof activeSpan.setAttribute === 'function') {
@@ -67,7 +86,7 @@ export function recordRequestSpanAttributes(
 /**
  * Attaches standard response semantic convention attributes to the active OpenTelemetry span.
  */
-export function recordResponseSpanAttributes(statusCode: number, customSpan?: any): void {
+export function recordResponseSpanAttributes(statusCode: number, customSpan?: SpanLike): void {
     const activeSpan = customSpan || trace.getActiveSpan();
     if (activeSpan && typeof activeSpan.setAttribute === 'function') {
         try {
@@ -87,7 +106,7 @@ export function recordResponseSpanAttributes(statusCode: number, customSpan?: an
 /**
  * Extracts current active traceId if present.
  */
-export function getActiveTraceId(customSpan?: any): string | undefined {
+export function getActiveTraceId(customSpan?: SpanLike): string | undefined {
     const activeSpan = customSpan || trace.getActiveSpan();
     if (activeSpan) {
         try {
@@ -97,7 +116,7 @@ export function getActiveTraceId(customSpan?: any): string | undefined {
             if (activeSpan.spanContext && typeof activeSpan.spanContext === 'object') {
                 return activeSpan.spanContext.traceId;
             }
-            if (activeSpan.traceId) {
+            if ('traceId' in activeSpan && typeof activeSpan.traceId === 'string') {
                 return activeSpan.traceId;
             }
         } catch {

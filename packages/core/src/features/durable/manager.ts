@@ -32,7 +32,7 @@ export class DurableManager {
         if (!record.status) {
             (record as any).status = Status.WAITING;
         }
-        if (!record.createdAt) {
+        if (record.createdAt === undefined) {
             (record as any).createdAt = Date.now();
         }
         if (this.waitingRecords.size >= this.maxSize) {
@@ -81,13 +81,22 @@ export class DurableManager {
         return record;
     }
 
-    clear(): void {
-        this.waitingRecords.clear();
-        this.stackIndex.clear();
+    cancelWait(correlationKey: string): boolean {
+        const record = this.waitingRecords.get(correlationKey);
+        if (record) {
+            this.stackIndex.delete(record.stackId);
+            return this.waitingRecords.delete(correlationKey);
+        }
+        return false;
     }
 
     get size(): number {
         return this.waitingRecords.size;
+    }
+
+    clear(): void {
+        this.waitingRecords.clear();
+        this.stackIndex.clear();
     }
 }
 

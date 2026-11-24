@@ -1,25 +1,12 @@
 import React from 'react';
 import { StepProperties } from './StepProperties';
-import type {
-    GraphNode,
-    Diagnostic,
-    TelemetryRecordingDocument,
-    HttpEcosystemConfig,
-    CryptoEcosystemConfig,
-    NotificationEcosystemConfig,
-    AiEcosystemConfig,
-    HttpTelemetryRecord,
-    CryptoTelemetryRecord,
-    NotificationTelemetryRecord,
-    AiTelemetryRecord,
-    EcosystemInspectionData,
-} from '@siglo/ide-protocol';
+import type { GraphNode, Diagnostic, TelemetryRecordingDocument } from '@siglo/ide-protocol';
 import { matchTelemetryRecord } from '@siglo/ide-protocol';
 import { HttpInspector } from './inspectors/HttpInspector';
 import { CryptoInspector } from './inspectors/CryptoInspector';
 import { NotificationInspector } from './inspectors/NotificationInspector';
 import { AiInspector } from './inspectors/AiInspector';
-import { ShieldAlert, Clock, RefreshCw, FileCode, CornerDownRight, Database } from 'lucide-react';
+import { ShieldAlert, Clock, RefreshCw, FileCode, CornerDownRight, Database, Cpu } from 'lucide-react';
 
 interface InspectorPanelProps {
     selectedNode: GraphNode | null;
@@ -77,7 +64,13 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             <div className="p-4 border-b border-[#393b40]">
                 <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="font-semibold text-sm text-[#dfe1e5] min-w-0 truncate">{selectedNode.name}</span>
-                    <span className="shrink-0 font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-[#393b40] text-[#a8adbb]">
+                    <span
+                        className={`shrink-0 font-mono text-[10px] uppercase px-1.5 py-0.5 rounded ${
+                            selectedNode.stepKind === 'compute'
+                                ? 'bg-cyan-950/80 border border-cyan-600/40 text-cyan-300'
+                                : 'bg-[#393b40] text-[#a8adbb]'
+                        }`}
+                    >
                         {selectedNode.stepKind}
                     </span>
                 </div>
@@ -120,45 +113,39 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 {/* Dedicated Ecosystem Deep-Dive Inspectors (Milestone 4) */}
                 {selectedNode.stepKind === 'http' && (
                     <HttpInspector
-                        config={selectedNode.ecosystemConfig as HttpEcosystemConfig | undefined}
-                        telemetry={
-                            matchedEnvelope?.inspection.kind === 'http'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & HttpTelemetryRecord)
-                                : null
+                        config={
+                            selectedNode.ecosystemConfig?.kind === 'http' ? selectedNode.ecosystemConfig : undefined
                         }
+                        telemetry={matchedEnvelope?.inspection.kind === 'http' ? matchedEnvelope.inspection : null}
                     />
                 )}
 
                 {selectedNode.stepKind === 'crypto' && (
                     <CryptoInspector
-                        config={selectedNode.ecosystemConfig as CryptoEcosystemConfig | undefined}
-                        telemetry={
-                            matchedEnvelope?.inspection.kind === 'crypto'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & CryptoTelemetryRecord)
-                                : null
+                        config={
+                            selectedNode.ecosystemConfig?.kind === 'crypto' ? selectedNode.ecosystemConfig : undefined
                         }
+                        telemetry={matchedEnvelope?.inspection.kind === 'crypto' ? matchedEnvelope.inspection : null}
                     />
                 )}
 
                 {selectedNode.stepKind === 'notification' && (
                     <NotificationInspector
-                        config={selectedNode.ecosystemConfig as NotificationEcosystemConfig | undefined}
+                        config={
+                            selectedNode.ecosystemConfig?.kind === 'notification'
+                                ? selectedNode.ecosystemConfig
+                                : undefined
+                        }
                         telemetry={
-                            matchedEnvelope?.inspection.kind === 'notification'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & NotificationTelemetryRecord)
-                                : null
+                            matchedEnvelope?.inspection.kind === 'notification' ? matchedEnvelope.inspection : null
                         }
                     />
                 )}
 
                 {selectedNode.stepKind === 'ai' && (
                     <AiInspector
-                        config={selectedNode.ecosystemConfig as AiEcosystemConfig | undefined}
-                        telemetry={
-                            matchedEnvelope?.inspection.kind === 'ai'
-                                ? (matchedEnvelope.inspection as EcosystemInspectionData & AiTelemetryRecord)
-                                : null
-                        }
+                        config={selectedNode.ecosystemConfig?.kind === 'ai' ? selectedNode.ecosystemConfig : undefined}
+                        telemetry={matchedEnvelope?.inspection.kind === 'ai' ? matchedEnvelope.inspection : null}
                     />
                 )}
 
@@ -185,42 +172,70 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                     </div>
                 </div>
 
-                {/* Generic Execution Configuration (retries / timeout / compensation) */}
+                {/* Execution Configuration */}
                 <div>
                     <h4 className="text-[11px] font-semibold uppercase text-[#6f737d] tracking-wider mb-2">
                         Execution Configuration
                     </h4>
-                    <div className="bg-[#1e1f22] rounded p-2.5 space-y-2 text-[11px]">
-                        <div className="flex items-center justify-between">
-                            <span className="flex items-center text-[#868a98]">
-                                <RefreshCw className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
-                                Retries:
-                            </span>
-                            <span className="font-mono font-medium text-[#dfe1e5]">
-                                {selectedNode.executionConfig?.retries ?? 'None'}
-                            </span>
+                    {selectedNode.stepKind === 'compute' ? (
+                        <div className="bg-[#1e1f22] rounded p-2.5 space-y-2 text-[11px]">
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center text-[#868a98]">
+                                    <Cpu className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
+                                    Runtime Mode:
+                                </span>
+                                <span className="font-mono font-medium text-cyan-300">Compute · Sync</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center text-[#868a98]">
+                                    <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                                    Network Perimeter:
+                                </span>
+                                <span className="font-mono font-medium text-emerald-300">No Network (Always Deny)</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center text-[#868a98]">
+                                    <Database className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
+                                    In-Memory Cache:
+                                </span>
+                                <span className="font-mono font-medium text-[#dfe1e5]">
+                                    {selectedNode.properties?.cache ? 'Enabled (LRU + TTL)' : 'None'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className="flex items-center text-[#868a98]">
-                                <Clock className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
-                                Timeout:
-                            </span>
-                            <span className="font-mono font-medium text-[#dfe1e5]">
-                                {selectedNode.executionConfig?.timeoutMs !== undefined
-                                    ? `${selectedNode.executionConfig.timeoutMs}ms`
-                                    : 'Default'}
-                            </span>
+                    ) : (
+                        <div className="bg-[#1e1f22] rounded p-2.5 space-y-2 text-[11px]">
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center text-[#868a98]">
+                                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                                    Retries:
+                                </span>
+                                <span className="font-mono font-medium text-[#dfe1e5]">
+                                    {selectedNode.executionConfig?.retries ?? 'None'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center text-[#868a98]">
+                                    <Clock className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
+                                    Timeout:
+                                </span>
+                                <span className="font-mono font-medium text-[#dfe1e5]">
+                                    {selectedNode.executionConfig?.timeoutMs !== undefined
+                                        ? `${selectedNode.executionConfig.timeoutMs}ms`
+                                        : 'Default'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center text-[#868a98]">
+                                    <CornerDownRight className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                                    Compensation:
+                                </span>
+                                <span className="font-mono font-medium text-[#dfe1e5]">
+                                    {selectedNode.executionConfig?.hasCompensation ? 'Attached' : 'None'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className="flex items-center text-[#868a98]">
-                                <CornerDownRight className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
-                                Compensation:
-                            </span>
-                            <span className="font-mono font-medium text-[#dfe1e5]">
-                                {selectedNode.executionConfig?.hasCompensation ? 'Attached' : 'None'}
-                            </span>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Input Contract Specifications (.spec / .schema) */}

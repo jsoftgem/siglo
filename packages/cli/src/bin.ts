@@ -2,6 +2,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import { Flow, getErrorMessage } from '@siglo/core';
 import {
     initProject,
     installSkills,
@@ -20,7 +21,7 @@ import {
 
 function printHelp(): void {
     console.log(`
-siglo CLI v1.2.8
+siglo CLI v1.3.0
 
 USAGE:
     siglo <command> [arguments] [options]
@@ -53,27 +54,43 @@ OPTIONS:
 `);
 }
 
-async function loadWorkflowFromFile(filePath: string): Promise<any> {
+function parseEnumOption<T extends string>(
+    value: string | undefined,
+    allowed: readonly T[],
+    fallback: T,
+    flag: string,
+): T {
+    if (value === undefined) return fallback;
+    if ((allowed as readonly string[]).includes(value)) return value as T;
+    throw new Error(`Invalid ${flag} value '${value}'. Expected one of: ${allowed.join(', ')}`);
+}
+
+async function loadWorkflowFromFile(filePath: string): Promise<Flow> {
     const resolvedPath = path.resolve(process.cwd(), filePath);
     if (!fs.existsSync(resolvedPath)) {
         throw new Error(`Workflow file not found: ${resolvedPath}`);
     }
 
     // Dynamic import of target workflow file
-    const mod = await import(resolvedPath);
-    const flowCandidate =
-        mod.default ||
-        mod.workflow ||
-        mod.pipeline ||
-        Object.values(mod).find((v: any) => v && (v.isFlow || typeof v.run === 'function'));
+    const mod = (await import(resolvedPath)) as Record<string, unknown>;
+    const isFlowLike = (v: unknown): boolean =>
+        (typeof v === 'object' || typeof v === 'function') &&
+        v !== null &&
+        ('isFlow' in v
+            ? Boolean((v as { isFlow?: unknown }).isFlow)
+            : typeof (v as { run?: unknown }).run === 'function');
+    const flowCandidate = mod.default || mod.workflow || mod.pipeline || Object.values(mod).find(isFlowLike);
     if (!flowCandidate) {
         throw new Error(`No exported Flow found in ${resolvedPath}. Export a flow as default or named export.`);
     }
 
-    if (typeof flowCandidate === 'function' && !flowCandidate.isFlow) {
-        return flowCandidate();
+    if (
+        typeof flowCandidate === 'function' &&
+        !('isFlow' in flowCandidate && (flowCandidate as { isFlow?: unknown }).isFlow)
+    ) {
+        return (flowCandidate as () => Flow)();
     }
-    return flowCandidate;
+    return flowCandidate as Flow;
 }
 
 function getOption(args: string[], prefix: string): string | undefined {
@@ -100,7 +117,7 @@ async function main(): Promise<void> {
     }
 
     if (args.includes('--version') || args.includes('-v')) {
-        console.log('1.2.8');
+        console.log('1.3.0');
         return;
     }
 
@@ -197,8 +214,18 @@ async function main(): Promise<void> {
                     process.exit(1);
                 }
                 const wf = await loadWorkflowFromFile(target);
-                const format = (getOption(args, '--format=') || 'mermaid') as 'mermaid' | 'dot' | 'json';
-                const direction = (getOption(args, '--direction=') || 'TD') as 'TD' | 'LR' | 'TB';
+                const format = parseEnumOption(
+                    getOption(args, '--format='),
+                    ['mermaid', 'dot', 'json'] as const,
+                    'mermaid',
+                    '--format',
+                );
+                const direction = parseEnumOption(
+                    getOption(args, '--direction='),
+                    ['TD', 'LR', 'TB'] as const,
+                    'TD',
+                    '--direction',
+                );
                 const exported = exportWorkflow(wf, { format, direction });
                 writeOutput(exported, outArg);
                 break;
@@ -277,10 +304,14 @@ async function main(): Promise<void> {
             }
 
             case 'monitor': {
-                const port = getOption(args, '--port=') ? parseInt(getOption(args, '--port=')!, 10) : 4000;
+                const portArg = getOption(args, '--port=');
+                const port = portArg !== undefined ? Number(portArg) : 4000;
+                if (!Number.isInteger(port) || port < 0 || port > 65535) {
+                    throw new Error(`Invalid --port value '${portArg}'`);
+                }
                 const host = getOption(args, '--host=') || '127.0.0.1';
                 const namespace = getOption(args, '--namespace=');
-                let flowCandidate: any;
+                let flowCandidate: Flow | undefined;
                 if (target) {
                     flowCandidate = await loadWorkflowFromFile(target);
                 }
@@ -290,13 +321,23 @@ async function main(): Promise<void> {
             }
 
             case 'reconcile': {
-                let flowCandidate: any;
+                let flowCandidate: Flow | undefined;
                 if (target) {
                     flowCandidate = await loadWorkflowFromFile(target);
                 }
                 const staleThreshold = getOption(args, '--stale=');
-                const action = (getOption(args, '--action=') || 'compensate') as 'compensate' | 'fail' | 'inspect';
-                const mode = (getOption(args, '--mode=') || 'best-effort') as 'strict' | 'best-effort';
+                const action = parseEnumOption(
+                    getOption(args, '--action='),
+                    ['compensate', 'fail', 'inspect'] as const,
+                    'compensate',
+                    '--action',
+                );
+                const mode = parseEnumOption(
+                    getOption(args, '--mode='),
+                    ['strict', 'best-effort'] as const,
+                    'best-effort',
+                    '--mode',
+                );
                 const namespace = getOption(args, '--namespace=');
 
                 console.log(`Reconciling abandoned workflow executions (threshold: ${staleThreshold || '10m'})...`);
@@ -317,8 +358,8 @@ async function main(): Promise<void> {
                 process.exit(1);
             }
         }
-    } catch (err: any) {
-        console.error(`Error: ${err?.message || err}`);
+    } catch (err: unknown) {
+        console.error(`Error: ${getErrorMessage(err)}`);
         process.exit(1);
     }
 }

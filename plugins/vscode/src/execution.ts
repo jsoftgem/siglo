@@ -30,17 +30,30 @@ export class ExecutionSession implements vscode.Disposable {
                 stdio: ['pipe', 'pipe', 'pipe'],
             });
             this.child = child;
+            if (!child.stdout || !child.stderr || !child.stdin) {
+                child.kill();
+                this.child = undefined;
+                throw new Error('Execution process streams are unavailable.');
+            }
             let terminal = false;
-            createInterface({ input: child.stdout! }).on('line', line => {
+            createInterface({ input: child.stdout }).on('line', line => {
                 try {
-                    const event = JSON.parse(line);
-                    if (['completed', 'failed', 'cancelled'].includes(event.status)) terminal = true;
-                    this.post(event);
+                    const event: unknown = JSON.parse(line);
+                    if (
+                        typeof event === 'object' &&
+                        event !== null &&
+                        !Array.isArray(event) &&
+                        typeof (event as { status?: unknown }).status === 'string'
+                    ) {
+                        const status = (event as { status: string }).status;
+                        if (status === 'completed' || status === 'failed' || status === 'cancelled') terminal = true;
+                        this.post(event);
+                    }
                 } catch {
                     /* Non-protocol output is not evaluated. */
                 }
             });
-            child.stderr!.on('data', bytes =>
+            child.stderr.on('data', bytes =>
                 this.post({ type: 'runEvent', runId: request.runId, status: 'log', log: bytes.toString() }),
             );
             child.on('error', error => {
@@ -51,24 +64,24 @@ export class ExecutionSession implements vscode.Disposable {
                 if (this.child === child) this.child = undefined;
                 if (!terminal && !this.disposed) this.fail(request.runId, 'Execution process stopped unexpectedly.');
             });
-            child.stdin!.write(JSON.stringify({ ...request, document, source: source.getText(), cwd }) + '\n');
+            child.stdin.write(JSON.stringify({ ...request, document, source: source.getText(), cwd }) + '\n');
         } catch (error) {
             this.fail(request.runId, error instanceof Error ? error.message : String(error));
         } finally {
             this.pending = false;
         }
     }
-    private fail(runId: string, error: string) {
+    private fail(runId: string, error: string): void {
         this.post({ type: 'runEvent', runId, status: 'failed', error });
     }
-    cancel() {
+    cancel(): void {
         if (this.child) this.child.stdin?.write(JSON.stringify({ type: 'cancel' }) + '\n');
         else if (this.pending) {
-            this.post({ type: 'runEvent', runId: this.runId, status: 'cancelled' });
+            if (this.runId) this.post({ type: 'runEvent', runId: this.runId, status: 'cancelled' });
             this.runId = undefined;
         }
     }
-    dispose() {
+    dispose(): void {
         this.disposed = true;
         this.child?.kill();
         this.child = undefined;

@@ -61,7 +61,7 @@ export class MaskFieldsStep<TInput = any, TName extends string = string> extends
         const action = async (ctx: TInput): Promise<TInput> => {
             const maskFn = options.maskPattern || maskPatterns.last4;
 
-            const result = transformFields(ctx, options.fields as any, val => {
+            const result = transformFields(ctx, options.fields, val => {
                 if (val !== undefined && val !== null) {
                     return maskFn(val);
                 }

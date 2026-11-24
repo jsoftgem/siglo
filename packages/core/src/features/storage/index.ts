@@ -36,8 +36,9 @@ import {
     SerializedExecutionStack,
     SerializedStorageState,
     StorageErrorMode,
+    StackRecord,
 } from './state';
-import { generateUUID, Status, VALIDATORS } from '../../shared';
+import { assertNever, generateUUID, getErrorMessage, Status, VALIDATORS } from '../../shared';
 import { StorageAdapter, CacheEvent, ContextChangeEvent } from './adapter';
 import {
     CheckpointConflictException,
@@ -57,6 +58,7 @@ export {
     SerializedExecutionStack,
     SerializedStorageState,
     StorageErrorMode,
+    StackRecord,
 } from './state';
 export { StorageAdapter, ContextChangeEvent, CacheEvent } from './adapter';
 
@@ -128,14 +130,20 @@ export class StorageManager {
     }
 
     handleAdapterError(operation: string, error: unknown): void {
-        if (this.errorMode === 'strict') {
-            throw new StorageAdapterException(operation, this.adapter?.name, error);
+        switch (this.errorMode) {
+            case 'strict':
+                throw new StorageAdapterException(operation, this.adapter?.name, error);
+            case 'warn': {
+                const msg = `Storage adapter '${this.adapter?.name || 'unknown'}' warning during '${operation}': ${getErrorMessage(error)}`;
+                console.warn(msg);
+                break;
+            }
+            case 'best-effort':
+                break;
+            /* c8 ignore next 2 */
+            default:
+                assertNever(this.errorMode, 'Unknown storage error mode');
         }
-        if (this.errorMode === 'warn') {
-            const msg = `Storage adapter '${this.adapter?.name || 'unknown'}' warning during '${operation}': ${(error as any)?.message || error}`;
-            console.warn(msg);
-        }
-        // best-effort: silently ignore
     }
 
     useStorage(adapter: StorageAdapter): void {
@@ -221,7 +229,7 @@ export class StorageManager {
                 stackId: event.stackId,
                 stepId: event.stepId,
                 key: event.key,
-                timestamp: event.timestamp || Date.now(),
+                timestamp: event.timestamp ?? Date.now(),
                 namespace: event.namespace,
             },
         );
@@ -279,11 +287,11 @@ export class StorageManager {
         return stackId;
     }
 
-    getStack(stackId: string): any {
+    getStack(stackId: string): StackRecord | undefined {
         return this.state.stacks.get(stackId);
     }
 
-    getAllStacks(): any[] {
+    getAllStacks(): Array<StackRecord & { stackId: string }> {
         return Array.from(this.state.stacks.entries()).map(([stackId, stack]) => ({
             stackId,
             ...stack,
@@ -424,7 +432,7 @@ export class StorageManager {
         const now = Date.now();
         let cleaned = 0;
         for (const [stackId, stack] of this.state.stacks.entries()) {
-            if (stack.expiresAt && stack.expiresAt <= now) {
+            if (stack.expiresAt !== undefined && stack.expiresAt <= now) {
                 this.deleteStack(stackId);
                 cleaned++;
             }
@@ -450,7 +458,7 @@ export class StorageManager {
             throw new Error(`Execution stack '${stackId}' not found.`);
         }
 
-        const currentRev = this.revisions.get(stackId) || 0;
+        const currentRev = this.revisions.get(stackId) ?? 0;
         if (options?.expectedRevision !== undefined && options.expectedRevision !== currentRev) {
             throw new CheckpointConflictException(stackId, currentRev, options.expectedRevision);
         }
@@ -484,7 +492,7 @@ export class StorageManager {
         }
 
         const status = options?.status || stack.status || Status.RUNNING;
-        const expiresAt = options?.ttlMs ? Date.now() + options.ttlMs : stack.expiresAt;
+        const expiresAt = options?.ttlMs !== undefined ? Date.now() + options.ttlMs : stack.expiresAt;
 
         stack.revision = nextRev;
         stack.status = status;
@@ -500,6 +508,7 @@ export class StorageManager {
             handlerName: rec.handlerName,
             payload: toPOJO(rec.payload),
             options: rec.options,
+            networkPolicy: rec.networkPolicy,
             status: rec.status,
             completedAt: rec.completedAt,
         }));
@@ -559,7 +568,7 @@ export class StorageManager {
         if (!checkpointData || !checkpointData.stackId) {
             throw new Error('Invalid checkpoint data.');
         }
-        const currentRev = this.revisions.get(checkpointData.stackId) || 0;
+        const currentRev = this.revisions.get(checkpointData.stackId) ?? 0;
         if (checkpointData.revision !== undefined && checkpointData.revision <= currentRev) {
             this.handleAdapterError(
                 'saveCheckpoint',
@@ -568,7 +577,7 @@ export class StorageManager {
             return;
         }
 
-        this.revisions.set(checkpointData.stackId, checkpointData.revision || currentRev + 1);
+        this.revisions.set(checkpointData.stackId, checkpointData.revision ?? currentRev + 1);
 
         const stackObj = this.state.stacks.get(checkpointData.stackId);
         emitMonitoringEvent(
@@ -577,7 +586,7 @@ export class StorageManager {
                 type: 'checkpoint:save',
                 stackId: checkpointData.stackId,
                 status: checkpointData.status,
-                timestamp: checkpointData.timestamp || Date.now(),
+                timestamp: checkpointData.timestamp ?? Date.now(),
                 namespace: checkpointData.namespace,
             },
         );
@@ -629,7 +638,7 @@ export class StorageManager {
             throw new NamespaceMismatchException(expectedNamespace, checkpointData.namespace);
         }
 
-        const rev = checkpointData.revision || 1;
+        const rev = checkpointData.revision ?? 1;
         this.revisions.set(checkpointData.stackId, rev);
 
         this.state.stacks.set(checkpointData.stackId, {
@@ -714,7 +723,7 @@ export class StorageManager {
                 if (!restoredId) {
                     restoredId = sId;
                 }
-                const rev = sVal.revision || 1;
+                const rev = sVal.revision ?? 1;
                 this.revisions.set(sId, rev);
                 this.state.stacks.set(sId, {
                     type: sVal.type || 'execution',
@@ -821,8 +830,17 @@ export function getStorage(): Readonly<Record<string, any>> {
     return defaultStorageManager.snapshot();
 }
 
+const storageResetHooks = new Set<() => void>();
+
+export function registerStorageResetHook(hook: () => void): void {
+    storageResetHooks.add(hook);
+}
+
 export function clearStorage(): void {
     defaultStorageManager.clear();
+    for (const hook of storageResetHooks) {
+        hook();
+    }
 }
 
 export function setChainConfig(config: any): void {

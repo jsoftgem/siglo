@@ -1,5 +1,5 @@
-import * as React from 'react';
 import type { EcosystemInspection } from '@siglo/core';
+import * as React from 'react';
 
 /** Reconstruct only inert formatting tags; every attribute and active tag is text. */
 export function previewDocument(text: string): string {
@@ -19,7 +19,7 @@ export function previewDocument(text: string): string {
     return `<!doctype html><html><head>${meta}</head><body>${escaped}</body></html>`;
 }
 
-export function InspectionContent({ data }: { data: EcosystemInspection }) {
+export function InspectionContent({ data }: { data: EcosystemInspection }): React.ReactElement | null {
     if (!data.content || !Object.keys(data.content).length) return null;
     return (
         <div className="mt-3 space-y-2">

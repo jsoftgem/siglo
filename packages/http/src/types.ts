@@ -1,4 +1,4 @@
-import { Step } from '@siglo/core';
+import type { Step, DynamicOption, DurationInput } from '@siglo/core';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
@@ -33,13 +33,12 @@ export interface HttpStepOptions<
     TResponseSchema = unknown,
 > {
     capture?: import('@siglo/core').InspectionCapturePolicy;
-    url: string | ((ctx: TInput) => string);
+    url: DynamicOption<string, TInput>;
     method?: HttpMethod;
-    headers?: Record<string, string> | ((ctx: TInput) => Record<string, string>);
-    query?:
-        | Record<string, string | number | boolean | undefined>
-        | ((ctx: TInput) => Record<string, string | number | boolean | undefined>);
-    body?: ((ctx: TInput) => any) | Record<string, any> | any[] | string | number | boolean | null;
+    headers?: DynamicOption<Record<string, string>, TInput>;
+    query?: DynamicOption<Record<string, string | number | boolean | undefined>, TInput>;
+    body?:
+        DynamicOption<Record<string, any> | any[] | string | number | boolean | null, TInput> | ((ctx: TInput) => any);
 
     /** Schema for validating outgoing request payload */
     requestSchema?: TRequestSchema;
@@ -59,8 +58,11 @@ export interface HttpStepOptions<
     /** If true, 404 does not throw but returns { notFound: true, data: null } */
     allowNotFound?: boolean;
 
-    /** Request timeout in milliseconds (overrides step-level timeout) */
-    timeoutMs?: number;
+    /** Request timeout (number in ms or duration string such as '5s'; overrides step-level timeout) */
+    timeout?: DurationInput;
+
+    /** Request timeout in milliseconds or duration string (overrides step-level timeout) */
+    timeoutMs?: DurationInput;
 
     /** Declarative saga compensation */
     compensate?: CompensationHttpConfig<TInput, NoInferType<TOutput>>;

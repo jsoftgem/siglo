@@ -2,10 +2,13 @@
 export function applyWaitEvent<T extends { status: string; stepName?: string }>(
     steps: Record<string, T>,
     event: { type: string; stepId?: string; expiresAt?: unknown; resumeReason?: unknown; timestamp?: number },
-): Record<string, T> {
+): Record<string, T & { waitState?: 'waiting' | 'resumed' | 'expired'; waitExpiresAt?: number; endTime?: number }> {
     if (event.type !== 'flow:suspended' && event.type !== 'flow:resumed') return steps;
     const suspended = event.type === 'flow:suspended';
-    const next = { ...steps };
+    const next: Record<
+        string,
+        T & { waitState?: 'waiting' | 'resumed' | 'expired'; waitExpiresAt?: number; endTime?: number }
+    > = { ...steps };
     for (const [id, step] of Object.entries(steps)) {
         const matches = event.stepId
             ? id === event.stepId

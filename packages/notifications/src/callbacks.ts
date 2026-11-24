@@ -8,11 +8,60 @@ import {
     ExpiredWaitException,
     WorkflowAlreadyResumedException,
     DuplicateEventException,
+    isPlainObject,
 } from '@siglo/core';
 import { getApprovalRevocationStore } from './approvals';
 import { CallbackHandlerOptions } from './types';
 import { ActionTokenPayload, verifyActionToken } from './tokens';
 import { escapeHtml } from './transports';
+
+export interface NotificationExpressRequestLike {
+    method?: string;
+    headers?: Record<string, string | string[] | undefined>;
+    query?: Record<string, unknown>;
+    body?: unknown;
+}
+
+export interface NotificationExpressResponseLike {
+    setHeader(name: string, value: string): unknown;
+    status(code: number): NotificationExpressResponseLike;
+    end(): unknown;
+    redirect(code: number, url: string): unknown;
+    type(type: string): NotificationExpressResponseLike;
+    send(body: unknown): unknown;
+    json(body: unknown): unknown;
+}
+
+export interface NotificationFastifyRequestLike {
+    method?: string;
+    headers?: Record<string, string | string[] | undefined>;
+    query?: unknown;
+    body?: unknown;
+}
+
+export interface NotificationFastifyReplyLike {
+    header(name: string, value: string): unknown;
+    code(code: number): NotificationFastifyReplyLike;
+    send(body?: unknown): unknown;
+    redirect(url: string): unknown;
+    type(type: string): NotificationFastifyReplyLike;
+}
+
+export interface NotificationHonoContextLike {
+    req: {
+        method: string;
+        header(name: string): string | undefined;
+        query(name: string): string | undefined;
+        json(): Promise<unknown>;
+        parseBody(): Promise<unknown>;
+    };
+    header(name: string, value: string): void;
+    body(data: null, status: number): Response;
+    redirect(url: string, status: number): Response;
+    html(html: string, status: number): Response;
+    json(data: unknown, status: number): Response;
+}
+
 export interface NotificationCallbackResponse {
     status: number;
     body: { message: string };
@@ -109,17 +158,19 @@ function headers(origin: string | undefined, options: CallbackHandlerOptions): R
             : {}),
     };
 }
-function tokenFrom(query: any, body: any): string {
-    const token = query?.token ?? body?.token;
+function tokenFrom(query: unknown, body: unknown): string {
+    const qToken = isPlainObject(query) ? query.token : undefined;
+    const bToken = isPlainObject(body) ? body.token : undefined;
+    const token = qToken ?? bToken;
     return typeof token === 'string' ? token : '';
 }
 /** GET is a preview only. Mutation tokens are accepted exclusively from POST bodies. */
 async function route(
     method: string,
-    query: any,
-    body: any,
+    query: unknown,
+    body: unknown,
     options: CallbackHandlerOptions,
-    request: any,
+    request: unknown,
     origin?: string,
 ): Promise<NotificationCallbackResponse & { html?: string }> {
     if (method === 'GET' || method === 'HEAD') {
@@ -142,18 +193,21 @@ async function route(
     if (origin && options.allowedOrigins && !options.allowedOrigins.includes(origin))
         return { status: 403, body: { message: 'Origin forbidden' } };
     // Authentication/CSRF middleware can inspect the original framework request.
-    const authorize = options.authorize ? (payload: any) => options.authorize!(payload, request) : undefined;
+    const authorize = options.authorize
+        ? (payload: ActionTokenPayload) => options.authorize!(payload, request)
+        : undefined;
     return handleNotificationCallback(tokenFrom(undefined, body), { ...options, authorize });
 }
 export function createNotificationExpressMiddleware(options: CallbackHandlerOptions) {
-    return async (req: any, res: any): Promise<void> => {
-        for (const [key, value] of Object.entries(headers(req.headers?.origin, options))) res.setHeader(key, value);
+    return async (req: NotificationExpressRequestLike, res: NotificationExpressResponseLike): Promise<void> => {
+        const origin = typeof req.headers?.origin === 'string' ? req.headers.origin : undefined;
+        for (const [key, value] of Object.entries(headers(origin, options))) res.setHeader(key, value);
         res.setHeader('Allow', 'GET, HEAD, POST, OPTIONS');
         if (req.method === 'OPTIONS') {
             res.status(204).end();
             return;
         }
-        const r = await route(req.method, req.query, req.body, options, req, req.headers?.origin);
+        const r = await route(req.method || 'GET', req.query, req.body, options, req, origin);
         if (req.method === 'HEAD') {
             res.status(r.status).end();
             return;
@@ -167,14 +221,15 @@ export function createNotificationExpressMiddleware(options: CallbackHandlerOpti
     };
 }
 export function createNotificationFastifyHandler(options: CallbackHandlerOptions) {
-    return async (req: any, reply: any): Promise<void> => {
-        for (const [key, value] of Object.entries(headers(req.headers?.origin, options))) reply.header(key, value);
+    return async (req: NotificationFastifyRequestLike, reply: NotificationFastifyReplyLike): Promise<void> => {
+        const origin = typeof req.headers?.origin === 'string' ? req.headers.origin : undefined;
+        for (const [key, value] of Object.entries(headers(origin, options))) reply.header(key, value);
         reply.header('Allow', 'GET, HEAD, POST, OPTIONS');
         if (req.method === 'OPTIONS') {
             reply.code(204).send();
             return;
         }
-        const r = await route(req.method, req.query, req.body, options, req, req.headers?.origin);
+        const r = await route(req.method || 'GET', req.query, req.body, options, req, origin);
         if (req.method === 'HEAD') {
             reply.code(r.status).send();
             return;
@@ -189,16 +244,23 @@ export function createNotificationFastifyHandler(options: CallbackHandlerOptions
     };
 }
 export function createNotificationHonoHandler(options: CallbackHandlerOptions) {
-    return async (c: any): Promise<Response> => {
+    return async (c: NotificationHonoContextLike): Promise<Response> => {
         for (const [key, value] of Object.entries(headers(c.req.header('origin'), options))) c.header(key, value);
         c.header('Allow', 'GET, HEAD, POST, OPTIONS');
         if (c.req.method === 'OPTIONS') return c.body(null, 204);
-        const body =
-            c.req.method === 'POST'
-                ? c.req.header('content-type')?.includes('application/json')
+        let body: unknown;
+        if (c.req.method === 'POST') {
+            try {
+                body = c.req.header('content-type')?.includes('application/json')
                     ? await c.req.json()
-                    : await c.req.parseBody()
-                : undefined;
+                    : await c.req.parseBody();
+            } catch {
+                const r: NotificationCallbackResponse = { status: 400, body: { message: 'Invalid approval' } };
+                return options.responseFormat === 'html'
+                    ? c.html(renderApprovalConfirmation(r), r.status)
+                    : c.json(r.body, r.status);
+            }
+        }
         const r = await route(c.req.method, { token: c.req.query('token') }, body, options, c, c.req.header('origin'));
         if (c.req.method === 'HEAD') return c.body(null, r.status);
         return r.redirect

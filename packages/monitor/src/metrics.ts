@@ -29,7 +29,7 @@ export class PrometheusExporter {
                 } else {
                     this.flowsFailed++;
                 }
-                this.flowDurationSum += (event.durationMs || 0) / 1000;
+                this.flowDurationSum += (event.durationMs ?? 0) / 1000;
                 this.flowDurationCount++;
                 break;
             case 'step:retry':
@@ -41,8 +41,26 @@ export class PrometheusExporter {
             case 'step:error':
                 this.stepsFailed++;
                 break;
-            default:
+            case 'branch:selected':
+            case 'step:inspection':
+            case 'ai:complete':
+            case 'flow:error':
+            case 'flow:suspended':
+            case 'flow:resumed':
+            case 'step:start':
+            case 'step:skipped':
+            case 'context:change':
+            case 'cache:hit':
+            case 'cache:miss':
+            case 'checkpoint:save':
+            case 'notification:dispatched':
+            case 'approval:requested':
                 break;
+            default: {
+                const _exhaustive: never = event;
+                void _exhaustive;
+                break;
+            }
         }
     }
 

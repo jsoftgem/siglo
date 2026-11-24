@@ -11,6 +11,7 @@ import {
     GraphInspectionResult,
     parseDuration,
     reconcileAbandonedStacks,
+    isPlainObject,
 } from '@siglo/core';
 
 export interface WorkflowVisualizationResult {
@@ -102,7 +103,7 @@ export function inspectWorkflow(
     const redactedFields = options.redact || [];
 
     if (redactedFields.length > 0) {
-        const sanitizedNodes = inspection.nodes.map((n: any) => {
+        const sanitizedNodes = inspection.nodes.map(n => {
             if (redactedFields.includes(n.name)) {
                 return { ...n, name: '[REDACTED]' };
             }
@@ -122,19 +123,23 @@ export function inspectWorkflow(
  * Replays a workflow execution against a recorded test fixture.
  */
 export async function replayFixture(workflow: Flow, fixture: ReplayFixture | string): Promise<ReplayResult> {
-    const parsedFixture: ReplayFixture =
-        typeof fixture === 'string' ? JSON.parse(fs.readFileSync(fixture, 'utf-8')) : fixture;
+    const rawFixture: unknown = typeof fixture === 'string' ? JSON.parse(fs.readFileSync(fixture, 'utf-8')) : fixture;
+    if (!isPlainObject(rawFixture) || !isPlainObject(rawFixture.initialParam)) {
+        throw new Error('Invalid replay fixture: expected an object with an initialParam object');
+    }
+    const parsedFixture = rawFixture as unknown as ReplayFixture;
 
     const startTime = Date.now();
     const result = await workflow.run(parsedFixture.initialParam, { pojo: true });
     const durationMs = Date.now() - startTime;
 
     let success = true;
-    const diff: Record<string, { expected: any; actual: any }> = {};
+    const diff: Record<string, { expected: unknown; actual: unknown }> = {};
+    const resultRecord = isPlainObject(result) ? result : {};
 
     if (parsedFixture.expectedOutputs) {
         for (const [key, expectedVal] of Object.entries(parsedFixture.expectedOutputs)) {
-            const actualVal = (result as any)[key];
+            const actualVal = resultRecord[key];
             if (JSON.stringify(actualVal) !== JSON.stringify(expectedVal)) {
                 success = false;
                 diff[key] = { expected: expectedVal, actual: actualVal };
@@ -153,21 +158,28 @@ export async function replayFixture(workflow: Flow, fixture: ReplayFixture | str
 /**
  * Inspects a serialized checkpoint with optional field redaction.
  */
-export function inspectCheckpoint(checkpoint: any | string, options: { redact?: string[] } = {}): Record<string, any> {
-    const parsed: any = typeof checkpoint === 'string' ? JSON.parse(checkpoint) : checkpoint;
+export function inspectCheckpoint(checkpoint: unknown, options: { redact?: string[] } = {}): Record<string, unknown> {
+    const parsedRaw: unknown = typeof checkpoint === 'string' ? JSON.parse(checkpoint) : checkpoint;
+    if (!isPlainObject(parsedRaw)) {
+        throw new Error('Invalid checkpoint payload: expected a JSON object');
+    }
+    const parsed = parsedRaw;
 
     const redactKeys = options.redact || [];
-    const contexts = { ...(parsed.contexts || {}) };
+    const rawContexts = isPlainObject(parsed.contexts) ? parsed.contexts : {};
+    const contexts: Record<string, Record<string, unknown>> = {};
+    for (const [stepId, ctxVal] of Object.entries(rawContexts)) {
+        contexts[stepId] = isPlainObject(ctxVal) ? { ...ctxVal } : {};
+    }
 
     if (redactKeys.length > 0) {
         for (const stepId of Object.keys(contexts)) {
-            const stepCtx = { ...contexts[stepId] };
+            const stepCtx = contexts[stepId];
             for (const key of Object.keys(stepCtx)) {
                 if (redactKeys.includes(key)) {
                     stepCtx[key] = '[REDACTED]';
                 }
             }
-            contexts[stepId] = stepCtx;
         }
     }
 
@@ -175,7 +187,7 @@ export function inspectCheckpoint(checkpoint: any | string, options: { redact?: 
         stackId: parsed.stackId,
         namespace: parsed.namespace,
         type: parsed.type,
-        stepCount: parsed.chains?.length || 0,
+        stepCount: Array.isArray(parsed.chains) ? parsed.chains.length : 0,
         chains: parsed.chains,
         contexts,
     };

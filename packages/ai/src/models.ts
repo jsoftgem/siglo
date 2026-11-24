@@ -1,3 +1,4 @@
+import { parseDuration, resolveDynamic } from '@siglo/core';
 import type { AiModelConfig, AiProvider } from './types';
 import { assertNetworkPolicy } from '@siglo/http';
 
@@ -11,18 +12,19 @@ const keyNames = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gem
 
 export function resolveModel<T>(config: AiModelConfig<T>, ctx: T, stepName: string) {
     if (!config.model.trim()) throw new TypeError('AI model must not be empty');
-    if (
-        config.requestTimeoutMs !== undefined &&
-        (!Number.isFinite(config.requestTimeoutMs) || config.requestTimeoutMs <= 0)
-    ) {
+    const requestTimeoutMs = config.requestTimeoutMs === undefined ? undefined : parseDuration(config.requestTimeoutMs);
+    if (config.requestTimeoutMs !== undefined && (requestTimeoutMs === undefined || requestTimeoutMs <= 0)) {
         throw new TypeError('requestTimeoutMs must be a positive finite number');
     }
     const url = new URL(modelBaseUrl(config));
     assertNetworkPolicy(stepName, url.href, url.hostname, url.port || undefined);
-    const apiKey = typeof config.apiKey === 'function' ? config.apiKey(ctx) : config.apiKey;
+    const apiKey = resolveDynamic(config.apiKey, ctx);
     const environmentKey =
         config.provider in keyNames ? process.env[keyNames[config.provider as keyof typeof keyNames]] : undefined;
-    return { ...config, baseUrl: url.href.replace(/\/$/, ''), apiKey: apiKey ?? environmentKey };
+    const resolvedApiKey =
+        (apiKey && apiKey.length > 0 ? apiKey : undefined) ??
+        (environmentKey && environmentKey.length > 0 ? environmentKey : undefined);
+    return { ...config, requestTimeoutMs, baseUrl: url.href.replace(/\/$/, ''), apiKey: resolvedApiKey };
 }
 
 export function modelBaseUrl(config: Pick<AiModelConfig, 'provider' | 'baseUrl'>): string {

@@ -26,14 +26,22 @@ import { httpStep } from '@siglo/http';
 export const getUser = httpStep('getUser', {
     url: 'https://api.example.com/users/123',
     method: 'GET',
+    timeout: '5s',
 });
 
 const workflow = flow(getUser);
 const result = await workflow.run({});
 ```
 
+## Dynamic Options & Durations
+
+- `url`, `headers`, `query`, and `body` accept `DynamicOption<T, TInput>` (static values or synchronous `(ctx) => value` resolver functions).
+- `timeout` and `timeoutMs` accept `DurationInput` (`number` in milliseconds or human-readable duration strings such as `'5s'` or `'30s'`).
+
 The package re-exports the official `StandardSchemaV1` and `StandardJSONSchemaV1`
 types from `@standard-schema/spec`, including `StandardSchemaV1.InferInput<S>` and
 `StandardSchemaV1.InferOutput<S>`. Runtime validation preserves transformed values
 (including `undefined`) and supports structured diagnostic path segments. Native
 JSON Schema conversion is a separate capability from runtime validation.
+
+See the full [@siglo/http Adapter Guide](../../docs/adapters/http.md) for retries, SSL/ASL egress guardrails, and `.compensateWithHttp()`.

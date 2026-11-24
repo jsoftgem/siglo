@@ -41,6 +41,7 @@ console.log(jsonAst);
 
 `toMermaid()` and `toDot()` automatically embed badges for execution policies:
 
+- ⚡ `compute`: Synchronous compute step (`Step.compute`)
 - ⏱️ `timeoutMs`: Execution deadline
 - 🔁 `retry(N)`: Retry count policy
 - ⏪ `saga`: Compensation rollback registered
@@ -76,6 +77,8 @@ const tracedWorkflow = instrumentWorkflow(myWorkflow, {
 
 await tracedWorkflow.run({ customerId: 'cust-99' });
 ```
+
+`instrumentWorkflow` and `instrumentStep` support both asynchronous `Step.create` steps and synchronous `Step.compute` (`ComputeStep`) steps. Every step span includes `siglo.step.kind` (`'compute'` or `'standard'`) and records `siglo.cache.hit` when caching is enabled. For `ComputeStep` steps, spans start and end synchronously without scheduling extra microtasks.
 
 ---
 

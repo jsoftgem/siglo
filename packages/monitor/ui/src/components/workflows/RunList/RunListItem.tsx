@@ -42,7 +42,7 @@ export const RunListItem: React.FC<RunListItemProps> = ({ run, isSelected, onSel
                 </span>
                 <div className="flex items-center gap-1 text-[11px] text-slate-400">
                     <Clock className="w-3 h-3 text-slate-500" />
-                    <span>{run.durationMs ? `${run.durationMs}ms` : formatTime(run.startTime)}</span>
+                    <span>{run.durationMs !== undefined ? `${run.durationMs}ms` : formatTime(run.startTime)}</span>
                 </div>
             </div>
 

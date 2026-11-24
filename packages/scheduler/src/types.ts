@@ -1,4 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
+import type { Flow } from '@siglo/core';
 
 export interface WaitRecord {
     correlationKey: string;
@@ -9,7 +10,7 @@ export interface WaitRecord {
     expiresAt?: Date | string | number | null;
     continuationStepIndex?: number;
     version?: string;
-    data?: any;
+    data?: unknown;
     lockedAt?: Date;
     lockedBy?: string;
     resumedAt?: Date;
@@ -40,31 +41,31 @@ export interface PostgresPollerOptions {
     /** Deprecated for PostgresStorageAdapter: recovery now uses database-session locks, released on disconnect */
     lockTimeoutMs?: number;
     /** Resolver function to look up the workflow definition by workflowId or stackId */
-    flowLookup?: (workflowId?: string, stackId?: string) => any;
+    flowLookup?: (workflowId?: string, stackId?: string) => Flow<any, any> | undefined;
     /** Optional callback invoked when a workflow is successfully resumed */
-    onResumed?: (record: WaitRecord, result: any) => void | Promise<void>;
+    onResumed?: (record: WaitRecord, result: unknown) => void | Promise<void>;
     /** Optional callback invoked when resumption fails */
-    onFailed?: (record: WaitRecord, error: any) => void | Promise<void>;
+    onFailed?: (record: WaitRecord, error: unknown) => void | Promise<void>;
 }
 
 export interface MemoryPollerOptions {
     /** Poll interval in milliseconds (default: 1000) */
     pollIntervalMs?: number;
     /** Resolver function to look up the workflow definition by workflowId or stackId */
-    flowLookup?: (workflowId?: string, stackId?: string) => any;
+    flowLookup?: (workflowId?: string, stackId?: string) => Flow<any, any> | undefined;
     /** Optional callback invoked when a workflow is successfully resumed */
-    onResumed?: (record: WaitRecord, result: any) => void | Promise<void>;
+    onResumed?: (record: WaitRecord, result: unknown) => void | Promise<void>;
     /** Optional callback invoked when resumption fails */
-    onFailed?: (record: WaitRecord, error: any) => void | Promise<void>;
+    onFailed?: (record: WaitRecord, error: unknown) => void | Promise<void>;
 }
 
 export interface CloudSchedulerWebhookOptions {
     /** Shared secret token or API key expected in Authorization or X-Siglo-Token header */
     secretToken?: string;
     /** Resolver function to look up workflow definition */
-    flowLookup: (workflowId?: string, stackId?: string) => any;
+    flowLookup: (workflowId?: string, stackId?: string) => Flow<any, any> | undefined;
     /** Optional callback invoked upon successful resumption */
-    onResumed?: (stackId: string, result: any) => void | Promise<void>;
+    onResumed?: (stackId: string, result: unknown) => void | Promise<void>;
 }
 
 export type WebhookHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;

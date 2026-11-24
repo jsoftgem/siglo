@@ -206,12 +206,21 @@ export const App: React.FC = () => {
             try {
                 const raw = ev.target?.result;
                 if (typeof raw === 'string') {
-                    const parsed = JSON.parse(raw);
+                    const parsed: unknown = JSON.parse(raw);
                     const sanitized = sanitizeTelemetryDocument(parsed, file.name);
-                    setTelemetryDoc(sanitized || null);
+                    if (!sanitized) {
+                        setStatusMessage({
+                            message: `Invalid or unsupported telemetry recording in ${file.name}.`,
+                            level: 'error',
+                        });
+                        return;
+                    }
+                    setStatusMessage(null);
+                    setTelemetryDoc(sanitized);
                 }
             } catch (err) {
-                console.error('Failed to parse telemetry file:', err);
+                const msg = err instanceof Error ? err.message : String(err);
+                setStatusMessage({ message: `Failed to parse telemetry file: ${msg}`, level: 'error' });
             }
         };
         reader.readAsText(file);

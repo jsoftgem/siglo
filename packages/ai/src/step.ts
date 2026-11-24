@@ -1,7 +1,16 @@
 import { createHash } from 'node:crypto';
-import { Step, SigloError, defaultStorageManager, recordInspection, captureInspection } from '@siglo/core';
-import type { CacheOptions } from '@siglo/core';
-import { validatePayload } from '@siglo/http';
+import {
+    Step,
+    SigloError,
+    defaultStorageManager,
+    recordInspection,
+    captureInspection,
+    resolveDynamic,
+    getErrorMessage,
+    isPlainObject,
+} from '@siglo/core';
+import type { CacheOptions, DurationInput } from '@siglo/core';
+import { validatePayload, type SpanLike } from '@siglo/http';
 import type { StandardSchemaV1 } from '@siglo/http';
 import { createAiResult, getExecutionSignal, shouldFallback, withAiRequest } from './execution';
 import { resolveModel, modelBaseUrl } from './models';
@@ -99,7 +108,7 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
         return this;
     }
 
-    override cache(options?: number | CacheOptions): this {
+    override cache(options?: DurationInput | CacheOptions): this {
         if (this.aiOptions.tools?.length) throw new TypeError('AI steps with tools cannot be cached');
         const config = typeof options === 'object' ? options : { ttl: options };
         const customKey = config.keySerializer;
@@ -109,7 +118,7 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
             keySerializer: (stepId, ctx, namespace) => {
                 const o = this.aiOptions;
                 const configs = [o.model, ...(o.fallbackModels ?? [])].map(m => resolveModel(m, ctx, this.name));
-                const prompt = typeof o.prompt === 'function' ? o.prompt(ctx) : o.prompt;
+                const prompt = resolveDynamic(o.prompt, ctx);
                 return createHash('sha256')
                     .update(
                         JSON.stringify({
@@ -168,12 +177,12 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
             o.schema && o.enforceNativeStructuredOutputs !== false
                 ? resolveJsonSchema(o.schema, o.jsonSchema)
                 : undefined;
-        const models = [o.model, ...(o.fallbackModels ?? [])].map(m => resolveModel(m, ctx, this.name));
+        const input = o.inputSchema ? await validatePayload<TInput>(o.inputSchema, ctx, 'validation', this.name) : ctx;
+        const models = [o.model, ...(o.fallbackModels ?? [])].map(m => resolveModel(m, input, this.name));
         for (const model of models) {
             // Validate overrides before a request can incur expense.
             estimateTokenCost(model.provider, model.model, 0, 0, model.pricing);
         }
-        const input = o.inputSchema ? await validatePayload<TInput>(o.inputSchema, ctx, 'validation', this.name) : ctx;
         return { models, tools, jsonSchema, input };
     }
 
@@ -181,9 +190,9 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
         const started = Date.now();
         const o = this.aiOptions;
         const prepared = await this.preflight(ctx);
-        const prompt = typeof o.prompt === 'function' ? o.prompt(prepared.input) : o.prompt;
+        const prompt = resolveDynamic(o.prompt, prepared.input);
         const history = messages(prompt);
-        const signal = getExecutionSignal(ctx as any);
+        const signal = getExecutionSignal(isPlainObject(ctx) ? (ctx as Record<string, unknown>) : undefined);
         const maxRepairs = o.maxRepairAttempts ?? 2;
         const maxTools = o.maxToolTurns ?? 5;
         let selected = 0,
@@ -200,7 +209,10 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
             const model = resolveModel(prepared.models[selected], prepared.input, this.name);
             const adapter =
                 model.adapter ??
-                createAiProvider(model, { stepName: this.name, span: (ctx as any)?.$span ?? (ctx as any)?.span });
+                createAiProvider(model, {
+                    stepName: this.name,
+                    span: isPlainObject(ctx) ? ((ctx.$span ?? ctx.span) as SpanLike | undefined) : undefined,
+                });
             let response: AiProviderResponse;
             const attemptStarted = Date.now();
             const attempt = ++inferenceAttempt;
@@ -287,11 +299,20 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
                     toolCalls: calls,
                     providerState: response.providerState,
                 });
-                const runtime: any = ctx;
-                const stackId = typeof runtime?.$stackId === 'function' ? runtime.$stackId() : runtime?.$stackId;
-                const namespace =
-                    typeof runtime?.$namespace === 'function' ? runtime.$namespace() : runtime?.$namespace;
-                const services = typeof runtime?.$services === 'function' ? runtime.$services() : runtime?.$services;
+                const runtime = isPlainObject(ctx) ? ctx : undefined;
+                const rawStackId =
+                    typeof runtime?.$stackId === 'function' ? (runtime.$stackId as () => unknown)() : runtime?.$stackId;
+                const stackId = typeof rawStackId === 'string' ? rawStackId : undefined;
+                const rawNamespace =
+                    typeof runtime?.$namespace === 'function'
+                        ? (runtime.$namespace as () => unknown)()
+                        : runtime?.$namespace;
+                const namespace = typeof rawNamespace === 'string' ? rawNamespace : undefined;
+                const rawServices =
+                    typeof runtime?.$services === 'function'
+                        ? (runtime.$services as () => unknown)()
+                        : runtime?.$services;
+                const services = isPlainObject(rawServices) ? rawServices : undefined;
                 for (const { call, tool } of pending) {
                     const result = await executeAiTool(tool, call.arguments, prepared.input, {
                         stackId,
@@ -315,8 +336,12 @@ export class AiStep<TInput = any, TOutput = string, TName extends string = strin
                 data = o.schema
                     ? await validatePayload<TOutput>(o.schema, JSON.parse(response.text), 'action', this.name)
                     : (response.text as TOutput);
-            } catch (error: any) {
-                const diagnostics = error?.errors ?? [{ message: error?.message ?? 'Invalid JSON' }];
+            } catch (error: unknown) {
+                const errObj =
+                    isPlainObject(error) || error instanceof Error
+                        ? (error as { errors?: unknown; message?: unknown })
+                        : undefined;
+                const diagnostics = errObj?.errors ?? [{ message: getErrorMessage(error) || 'Invalid JSON' }];
                 if (repairs >= maxRepairs) throw new AiOutputValidationError(this.name, diagnostics);
                 repairs++;
                 history.push({ role: 'assistant', content: response.text });

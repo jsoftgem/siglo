@@ -1,4 +1,4 @@
-import { Status } from '../../shared';
+import { Status, getErrorMessage, getErrorName, isObject } from '../../shared';
 /* c8 ignore start */
 export interface ExecutionErrorMetadata {
     stepName?: string;
@@ -7,6 +7,7 @@ export interface ExecutionErrorMetadata {
     stackId?: string;
     namespace?: string;
     workflowId?: string;
+    reason?: string;
     cause?: unknown;
     stateSnapshot?: Record<string, any>;
     [key: string]: any;
@@ -228,7 +229,8 @@ export class StorageAdapterException extends SigloError {
     readonly adapterName?: string;
 
     constructor(operation: string, adapterName?: string, cause?: unknown, metadata: ExecutionErrorMetadata = {}) {
-        const msg = `Storage adapter operation '${operation}' failed${adapterName ? ` on '${adapterName}'` : ''}: ${(cause as any)?.message || cause}`;
+        const causeDetail = cause !== undefined ? getErrorMessage(cause, String(cause)) : 'undefined';
+        const msg = `Storage adapter operation '${operation}' failed${adapterName ? ` on '${adapterName}'` : ''}: ${causeDetail}`;
         super(msg, {
             ...metadata,
             cause,
@@ -517,7 +519,7 @@ export class NetworkPolicyViolationException extends SigloError {
         allowedHosts: (string | RegExp)[],
         metadata: ExecutionErrorMetadata = {},
     ) {
-        const extraReason = (metadata as any)?.reason ? ` Reason: ${(metadata as any).reason}.` : '';
+        const extraReason = metadata.reason ? ` Reason: ${metadata.reason}.` : '';
         super(
             `Step '${stepName}' attempted unauthorized network call to '${requestedHost}' (${requestedUrl}). Allowed hosts: [${allowedHosts.map(String).join(', ')}]${extraReason}`,
             {
@@ -557,7 +559,7 @@ export class UnresolvableCompensationException extends SigloError {
     /* c8 ignore next */
 }
 
-export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}): SigloError {
+export function normalizeError(error: unknown, metadata: ExecutionErrorMetadata = {}): SigloError {
     if (error instanceof SigloError) {
         if (!error.stackId && metadata.stackId) (error as any).stackId = metadata.stackId;
         if (!error.namespace && metadata.namespace) (error as any).namespace = metadata.namespace;
@@ -566,8 +568,10 @@ export function normalizeError(error: any, metadata: ExecutionErrorMetadata = {}
         if (!error.phase && metadata.phase) (error as any).phase = metadata.phase;
         return error;
     }
-    if (error?.name === 'AbortError' || error?.message?.includes('aborted') || error?.message?.includes('cancelled')) {
-        return new CancellationException(error?.message || 'This operation was aborted', {
+    const errName = getErrorName(error);
+    const errMsg = isObject(error) && typeof error.message === 'string' ? error.message : undefined;
+    if (errName === 'AbortError' || errMsg?.includes('aborted') || errMsg?.includes('cancelled')) {
+        return new CancellationException(errMsg || 'This operation was aborted', {
             ...metadata,
             cause: error,
         });

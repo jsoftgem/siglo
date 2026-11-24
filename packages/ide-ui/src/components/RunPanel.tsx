@@ -1,6 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { executionRange, type GraphDocument, type GraphNode, type GraphEdge, type RunEvent } from '@siglo/ide-protocol';
 import { bridge } from '../bridge';
+
+export interface RunPanelProps {
+    document: GraphDocument;
+    workflowName: string;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    selected: string[];
+    allFlows: boolean;
+}
 
 export function RunPanel({
     document,
@@ -9,14 +18,7 @@ export function RunPanel({
     edges,
     selected,
     allFlows,
-}: {
-    document: GraphDocument;
-    workflowName: string;
-    nodes: GraphNode[];
-    edges: GraphEdge[];
-    selected: string[];
-    allFlows: boolean;
-}) {
+}: RunPanelProps): React.ReactElement {
     const [inputs, setInputs] = useState<Record<string, string>>({});
     const key = `${document.uri}#${workflowName}`;
     const input = inputs[key] ?? '{}';
@@ -87,7 +89,7 @@ export function RunPanel({
         if (allFlows) throw new Error('Choose one workflow before running steps.');
         range = executionRange(nodes, edges, effectiveSelected);
     } catch (error) {
-        validation = (error as Error).message;
+        validation = error instanceof Error ? error.message : String(error);
     }
 
     const start = async () => {
@@ -111,7 +113,14 @@ export function RunPanel({
             });
         } catch (error) {
             setBusy(false);
-            setEvents([{ type: 'runEvent', runId: id, status: 'failed', error: String(error) }]);
+            setEvents([
+                {
+                    type: 'runEvent',
+                    runId: id,
+                    status: 'failed',
+                    error: error instanceof Error ? error.message : String(error),
+                },
+            ]);
         }
     };
 

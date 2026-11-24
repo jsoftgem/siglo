@@ -21,8 +21,14 @@ export const WaterfallBar: React.FC<WaterfallBarProps> = ({ durationMs, maxDurat
             case 'WAITING':
             case 'SUSPENDED':
                 return 'bg-amber-400';
-            default:
+            case 'SKIPPED':
+            case 'RETRYING':
+            case 'PENDING':
                 return 'bg-slate-600';
+            default: {
+                const _exhaustive: never = st;
+                return _exhaustive;
+            }
         }
     };
 

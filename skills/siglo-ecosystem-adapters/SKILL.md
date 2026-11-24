@@ -111,6 +111,9 @@ If 1 out of 10 messages fails, only the failed message ID is reported in `batchI
 
 Supported Providers: **Anthropic (Claude 3.5 / 3.7)**, **OpenAI (GPT-4o, o1, o3-mini)**, **Google Gemini (2.0 Flash, 1.5 Pro)**, and **Ollama / LocalAI**.
 
+- `AiModelConfig.apiKey` and `AiStepOptions.prompt` use synchronous `DynamicOption<T, TInput>` so cache key hashing in `AiStep.cache()` stays deterministic.
+- `AiModelConfig.requestTimeoutMs` accepts `DurationInput` (`number` in ms or duration strings like `'15s'`).
+
 ### Structured Output with Automatic Repair Loop
 
 ```typescript
@@ -126,8 +129,8 @@ const SentimentAnalysisSchema = z.object({
 
 export const analyzeFeedbackFlow = flow(
     aiStep('analyzeFeedback', {
-        model: 'anthropic/claude-3-5-sonnet',
-        fallbackModel: 'openai/gpt-4o-mini', // Auto-fallback if primary provider is down
+        model: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', requestTimeoutMs: '15s' },
+        fallbackModels: [{ provider: 'openai', model: 'gpt-4o-mini', requestTimeoutMs: '10s' }],
         prompt: (ctx: { reviewText: string }) => [
             { role: 'system', content: 'You are an expert customer feedback analyzer.' },
             { role: 'user', content: ctx.reviewText },
@@ -163,6 +166,9 @@ const agentStep = aiStep('supportAgent', {
 
 Enterprise HTTP step with automatic retries on `429`, `502`, `503`, `504`, `Retry-After` header parsing, AsyncLocalStorage (ASL) egress network perimeter enforcement, and REST saga compensation.
 
+- `url`, `headers`, `query`, and `body` accept synchronous `DynamicOption` resolvers (`(ctx: TInput) => T`).
+- `timeout` and `timeoutMs` accept `DurationInput` (`number | string`, e.g. `'5s'` or `5000`); `CompensationHttpConfig` keeps sync `(ctx, res) => T` resolvers.
+
 ```typescript
 import { flow } from '@siglo/core';
 import { httpStep } from '@siglo/http';
@@ -174,10 +180,10 @@ export const syncCustomerFlow = flow(
         headers: { 'Content-Type': 'application/json' },
         body: ctx => ({ email: ctx.email, name: ctx.name }),
         maxRetries: 3,
-        timeoutMs: 5000,
+        timeout: '5s',
     }).compensateWithHttp({
         method: 'DELETE',
-        url: (output, ctx) => `https://crm.example.com/api/v1/customers/${ctx.customerId}`,
+        url: (ctx, _res) => `https://crm.example.com/api/v1/customers/${ctx.customerId}`,
     }),
 );
 ```
@@ -188,6 +194,9 @@ export const syncCustomerFlow = flow(
 
 Sends tamper-proof HMAC-SHA256 signed approval links via Slack Block Kit or HTML Email and pauses until clicked:
 
+- `SendNotificationOptions` (`channel`, `recipient`, `subject`, `template`, `data`) and `InteractiveApprovalOptions` (`recipient`, `title`, `description`, `correlationKey`) accept synchronous `DynamicOption` (`Dynamic<T, C>`).
+- `InteractiveApprovalOptions.timeout` accepts `DynamicDuration<TInput>` (`'3d'`, `86_400_000`, or `(ctx) => ctx.slaTimeout`); `deduplicationTtl` accepts `DurationInput` (number in seconds or string like `'1h'`).
+
 ```typescript
 import { flow } from '@siglo/core';
 import { sendInteractiveApprovalStep } from '@siglo/notifications';
@@ -195,11 +204,15 @@ import { sendInteractiveApprovalStep } from '@siglo/notifications';
 export const expenseFlow = flow(
     sendInteractiveApprovalStep('managerApproval', {
         channel: 'slack',
-        recipient: 'C0123456789', // Slack Channel ID
+        recipient: { slackChannelId: 'C0123456789' }, // Slack Channel ID
         title: 'Expense Approval Required',
-        message: ctx => `User ${ctx.user} requested reimbursement of $${ctx.amount}`,
+        description: ctx => `User ${ctx.user} requested reimbursement of $${ctx.amount}`,
         timeout: '3d',
         correlationKey: ctx => ctx.expenseId,
+        onApproveEvent: 'EXPENSE_APPROVED',
+        onRejectEvent: 'EXPENSE_REJECTED',
+        callbackBaseUrl: 'https://api.acme.com/callback',
+        signingSecret: process.env.APPROVAL_SECRET!,
     }),
     payoutStep,
 );
@@ -208,6 +221,8 @@ export const expenseFlow = flow(
 ---
 
 ## 6. Cryptography & Security (`@siglo/crypto`)
+
+- `WebhookVerifyOptions` (`provider`, `secret`) and `FieldCipherOptions` (`aad`, `deriveKeyContext`) accept synchronous `DynamicOption` (`secretKey` also remains async-capable; `payload`, `signature`, `headers` remain sync request extractors).
 
 ### Timing-Safe Webhook Signature Verification
 
@@ -219,6 +234,8 @@ export const stripeWebhookFlow = flow(
     verifyWebhookStep('verifyStripe', {
         provider: 'stripe',
         secret: process.env.STRIPE_WEBHOOK_SECRET!,
+        payload: ctx => ctx.rawBody,
+        signature: ctx => ctx.headers['stripe-signature'],
         toleranceSeconds: 300, // Replay attack tolerance window
     }),
     handleStripeEvent,
@@ -235,12 +252,14 @@ import { encryptFieldsStep, decryptFieldsStep } from '@siglo/crypto';
 const secureCheckout = flow(
     encryptFieldsStep('encryptCard', {
         fields: ['creditCardNumber', 'cvv'],
-        key: process.env.ENCRYPTION_MASTER_KEY!,
+        secretKey: process.env.ENCRYPTION_MASTER_KEY!,
+        aad: ctx => `tenant:${ctx.tenantId}`,
     }),
     durableWaitStep,
     decryptFieldsStep('decryptCard', {
         fields: ['creditCardNumber', 'cvv'],
-        key: process.env.ENCRYPTION_MASTER_KEY!,
+        secretKey: process.env.ENCRYPTION_MASTER_KEY!,
+        aad: ctx => `tenant:${ctx.tenantId}`,
     }),
 );
 ```

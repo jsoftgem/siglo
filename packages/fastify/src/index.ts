@@ -1,26 +1,51 @@
-import { requestCancellation } from './disconnect';
-import { Flow, ExecutionOptions } from '@siglo/core';
+import { requestCancellation, DisconnectRequestLike, DisconnectResponseLike } from './disconnect';
+import { Flow, ExecutionOptions, getErrorMessage, getErrorName, isObject } from '@siglo/core';
 
-export interface SigloFastifyOptions<TReq = any, TInput = any, TOutput = any> {
+export interface FastifyLikeRequest extends DisconnectRequestLike {
+    body?: unknown;
+    query?: Record<string, unknown>;
+    headers?: Record<string, string | string[] | undefined>;
+    raw?: DisconnectRequestLike;
+}
+
+export interface FastifyLikeReply extends DisconnectResponseLike {
+    header?: (name: string, value: string) => unknown;
+    status?: (code: number) => FastifyLikeReply;
+    send?: (payload: unknown) => unknown;
+    raw?: DisconnectResponseLike;
+}
+
+export interface SigloFastifyOptions<TReq = FastifyLikeRequest, TInput = unknown, TOutput = unknown> {
     input?: (req: TReq) => Promise<TInput> | TInput;
-    output?: (result: TOutput, reply: any) => Promise<any> | any;
+    output?: (result: TOutput, reply: FastifyLikeReply) => Promise<unknown> | unknown;
     timeout?: number;
     durable?: boolean | ((req: TReq) => boolean);
     namespace?: string | ((req: TReq) => string | undefined);
-    onError?: (err: any, reply: any) => Promise<any> | any;
+    onError?: (err: unknown, reply: FastifyLikeReply) => Promise<unknown> | unknown;
     correlationIdHeader?: string;
     allowHeaderNamespace?: boolean;
     exposeErrorDetails?: boolean;
 }
 
-export function getErrorStatusCode(err: any): number {
+function normalizeHeader(value: string | string[] | undefined): string | undefined {
+    if (typeof value === 'string') {
+        return value;
+    }
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+        return value[0];
+    }
+    return undefined;
+}
+
+export function getErrorStatusCode(err: unknown): number {
     if (!err) {
         return 500;
     }
-    const name = err.name || '';
-    const causeName = err.cause?.name || err.error?.name || '';
+    const name = getErrorName(err) ?? '';
+    const record = isObject(err) ? err : undefined;
+    const causeName = (record && (getErrorName(record.cause) ?? getErrorName(record.error))) ?? '';
 
-    if (err.isTimeout || name.includes('Timeout') || causeName.includes('Timeout')) {
+    if ((record && record.isTimeout === true) || name.includes('Timeout') || causeName.includes('Timeout')) {
         return 504;
     }
     if (
@@ -39,36 +64,36 @@ export function getErrorStatusCode(err: any): number {
     ) {
         return 409;
     }
+    const message = record && typeof record.message === 'string' ? record.message : undefined;
     if (
-        err.isCancellation ||
+        (record && record.isCancellation === true) ||
         name.includes('Cancellation') ||
         name.includes('Abort') ||
         causeName.includes('Cancellation') ||
         causeName.includes('Abort') ||
-        err.message?.includes('aborted')
+        message?.includes('aborted')
     ) {
         return 499;
     }
-    return typeof err.status === 'number' ? err.status : 500;
+    return record && typeof record.status === 'number' ? record.status : 500;
 }
 
-function unwrapContext(obj: any): any {
+function unwrapContext(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') {
         return obj;
     }
-    const clean: Record<string, any> = {};
-    for (const key of Object.keys(obj)) {
+    const source = obj as Record<string, unknown>;
+    const clean: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) {
         if (key.startsWith('$')) {
             continue;
         }
-        const val =
-            typeof obj[key] === 'function'
-                ? obj[key].val !== undefined
-                    ? obj[key].val
-                    : obj[key].length === 0
-                      ? obj[key]()
-                      : obj[key]
-                : obj[key];
+        const rawVal = source[key];
+        let val = rawVal;
+        if (typeof rawVal === 'function') {
+            const fn = rawVal as (() => unknown) & { val?: unknown };
+            val = fn.val !== undefined ? fn.val : fn.length === 0 ? fn() : fn;
+        }
         clean[key] = val;
     }
     return clean;
@@ -77,24 +102,25 @@ function unwrapContext(obj: any): any {
 /**
  * Creates a Fastify route handler for executing a rivulet workflow.
  */
-export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
+export function sigloFastifyHandler<TInput = any, TOutput = any, TReq extends FastifyLikeRequest = FastifyLikeRequest>(
     workflow: Flow<TInput, TOutput>,
     options: SigloFastifyOptions<TReq, TInput, TOutput> = {},
 ) {
-    return async (request: any, reply: any): Promise<any> => {
+    return async (request: TReq, reply: FastifyLikeReply): Promise<any> => {
         const cancellation = requestCancellation(request.raw || request, reply.raw || reply, request.raw?.signal);
         try {
             // Correlation ID handling
             const corrHeader = (options.correlationIdHeader || 'x-correlation-id').toLowerCase();
-            const correlationId = request.headers?.[corrHeader] || request.headers?.['x-request-id'];
+            const correlationId =
+                normalizeHeader(request.headers?.[corrHeader]) ?? normalizeHeader(request.headers?.['x-request-id']);
             if (correlationId && reply.header) {
                 reply.header('X-Correlation-Id', correlationId);
             }
 
-            let inputData: any = {};
+            let inputData: unknown = {};
             if (options.input) {
                 inputData = await options.input(request);
-            } else if (request.body) {
+            } else if (request.body !== undefined) {
                 inputData = request.body;
             } else if (request.query) {
                 inputData = request.query;
@@ -105,8 +131,8 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 namespace = options.namespace(request);
             } else if (options.namespace) {
                 namespace = options.namespace;
-            } else if (options.allowHeaderNamespace && request.headers?.['x-namespace']) {
-                namespace = request.headers['x-namespace'];
+            } else if (options.allowHeaderNamespace) {
+                namespace = normalizeHeader(request.headers?.['x-namespace']);
             }
 
             const abortSignal = cancellation.signal;
@@ -118,42 +144,48 @@ export function sigloFastifyHandler<TInput = any, TOutput = any, TReq = any>(
                 durable: typeof options.durable === 'function' ? options.durable(request) : options.durable,
             };
 
-            const rawResult: any = await workflow.run(inputData, execOptions);
+            const rawResult: unknown = await workflow.run(inputData as TInput, execOptions);
+            const resultObj = isObject(rawResult) ? rawResult : undefined;
 
             const stackId =
-                typeof rawResult?.$stackId === 'function'
-                    ? rawResult.$stackId()
-                    : rawResult?.stackId || rawResult?.$stackId;
-            if (stackId && reply.header) {
+                typeof resultObj?.$stackId === 'function'
+                    ? (resultObj.$stackId as () => unknown)()
+                    : resultObj?.stackId || resultObj?.$stackId;
+            if (typeof stackId === 'string' && stackId.length > 0 && reply.header) {
                 reply.header('X-Workflow-Stack-Id', stackId);
             }
 
             const cleanResult = unwrapContext(rawResult);
 
             if (options.output) {
-                return await options.output(cleanResult, reply);
+                return await options.output(cleanResult as TOutput, reply);
             }
 
-            if (cleanResult?.status === 'waiting') {
-                reply.status(202);
+            if (isObject(cleanResult) && cleanResult.status === 'waiting') {
+                reply.status?.(202);
             }
             return cleanResult;
-        } catch (err: any) {
+        } catch (err: unknown) {
             if (options.onError) {
                 return await options.onError(err, reply);
             }
             const status = getErrorStatusCode(err);
             const exposeDetails = options.exposeErrorDetails ?? process.env.NODE_ENV !== 'production';
-            let errorMessage = err.message || 'Workflow execution error';
+            let errorMessage = getErrorMessage(err) || 'Workflow execution error';
             if (status === 500 && !exposeDetails) {
                 errorMessage = 'Internal workflow execution error';
             }
-            return reply.status(status).send({ error: errorMessage });
+            const statusReply = reply.status?.(status) ?? reply;
+            return statusReply.send?.({ error: errorMessage });
         } finally {
             cancellation.cleanup();
         }
     };
 }
 
-export type RivuletFastifyOptions<TReq = any, TInput = any, TOutput = any> = SigloFastifyOptions<TReq, TInput, TOutput>;
+export type RivuletFastifyOptions<TReq = FastifyLikeRequest, TInput = unknown, TOutput = unknown> = SigloFastifyOptions<
+    TReq,
+    TInput,
+    TOutput
+>;
 export const rivuletFastifyHandler = sigloFastifyHandler;

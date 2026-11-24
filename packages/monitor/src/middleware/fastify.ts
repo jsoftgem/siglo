@@ -1,3 +1,4 @@
+import type { ServerResponse } from 'http';
 import { WorkflowEventEmitter } from '@siglo/core';
 import { WorkflowExecutionStore } from '../store';
 import { SSEBroadcaster } from '../transports/sse';
@@ -8,7 +9,25 @@ export interface FastifyMonitorOptions {
     store?: WorkflowExecutionStore;
 }
 
-export function fastifyMonitorPlugin(fastify: any, options: FastifyMonitorOptions, done: (err?: any) => void) {
+export interface MonitorFastifyRequestLike {
+    query?: Record<string, unknown>;
+}
+
+export interface MonitorFastifyReplyLike {
+    raw: ServerResponse;
+    type(contentType: string): MonitorFastifyReplyLike;
+    send(payload: unknown): unknown;
+}
+
+export interface MonitorFastifyInstanceLike {
+    get(path: string, handler: (req: MonitorFastifyRequestLike, reply: MonitorFastifyReplyLike) => unknown): unknown;
+}
+
+export function fastifyMonitorPlugin(
+    fastify: MonitorFastifyInstanceLike,
+    options: FastifyMonitorOptions,
+    done: (err?: Error) => void,
+): void {
     const store = options.store || new WorkflowExecutionStore();
     const emitter = options.emitter || new WorkflowEventEmitter();
     const sse = new SSEBroadcaster();
@@ -18,17 +37,17 @@ export function fastifyMonitorPlugin(fastify: any, options: FastifyMonitorOption
         sse.broadcast(event);
     });
 
-    fastify.get('/', (req: any, reply: any) => {
+    fastify.get('/', (_req, reply) => {
         reply.type('text/html; charset=utf-8').send(getDashboardHtml());
     });
 
-    fastify.get('/events', (req: any, reply: any) => {
+    fastify.get('/events', (req, reply) => {
         const rawRes = reply.raw;
-        const ns = req.query?.namespace;
+        const ns = typeof req.query?.namespace === 'string' ? req.query.namespace : undefined;
         sse.addClient(rawRes, ns);
     });
 
-    fastify.get('/api/workflows', (req: any, reply: any) => {
+    fastify.get('/api/workflows', (_req, reply) => {
         reply.type('application/json').send(store.listRuns());
     });
 

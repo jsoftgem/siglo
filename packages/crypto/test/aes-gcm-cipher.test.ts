@@ -141,6 +141,45 @@ describe('AES-256-GCM Envelope Encryption (encryptFieldsStep & decryptFieldsStep
             expect(restoredCtx.unencrypted).to.equal('hello');
         });
 
+        it('resolves dynamic aad and deriveKeyContext via DynamicOption in encrypt/decrypt steps', async () => {
+            interface TenantCtx {
+                tenantId: string;
+                workflowId: string;
+                ssn: string;
+            }
+            const encStep = encryptFieldsStep<'encDyn', TenantCtx>('encDyn', {
+                fields: ['ssn'],
+                secretKey: masterKey,
+                aad: ctx => ctx.tenantId,
+                deriveKeyContext: ctx => ctx.workflowId,
+            });
+            const decStep = decryptFieldsStep<'decDyn', TenantCtx>('decDyn', {
+                fields: ['ssn'],
+                secretKey: masterKey,
+                aad: ctx => ctx.tenantId,
+                deriveKeyContext: ctx => ctx.workflowId,
+            });
+
+            const encrypted = await encStep.execute({
+                tenantId: 'tenant-1',
+                workflowId: 'wf-42',
+                ssn: '111-22-3333',
+            });
+            expect(isEncryptedEnvelope(encrypted.ssn)).to.be.true;
+
+            const decrypted = await decStep.execute(encrypted);
+            expect(decrypted.ssn).to.equal('111-22-3333');
+
+            let failed = false;
+            try {
+                await decStep.execute({ ...encrypted, tenantId: 'tenant-2' });
+            } catch (err: any) {
+                failed = true;
+                expect(err).to.be.instanceOf(ValidationException);
+            }
+            expect(failed).to.be.true;
+        });
+
         it('throws ValidationException when decrypting a tampered envelope', async () => {
             const encStep = encryptFieldsStep('protect', {
                 fields: ['customerSsn'],

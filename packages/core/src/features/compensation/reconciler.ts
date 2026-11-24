@@ -65,7 +65,8 @@ export async function reconcileAbandonedStacks(options: ReconcilerOptions = {}):
                         defaultStorageManager.checkpoint(stack.stackId, { status: Status.FAILED });
                     }
                     reconciled.push(stack.stackId);
-                } else if (action === 'compensate') {
+                } else {
+                    const _exhaustiveAction: 'compensate' = action;
                     const flow = options.flowLookup?.(stack.workflowId, stack.type);
                     if (flow && typeof flow.compensate === 'function') {
                         await flow.compensate(stack.stackId, {
@@ -100,6 +101,7 @@ export async function reconcileAbandonedStacks(options: ReconcilerOptions = {}):
                                         handlerName: record.handlerName,
                                         payload: record.payload,
                                         options: record.options,
+                                        networkPolicy: record.networkPolicy,
                                         status: record.status,
                                         completedAt: record.completedAt,
                                     });
@@ -120,8 +122,9 @@ export async function reconcileAbandonedStacks(options: ReconcilerOptions = {}):
                         defaultStorageManager.checkpoint(stack.stackId, { status: Status.FAILED });
                     }
                     reconciled.push(stack.stackId);
+                    void _exhaustiveAction;
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 failed.push({ stackId: stack.stackId, error: err });
             }
         }

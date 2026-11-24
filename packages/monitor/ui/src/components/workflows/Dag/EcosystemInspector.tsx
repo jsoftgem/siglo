@@ -17,9 +17,10 @@ function Fields({ values }: { values: Record<string, unknown> }) {
     );
 }
 
-export function InspectionDetails({ data }: { data: EcosystemInspection }) {
+export function InspectionDetails({ data }: { data: EcosystemInspection }): React.ReactElement {
     switch (data.kind) {
-        case 'http':
+        case 'http': {
+            const curl = sanitizedCurl(data);
             return (
                 <>
                     <Fields
@@ -37,11 +38,11 @@ export function InspectionDetails({ data }: { data: EcosystemInspection }) {
                             Policy: data.policy,
                         }}
                     />
-                    {sanitizedCurl(data) && (
+                    {curl && (
                         <button
                             className="mt-2 text-sky-400"
                             onClick={() => {
-                                void navigator.clipboard.writeText(sanitizedCurl(data)!);
+                                void navigator.clipboard.writeText(curl);
                             }}
                         >
                             Copy sanitized cURL (origin only)
@@ -53,6 +54,7 @@ export function InspectionDetails({ data }: { data: EcosystemInspection }) {
                     </p>
                 </>
             );
+        }
         case 'crypto':
             return (
                 <Fields
@@ -111,10 +113,14 @@ export function InspectionDetails({ data }: { data: EcosystemInspection }) {
                     </p>
                 </>
             );
+        default: {
+            const _exhaustive: never = data;
+            return _exhaustive;
+        }
     }
 }
 
-export function EcosystemInspector({ step }: { step: StepRun }) {
+export function EcosystemInspector({ step }: { step: StepRun }): React.ReactElement {
     if (!step.inspections?.length) return <p className="text-slate-500 text-xs">Ecosystem diagnostics unavailable.</p>;
     return (
         <div className="space-y-3 text-xs">

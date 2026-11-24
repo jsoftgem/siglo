@@ -10,11 +10,18 @@ interface StepDetailCardProps {
 }
 
 export const StepDetailCard: React.FC<StepDetailCardProps> = ({ step, onClose }) => {
-    const formatError = (error: any): string => {
+    const formatError = (error: unknown): string => {
         if (!error) return '';
         if (typeof error === 'string') return error;
         if (typeof error === 'object') {
-            return error.stack || error.message || JSON.stringify(error, null, 2);
+            const record = error as Record<string, unknown>;
+            if (typeof record.stack === 'string' && record.stack) return record.stack;
+            if (typeof record.message === 'string' && record.message) return record.message;
+            try {
+                return JSON.stringify(error, null, 2);
+            } catch {
+                return String(error);
+            }
         }
         return String(error);
     };
@@ -63,7 +70,7 @@ export const StepDetailCard: React.FC<StepDetailCardProps> = ({ step, onClose })
             )}
             <EcosystemInspector step={step} />
 
-            {step.error && (
+            {Boolean(step.error) && (
                 <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-300 text-xs font-mono">
                     <div className="flex items-center gap-1.5 font-semibold text-rose-400 mb-1">
                         <AlertTriangle className="w-3.5 h-3.5" /> Error Encountered

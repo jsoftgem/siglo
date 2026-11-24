@@ -1,5 +1,6 @@
 export * from './Util';
 export * from './TypeGuards';
+export * from './DynamicOption';
 export * from './WorkflowNodeType';
 export * from './ReservedKey';
 export * as status from './Status';

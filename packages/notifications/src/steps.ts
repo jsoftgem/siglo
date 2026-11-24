@@ -8,6 +8,7 @@ import {
     recordInspection,
     stepInspectionStorage,
     parseDuration,
+    resolveDynamic,
     registerCompensationHandler,
     hasCompensationHandler,
     emitMonitoringEvent,
@@ -28,8 +29,6 @@ import {
     NotificationTransport,
     ResolvedNotificationMessage,
 } from './types';
-const resolve = <T>(v: T | ((ctx: any) => T), ctx: any): T =>
-    typeof v === 'function' ? (v as (ctx: any) => T)(ctx) : v;
 export function assertTransportPolicy(name: string, transport: NotificationTransport): void {
     for (const host of transport.allowedHosts) assertNetworkPolicy(name, `https://${host}`, host);
 }
@@ -67,7 +66,8 @@ function createNotificationStep<const N extends string, I>(
     ) => Promise<{ actions: ResolvedNotificationMessage['interactiveActions']; extra: Record<string, unknown> }>,
 ): Step<I, NotificationResult, N> {
     registerNotificationCompensationHandlers();
-    const transportFor = (ctx: I) => options.transport ?? getNotificationTransport(resolve(options.channel, ctx));
+    const transportFor = (ctx: I) =>
+        options.transport ?? getNotificationTransport(resolveDynamic(options.channel, ctx));
     // Schema and before hooks run outside the observed action. Report their failures
     // without resolving caller callbacks again or copying exception content.
     const inspectPreAction = async <T>(action: () => T | Promise<T>): Promise<T> => {
@@ -91,11 +91,11 @@ function createNotificationStep<const N extends string, I>(
         `${typeof ctx?.$stackId === 'function' ? ctx.$stackId() : ctx?.$stackId || ctx?.stackId || 'standalone'}:${name}:${createHash(
             'sha256',
         )
-            .update(JSON.stringify(resolve(options.recipient, ctx)))
+            .update(JSON.stringify(resolveDynamic(options.recipient, ctx)))
             .digest('hex')}`;
     const action = async (ctx: I, inspection: EcosystemInspection) => {
-        const channel = resolve(options.channel, ctx),
-            to = resolve(options.recipient, ctx),
+        const channel = resolveDynamic(options.channel, ctx),
+            to = resolveDynamic(options.recipient, ctx),
             transport = transportFor(ctx);
         if (transport.channel !== channel) throw new Error('Notification transport channel mismatch');
         assertTransportPolicy(name, transport);
@@ -120,8 +120,8 @@ function createNotificationStep<const N extends string, I>(
                     message: {
                         to,
                         idempotencyKey,
-                        subject: options.subject === undefined ? undefined : resolve(options.subject, ctx),
-                        content: resolve(options.template, ctx),
+                        subject: options.subject === undefined ? undefined : resolveDynamic(options.subject, ctx),
+                        content: resolveDynamic(options.template, ctx),
                         interactiveActions: enriched?.actions,
                     },
                     extra: enriched?.extra,
@@ -181,8 +181,8 @@ function createNotificationStep<const N extends string, I>(
             vendor: 'siglo-notifications',
             validate: async (ctx: I) =>
                 inspectPreAction(async () => {
-                    const channel = resolve(options.channel, ctx),
-                        to = resolve(options.recipient, ctx);
+                    const channel = resolveDynamic(options.channel, ctx),
+                        to = resolveDynamic(options.recipient, ctx);
                     const target =
                         typeof to === 'string'
                             ? to
@@ -212,7 +212,12 @@ function createNotificationStep<const N extends string, I>(
                             { phase: 'validation', retryable: false },
                         );
                     if (options.dataSchema)
-                        await validatePayload(options.dataSchema, options.data?.(ctx) ?? ctx, 'validation', name);
+                        await validatePayload(
+                            options.dataSchema,
+                            resolveDynamic(options.data, ctx) ?? ctx,
+                            'validation',
+                            name,
+                        );
                     return { value: ctx };
                 }),
         },
@@ -238,8 +243,12 @@ function createNotificationStep<const N extends string, I>(
     );
 
     if (options.transport) step.allowNetwork(options.transport.allowedHosts);
+    const deduplicationTtlMs =
+        (typeof options.deduplicationTtl === 'number'
+            ? options.deduplicationTtl * 1000
+            : parseDuration(options.deduplicationTtl)) ?? 86400 * 1000;
     step.idempotent(dispatchKey, {
-        ttlMs: (options.deduplicationTtl ?? 86400) * 1000,
+        ttlMs: deduplicationTtlMs,
         store: options.idempotencyStore,
     });
     if (options.compensateOnFailure) {
@@ -255,8 +264,10 @@ export function sendInteractiveApprovalStep<const N extends string, I = any>(
     name: N,
     options: InteractiveApprovalOptions<I>,
 ): Step<I, ApprovalResult, N> {
-    const ttl = parseDuration(options.timeout);
-    if (!ttl || !Number.isFinite(ttl) || ttl <= 0) throw new Error('Approval timeout must be positive');
+    const staticTtl = typeof options.timeout === 'function' ? undefined : parseDuration(options.timeout);
+    if (typeof options.timeout !== 'function' && (!staticTtl || staticTtl <= 0)) {
+        throw new Error('Approval timeout must be positive');
+    }
     return createNotificationStep(
         name,
         {
@@ -270,7 +281,11 @@ export function sendInteractiveApprovalStep<const N extends string, I = any>(
             compensateOnFailure: options.autoCompensate,
         },
         async ctx => {
-            const correlationKey = resolve(options.correlationKey, ctx);
+            const ttl = staticTtl ?? parseDuration(resolveDynamic(options.timeout, ctx));
+            if (!ttl || ttl <= 0) {
+                throw new Error('Approval timeout must be positive');
+            }
+            const correlationKey = resolveDynamic(options.correlationKey, ctx);
             const stackId =
                 typeof (ctx as any)?.$stackId === 'function'
                     ? (ctx as any).$stackId()
@@ -304,8 +319,9 @@ export function sendInteractiveApprovalStep<const N extends string, I = any>(
             return {
                 actions: {
                     ...approvalTokens,
-                    title: resolve(options.title, ctx),
-                    description: options.description === undefined ? undefined : resolve(options.description, ctx),
+                    title: resolveDynamic(options.title, ctx),
+                    description:
+                        options.description === undefined ? undefined : resolveDynamic(options.description, ctx),
                 },
                 extra: { correlationKey, approvalTokens, approvalExpiresAt: expiresAt },
             };

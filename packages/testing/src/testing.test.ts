@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import Step, { flow, waitForEvent } from '@siglo/core';
+import Step, { clearStorage, flow, waitForEvent } from '@siglo/core';
 import {
     createWorkflowHarness,
     FakeClock,
@@ -10,6 +10,10 @@ import {
 } from './index';
 
 describe('@siglo/testing: Deterministic Test Utilities', () => {
+    beforeEach(() => {
+        clearStorage();
+    });
+
     describe('FakeClock', () => {
         it('should advance time and tick deterministically', async () => {
             const clock = new FakeClock(1000);
@@ -158,6 +162,129 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
             const res = await harness.injectEvent('waitForApproval', initialRes.stackId, { approvedBy: 'manager-dan' });
             expect(res.approvedBy).to.equal('manager-dan');
         });
+
+        it('should support Step.compute synchronously with spyStep, mockStep, assertStepExecuted, and .cache()', async () => {
+            const fetchCart = Step.create('fetchCart', async (p: { cartId: string }) => ({
+                cartId: p.cartId,
+                subtotal: 200,
+                discount: 50,
+            }));
+
+            const calculateTotals = Step.compute(
+                'calculateTotals',
+                (p: { subtotal: number; discount: number; taxRate: number }) => {
+                    const taxable = Math.max(0, p.subtotal - p.discount);
+                    const tax = Math.round(taxable * p.taxRate * 100) / 100;
+                    return { tax, total: taxable + tax };
+                },
+            )
+                .spec('subtotal', { require: true, validate: v => typeof v === 'number' && v >= 0 })
+                .spec('discount', { default: 0 })
+                .spec('taxRate', { default: 0.1 })
+                .cache('5m');
+
+            const checkoutFlow = flow(fetchCart, calculateTotals);
+            const harness = createWorkflowHarness(checkoutFlow);
+            const computeSpy = harness.spyStep('calculateTotals');
+
+            // First run: executes calculateTotals
+            const res1 = await harness.run({ cartId: 'cart-1' });
+            expect(res1.tax).to.equal(15);
+            expect(res1.total).to.equal(165);
+            expect(computeSpy.called).to.be.true;
+            expect(computeSpy.callCount).to.equal(1);
+            expect(computeSpy.firstCall()?.input.taxRate).to.equal(0.1);
+            expect(computeSpy.lastCall()?.output).to.deep.equal({ tax: 15, total: 165 });
+
+            // Second run with same post-.spec() input: served from in-memory compute cache
+            const res2 = await harness.run({ cartId: 'cart-1', taxRate: 0.1 });
+            expect(res2.total).to.equal(165);
+            expect(computeSpy.callCount).to.equal(1);
+            harness.assertStepExecuted('fetchCart', 2);
+            harness.assertStepExecuted('calculateTotals', 1);
+
+            // Mock a Step.compute step
+            clearStorage();
+            const mockHarness = createWorkflowHarness(checkoutFlow);
+            mockHarness.mockStep('calculateTotals', () => ({ tax: 0, total: 100 }));
+            const mockedRes = await mockHarness.run({ cartId: 'cart-2' });
+            expect(mockedRes.total).to.equal(100);
+            mockHarness.assertStepExecuted('calculateTotals', 1);
+        });
+
+        it('should isolate Step.compute caches across separate WorkflowHarness instances and invalidate cache on mockStep', async () => {
+            const cachedCompute = Step.compute('cachedCompute', (p: { x: number }) => ({
+                y: p.x * 10,
+            })).cache('5m');
+            const wf = flow(cachedCompute);
+
+            // Harness A populates its own cache
+            const harnessA = createWorkflowHarness(wf);
+            const resA1 = await harnessA.run({ x: 3 });
+            expect(resA1.y).to.equal(30);
+            harnessA.assertStepExecuted('cachedCompute', 1);
+
+            // Harness B (created WITHOUT clearStorage()) must NOT share Harness A's cache!
+            const harnessB = createWorkflowHarness(wf);
+            const spyB = harnessB.spyStep('cachedCompute');
+            const resB1 = await harnessB.run({ x: 3 });
+            expect(resB1.y).to.equal(30);
+            expect(spyB.callCount).to.equal(1);
+            harnessB.assertStepExecuted('cachedCompute', 1);
+
+            // Calling mockStep on Harness A after cache was populated must clear Harness A's cache so the mock executes
+            harnessA.mockStep('cachedCompute', () => ({ y: 999 }));
+            const resA2 = await harnessA.run({ x: 3 });
+            expect(resA2.y).to.equal(999);
+            harnessA.assertStepExecuted('cachedCompute', 2);
+        });
+
+        it('should record Step.compute failures for action errors, .spec() validation errors, and async mock violations', async () => {
+            const computeStep = Step.compute('riskScore', (p: { income: number; debt: number }) => {
+                if (p.income === 0) {
+                    throw new Error('Income cannot be zero');
+                }
+                return { ratio: p.debt / p.income };
+            }).spec('income', { require: true, validate: v => typeof v === 'number' && v >= 0 });
+
+            // 1. Action error
+            const harness1 = createWorkflowHarness(flow(computeStep));
+            const spy1 = harness1.spyStep('riskScore');
+            let actionThrew = false;
+            try {
+                await harness1.run({ income: 0, debt: 50 });
+            } catch {
+                actionThrew = true;
+            }
+            expect(actionThrew).to.be.true;
+            expect(spy1.lastCall()?.error?.message).to.include('Income cannot be zero');
+            harness1.assertStepFailed('riskScore', 'Income cannot be zero');
+
+            // 2. .spec() validation error
+            const harness2 = createWorkflowHarness(flow(computeStep));
+            const spy2 = harness2.spyStep('riskScore');
+            let specThrew = false;
+            try {
+                await harness2.run({ income: -10, debt: 50 });
+            } catch {
+                specThrew = true;
+            }
+            expect(specThrew).to.be.true;
+            expect(spy2.called).to.be.true;
+            harness2.assertStepFailed('riskScore', /Validation failed/);
+
+            // 3. Async mock on Step.compute must reject with synchronous thenable guard error
+            const harness3 = createWorkflowHarness(computeStep);
+            harness3.mockStep('riskScore', async () => ({ ratio: 0.5 }));
+            let asyncMockThrew = false;
+            try {
+                await harness3.run({ income: 100, debt: 20 });
+            } catch {
+                asyncMockThrew = true;
+            }
+            expect(asyncMockThrew).to.be.true;
+            harness3.assertStepFailed('riskScore', /must be synchronous and cannot return a Promise/);
+        });
     });
 
     describe('Execution Record Sanitization & Replay', () => {
@@ -199,9 +326,10 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
             expect(sanitized.trace[0].input.token).to.equal('[REDACTED]');
         });
 
-        it('should replay workflow and verify deterministic parity', async () => {
+        it('should replay workflow and verify deterministic parity (including cached Step.compute)', async () => {
             const s1 = Step.create('add', (p: { x: number; y: number }) => ({ sum: p.x + p.y }));
-            const wf = flow(s1);
+            const s2 = Step.compute('double', (p: { sum: number }) => ({ doubled: p.sum * 2 })).cache('5m');
+            const wf = flow(s1, s2);
 
             const initialHarness = createWorkflowHarness(wf);
             await initialHarness.run({ x: 5, y: 10 });
@@ -211,6 +339,7 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
             expect(replay.matched).to.be.true;
             expect(replay.discrepancies).to.have.length(0);
             expect(replay.actualOutput.sum).to.equal(15);
+            expect(replay.actualOutput.doubled).to.equal(30);
         });
 
         it('should detect discrepancies during replay if output deviates', async () => {
@@ -229,7 +358,7 @@ describe('@siglo/testing: Deterministic Test Utilities', () => {
 
         it('should allow substituting step fixtures during replay', async () => {
             const s1 = Step.create('externalApi', () => ({ data: 'original' }));
-            const s2 = Step.create('format', (p: any) => ({ formatted: p.data.toUpperCase() }));
+            const s2 = Step.compute('format', (p: any) => ({ formatted: p.data.toUpperCase() }));
             const wf = flow(s1, s2);
 
             const fakeRecord: ExecutionRecord = {

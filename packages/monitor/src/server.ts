@@ -1,13 +1,23 @@
 import * as http from 'http';
 import {
+    Flow,
     sanitizeInspection,
     redactEvent,
     RedactionOptions,
     redactValue,
     resumeWorkflow,
     WorkflowEventEmitter,
+    WorkflowExecutionEvent,
+    getErrorMessage,
+    isPlainObject,
 } from '@siglo/core';
-import { MonitorServerAuthOptions, MonitorServerCorsOptions, MonitorServerOptions } from './types';
+import {
+    MonitorFlowLike,
+    MonitorServerAuthOptions,
+    MonitorServerCorsOptions,
+    MonitorServerOptions,
+    WorkflowRunRecord,
+} from './types';
 import { WorkflowExecutionStore } from './store';
 import { SSEBroadcaster } from './transports/sse';
 import { WebSocketBroadcaster } from './transports/websocket';
@@ -20,7 +30,7 @@ export interface MonitorServerInstance {
     host: string;
     emitter: WorkflowEventEmitter;
     store: WorkflowExecutionStore;
-    workflows: Map<string, any>;
+    workflows: Map<string, MonitorFlowLike>;
     sse: SSEBroadcaster;
     ws: WebSocketBroadcaster;
     metrics: PrometheusExporter;
@@ -29,23 +39,25 @@ export interface MonitorServerInstance {
 
 const activeServers = new Map<number, MonitorServerInstance>();
 
-function validInspectionEvent(event: any): boolean {
-    if (event?.type !== 'step:inspection' && !(event?.type === 'ai:complete' && event.inspection)) return true;
+function validInspectionEvent(event: unknown): boolean {
+    if (!isPlainObject(event)) return false;
+    if (typeof event.type !== 'string' || typeof event.stackId !== 'string' || !event.stackId) return false;
+    if (event.type !== 'step:inspection' && !(event.type === 'ai:complete' && event.inspection)) return true;
     return (
-        typeof event.stackId === 'string' &&
-        !!event.stackId &&
         typeof event.stepId === 'string' &&
         !!event.stepId &&
+        typeof event.attempt === 'number' &&
         Number.isSafeInteger(event.attempt) &&
         event.attempt > 0 &&
+        typeof event.timestamp === 'number' &&
         Number.isFinite(event.timestamp) &&
         event.timestamp >= 0 &&
-        !!sanitizeInspection(event.inspection) &&
-        (event.type !== 'ai:complete' || event.inspection.kind === 'ai')
+        !!sanitizeInspection(event.inspection as Parameters<typeof sanitizeInspection>[0]) &&
+        (event.type !== 'ai:complete' || (isPlainObject(event.inspection) && event.inspection.kind === 'ai'))
     );
 }
 
-function safeJsonStringify(obj: any): string {
+function safeJsonStringify(obj: unknown): string {
     const seen = new WeakSet();
     return JSON.stringify(obj, (key, value) => {
         if (key === 'step' && value && typeof value === 'object' && value.sequence) {
@@ -61,42 +73,46 @@ function safeJsonStringify(obj: any): string {
     });
 }
 
-function sanitizeRunRecord(run: any, redaction?: RedactionOptions): any {
+function sanitizeRunRecord(run: WorkflowRunRecord, redaction?: RedactionOptions): WorkflowRunRecord {
     if (!run) return run;
     return {
         ...run,
-        steps: redactValue(run.steps, redaction),
-        context: redactValue(run.context, redaction),
+        steps: redactValue(run.steps, redaction) as WorkflowRunRecord['steps'],
+        context: redactValue(run.context, redaction) as Record<string, unknown>,
         contextDiffs: Array.isArray(run.contextDiffs)
-            ? run.contextDiffs.map((d: any) => ({ ...d, value: redactValue(d.value, redaction) }))
+            ? run.contextDiffs.map(d => ({ ...d, value: redactValue(d.value, redaction) }))
             : run.contextDiffs,
-        events: Array.isArray(run.events) ? run.events.map((ev: any) => redactEvent(ev, redaction)) : run.events,
+        events: Array.isArray(run.events) ? run.events.map(ev => redactEvent(ev, redaction)) : run.events,
     };
 }
 
-function validateResumePayload(flowCandidate: any, payload: any): { valid: boolean; error?: any } {
-    if (!flowCandidate || !flowCandidate.resumeSchema) {
+function validateResumePayload(
+    flowCandidate: MonitorFlowLike | undefined,
+    payload: unknown,
+): { valid: boolean; error?: unknown } {
+    const candidate = flowCandidate as { resumeSchema?: unknown } | undefined;
+    if (!candidate || !candidate.resumeSchema) {
         return { valid: true };
     }
-    const schema = flowCandidate.resumeSchema;
-    if (typeof schema.safeParse === 'function') {
-        const res = schema.safeParse(payload);
+    const schema = candidate.resumeSchema;
+    if (isPlainObject(schema) && typeof schema.safeParse === 'function') {
+        const res = (schema.safeParse as (input: unknown) => { success: boolean; error?: unknown })(payload);
         if (!res.success) {
             return { valid: false, error: res.error };
         }
-    } else if (typeof schema.validate === 'function') {
-        const res = schema.validate(payload);
+    } else if (isPlainObject(schema) && typeof schema.validate === 'function') {
+        const res = (schema.validate as (input: unknown) => { error?: unknown } | undefined)(payload);
         if (res && res.error) {
             return { valid: false, error: res.error };
         }
     } else if (typeof schema === 'function') {
         try {
-            const resValidation = schema(payload);
+            const resValidation = (schema as (input: unknown) => unknown)(payload);
             if (resValidation === false) {
                 return { valid: false, error: 'Validation failed' };
             }
-        } catch (e: any) {
-            return { valid: false, error: e?.message || String(e) };
+        } catch (e: unknown) {
+            return { valid: false, error: getErrorMessage(e) };
         }
     }
     return { valid: true };
@@ -104,14 +120,14 @@ function validateResumePayload(flowCandidate: any, payload: any): { valid: boole
 
 function resolveTargetFlow(
     stackId: string,
-    run: any,
+    run: WorkflowRunRecord | undefined,
     options: MonitorServerOptions,
-    workflows: Map<string, any>,
-): any | undefined {
+    workflows: Map<string, MonitorFlowLike>,
+): MonitorFlowLike | undefined {
     if (options.flow && !options.workflows) {
         return options.flow;
     }
-    const candidates = [run?.flowName, run?.workflowId, stackId].filter(Boolean);
+    const candidates = [run?.flowName, stackId].filter((c): c is string => typeof c === 'string' && c.length > 0);
 
     for (const key of candidates) {
         if (workflows.has(key)) {
@@ -155,10 +171,11 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
     }
 
     const host = options.host || '127.0.0.1';
-    const store = options.store || new WorkflowExecutionStore();
-    const workflows = options.workflows instanceof Map ? options.workflows : new Map();
+    const store = (options.store as WorkflowExecutionStore | undefined) || new WorkflowExecutionStore();
+    const workflows: Map<string, MonitorFlowLike> = options.workflows instanceof Map ? options.workflows : new Map();
     if (options.flow) {
-        const flowId = options.flow.id || options.flow.name || options.flow.workflowId;
+        const flowCandidate = options.flow as { id?: string; name?: string; workflowId?: string };
+        const flowId = flowCandidate.id || flowCandidate.name || flowCandidate.workflowId;
         if (flowId) {
             workflows.set(flowId, options.flow);
         }
@@ -278,8 +295,10 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                     });
                     return;
                 }
-                resumeWorkflow(targetFlow, message.stackId, message.payload, { monitor: emitter }).catch(err => {
-                    ws.send(client, { action: 'error', error: err?.message || String(err) });
+                resumeWorkflow(targetFlow as Flow<any, any>, message.stackId, message.payload, {
+                    monitor: emitter,
+                }).catch((err: unknown) => {
+                    ws.send(client, { action: 'error', error: getErrorMessage(err) });
                 });
             }
         },
@@ -353,13 +372,11 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             req.on('end', () => {
                 if (aborted) return;
                 try {
-                    const parsed = JSON.parse(body);
+                    const parsed: unknown = JSON.parse(body);
                     const events = Array.isArray(parsed) ? parsed : [parsed];
-                    if (!events.every(validInspectionEvent)) throw new Error('Invalid inspection event');
+                    if (!events.every(validInspectionEvent)) throw new Error('Invalid monitoring event');
                     for (const ev of events) {
-                        if (ev && ev.type && ev.stackId) {
-                            emitter.emit(redactEvent(ev, effectiveRedaction));
-                        }
+                        emitter.emit(redactEvent(ev as WorkflowExecutionEvent, effectiveRedaction));
                     }
                     res.writeHead(202, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true, count: events.length }));
@@ -390,9 +407,7 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             }
             const ns = url.searchParams.get('namespace') || undefined;
             const status = url.searchParams.get('status') || undefined;
-            const runs = store
-                .listRuns({ namespace: ns, status })
-                .map((r: any) => sanitizeRunRecord(r, effectiveRedaction));
+            const runs = store.listRuns({ namespace: ns, status }).map(r => sanitizeRunRecord(r, effectiveRedaction));
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(safeJsonStringify(runs));
             return;
@@ -457,7 +472,8 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
             req.on('end', async () => {
                 if (aborted) return;
                 try {
-                    const parsed = body ? JSON.parse(body) : {};
+                    const rawParsed: unknown = body ? JSON.parse(body) : {};
+                    const parsed = isPlainObject(rawParsed) ? rawParsed : {};
                     const run = store.getRun(stackId);
                     const targetFlow = resolveTargetFlow(stackId, run, options, workflows);
                     if (!targetFlow) {
@@ -482,12 +498,12 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
                         return;
                     }
 
-                    await resumeWorkflow(targetFlow, stackId, parsed.payload, { monitor: emitter });
+                    await resumeWorkflow(targetFlow as Flow<any, any>, stackId, parsed.payload, { monitor: emitter });
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true, stackId }));
-                } catch (err: any) {
+                } catch (err: unknown) {
                     res.writeHead(500, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: err?.message || String(err) }));
+                    res.end(JSON.stringify({ error: getErrorMessage(err) }));
                 }
             });
             return;
@@ -537,7 +553,8 @@ export function createMonitorServer(options: MonitorServerOptions = {}): Promise
         });
 
         server.listen(port, host, () => {
-            const actualPort = (server.address() as any)?.port || port;
+            const addr = server.address();
+            const actualPort = addr && typeof addr === 'object' ? addr.port : port;
             const instance: MonitorServerInstance = {
                 server,
                 port: actualPort,

@@ -1,4 +1,4 @@
-import { defaultDurableManager, resumeWorkflow } from '@siglo/core';
+import { defaultDurableManager, resumeWorkflow, WaitingWorkflowRecord } from '@siglo/core';
 import { MemoryPollerOptions, PollerReport, WaitRecord } from './types';
 
 export class MemoryWaitPoller {
@@ -28,14 +28,16 @@ export class MemoryWaitPoller {
         };
 
         const now = Date.now();
+        const managerWithList = defaultDurableManager as unknown as {
+            getAllWaiting?: () => WaitingWorkflowRecord[];
+        };
         const waitingRecords =
-            typeof (defaultDurableManager as any).getAllWaiting === 'function'
-                ? (defaultDurableManager as any).getAllWaiting()
-                : [];
+            typeof managerWithList.getAllWaiting === 'function' ? managerWithList.getAllWaiting() : [];
 
         for (const waiting of waitingRecords) {
             if (waiting.expiresAt && waiting.expiresAt <= now) {
                 report.claimed++;
+                const version = waiting.version !== undefined ? String(waiting.version) : undefined;
                 const waitRec: WaitRecord = {
                     correlationKey: waiting.correlationKey,
                     stackId: waiting.stackId,
@@ -44,12 +46,12 @@ export class MemoryWaitPoller {
                     status: 'RESUMING',
                     expiresAt: waiting.expiresAt,
                     continuationStepIndex: waiting.continuationStepIndex,
-                    version: waiting.version,
+                    version,
                 };
 
                 try {
-                    const targetFlow = this.flowLookup?.(waiting.version, waiting.stackId);
-                    let result: any;
+                    const targetFlow = this.flowLookup?.(version, waiting.stackId);
+                    let result: unknown;
                     if (targetFlow) {
                         result = await resumeWorkflow(
                             targetFlow,
@@ -67,7 +69,7 @@ export class MemoryWaitPoller {
                         await this.onResumed(waitRec, result);
                     }
                     report.resumed++;
-                } catch (err: any) {
+                } catch (err: unknown) {
                     if (this.onFailed) {
                         await this.onFailed(waitRec, err);
                     }

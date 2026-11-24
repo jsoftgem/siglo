@@ -103,5 +103,9 @@ export async function listWorkflows(
             metadata: row.metadata ?? undefined,
             ...(includeContext && { contexts: row.contexts }),
         }));
-    return { checkpoints, totalCount: Number(result.rows[0].total), hasNextPage: result.rows[0].more };
+    return {
+        checkpoints,
+        totalCount: Number(result.rows[0]?.total ?? 0),
+        hasNextPage: Boolean(result.rows[0]?.more),
+    };
 }

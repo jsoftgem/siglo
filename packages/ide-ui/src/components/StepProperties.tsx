@@ -23,6 +23,8 @@ function readableLabel(key: string) {
         preserveOrder: 'Preserve order',
         stopOnError: 'Stop on error',
         compensateWithHttp: 'HTTP compensation',
+        networkPolicy: 'Network policy',
+        cache: 'Cache policy',
     };
     return labels[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
 }
@@ -115,7 +117,7 @@ export function StepProperties({ node }: { node: GraphNode }): React.ReactElemen
                             value.includes('\n') ||
                             value.includes('=>') ||
                             value.length > 80 ||
-                            /^[\[{]/.test(value.trim());
+                            /^[[{]/.test(value.trim());
                         const literal = value.replace(/^(['"])(.*)\1$/, '$2');
                         return (
                             <div key={key} className="py-2.5">

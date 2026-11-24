@@ -49,12 +49,16 @@ export const NotificationInspector: React.FC<NotificationInspectorProps> = ({ co
                         Expired
                     </span>
                 );
-            default:
+            case 'conflict':
                 return (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#393b40] text-[#dfe1e5]">
-                        {state}
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800/60">
+                        Conflict
                     </span>
                 );
+            default: {
+                const _exhaustive: never = state;
+                return _exhaustive;
+            }
         }
     };
 

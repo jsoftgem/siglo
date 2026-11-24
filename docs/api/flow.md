@@ -47,7 +47,7 @@ export interface Flow<TInput = any, TOutput = any> {
     run: (param?: TInput, options?: ExecutionOptions) => Promise<TOutput>;
     steps: Step<any, any, any>[];
     readonly isFlow?: boolean;
-    timeout: (ms: number) => Flow<TInput, TOutput>;
+    timeout: (ms: DurationInput) => Flow<TInput, TOutput>;
     timeoutMs?: number;
     workflowVersion?: string | number;
     version: (v: string | number) => Flow<TInput, TOutput>;
@@ -63,7 +63,7 @@ export interface Flow<TInput = any, TOutput = any> {
     toJSON: () => string;
     toDot: (options?: DotExportOptions) => string;
     resume: (correlationKeyOrStackId: string, eventPayload?: any, options?: ExecutionOptions) => Promise<any>;
-    compensate: (stackId: string, options?: any) => Promise<any>;
+    compensate: (stackId: string, options?: CompensationRunOptions) => Promise<any>;
 }
 ```
 
@@ -116,12 +116,12 @@ console.log(output.$steps.calculate); // { total: 99.95 }
 
 ### `flow.timeout(ms)`
 
-Configures an overall workflow-level SLA deadline. If the total elapsed execution duration across all steps exceeds `ms`, execution is cancelled and a `FlowTimeoutException` is thrown.
+Configures an overall workflow-level SLA deadline. If the total elapsed execution duration across all steps exceeds the deadline, execution is cancelled and a `FlowTimeoutException` is thrown.
 
 #### Signature
 
 ```typescript
-flow.timeout(ms: number): Flow<TInput, TOutput>;
+flow.timeout(ms: DurationInput): Flow<TInput, TOutput>;
 ```
 
 #### Chainable
@@ -130,6 +130,7 @@ Returns the `flow` instance for fluent chaining.
 
 #### Behavior
 
+- Accepts milliseconds (`number`) or human-readable duration strings (`'1s'`, `'5m'`, `'500ms'`) parsed via `parseDuration`; `flow.timeoutMs` stores the resolved millisecond value.
 - Overridden at runtime if `options.timeout` is supplied to `.run()`.
 - If a timeout occurs, any in-flight steps receive an abort signal from the internal cancellation controller.
 
@@ -143,7 +144,7 @@ const longStep = Step.create('slow', async () => {
     return { done: true };
 });
 
-const workflow = flow(longStep).timeout(1000); // 1-second overall SLA
+const workflow = flow(longStep).timeout('1s'); // 1-second overall SLA (or 1000)
 
 try {
     await workflow.run();
@@ -212,8 +213,9 @@ Returns the `flow` instance for fluent chaining.
 #### Precedence and Narrowing Rules
 
 1. **Outer Envelope**: The flow's `allowedHosts` defines the outer boundary. If a flow only allows `['api.stripe.com']`, a step cannot allow `api.github.com`.
-2. **Step Narrowing**: A step can choose to permit only a subset of the flow's allowed hosts or call `.denyNetwork()`.
-3. **Execution Options Override**: Network policy can also be supplied dynamically per execution run via `flow.run(payload, { networkPolicy: { ... } })`.
+2. **Step & Combinator Narrowing**: Individual steps, nested combinators (`parallel`, `when`, `branch`, `map`), and sub-flows (`Step.create(subFlow)`) inherit and intersect enclosing `AsyncLocalStorage` (`networkPolicyStorage`) scopes. They can narrow permissions (or call `.denyNetwork()`) within the outer perimeter, but can never widen it.
+3. **Compensation Governance**: Effective policies are captured on compensation records and enforced during automatic Saga rollbacks and `flow.compensate()` calls.
+4. **Execution Options Override**: Network policy can also be supplied dynamically per execution run via `flow.run(payload, { networkPolicy: { ... } })`.
 
 #### Example
 
@@ -342,7 +344,12 @@ flow.compensate(stackId: string, options?: CompensationRunOptions): Promise<any>
 #### Parameters
 
 - `stackId`: `string` &mdash; The execution stack ID whose registered compensations should run.
-- `options`: `CompensationRunOptions` _(optional)_ &mdash; Optional compensation execution options (e.g. `timeoutMs`, `stopOnError`).
+- `options`: `CompensationRunOptions` _(optional)_ &mdash; Optional compensation execution options (`mode`, `maxRetries`, `delay?: DurationInput`, `networkPolicy`, `onFailure`, `deadLetterQueue`).
+
+#### Behavior
+
+- If compensations for `stackId` are not already in memory, `flow.compensate()` hydrates serialized compensation records (including handlers/names and captured `networkPolicy`) from the persisted checkpoint.
+- Runs each compensation handler and its retry delays inside the effective `networkPolicyStorage` ASL perimeter, intersecting `flow.networkPolicyConfig`, `options?.networkPolicy`, the record's captured `networkPolicy`, and any enclosing `networkPolicyStorage` scope.
 
 #### Example
 
@@ -351,7 +358,7 @@ try {
     await orderFlow.run(input, { stackId: 'custom-stack-id' });
 } catch (err) {
     // Manually trigger rollback if needed outside automatic step error boundaries
-    await orderFlow.compensate('custom-stack-id');
+    await orderFlow.compensate('custom-stack-id', { maxRetries: 2, delay: '250ms' });
 }
 ```
 
@@ -435,7 +442,7 @@ console.log(orderFlow.steps.map(s => s.name)); // ['create', 'waitForEvent:payme
 
 ### `flow.timeoutMs` (Property)
 
-Read-only number reflecting the workflow-level timeout configured via `.timeout(ms)`.
+Read-only number reflecting the workflow-level timeout (in milliseconds) configured via `.timeout(ms)`.
 
 ### `flow.workflowVersion`
 

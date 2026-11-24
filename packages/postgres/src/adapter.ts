@@ -3,13 +3,44 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import {
     StorageAdapter,
     SerializedExecutionStack,
+    WaitingWorkflowRecord,
+    WaitRecordStatus,
+    ContextChangeEvent,
     OptimisticLockException,
     DuplicateEventException,
     ExpiredWaitException,
+    isPlainObject,
 } from '@siglo/core';
-import { PostgresStorageAdapterOptions, PostgresClientInterface } from './types';
+import {
+    PostgresStorageAdapterOptions,
+    PostgresClientInterface,
+    PostgresWaitRecord,
+    PostgresWaitRecordInput,
+} from './types';
 
 import { creationTime, workflowStatus, listWorkflows, type ListingOptions } from './query';
+
+type OccSerializedExecutionStack = SerializedExecutionStack & { occVersion?: number; createdAt?: number };
+
+interface PooledPostgresClient extends PostgresClientInterface {
+    release: (err?: unknown) => void;
+}
+
+interface PostgresPoolLike extends PostgresClientInterface {
+    totalCount?: number;
+    connect?: () => Promise<PooledPostgresClient>;
+}
+
+function parseJsonSafe(raw: unknown): unknown {
+    if (typeof raw !== 'string') {
+        return raw;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return undefined;
+    }
+}
 
 function validateIdentifier(name: string, paramName: string): string {
     if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
@@ -31,7 +62,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
     }>();
     private directClientBusy = false;
     private get client(): PostgresClientInterface {
-        return this.scope.getStore()?.active ? this.scope.getStore()!.client : this.baseClient;
+        const activeScope = this.scope.getStore();
+        return activeScope?.active ? activeScope.client : this.baseClient;
     }
     private checkpointsTable: string;
     private eventsTable: string;
@@ -130,13 +162,14 @@ export class PostgresStorageAdapter implements StorageAdapter {
             return;
         }
         const stateJson = JSON.stringify(checkpoint);
-        const namespace = checkpoint.namespace || null;
+        const namespace = checkpoint.namespace ?? null;
+        const occCheckpoint = checkpoint as OccSerializedExecutionStack;
 
         const versionToExpect =
             expectedVersion !== undefined
                 ? expectedVersion
-                : (checkpoint as any).occVersion !== undefined
-                  ? (checkpoint as any).occVersion
+                : occCheckpoint.occVersion !== undefined
+                  ? occCheckpoint.occVersion
                   : undefined;
 
         if (versionToExpect !== undefined) {
@@ -158,8 +191,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
                 throw new OptimisticLockException(checkpoint.stackId, currentVersion, versionToExpect);
             }
             if (updateRes.rows && updateRes.rows.length > 0) {
-                (checkpoint as any).occVersion = Number(updateRes.rows[0].version);
-                checkpoint.revision = (checkpoint as any).occVersion;
+                occCheckpoint.occVersion = Number(updateRes.rows[0].version);
+                checkpoint.revision = occCheckpoint.occVersion;
             }
             return;
         }
@@ -172,7 +205,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
         );
 
         if ((insertRes.rowCount || 0) > 0) {
-            (checkpoint as any).occVersion = 1;
+            occCheckpoint.occVersion = 1;
             checkpoint.revision = 1;
             return;
         }
@@ -200,8 +233,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
                 throw new OptimisticLockException(checkpoint.stackId, actual, curr);
             }
             if (updateRes.rows && updateRes.rows.length > 0) {
-                (checkpoint as any).occVersion = Number(updateRes.rows[0].version);
-                checkpoint.revision = (checkpoint as any).occVersion;
+                occCheckpoint.occVersion = Number(updateRes.rows[0].version);
+                checkpoint.revision = occCheckpoint.occVersion;
             }
         }
     }
@@ -218,24 +251,20 @@ export class PostgresStorageAdapter implements StorageAdapter {
             return undefined;
         }
         const row = res.rows[0];
-        const rowState = row.state;
-        const checkpoint = typeof rowState === 'string' ? JSON.parse(rowState) : rowState;
-        if (checkpoint && row.version !== undefined) {
-            (checkpoint as any).occVersion = Number(row.version);
+        const parsed = parseJsonSafe(row.state);
+        if (!isPlainObject(parsed)) {
+            return undefined;
+        }
+        const checkpoint = parsed as unknown as OccSerializedExecutionStack;
+        if (row.version !== undefined) {
+            checkpoint.occVersion = Number(row.version);
             checkpoint.revision = Number(row.version);
         }
-        if (checkpoint && row.created_at) checkpoint.createdAt = new Date(row.created_at).getTime();
+        if (row.created_at) checkpoint.createdAt = new Date(row.created_at).getTime();
         return checkpoint;
     }
 
-    async onContextChange(entry: {
-        namespace?: string;
-        stackId: string;
-        stepId: string;
-        field: string;
-        value: any;
-        timestamp: number;
-    }): Promise<void> {
+    async onContextChange(entry: ContextChangeEvent): Promise<void> {
         if (!this.recordContextChanges) {
             return;
         }
@@ -248,7 +277,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
             await this.client.query(
                 `INSERT INTO ${this.eventsTable} (stack_id, step_id, namespace, field, value, created_at)
                  VALUES ($1, $2, $3, $4, $5::jsonb, to_timestamp($6 / 1000.0))`,
-                [entry.stackId, entry.stepId, entry.namespace || null, entry.field, valJson, entry.timestamp],
+                [entry.stackId, entry.stepId, entry.namespace ?? null, entry.field, valJson, entry.timestamp],
             );
         } catch {
             // Non-blocking telemetry stream
@@ -264,17 +293,18 @@ export class PostgresStorageAdapter implements StorageAdapter {
         return res.rowCount || 0;
     }
 
-    saveWaitRecord(record: any): Promise<void> {
+    saveWaitRecord(record: WaitingWorkflowRecord | PostgresWaitRecordInput): Promise<void> {
         return this.trackWrite(() => this.persistWaitRecord(record));
     }
 
-    private async persistWaitRecord(record: any): Promise<void> {
+    private async persistWaitRecord(record: WaitingWorkflowRecord | PostgresWaitRecordInput): Promise<void> {
         if (!record || (!record.correlationKey && !record.stackId)) {
             return;
         }
         const corrKey = record.correlationKey || record.stackId;
         const stackId = record.stackId || record.correlationKey;
-        const dataJson = record.data ? JSON.stringify(record.data) : null;
+        const recordData = 'data' in record ? record.data : undefined;
+        const dataJson = recordData !== undefined ? JSON.stringify(recordData) : null;
         const expiresAt = record.expiresAt ? new Date(record.expiresAt) : null;
         const status = (record.status || 'WAITING').toUpperCase();
 
@@ -297,10 +327,10 @@ export class PostgresStorageAdapter implements StorageAdapter {
             [
                 corrKey,
                 stackId,
-                record.namespace || null,
-                record.eventName || null,
+                record.namespace ?? null,
+                record.eventName ?? null,
                 status,
-                record.continuationStepIndex || 0,
+                record.continuationStepIndex ?? 0,
                 record.version !== undefined ? String(record.version) : null,
                 dataJson,
                 expiresAt,
@@ -319,14 +349,14 @@ export class PostgresStorageAdapter implements StorageAdapter {
     /** A database-session lock serializes continuation and compensation. Process death releases it. */
     async withWorkflowLock<T>(stackId: string, action: () => Promise<T>): Promise<T> {
         if (this.scope.getStore()?.active && this.scope.getStore()?.stackId === stackId) return action();
-        const pool = this.baseClient as any;
-        const pooled = 'totalCount' in pool;
+        const pool = this.baseClient as PostgresPoolLike;
+        const pooled = 'totalCount' in pool && typeof pool.connect === 'function';
         if (!pooled && this.directClientBusy) throw new DuplicateEventException(stackId);
         if (!pooled) this.directClientBusy = true;
-        let client: any;
+        let client: PooledPostgresClient | PostgresClientInterface | undefined;
         let locked = false;
         try {
-            client = pooled ? await pool.connect() : pool;
+            client = pooled && pool.connect ? await pool.connect() : pool;
             const result = await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked', [
                 `siglo:workflow:${stackId}`,
             ]);
@@ -346,19 +376,22 @@ export class PostgresStorageAdapter implements StorageAdapter {
             });
         } finally {
             try {
-                if (locked)
+                if (locked && client)
                     await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [
                         `siglo:workflow:${stackId}`,
                     ]);
             } catch (error) {
-                if (pooled) {
-                    client?.release(error);
+                if (pooled && client && 'release' in client) {
+                    client.release(error);
                     client = undefined;
                 }
                 throw error;
             } finally {
-                if (pooled) client?.release();
-                else this.directClientBusy = false;
+                if (pooled) {
+                    if (client && 'release' in client) {
+                        client.release();
+                    }
+                } else this.directClientBusy = false;
             }
         }
     }
@@ -395,8 +428,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
     async claimWaitRecord(
         correlationKey: string,
         claimantId: string = 'worker',
-        options?: { allowExpired?: boolean; eventPayload?: any; namespace?: string },
-    ): Promise<any> {
+        options?: { allowExpired?: boolean; eventPayload?: unknown; namespace?: string },
+    ): Promise<PostgresWaitRecord> {
         if (!correlationKey) {
             throw new Error('claimWaitRecord requires a valid correlationKey.');
         }
@@ -426,24 +459,27 @@ export class PostgresStorageAdapter implements StorageAdapter {
             throw new DuplicateEventException(correlationKey);
         }
         const row = res.rows[0];
+        const parsedData = parseJsonSafe(row.data);
+        const parsedResume = parseJsonSafe(row.resume_payload);
         return {
             stackId: row.stack_id,
             correlationKey: row.correlation_key,
             namespace: row.namespace,
-            eventName: row.event_name,
-            status: row.status,
+            eventName: row.event_name ?? '',
+            status: (row.status ?? 'RESUMING') as WaitRecordStatus,
             continuationStepIndex: row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
+            stepId: row.step_id ?? row.event_name ?? 'wait',
             version: row.version,
-            data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
-            resumePayload: typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload,
+            data: parsedData,
+            resumePayload: parsedResume,
             expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
             resumedBy: row.resumed_by,
-            resumedAt: row.resumed_at ? new Date(row.resumed_at).toISOString() : undefined,
-            createdAt: row.created_at ? new Date(row.created_at).getTime() : undefined,
+            resumedAt: row.resumed_at ? new Date(row.resumed_at).getTime() : undefined,
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
         };
     }
 
-    async getWaitRecord(correlationKeyOrStackId: string): Promise<any | undefined> {
+    async getWaitRecord(correlationKeyOrStackId: string): Promise<PostgresWaitRecord | undefined> {
         if (!correlationKeyOrStackId) {
             return undefined;
         }
@@ -454,22 +490,24 @@ export class PostgresStorageAdapter implements StorageAdapter {
         );
         if (res.rows && res.rows.length > 0) {
             const row = res.rows[0];
+            const parsedData = parseJsonSafe(row.data);
+            const parsedResume = parseJsonSafe(row.resume_payload);
             return {
                 stackId: row.stack_id,
                 correlationKey: row.correlation_key,
                 namespace: row.namespace,
-                eventName: row.event_name,
-                status: row.status,
+                eventName: row.event_name ?? '',
+                status: (row.status ?? 'WAITING') as WaitRecordStatus,
                 continuationStepIndex:
                     row.continuation_step_index !== undefined ? Number(row.continuation_step_index) : 0,
+                stepId: row.step_id ?? row.event_name ?? 'wait',
                 version: row.version,
-                data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
-                resumePayload:
-                    typeof row.resume_payload === 'string' ? JSON.parse(row.resume_payload) : row.resume_payload,
+                data: parsedData,
+                resumePayload: parsedResume,
                 resumedBy: row.resumed_by,
-                resumedAt: row.resumed_at ? new Date(row.resumed_at).toISOString() : undefined,
+                resumedAt: row.resumed_at ? new Date(row.resumed_at).getTime() : undefined,
                 expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : undefined,
-                createdAt: row.created_at ? new Date(row.created_at).getTime() : undefined,
+                createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
             };
         }
 
@@ -483,9 +521,33 @@ export class PostgresStorageAdapter implements StorageAdapter {
         if (!cpRes.rows || cpRes.rows.length === 0) {
             return undefined;
         }
-        const rowState = cpRes.rows[0].state;
-        const checkpoint = typeof rowState === 'string' ? JSON.parse(rowState) : rowState;
-        return checkpoint?.metadata?.waitRecord;
+        const checkpoint = parseJsonSafe(cpRes.rows[0].state);
+        if (isPlainObject(checkpoint) && isPlainObject(checkpoint.metadata)) {
+            const waitRec = checkpoint.metadata.waitRecord;
+            if (isPlainObject(waitRec)) {
+                return {
+                    stackId: String(waitRec.stackId ?? ''),
+                    correlationKey: String(waitRec.correlationKey ?? ''),
+                    namespace: typeof waitRec.namespace === 'string' ? waitRec.namespace : undefined,
+                    eventName: typeof waitRec.eventName === 'string' ? waitRec.eventName : '',
+                    status: (typeof waitRec.status === 'string' ? waitRec.status : 'WAITING') as WaitRecordStatus,
+                    continuationStepIndex:
+                        typeof waitRec.continuationStepIndex === 'number' ? waitRec.continuationStepIndex : 0,
+                    stepId: typeof waitRec.stepId === 'string' ? waitRec.stepId : 'wait',
+                    version:
+                        typeof waitRec.version === 'string' || typeof waitRec.version === 'number'
+                            ? waitRec.version
+                            : undefined,
+                    data: waitRec.data,
+                    resumePayload: waitRec.resumePayload,
+                    resumedBy: typeof waitRec.resumedBy === 'string' ? waitRec.resumedBy : undefined,
+                    resumedAt: typeof waitRec.resumedAt === 'number' ? waitRec.resumedAt : undefined,
+                    expiresAt: typeof waitRec.expiresAt === 'number' ? waitRec.expiresAt : undefined,
+                    createdAt: typeof waitRec.createdAt === 'number' ? waitRec.createdAt : Date.now(),
+                };
+            }
+        }
+        return undefined;
     }
 
     async cleanupOldCheckpoints(retentionDays: number = 30): Promise<number> {

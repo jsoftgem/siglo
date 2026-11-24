@@ -1,5 +1,16 @@
-import { IdempotencyStore } from '@siglo/core';
+import { IdempotencyStore, IdempotencyRecord } from '@siglo/core';
 import { PostgresIdempotencyOptions, PostgresClientInterface } from './types';
+
+function parseJsonSafe(raw: unknown): unknown {
+    if (typeof raw !== 'string') {
+        return raw;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return undefined;
+    }
+}
 
 function validateIdentifier(name: string, paramName: string = 'tableName'): string {
     if (!name || typeof name !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 63) {
@@ -21,7 +32,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         }
         this.client = options.client;
         this.tableName = validateIdentifier(options.tableName || 'siglo_idempotency', 'tableName');
-        this.defaultTtlMs = options.defaultTtlMs || 86400000; // 24 hours
+        this.defaultTtlMs = options.defaultTtlMs ?? 86400000; // 24 hours
     }
 
     async ensureTable(): Promise<void> {
@@ -38,7 +49,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
     }
 
     async claim(key: string, ttlMs?: number): Promise<'claimed' | 'completed' | 'in-progress'> {
-        const effectiveTtl = ttlMs || this.defaultTtlMs;
+        const effectiveTtl = ttlMs ?? this.defaultTtlMs;
         const now = Date.now();
         const expiresAt = new Date(now + effectiveTtl);
 
@@ -88,7 +99,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
     }
 
     async complete(key: string, result: unknown, ttlMs?: number): Promise<void> {
-        const effectiveTtl = ttlMs || this.defaultTtlMs;
+        const effectiveTtl = ttlMs ?? this.defaultTtlMs;
         const expiresAt = new Date(Date.now() + effectiveTtl);
         const resultJson = JSON.stringify(result ?? null);
 
@@ -113,15 +124,14 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         if (!res.rows || res.rows.length === 0) {
             return undefined;
         }
-        const resData = res.rows[0].result;
-        return typeof resData === 'string' ? JSON.parse(resData) : resData;
+        return parseJsonSafe(res.rows[0].result);
     }
 
     async get(key: string): Promise<unknown | undefined> {
         return this.getResult(key);
     }
 
-    async getRecord(key: string): Promise<any | undefined> {
+    async getRecord(key: string): Promise<IdempotencyRecord | undefined> {
         const res = await this.client.query(
             `SELECT status, result, expires_at, created_at FROM ${this.tableName} WHERE key = $1`,
             [key],
@@ -130,7 +140,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
             return undefined;
         }
         const row = res.rows[0];
-        const resData = typeof row.result === 'string' ? JSON.parse(row.result) : row.result;
+        const resData = parseJsonSafe(row.result);
         return {
             status: row.status,
             result: resData,

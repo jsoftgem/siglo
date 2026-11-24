@@ -1,4 +1,4 @@
-import { Step, flow } from '../step';
+import { Step, flow, FlowItem } from '../step';
 import { toPOJO } from '../context';
 import { generateUUID, isReservedKey, isFunction, isObject, WorkflowNodeType, safeClone } from '../../shared';
 import { BranchNode, WorkflowNode, toGraph } from '../graph';
@@ -22,8 +22,15 @@ function reportRoute(route: string): void {
         );
 }
 
-export type BranchPredicate = (ctx: any, meta?: any) => boolean | Promise<boolean>;
-export type BranchSelector = (ctx: any, meta?: any) => string | Promise<string>;
+export type CombinatorTarget =
+    | FlowItem<any, any>
+    | { run: (input: any, options?: any) => any }
+    | { start: (input: any, options?: any) => any }
+    | ((ctx: any, meta?: any) => any)
+    | CombinatorTarget[];
+export type BranchMeta = { attempt?: number; stackId?: string; namespace?: string };
+export type BranchPredicate<TContext = any> = (ctx: TContext, meta?: BranchMeta) => boolean | Promise<boolean>;
+export type BranchSelector<TContext = any> = (ctx: TContext, meta?: BranchMeta) => string | Promise<string>;
 
 export const BranchRoute = {
     THEN: 'then',
@@ -75,7 +82,11 @@ function executeBranchTarget(target: any, input: any, signal?: AbortSignal): Pro
     return flow(target).run(isolatedInput, branchOptions);
 }
 
-export function when(predicate: BranchPredicate, thenStep: any, elseStep?: any): Step<any, any> {
+export function when(
+    predicate: BranchPredicate,
+    thenStep: CombinatorTarget,
+    elseStep?: CombinatorTarget,
+): Step<any, any> {
     const thenNode = toGraph(thenStep);
     const elseNode = elseStep ? toGraph(elseStep) : undefined;
 
@@ -132,9 +143,9 @@ export function when(predicate: BranchPredicate, thenStep: any, elseStep?: any):
 }
 
 export function branch(
-    selectorOrBranches: BranchSelector | Record<string, any>,
-    branchesMap?: Record<string, any>,
-    defaultBranch?: any,
+    selectorOrBranches: BranchSelector | Record<string, CombinatorTarget>,
+    branchesMap?: Record<string, CombinatorTarget> | CombinatorTarget,
+    defaultBranch?: CombinatorTarget,
 ): Step<any, any> {
     let selector: BranchSelector;
     let branches: Record<string, any>;
@@ -142,7 +153,7 @@ export function branch(
 
     if (isFunction(selectorOrBranches)) {
         selector = selectorOrBranches as BranchSelector;
-        branches = branchesMap || {};
+        branches = (branchesMap as Record<string, any>) || {};
         fallback = defaultBranch;
     } else {
         branches = selectorOrBranches;
@@ -175,8 +186,10 @@ export function branch(
         };
 
         const chosenKey = await selector(toPOJO(param), meta);
-        const target = branches[chosenKey] || fallback;
-        reportRoute(branches[chosenKey] ? chosenKey : BranchRoute.DEFAULT);
+        const hasMatchedBranch =
+            Object.prototype.hasOwnProperty.call(branches, chosenKey) && branches[chosenKey] !== undefined;
+        const target = hasMatchedBranch ? branches[chosenKey] : fallback;
+        reportRoute(hasMatchedBranch ? chosenKey : BranchRoute.DEFAULT);
         const allKeys = Object.keys(branches);
         const skippedBranches = allKeys.filter(k => k !== chosenKey);
 

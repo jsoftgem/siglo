@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from 'node:http';
+import { isPlainObject } from '@siglo/core';
 import type { AddressInfo } from 'node:net';
 import type { Readable, Writable } from 'node:stream';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -101,7 +102,8 @@ function buildProtocolServer(
     }));
 
     server.setRequestHandler(CallToolRequestSchema, async request => {
-        return executeMcpTool(request.params.name, request.params.arguments as Record<string, unknown> | undefined, {
+        const toolArgs = isPlainObject(request.params.arguments) ? request.params.arguments : undefined;
+        return executeMcpTool(request.params.name, toolArgs, {
             engine,
             schema,
             namespace: scope.namespace,
@@ -130,7 +132,14 @@ function buildProtocolServer(
     }));
 
     server.setRequestHandler(GetPromptRequestSchema, async request => {
-        return getMcpPrompt(request.params.name, request.params.arguments as Record<string, string> | undefined, {
+        const promptArgs: Record<string, string> | undefined = isPlainObject(request.params.arguments)
+            ? Object.fromEntries(
+                  Object.entries(request.params.arguments).filter(
+                      (entry): entry is [string, string] => typeof entry[1] === 'string',
+                  ),
+              )
+            : undefined;
+        return getMcpPrompt(request.params.name, promptArgs, {
             engine,
             namespace: scope.namespace,
             defaultNamespace: scope.defaultNamespace,

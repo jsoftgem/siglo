@@ -4,8 +4,32 @@ import { dirname, resolve } from 'node:path';
 import { executionRange, type GraphDocument, type RunRequest } from '@siglo/ide-protocol';
 import { parseWorkflowFile } from './parser';
 
+export interface PreparedExecution {
+    runId: string;
+    file: string;
+    input: unknown;
+    cwd: string;
+    setupModule?: string;
+    env?: Record<string, string>;
+    exportName: string;
+    signature: string[];
+    targets: Array<{ id: string; index: number }>;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isErrnoWithCode(error: unknown, code: string): boolean {
+    return (
+        typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === code
+    );
+}
+
 /** Re-analyze saved code and validate the host snapshot before importing any application module. */
-export function prepareExecution(message: RunRequest & { document: GraphDocument; source: string; cwd?: string }) {
+export function prepareExecution(
+    message: RunRequest & { document: GraphDocument; source: string; cwd?: string },
+): PreparedExecution {
     const file = fileURLToPath(message.document.uri);
     if (message.uri !== message.document.uri || message.documentVersion !== message.document.documentVersion)
         throw new Error('Stale workflow selection. Reload the graph.');
@@ -26,14 +50,31 @@ export function prepareExecution(message: RunRequest & { document: GraphDocument
     const selected = executionRange(saved.nodes, saved.edges, message.nodeIds);
     const cwd = message.cwd || dirname(file);
     let settings: { cwd?: string; setupModule?: string; env?: Record<string, string> } = {};
+    let parsedConfig: unknown;
+    let hasConfig = false;
     try {
-        settings = JSON.parse(readFileSync(resolve(cwd, '.siglo/run.json'), 'utf8'));
+        parsedConfig = JSON.parse(readFileSync(resolve(cwd, '.siglo/run.json'), 'utf8'));
+        hasConfig = true;
     } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-            throw new Error('Invalid .siglo/run.json configuration.');
+        if (!isErrnoWithCode(error, 'ENOENT')) throw new Error('Invalid .siglo/run.json configuration.');
     }
-    if (settings.env && Object.values(settings.env).some(value => typeof value !== 'string'))
-        throw new Error('Run environment values must be strings.');
+    if (hasConfig) {
+        if (!isPlainRecord(parsedConfig)) throw new Error('Invalid .siglo/run.json configuration.');
+        if (parsedConfig.cwd !== undefined && typeof parsedConfig.cwd !== 'string')
+            throw new Error('Invalid .siglo/run.json configuration.');
+        if (parsedConfig.setupModule !== undefined && typeof parsedConfig.setupModule !== 'string')
+            throw new Error('Invalid .siglo/run.json configuration.');
+        let env: Record<string, string> | undefined;
+        if (parsedConfig.env !== undefined) {
+            if (!isPlainRecord(parsedConfig.env)) throw new Error('Invalid .siglo/run.json configuration.');
+            if (Object.values(parsedConfig.env).some(value => typeof value !== 'string'))
+                throw new Error('Run environment values must be strings.');
+            env = parsedConfig.env as Record<string, string>;
+        }
+        settings = { cwd: parsedConfig.cwd, setupModule: parsedConfig.setupModule, env };
+    }
+    const entryTarget = selected[0]?.executionTarget;
+    if (!entryTarget) throw new Error('Selection is not independently executable.');
     return {
         runId: message.runId,
         file,
@@ -41,11 +82,11 @@ export function prepareExecution(message: RunRequest & { document: GraphDocument
         cwd: resolve(cwd, settings.cwd || '.'),
         setupModule: settings.setupModule,
         env: settings.env,
-        exportName: selected[0].executionTarget!.exportName,
+        exportName: entryTarget.exportName,
         signature: saved.nodes
-            .filter(n => n.executionTarget)
-            .sort((a, b) => a.executionTarget!.stepIndex - b.executionTarget!.stepIndex)
+            .flatMap(n => (n.executionTarget ? [{ name: n.name, stepIndex: n.executionTarget.stepIndex }] : []))
+            .sort((a, b) => a.stepIndex - b.stepIndex)
             .map(n => n.name),
-        targets: selected.map(n => ({ id: n.id, index: n.executionTarget!.stepIndex })),
+        targets: selected.map(n => ({ id: n.id, index: n.executionTarget?.stepIndex ?? entryTarget.stepIndex })),
     };
 }

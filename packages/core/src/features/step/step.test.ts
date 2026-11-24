@@ -7,6 +7,7 @@ import {
     toPOJO as stepToPOJO,
     parallel,
     branch,
+    when,
     wait,
     map,
     toMermaid,
@@ -1024,7 +1025,7 @@ describe('Step unit test', () => {
             }
 
             try {
-                await Step.start(chain, { signal: controller.signal });
+                await Step.start(chain, {}, { signal: controller.signal });
                 expect.fail('Should have rejected');
             } catch (err: any) {
                 expect(err.message).to.equal('Pre-aborted signal');
@@ -1903,7 +1904,7 @@ describe('Step unit test', () => {
                 sum: (param.sum ? param.sum : 0) + current,
             })).reduce('missingList');
 
-            const res: FlowContextResult<any> = await reduceMissing.run({});
+            const res: FlowContextResult<any> = await reduceMissing.run({} as any);
             expect(Number.isNaN(res.sum)).to.be.true;
         });
 
@@ -2190,7 +2191,7 @@ describe('Step unit test', () => {
                     .compensate(() => {});
 
                 const s2 = wait(1000);
-                const s3 = branch(
+                const s3 = when(
                     (p: any) => p.a === 1,
                     Step.create('branchTrue', () => ({ ok: true })),
                     Step.create('branchFalse', () => ({ ok: false })),
@@ -2299,7 +2300,7 @@ describe('Step unit test', () => {
                     .timeout(3000)
                     .onFail({ maxRetries: 2 });
                 const s2 = wait(500);
-                const s3 = branch(
+                const s3 = when(
                     () => true,
                     Step.create('branchA', () => ({})),
                     Step.create('branchB', () => ({})),

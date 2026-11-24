@@ -1,6 +1,16 @@
 import { Step, flow } from '../step';
+import { CombinatorTarget } from './branch';
 import { toPOJO } from '../context';
-import { generateUUID, isReservedKey, VALUE, Status, isFunction, WorkflowNodeType, safeClone } from '../../shared';
+import {
+    assertNever,
+    generateUUID,
+    isReservedKey,
+    VALUE,
+    Status,
+    isFunction,
+    WorkflowNodeType,
+    safeClone,
+} from '../../shared';
 import { ParallelNode, WorkflowNode, toGraph } from '../graph';
 import { FieldCollisionException, CollisionDetail } from '../executer';
 import { combineAbortSignals } from '../executer/signals';
@@ -340,30 +350,40 @@ export function parallel(...args: any[]): Step<any, any> {
                 for (let i = 0; i < branchOutputs.length; i++) {
                     const b = branchOutputs[i];
                     if (b) {
-                        merged = mergeStrategy(merged, b.output, b.name) || merged;
-                    }
-                }
-            } else if (mergeStrategy === 'namespace') {
-                for (const b of branchOutputs) {
-                    if (b) {
-                        merged[b.name] = b.output;
-                    }
-                }
-            } else if (mergeStrategy === 'deep') {
-                for (const b of branchOutputs) {
-                    if (b.output && typeof b.output === 'object') {
-                        merged = deepMerge(merged, b.output);
-                    } else if (b.output !== undefined) {
-                        merged[b.name] = b.output;
+                        merged = mergeStrategy(merged, b.output, b.name) ?? merged;
                     }
                 }
             } else {
-                for (const b of branchOutputs) {
-                    if (b.output && typeof b.output === 'object') {
-                        Object.assign(merged, b.output);
-                    } else if (b.output !== undefined) {
-                        merged[b.name] = b.output;
-                    }
+                switch (mergeStrategy) {
+                    case 'namespace':
+                        for (const b of branchOutputs) {
+                            if (b) {
+                                merged[b.name] = b.output;
+                            }
+                        }
+                        break;
+                    case 'deep':
+                        for (const b of branchOutputs) {
+                            if (b.output && typeof b.output === 'object') {
+                                merged = deepMerge(merged, b.output);
+                            } else if (b.output !== undefined) {
+                                merged[b.name] = b.output;
+                            }
+                        }
+                        break;
+                    case 'shallow':
+                    case 'error':
+                        for (const b of branchOutputs) {
+                            if (b.output && typeof b.output === 'object') {
+                                Object.assign(merged, b.output);
+                            } else if (b.output !== undefined) {
+                                merged[b.name] = b.output;
+                            }
+                        }
+                        break;
+                    /* c8 ignore next 2 */
+                    default:
+                        assertNever(mergeStrategy, 'Unknown parallel mergeStrategy');
                 }
             }
 
@@ -382,11 +402,11 @@ export function parallel(...args: any[]): Step<any, any> {
     return step;
 }
 
-export function all(branches: any[], options?: ParallelOptions): Step<any, any> {
+export function all(branches: CombinatorTarget[], options?: ParallelOptions): Step<any, any> {
     return parallel(branches, { ...options, mode: 'fail-fast' });
 }
 
-export function allSettled(branches: any[], options?: ParallelOptions): Step<any, any> {
+export function allSettled(branches: CombinatorTarget[], options?: ParallelOptions): Step<any, any> {
     return parallel(branches, { ...options, mode: 'allSettled' });
 }
 

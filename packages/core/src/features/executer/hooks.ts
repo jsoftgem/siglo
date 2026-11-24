@@ -10,6 +10,7 @@ export interface StepExecutionContext {
     param?: any;
     options?: any;
     index?: number;
+    cacheHit?: boolean;
 }
 
 export type StepExecutionHook = (context: StepExecutionContext, next: () => Promise<any> | any) => Promise<any> | any;

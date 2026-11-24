@@ -14,9 +14,9 @@ Quick reference for core classes, functions, options, and error hierarchies in `
 | `race(branches)`                                | `race(branches: FlowItem[]): Step`                                                                 | Competitive concurrency; fastest branch wins.                        |
 | `when(predicate, thenStep, elseStep?)`          | `when(predicate: (ctx) => boolean, thenStep, elseStep?): Step`                                     | Conditional binary branch.                                           |
 | `branch(selector, branchesMap, default?)`       | `branch(selector: (ctx) => string, branches: Record<string, FlowItem>, default?: FlowItem): Step`  | Multi-way dictionary routing.                                        |
-| `map(accessor, stepOrFlow, options?)`           | `map(accessor: (ctx) => any[], stepOrFlow: FlowItem, options?: MapOptions): Step`                  | Bounded concurrent iteration over array items.                       |
+| `map(accessor, stepOrFlow, options?)`           | `map(accessor: (ctx) => any[], stepOrFlow: FlowItem, options?: MapOptions): Step`                  | Bounded concurrent iteration (`concurrency: number`).                |
 | `waitForEvent(eventName, options)`              | `waitForEvent(eventName: string, options: WaitForEventOptions): Step`                              | Suspends execution until external event or webhook arrives.          |
-| `wait(duration)`                                | `wait(duration: string \| number): Step`                                                           | Durable timer sleep (e.g. `'24h'`, `'30m'`, `5000`).                 |
+| `wait(duration)`                                | `wait(duration: DynamicDuration): Step`                                                            | Durable timer sleep (`'24h'`, `'30m'`, `5000`, or `ctx => ...`).     |
 | `resumeWorkflow(flow, correlationKey, payload)` | `resumeWorkflow(flow: Flow, key: string, payload?: any, options?: ExecutionOptions): Promise<any>` | Resumes a suspended workflow run.                                    |
 
 ---
@@ -47,17 +47,16 @@ const step = Step.create('myStep', async ctx => ({ result: 1 }))
     .onFail({
         // Retries with backoff curve
         maxRetries: 3,
-        delay: 100,
+        delay: '100ms', // DurationInput: number | string
         backoff: 'exponential', // 'fixed' | 'linear' | 'exponential'
-        factor: 2,
-        maxDelay: 5000,
+        maxDelay: '5s', // DurationInput: number | string
         jitter: true,
-        retryIf: err => err.isTransient,
+        retryIf: err => err.isTransient, // Synchronous (err, attempt) => boolean
     })
-    .compensate(async (output, ctx) => {}) // LIFO Saga rollback handler
-    .timeout(5000) // Step timeout in milliseconds
-    .idempotent({ keyBuilder, ttlMs, store }) // Deduplicate execution
-    .cache({ keyBuilder, ttlMs, store }); // Cache successful responses
+    .compensate(async (output, ctx) => {}, { maxRetries: 2, delay: '250ms' }) // LIFO Saga rollback handler
+    .timeout('5s') // Step timeout (DurationInput: number | string)
+    .idempotent({ key: ctx => ctx.id, ttl: '1h', store }) // Deduplicate execution
+    .cache({ ttl: '5m', swr: '1m', keySerializer }); // Cache successful responses
 ```
 
 ### 2.1 Input Contracts: `step.spec(field, options)` & `step.strict()`
@@ -76,17 +75,21 @@ const step = Step.create('myStep', async ctx => ({ result: 1 }))
 
 ---
 
-## 3. Flow Execution Options (`flow.run(input, options)`)\n
+## 3. Flow Execution Options (`flow.run(input, options)`)
 
 ```typescript
-interface ExecutionOptions {
+interface ExecutionOptions<TContext = any> {
     pojo?: boolean; // Strip proxy getters and symbols into clean POJO
-    timeout?: number; // Total workflow timeout in milliseconds
+    timeout?: DurationInput; // Total workflow timeout (number | string, e.g. '10s')
+    timeoutMs?: DurationInput; // Alias for timeout
     namespace?: string; // Domain tag for telemetry and isolation
     services?: Record<string, any>; // Dependency injection container accessible in steps
     durable?: boolean; // Enable durable persistence and suspension
     storage?: StorageAdapter; // Custom persistence adapter (Postgres, Redis, Memory)
+    idempotencyKey?: DynamicOption<string, TContext>; // String or sync (ctx) => string key
     idempotencyStore?: IdempotencyStore; // Custom idempotency store
+    idempotencyTtlMs?: DurationInput; // Retention TTL (number | string, e.g. '24h')
+    networkPolicy?: NetworkPolicyConfig; // Enclosing ASL network egress perimeter
     signal?: AbortSignal; // Standard AbortSignal for cancellation
 }
 ```

@@ -77,6 +77,25 @@ describe('@siglo/http: httpStep Lifecycle & Integration Suite', () => {
             expect(result.$steps?.charge?.httpMetadata?.status).to.equal(200);
         });
 
+        it('resolves dynamic url, headers, query, and static/dynamic body via DynamicOption', async () => {
+            mockServer
+                .get('https://tenant-a.example.com')
+                .intercept({ path: '/items?dryRun=true', method: 'POST' })
+                .reply(200, { created: true });
+
+            const step = new HttpStep<{ tenant: string }>('dynamicAll', {
+                url: ctx => `https://${ctx.tenant}.example.com/items`,
+                method: 'POST',
+                headers: ctx => ({ 'X-Tenant': ctx.tenant }),
+                query: { dryRun: true },
+                body: { fixed: 'payload' },
+            });
+
+            const res = await flow(step).run({ tenant: 'tenant-a' });
+            expect(res.created).to.be.true;
+            expect(res.$httpMetadata.url).to.equal('https://tenant-a.example.com/items?dryRun=true');
+        });
+
         it('handles 204 No Content response gracefully', async () => {
             mockServer
                 .get('https://api.example.com')
@@ -346,6 +365,30 @@ describe('@siglo/http: httpStep Lifecycle & Integration Suite', () => {
             } catch (err: any) {
                 expect(err).to.be.an.instanceOf(StepTimeoutException);
                 expect(err.stepName).to.equal('hanging');
+            }
+        });
+
+        it('supports DurationInput strings on timeout and timeoutMs', async () => {
+            mockServer
+                .get('https://api.example.com')
+                .intercept({ path: '/slow-str', method: 'GET' })
+                .reply(200, async () => {
+                    await new Promise(r => setTimeout(r, 200));
+                    return { done: true };
+                });
+
+            const stepWithTimeout = httpStep('slowStr', {
+                url: 'https://api.example.com/slow-str',
+                method: 'GET',
+                timeout: '30ms',
+            });
+
+            try {
+                await stepWithTimeout.execute({});
+                expect.fail('Expected timeout exception');
+            } catch (err: any) {
+                expect(err).to.be.an.instanceOf(StepTimeoutException);
+                expect(err.stepName).to.equal('slowStr');
             }
         });
 

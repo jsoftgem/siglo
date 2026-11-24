@@ -1,10 +1,10 @@
-import { isObject } from '../../shared';
-import { WorkflowNode, GraphInspectionResult, GraphInspectionEdge } from './types';
+import { assertNever, isObject } from '../../shared';
+import { WorkflowNode, WorkflowNodeType, GraphInspectionResult, GraphInspectionEdge } from './types';
 import { toGraph } from './toGraph';
 
 export function inspectGraph(workflowOrNode: any): GraphInspectionResult {
     const root = toGraph(workflowOrNode);
-    const nodesMap = new Map<string, { id: string; name: string; type: any; metadata?: any }>();
+    const nodesMap = new Map<string, { id: string; name: string; type: WorkflowNodeType; metadata?: any }>();
     const edges: GraphInspectionEdge[] = [];
     const visited = new Set<string>();
 
@@ -40,6 +40,9 @@ export function inspectGraph(workflowOrNode: any): GraphInspectionResult {
             }
             case 'map':
                 return node.itemNode ? getExitNodeIds(node.itemNode) : [node.id];
+            /* c8 ignore next 2 */
+            default:
+                return assertNever(node, 'Unknown workflow node type');
         }
     }
 
@@ -107,6 +110,9 @@ export function inspectGraph(workflowOrNode: any): GraphInspectionResult {
             case 'step':
             case 'wait':
                 break;
+            /* c8 ignore next 2 */
+            default:
+                assertNever(node, 'Unknown workflow node type');
         }
     }
 

@@ -33,7 +33,8 @@ export function getMatchingPaths(obj: unknown, pattern: string): (string | numbe
                 }
             } else {
                 for (const key of Object.keys(current)) {
-                    traverse((current as any)[key], segmentIdx + 1, [...currentPath, key]);
+                    const rec = current as Record<string, unknown>;
+                    traverse(rec[key], segmentIdx + 1, [...currentPath, key]);
                 }
             }
         } else {
@@ -42,8 +43,8 @@ export function getMatchingPaths(obj: unknown, pattern: string): (string | numbe
                 if (!Number.isNaN(num) && num in current) {
                     traverse(current[num], segmentIdx + 1, [...currentPath, num]);
                 }
-            } else if (seg in (current as any)) {
-                traverse((current as any)[seg], segmentIdx + 1, [...currentPath, seg]);
+            } else if (seg in current) {
+                traverse((current as Record<string, unknown>)[seg], segmentIdx + 1, [...currentPath, seg]);
             }
         }
     }
@@ -56,12 +57,12 @@ export function getMatchingPaths(obj: unknown, pattern: string): (string | numbe
  * Retrieves the value at a concrete path.
  */
 export function getValueAtPath(obj: unknown, path: (string | number)[]): unknown {
-    let curr: any = obj;
+    let curr: unknown = obj;
     for (const part of path) {
-        if (curr === null || curr === undefined) {
+        if (curr === null || curr === undefined || typeof curr !== 'object') {
             return undefined;
         }
-        curr = curr[part];
+        curr = (curr as Record<string | number, unknown>)[part];
     }
     return curr;
 }
@@ -70,7 +71,11 @@ export function getValueAtPath(obj: unknown, path: (string | number)[]): unknown
  * Immutably updates the value at a concrete path using structural sharing (copy-on-write).
  * Only the ancestor nodes along the path are cloned; sibling branches remain untouched.
  */
-export function setValueAtPath(obj: any, path: (string | number)[], transform: (currentVal: unknown) => unknown): any {
+export function setValueAtPath(
+    obj: unknown,
+    path: (string | number)[],
+    transform: (currentVal: unknown) => unknown,
+): unknown {
     if (path.length === 0) {
         return transform(obj);
     }
@@ -93,7 +98,8 @@ export function setValueAtPath(obj: any, path: (string | number)[], transform: (
         return copy;
     }
 
-    const copy = obj && typeof obj === 'object' ? { ...obj } : {};
+    const copy: Record<string | number, unknown> =
+        obj && typeof obj === 'object' ? { ...(obj as Record<string | number, unknown>) } : {};
     const existingChild = copy[head];
     const childTarget =
         tail.length === 0
@@ -111,28 +117,32 @@ export function setValueAtPath(obj: any, path: (string | number)[], transform: (
  * Transforms all fields in `obj` matching the provided string/keyof patterns.
  * Supports both top-level property keys and nested dot-notation/wildcard paths.
  */
-export function transformFields(
-    obj: any,
+export function transformFields<T>(
+    obj: T,
     patterns: (string | number | symbol)[],
     transform: (val: unknown, concretePath: (string | number)[]) => unknown,
-): any {
+): T {
     if (!obj || typeof obj !== 'object') {
         return obj;
     }
 
-    let result = obj;
+    let result: unknown = obj;
 
     for (const pattern of patterns) {
         const patternStr = String(pattern);
 
         // If simple property key without dot or asterisk, fast-path with shallow clone
         if (!patternStr.includes('.') && !patternStr.includes('*')) {
-            if (patternStr in result) {
-                const val = result[patternStr];
+            if (result !== null && typeof result === 'object' && patternStr in result) {
+                const rec = result as Record<string, unknown>;
+                const val = rec[patternStr];
                 const transformed = transform(val, [patternStr]);
                 if (transformed !== val) {
-                    result = Array.isArray(result) ? [...result] : { ...result };
-                    result[patternStr] = transformed;
+                    const cloned: Record<string, unknown> = Array.isArray(result)
+                        ? ({ ...result } as unknown as Record<string, unknown>)
+                        : { ...rec };
+                    cloned[patternStr] = transformed;
+                    result = Array.isArray(result) ? Object.assign([...result], { [patternStr]: transformed }) : cloned;
                 }
             }
             continue;
@@ -145,7 +155,7 @@ export function transformFields(
         }
     }
 
-    return result;
+    return result as T;
 }
 
 /**
@@ -157,7 +167,7 @@ export function deepFreeze<T>(obj: T): T {
     }
     Object.freeze(obj);
     for (const key of Object.keys(obj)) {
-        const val = (obj as any)[key];
+        const val = (obj as Record<string, unknown>)[key];
         if (val && typeof val === 'object' && !Object.isFrozen(val)) {
             deepFreeze(val);
         }

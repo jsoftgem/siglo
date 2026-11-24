@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
     onSelectNamespace,
     isConnected,
     onRefresh,
-    totalRuns,
+    totalRuns: _totalRuns,
     autoRefreshInterval,
     onAutoRefreshChange,
 }) => {

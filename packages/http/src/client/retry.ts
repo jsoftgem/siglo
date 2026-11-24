@@ -50,9 +50,14 @@ export function isRetryableStatus(status: number, retryOnStatus: number[] = [...
 /**
  * Checks if an error is a transient transport/network error suitable for retry.
  */
-export function isTransientNetworkError(error: any): boolean {
-    if (!error) return false;
-    const code = error.code || error.cause?.code;
+export function isTransientNetworkError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const errRecord = error as { code?: unknown; cause?: unknown; message?: unknown };
+    const causeCode =
+        errRecord.cause && typeof errRecord.cause === 'object'
+            ? (errRecord.cause as { code?: unknown }).code
+            : undefined;
+    const code = errRecord.code ?? causeCode;
     if (typeof code === 'string') {
         const transientCodes = [
             'ECONNRESET',
@@ -67,7 +72,7 @@ export function isTransientNetworkError(error: any): boolean {
         }
     }
 
-    const message = (error.message || '').toLowerCase();
+    const message = typeof errRecord.message === 'string' ? errRecord.message.toLowerCase() : '';
     if (
         message.includes('fetch failed') ||
         message.includes('network') ||

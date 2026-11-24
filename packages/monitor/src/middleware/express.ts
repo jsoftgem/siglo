@@ -1,3 +1,4 @@
+import type { ServerResponse } from 'http';
 import { WorkflowEventEmitter } from '@siglo/core';
 import { WorkflowExecutionStore } from '../store';
 import { SSEBroadcaster } from '../transports/sse';
@@ -7,6 +8,17 @@ export interface ExpressMonitorOptions {
     emitter?: WorkflowEventEmitter;
     store?: WorkflowExecutionStore;
     basePath?: string;
+}
+
+export interface MonitorExpressRequestLike {
+    url?: string;
+    query?: Record<string, unknown>;
+}
+
+export interface MonitorExpressResponseLike {
+    setHeader(name: string, value: string): unknown;
+    send(body: unknown): unknown;
+    json(body: unknown): unknown;
 }
 
 export function createExpressMonitorMiddleware(options: ExpressMonitorOptions = {}) {
@@ -19,22 +31,25 @@ export function createExpressMonitorMiddleware(options: ExpressMonitorOptions = 
         sse.broadcast(event);
     });
 
-    return (req: any, res: any, next: any) => {
+    return (req: MonitorExpressRequestLike, res: MonitorExpressResponseLike, next: () => void): void => {
         const url = req.url || '/';
 
         if (url === '' || url === '/' || url === '/index.html') {
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            return res.send(getDashboardHtml());
+            res.send(getDashboardHtml());
+            return;
         }
 
         if (url.startsWith('/events')) {
-            const ns = req.query?.namespace;
-            return sse.addClient(res, ns);
+            const ns = typeof req.query?.namespace === 'string' ? req.query.namespace : undefined;
+            sse.addClient(res as unknown as ServerResponse, ns);
+            return;
         }
 
         if (url.startsWith('/api/workflows')) {
             res.setHeader('Content-Type', 'application/json');
-            return res.json(store.listRuns());
+            res.json(store.listRuns());
+            return;
         }
 
         next();

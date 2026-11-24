@@ -25,7 +25,7 @@ export class RedisLock {
             this.keyPrefix = optionsOrPrefix;
             this.strictAtomicity = false;
         } else {
-            this.keyPrefix = optionsOrPrefix.keyPrefix || 'siglo:lock:';
+            this.keyPrefix = optionsOrPrefix.keyPrefix ?? 'siglo:lock:';
             this.strictAtomicity = optionsOrPrefix.strictAtomicity ?? false;
         }
     }
@@ -39,7 +39,7 @@ export class RedisLock {
      */
     async acquire(lockKey: string, ttlMs: number = 10000, customToken?: string): Promise<RedisLockResult> {
         const key = this.fullKey(lockKey);
-        const token = customToken || `lock_${Date.now()}_${randomBytes(16).toString('hex')}`;
+        const token = customToken ?? `lock_${Date.now()}_${randomBytes(16).toString('hex')}`;
 
         const res = await this.client.set(key, token, 'PX', ttlMs, 'NX');
         const acquired = res === 'OK';

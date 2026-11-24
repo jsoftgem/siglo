@@ -1,7 +1,7 @@
 import React from 'react';
 import type { GraphNode, GraphEdge, UnresolvedNode, TelemetryRecordingDocument } from '@siglo/ide-protocol';
 import { matchTelemetryRecord } from '@siglo/ide-protocol';
-import { Globe, KeyRound, Bell, Sparkles, Cog, AlertTriangle, Clock, GitFork, List, Database } from 'lucide-react';
+import { Globe, KeyRound, Bell, Sparkles, Cog, Cpu, AlertTriangle, Clock, GitFork, List, Database } from 'lucide-react';
 
 interface GraphCanvasProps {
     nodes: GraphNode[];
@@ -79,7 +79,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     // Longest-path layers keep forks side-by-side and rejoin nodes below their inputs.
     const layer = new Map<string, number>();
     const visit = (id: string, path: Set<string>): number => {
-        if (layer.has(id)) return layer.get(id)!;
+        const existing = layer.get(id);
+        if (existing !== undefined) return existing;
         if (path.has(id)) return 0;
         const next = new Set(path);
         next.add(id);
@@ -114,18 +115,52 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         embedded ? 200 : 400,
         headerSpace + PAD * 2 + Math.max(0, ...[...byLayer.keys()]) * (H + GY) + H,
     );
-    const icon = (kind: string) => {
+    const edgeColor = (type: GraphEdge['type']): string => {
+        switch (type) {
+            case 'parallel':
+                return '#a78bfa';
+            case 'branch':
+                return '#38bdf8';
+            case 'compensation':
+                return '#34d399';
+            case 'fallback':
+                return '#fbbf24';
+            case 'sequential':
+                return '#6c707e';
+            default: {
+                const _exhaustive: never = type;
+                return _exhaustive;
+            }
+        }
+    };
+    const icon = (stepKind: GraphNode['stepKind'], customOp?: string): React.ReactElement => {
         const cls = 'w-4 h-4 shrink-0';
-        if (['wait', 'waitForEvent', 'Step.wait', 'Step.waitForEvent'].includes(kind))
-            return <Clock className={`${cls} text-amber-400`} />;
-        if (kind === 'map') return <List className={`${cls} text-sky-400`} />;
-        if (['parallel', 'all', 'allSettled', 'race', 'when', 'branch'].includes(kind))
-            return <GitFork className={`${cls} text-purple-400`} />;
-        if (kind === 'http') return <Globe className={`${cls} text-sky-400`} />;
-        if (kind === 'crypto') return <KeyRound className={`${cls} text-emerald-400`} />;
-        if (kind === 'notification') return <Bell className={`${cls} text-amber-400`} />;
-        if (kind === 'ai') return <Sparkles className={`${cls} text-purple-400`} />;
-        return <Cog className={`${cls} text-blue-400`} />;
+        if (stepKind === 'custom' && customOp) {
+            if (['wait', 'waitForEvent', 'Step.wait', 'Step.waitForEvent'].includes(customOp))
+                return <Clock className={`${cls} text-amber-400`} />;
+            if (customOp === 'map') return <List className={`${cls} text-sky-400`} />;
+            if (['parallel', 'all', 'allSettled', 'race', 'when', 'branch'].includes(customOp))
+                return <GitFork className={`${cls} text-purple-400`} />;
+        }
+        switch (stepKind) {
+            case 'compute':
+                return <Cpu className={`${cls} text-cyan-400`} />;
+            case 'http':
+                return <Globe className={`${cls} text-sky-400`} />;
+            case 'crypto':
+                return <KeyRound className={`${cls} text-emerald-400`} />;
+            case 'notification':
+                return <Bell className={`${cls} text-amber-400`} />;
+            case 'ai':
+                return <Sparkles className={`${cls} text-purple-400`} />;
+            case 'generic':
+            case 'custom':
+                return <Cog className={`${cls} text-blue-400`} />;
+            default: {
+                const _exhaustive: never = stepKind;
+                return _exhaustive;
+            }
+        }
     };
     return (
         <div
@@ -207,19 +242,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                             y2 = b.y;
                         const active = selectedNodeId === edge.from || selectedNodeId === edge.to;
                         const isRecordedPath = recordedEdgeIds.has(edge.id);
-                        const color = active
-                            ? '#3574f0'
-                            : isRecordedPath
-                              ? '#10b981'
-                              : edge.type === 'parallel'
-                                ? '#a78bfa'
-                                : edge.type === 'branch'
-                                  ? '#38bdf8'
-                                  : edge.type === 'compensation'
-                                    ? '#34d399'
-                                    : edge.type === 'fallback'
-                                      ? '#fbbf24'
-                                      : '#6c707e';
+                        const color = active ? '#3574f0' : isRecordedPath ? '#10b981' : edgeColor(edge.type);
                         return (
                             <g key={edge.id}>
                                 <path
@@ -248,7 +271,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                     })}
                 </svg>
                 {nodes.map(node => {
-                    const p = positions.get(node.id)!;
+                    const p = positions.get(node.id);
+                    if (!p) return null;
                     const selected = selectedNodeIds ? selectedNodeIds.includes(node.id) : selectedNodeId === node.id;
                     const hasTelemetry = recordedNodeIds.has(node.id);
                     return (
@@ -266,15 +290,15 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                             }`}
                         >
                             <span className="flex items-center gap-2 min-w-0">
-                                <span>
-                                    {icon(
-                                        node.stepKind === 'custom'
-                                            ? node.properties?.operation || node.stepKind
-                                            : node.stepKind,
-                                    )}
-                                </span>
+                                <span>{icon(node.stepKind, node.properties?.operation)}</span>
                                 <span className="font-medium text-xs text-[#dfe1e5] truncate flex-1">{node.name}</span>
-                                <span className="max-w-24 truncate shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[#393b40] text-[#9da0a8]">
+                                <span
+                                    className={`max-w-24 truncate shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
+                                        node.stepKind === 'compute'
+                                            ? 'bg-cyan-950/80 border border-cyan-600/40 text-cyan-300'
+                                            : 'bg-[#393b40] text-[#9da0a8]'
+                                    }`}
+                                >
                                     {node.stepKind === 'custom'
                                         ? node.properties?.operation || node.stepKind
                                         : node.stepKind}
@@ -294,18 +318,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                                             <span>RECORDED</span>
                                         </span>
                                     )}
-                                    {node.executionConfig?.retries !== undefined
-                                        ? `${node.executionConfig.retries} retries`
-                                        : node.executionConfig?.timeoutMs
-                                          ? `${node.executionConfig.timeoutMs}ms`
-                                          : ''}
+                                    {node.stepKind === 'compute'
+                                        ? 'Sync · No Network'
+                                        : node.executionConfig?.retries !== undefined
+                                          ? `${node.executionConfig.retries} retries`
+                                          : node.executionConfig?.timeoutMs !== undefined
+                                            ? `${node.executionConfig.timeoutMs}ms`
+                                            : ''}
                                 </span>
                             </span>
                         </button>
                     );
                 })}
                 {unresolved.map(un => {
-                    const p = positions.get(un.id)!;
+                    const p = positions.get(un.id);
+                    if (!p) return null;
                     return (
                         <div
                             key={un.id}

@@ -14,7 +14,7 @@ export class SSEBroadcaster {
 
     constructor(options?: { redaction?: RedactionOptions; heartbeatIntervalMs?: number }) {
         this.redaction = options?.redaction;
-        const interval = options?.heartbeatIntervalMs || 15000;
+        const interval = options?.heartbeatIntervalMs ?? 15000;
         this.heartbeatTimer = setInterval(() => {
             this.sendHeartbeat();
         }, interval);

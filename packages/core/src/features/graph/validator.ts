@@ -1,4 +1,4 @@
-import { isObject } from '../../shared';
+import { assertNever, isObject } from '../../shared';
 import { WorkflowNode, GraphValidationResult } from './types';
 import { GraphValidationException } from '../executer/exceptions';
 
@@ -70,13 +70,18 @@ export function validateGraph(node: WorkflowNode): GraphValidationResult {
                 }
                 break;
 
-            case 'wait':
-                if (!curr.durationMs && !curr.timeoutMs && (!curr.eventName || !curr.correlationKey)) {
+            case 'wait': {
+                const hasDuration =
+                    curr.durationMs !== undefined || (curr.duration !== undefined && curr.duration !== '');
+                const hasTimeout = curr.timeoutMs !== undefined || (curr.timeout !== undefined && curr.timeout !== '');
+                const hasEvent = Boolean(curr.eventName && curr.correlationKey);
+                if (!hasDuration && !hasTimeout && !hasEvent) {
                     errors.push(
-                        `Wait node '${curr.id}' must specify either durationMs/timeoutMs or eventName and correlationKey`,
+                        `Wait node '${curr.id}' must specify either duration/durationMs, timeout/timeoutMs, or eventName and correlationKey`,
                     );
                 }
                 break;
+            }
 
             case 'map':
                 if (!curr.itemNode) {
@@ -88,6 +93,9 @@ export function validateGraph(node: WorkflowNode): GraphValidationResult {
                     errors.push(`Map node '${curr.id}' concurrency must be greater than 0, got ${curr.concurrency}`);
                 }
                 break;
+            /* c8 ignore next 2 */
+            default:
+                assertNever(curr, 'Unknown workflow node type');
         }
 
         visiting.delete(curr.id);

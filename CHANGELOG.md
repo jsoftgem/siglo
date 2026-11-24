@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-11-23
+
+### Added
+
+- **Synchronous Dynamic Options & Duration Ergonomics (`@siglo/core`, `@siglo/http`, `@siglo/notifications`, `@siglo/crypto`, `@siglo/ai`)**:
+    - Added `DynamicOption<T, TContext>` (`T | ((ctx: TContext) => T)`) and `resolveDynamic` helper in `@siglo/core/shared` to allow steps to synchronously read accumulated context produced by preceding steps without async serialization pitfalls or hidden I/O.
+    - Added `DurationInput` (`number | string`) and hardened `parseDuration` supporting human-readable strings (`"500ms"`, `"30s"`, `"5m"`, `"2h"`, `"1d"`) and numeric strings across timeouts, TTLs, and backoff delays.
+    - Standardized durable `wait(durationOrMs)` and `waitForEvent(eventName, options)` to accept dynamic duration and correlation key resolvers (`DynamicDuration`, `DynamicOption<string>`) with `NoInfer<TContext>` type guards and `WaitNode` DAG support.
+    - Added ergonomic duration strings to `Step.timeout()`, `Flow.timeout()`, `ExecutionOptions.timeout`/`timeoutMs`/`idempotencyTtlMs`, `IdempotencyOptions.ttl`/`ttlMs`, `RetryConfig.delay`/`maxDelay`, `CompensationOptions.delay`, and `Step.cache()`.
+    - Standardized `ExecutionOptions.idempotencyKey`, `IdempotencyOptions.key`, and `Step.idempotent()` on `DynamicOption<string, TContext>`, supporting both `step.idempotent(keyOrFn, options)` and object-first configuration.
+    - Extended `@siglo/notifications`: `SendNotificationOptions` (`channel`, `recipient`, `subject`, `template`, `data`) and `InteractiveApprovalOptions` (`recipient`, `title`, `description`, `correlationKey`, `timeout`) on `DynamicOption`; `deduplicationTtl` accepts `DurationInput`.
+    - Extended `@siglo/http`: `url`, `headers`, `query`, and `body` on `DynamicOption`; added `timeout` and `timeoutMs` support as `DurationInput`; enforced early `onBefore` ASL policy verification on dynamic URLs.
+    - Extended `@siglo/crypto`: Standardized `aad`, `deriveKeyContext`, `secret`, and `provider` on `DynamicOption`; preserved `secretKey` async resolution and sync request extractors.
+    - Extended `@siglo/ai`: Standardized `AiModelConfig.apiKey` and `AiStepOptions.prompt` on `DynamicOption`; `requestTimeoutMs` accepts `DurationInput`; ensured input schema validation runs prior to model resolution; normalized duration representations for deterministic `AiStep.cache()` key generation.
+    - Added parser tests to `@siglo/ide-analysis` verifying zero-execution extraction of dynamic context expressions and duration configurations.
+- **In-Process ASL Network Egress Policy Inheritance**:
+    - Hardened `StartChain.ts` to merge and intersect enclosing `networkPolicyStorage.getStore()` with step/sub-flow policies, guaranteeing nested `parallel`, `branch`, `map`, and `Step.create(subFlow)` cannot widen outer perimeters.
+    - Hardened `CompensationManager` and `flow.compensate(stackId)` to capture and re-apply effective step network policies during automatic and checkpoint-hydrated Saga rollback compensations.
+- **Synchronous Compute Steps (`Step.compute`) (`@siglo/core`, `@siglo/opentelemetry`, `@siglo/testing`, IDE Tooling)**:
+    - Added `Step.compute` / `ComputeStep` for synchronous non-I/O CPU logic with zero-microtask fast-path batching in `ArrayChain` and `StartChain`, unconditional always-deny ASL network guardrails (`COMPUTE_NETWORK_POLICY`), fail-fast thenable guards, synchronous `.spec()` validation (`runSpecsSync`), bounded LRU + TTL in-memory `.cache()` (`ComputeCache`), and graph/diagram annotations (`toGraph`, `toMermaid`, `toDot`, `toJSON`).
+    - Added dual sync/async `stepExecutionHook` and `siglo.step.kind = 'compute'` / `siglo.cache.hit` span attribution in `@siglo/opentelemetry`.
+    - Extended `@siglo/testing` (`WorkflowHarness`) to preserve synchronous wrapping, spies, mocks, assertions, and trace parity for `ComputeStep`.
+    - Extended `@siglo/ide-protocol`, `@siglo/ide-analysis`, `@siglo/ide-ui`, `@siglo/vscode`, and the IntelliJ IDEA plugin to parse, render, exempt from `SIGLO_MISSING_COMPENSATION`, and execute single or ranged `Step.compute` steps.
+
+### Fixed
+
+- **Type Safety, Boundary Validation & Strictness Hardening**:
+    - Replaced unsafe `any` signatures and catch bindings with `unknown` and runtime validation across JSON-RPC messages, telemetry sanitization, `.siglo/run.json`, webhook/API payloads, and IDE/Monitor UI bridges.
+    - Added exhaustive `never` checks on discriminated status/ecosystem switches and fixed falsy `0` / `0ms` duration and status handling across UI and core helpers.
+    - Tightened TypeScript and ESLint coverage (`noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`) across IDE UI, Monitor UI, and test suites.
+
+### Changed
+
+- Synchronized monorepo packages, CLI, telemetry, and IDE plugin distributions at `1.3.0`.
+- Updated internal `@siglo/*` workspace and example dependency ranges to `^1.3.0`.
+- Synchronized bundled IntelliJ plugin assets (`analyzer.js`, `prepare.cjs`, `ide-ui/index.html`) for `1.3.0`.
+
 ## [1.2.8] - 2026-11-18
 
 ### Added

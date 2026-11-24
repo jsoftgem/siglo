@@ -178,7 +178,7 @@ export const alertOpsStep = sendNotificationStep('alertOps', {
     recipient: (ctx: { channelId: string }) => ({ slackChannelId: ctx.channelId }),
     template: (ctx: { service: string; latency: number }) =>
         `⚠️ High latency detected on ${ctx.service}: ${ctx.latency}ms (p99)`,
-    deduplicationTtl: 3600, // 1 hour idempotency window
+    deduplicationTtl: '1h', // Supports DurationInput string (e.g. '1h') or number in seconds (3600)
 });
 ```
 
@@ -197,7 +197,7 @@ export const approvalStep = sendInteractiveApprovalStep('deploymentApproval', {
     description: (ctx: { deploymentId: string; changelog: string }) =>
         `Deployment ${ctx.deploymentId} requires sign-off.\n${ctx.changelog}`,
     correlationKey: (ctx: { deploymentId: string }) => `deploy:${ctx.deploymentId}`,
-    timeout: '24h',
+    timeout: '24h', // DynamicDuration: static ('24h', 86_400_000) or (ctx) => ctx.slaTimeout
     onApproveEvent: 'APPROVAL_RESOLVED',
     onRejectEvent: 'APPROVAL_RESOLVED',
     callbackBaseUrl: 'https://orchestrator.acme.com/api/siglo/callback',
@@ -511,10 +511,11 @@ clock.advanceTime(24 * 60 * 60 * 1000);
 ## 14. Complete TypeScript API Signatures
 
 ```typescript
-import type { Step, Flow, IdempotencyStore } from '@siglo/core';
+import type { Step, Flow, IdempotencyStore, DynamicOption, DurationInput, DynamicDuration } from '@siglo/core';
 import type { KeyRing } from '@siglo/crypto';
 import type { StandardSchemaV1 } from '@siglo/http';
 
+export type Dynamic<T, C = any> = DynamicOption<T, C>;
 export type NotificationChannel = 'email' | 'slack' | 'discord' | 'sms' | 'push';
 
 export interface NotificationRecipient {
@@ -556,13 +557,14 @@ export interface NotificationTransport {
 }
 
 export interface SendNotificationOptions<TInput> {
-    channel: NotificationChannel | ((ctx: TInput) => NotificationChannel);
-    recipient: string | NotificationRecipient | ((ctx: TInput) => string | NotificationRecipient);
-    subject?: string | ((ctx: TInput) => string);
-    template: string | ((ctx: TInput) => string);
+    channel: Dynamic<NotificationChannel, TInput>;
+    recipient: Dynamic<string | NotificationRecipient, TInput>;
+    subject?: Dynamic<string, TInput>;
+    template: Dynamic<string, TInput>;
     dataSchema?: StandardSchemaV1;
-    data?: (ctx: TInput) => Record<string, unknown>;
-    deduplicationTtl?: number;
+    data?: DynamicOption<Record<string, unknown>, TInput>;
+    /** Deduplication TTL in seconds (when a number) or as a DurationInput string (e.g. '1h'). */
+    deduplicationTtl?: DurationInput;
     compensateOnFailure?: boolean;
     transport?: NotificationTransport;
     idempotencyStore?: IdempotencyStore;
@@ -575,11 +577,11 @@ export function sendNotificationStep<const TName extends string, TInput = any>(
 
 export interface InteractiveApprovalOptions<TInput> {
     channel: 'email' | 'slack';
-    recipient: string | NotificationRecipient | ((ctx: TInput) => string | NotificationRecipient);
-    title: string | ((ctx: TInput) => string);
-    description?: string | ((ctx: TInput) => string);
-    correlationKey: string | ((ctx: TInput) => string);
-    timeout: string;
+    recipient: Dynamic<string | NotificationRecipient, TInput>;
+    title: Dynamic<string, TInput>;
+    description?: Dynamic<string, TInput>;
+    correlationKey: Dynamic<string, TInput>;
+    timeout: DynamicDuration<TInput>;
     onApproveEvent: string;
     onRejectEvent: string;
     callbackBaseUrl: string;

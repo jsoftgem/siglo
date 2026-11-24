@@ -6,6 +6,7 @@ export const SemanticAttributes = {
     STEP_NAME: 'siglo.step.name',
     STEP_ID: 'siglo.step.id',
     STEP_ATTEMPT: 'siglo.step.attempt',
+    STEP_KIND: 'siglo.step.kind',
     NAMESPACE: 'siglo.namespace',
     CACHE_HIT: 'siglo.cache.hit',
     TIMEOUT: 'siglo.timeout',

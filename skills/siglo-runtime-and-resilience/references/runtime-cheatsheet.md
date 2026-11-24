@@ -8,15 +8,18 @@ Quick reference for `ExecutionOptions`, `SigloError` hierarchy, cooperative canc
 
 Passed into `flow.run(input, options)` and `step.run(input, options)`:
 
-| Option                  | Type                  | Default     | Description                                                     |
-| :---------------------- | :-------------------- | :---------- | :-------------------------------------------------------------- |
-| `signal`                | `AbortSignal`         | `undefined` | Standard AbortSignal for cooperative cancellation.              |
-| `timeout` / `timeoutMs` | `number`              | `undefined` | Overall workflow SLA deadline in milliseconds.                  |
-| `services`              | `Record<string, any>` | `{}`        | Dependency injection container accessible inside steps.         |
-| `namespace`             | `string`              | `undefined` | Logical domain or tenant tag for logs and checkpoint isolation. |
-| `pojo`                  | `boolean`             | `true`      | Normalizes proxy wrappers into clean plain JavaScript objects.  |
-| `durable`               | `boolean`             | `false`     | Enables durable checkpoint persistence upon suspension.         |
-| `stepExecutionHook`     | `StepExecutionHook`   | `undefined` | Lifecycle interceptor executed before/after every step.         |
+| Option                  | Type                              | Default     | Description                                                                |
+| :---------------------- | :-------------------------------- | :---------- | :------------------------------------------------------------------------- |
+| `signal`                | `AbortSignal`                     | `undefined` | Standard AbortSignal for cooperative cancellation.                         |
+| `timeout` / `timeoutMs` | `DurationInput` (`number\|string`) | `undefined` | Overall workflow SLA deadline (e.g. `10000`, `'10s'`, `'5m'`).             |
+| `services`              | `Record<string, any>`             | `{}`        | Dependency injection container accessible inside steps.                    |
+| `namespace`             | `string`                          | `undefined` | Logical domain or tenant tag for logs and checkpoint isolation.            |
+| `pojo`                  | `boolean`                         | `true`      | Normalizes proxy wrappers into clean plain JavaScript objects.             |
+| `durable`               | `boolean`                         | `false`     | Enables durable checkpoint persistence upon suspension.                    |
+| `idempotencyKey`        | `DynamicOption<string, TContext>` | `undefined` | Static string or sync `(ctx) => string` deduplication key.                 |
+| `idempotencyTtlMs`      | `DurationInput` (`number\|string`) | `undefined` | Idempotency retention window (e.g. `'24h'`, `86400000`).                   |
+| `networkPolicy`         | `NetworkPolicyConfig`             | `undefined` | ASL egress perimeter enclosing nested combinators, subflows & rollbacks.   |
+| `stepExecutionHook`     | `StepExecutionHook`               | `undefined` | Lifecycle interceptor executed before/after every step.                    |
 
 ---
 
@@ -56,7 +59,7 @@ interface SigloErrorMetadata {
 // Recipe 1: Retry transient HTTP and server errors (5xx + 429)
 step.onFail({
     maxRetries: 3,
-    delay: 200,
+    delay: '200ms',
     backoff: 'exponential',
     jitter: true,
     retryIf: (err: any) => {

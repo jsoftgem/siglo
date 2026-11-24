@@ -18,6 +18,8 @@ export interface StackRecord {
     status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'waiting';
     workflowId?: string;
     expiresAt?: number;
+    timestamp?: number;
+    updatedAt?: number;
     revision?: number;
     metadata?: Record<string, any>;
     monitor?: any;

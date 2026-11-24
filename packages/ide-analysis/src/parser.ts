@@ -210,7 +210,12 @@ export function discoverWorkflows(params: { documentUri?: string; workspaceUri?:
             try {
                 const content = fs.readFileSync(file, 'utf-8');
                 // Quick heuristic check before parsing AST
-                if (content.includes('flow(') || content.includes('workflow(') || content.includes('Step.create(')) {
+                if (
+                    content.includes('flow(') ||
+                    content.includes('workflow(') ||
+                    content.includes('Step.create(') ||
+                    content.includes('Step.compute(')
+                ) {
                     const sourceFile = ts.createSourceFile(
                         file,
                         content,

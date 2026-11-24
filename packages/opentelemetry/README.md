@@ -6,12 +6,12 @@
 
 ## 1. Overview & Architecture
 
-The OpenTelemetry integration creates an end-to-end distributed span hierarchy covering workflows, steps, retries, and context mutations:
+The OpenTelemetry integration creates an end-to-end distributed span hierarchy covering workflows, steps (`Step` and `ComputeStep`), retries, and context mutations:
 
 ```mermaid
 flowchart TD
     Req["Incoming HTTP / Kafka / SQS Request<br/>(with W3C traceparent)"] -->|"extractTraceContext()"| WFSpan["Span: workflow:CheckoutPipeline<br/>• siglo.workflow.name = 'CheckoutPipeline'<br/>• siglo.workflow.version = '2.1.0'<br/>• siglo.stack.id = 'stack_9812_01'<br/>• siglo.namespace = 'ecommerce-us'<br/>• siglo.timeout = 30000"]
-    WFSpan --> Step1["Span: step:validateCart<br/>• siglo.step.name = ...<br/>• siglo.step.attempt = 1<br/>• Status: OK"]
+    WFSpan --> Step1["Span: step:validateCart<br/>• siglo.step.name = ...<br/>• siglo.step.kind = 'compute'<br/>• siglo.cache.hit = false<br/>• Status: OK"]
     WFSpan --> Step2["Span: step:chargeCard<br/>• siglo.step.attempt = 1<br/>• (Failure: recordException)"]
     Step2 -->|Retry| Step2Retry["Span: step:chargeCard (retry #2)<br/>• siglo.step.attempt = 2<br/>• Status: OK"]
 ```
@@ -46,9 +46,10 @@ npm install --save-dev @opentelemetry/sdk-node @opentelemetry/sdk-trace-node @op
 | `STACK_ID`         | `siglo.stack.id`         | `string`  | Unique stack execution identifier.                            |
 | `STEP_NAME`        | `siglo.step.name`        | `string`  | Name or debug label of the active step.                       |
 | `STEP_ID`          | `siglo.step.id`          | `string`  | Internal node identifier in the workflow graph AST.           |
+| `STEP_KIND`        | `siglo.step.kind`        | `string`  | Step execution kind (`'compute'` for `Step.compute` or `'standard'` for `Step.create`). |
 | `STEP_ATTEMPT`     | `siglo.step.attempt`     | `number`  | 1-based attempt count (incremented on retries).               |
 | `NAMESPACE`        | `siglo.namespace`        | `string`  | Tenant namespace partition (requires `allowNamespace: true`). |
-| `CACHE_HIT`        | `siglo.cache.hit`        | `boolean` | `true` if step result was served from cache.                  |
+| `CACHE_HIT`        | `siglo.cache.hit`        | `boolean` | `true` if step result was served from cache (`Step` or `ComputeStep` cache). |
 | `TIMEOUT`          | `siglo.timeout`          | `number`  | Configured timeout in milliseconds.                           |
 
 ---
@@ -57,7 +58,7 @@ npm install --save-dev @opentelemetry/sdk-node @opentelemetry/sdk-trace-node @op
 
 ### `instrumentWorkflow(workflow, options)`
 
-Instruments a `Flow` instance with a root span, sets execution attributes, and automatically instruments all child steps:
+Instruments a `Flow` instance with a root span, sets execution attributes, and automatically instruments all child steps (including both `Step.create` and `Step.compute` steps):
 
 ```typescript
 function instrumentWorkflow<TInput = any, TOutput = any>(
@@ -68,7 +69,7 @@ function instrumentWorkflow<TInput = any, TOutput = any>(
 
 #### Options (`SigloTelemetryOptions`):
 
-- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@siglo/opentelemetry', '1.0.4')`.
+- `tracer` (`Tracer`): Custom OpenTelemetry `Tracer` instance. If omitted, uses `trace.getTracer('@siglo/opentelemetry', '1.3.0')`.
 - `serviceName` (`string`): Tracer service name identifier.
 - `workflowName` (`string`): Override workflow span label.
 - `workflowVersion` (`string`): Workflow version (default: `'1.0.0'`).
@@ -80,13 +81,15 @@ function instrumentWorkflow<TInput = any, TOutput = any>(
 
 ### `instrumentStep(step, options)`
 
-Wraps an individual `Step` with a child span covering step execution, attempt count tracking, status reporting, and exception capturing:
+Wraps an individual `Step` or `ComputeStep` with a child span covering step execution, attempt count tracking, cache hit recording (`siglo.cache.hit`), status reporting, and exception capturing.
+
+When instrumenting a `ComputeStep` (`Step.compute`), `instrumentStep` preserves the synchronous execution fast path (`step.isCompute === true`), starting and ending the span **synchronously with zero microtask overhead**, and sets `siglo.step.kind = 'compute'`:
 
 ```typescript
-function instrumentStep<TInput = any, TOutput = any>(
-    step: Step<TInput, TOutput>,
+function instrumentStep<TStep extends Step<any, any, any> | ComputeStep<any, any, any>>(
+    step: TStep,
     options?: SigloTelemetryOptions,
-): Step<TInput, TOutput>;
+): TStep;
 ```
 
 ---

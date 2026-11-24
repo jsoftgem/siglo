@@ -40,7 +40,7 @@ export function getApprovalRevocationStore(): ApprovalRevocationStore {
     return store;
 }
 interface Connection {
-    query(sql: string, values?: any[]): Promise<{ rows: any[] }>;
+    query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
     release?(error?: Error): void;
 }
 interface Client extends Connection {

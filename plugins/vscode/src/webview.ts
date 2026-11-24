@@ -40,6 +40,23 @@ interface StatusPayload {
 export type NavigationTarget =
     { kind: 'node'; nodeId: string } | { kind: 'workflow'; workflowName: string } | { kind: 'file'; uri: string };
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isRunRequest(value: Record<string, unknown>): value is Record<string, unknown> & RunRequest {
+    return (
+        value.type === 'runSteps' &&
+        typeof value.runId === 'string' &&
+        typeof value.uri === 'string' &&
+        typeof value.documentVersion === 'number' &&
+        Number.isFinite(value.documentVersion) &&
+        typeof value.workflowName === 'string' &&
+        Array.isArray(value.nodeIds) &&
+        value.nodeIds.every(id => typeof id === 'string')
+    );
+}
+
 export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposable {
     private surfaces = new Set<Surface>();
     private panel?: vscode.WebviewPanel;
@@ -87,20 +104,14 @@ export class WorkflowViews implements vscode.WebviewViewProvider, vscode.Disposa
         });
         webview.options = { enableScripts: true, localResourceRoots: [] };
         const receiver = webview.onDidReceiveMessage((message: unknown) => {
-            if (!message || typeof message !== 'object' || !('type' in message)) return;
-            const msg = message as {
-                type: unknown;
-                nodeId?: unknown;
-                workflowName?: unknown;
-                uri?: unknown;
-                enabled?: unknown;
-            };
-            if (msg.type === 'copyRunOutput' && typeof (message as { text?: unknown }).text === 'string') {
-                void vscode.env.clipboard.writeText((message as unknown as { text: string }).text);
-            } else if (msg.type === 'runSteps') {
-                void surface.execution!.run(message as RunRequest, this.document);
+            if (!isPlainRecord(message)) return;
+            const msg = message;
+            if (msg.type === 'copyRunOutput' && typeof msg.text === 'string') {
+                void vscode.env.clipboard.writeText(msg.text);
+            } else if (msg.type === 'runSteps' && isRunRequest(msg)) {
+                if (surface.execution) void surface.execution.run(msg, this.document);
             } else if (msg.type === 'cancelRun') {
-                surface.execution!.cancel();
+                surface.execution?.cancel();
             } else if (msg.type === 'ready') {
                 surface.ready = true;
                 if (this.document) void webview.postMessage({ type: 'setGraph', document: this.document });

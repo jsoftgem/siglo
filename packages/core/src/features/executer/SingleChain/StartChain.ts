@@ -12,7 +12,6 @@ import { toPOJO } from '../../context';
 import {
     generateUUID,
     Status,
-    isFunction,
     tagErrorPhase,
     ExecutionPhase,
     SIGNAL,
@@ -29,6 +28,12 @@ import {
     SERVICES,
     DEPENDENCIES,
     DEPS,
+    parseDuration,
+    resolveDynamic,
+    isObject,
+    isReservedKey,
+    getErrorMessage,
+    getErrorName,
 } from '../../../shared';
 import { StepTimeoutException, IdempotencyConflictException, NetworkPolicyViolationException } from '../exceptions';
 import { combineAbortSignals } from '../signals';
@@ -36,6 +41,32 @@ import { defaultCompensationManager } from '../../compensation';
 import { defaultIdempotencyStore, buildIdempotencyKey, isPermanentBusinessError } from '../../idempotency';
 import { resolveEffectiveNetworkPolicy, networkPolicyStorage, ensureNetworkInterceptorsInstalled } from '../../network';
 import { emitMonitoringEvent } from '../../events/emitter';
+import { executeComputeStepSync, isThenable } from '../../step/compute';
+
+function finalizeComputeOutput(chain: any, val: any): any {
+    if (!isObject(val) || Array.isArray(val)) {
+        return val;
+    }
+    const rawOutput = toPOJO(val);
+    const cleanOutput: Record<string, any> = {};
+    for (const k of Object.keys(rawOutput)) {
+        if (!isReservedKey(k)) {
+            cleanOutput[k] = rawOutput[k];
+        }
+    }
+    const stepName = chain.name || chain.func || 'step_0';
+    const singleSteps: Record<string, any> = {
+        [stepName]: cleanOutput,
+        [0]: cleanOutput,
+    };
+    const stepsAccessor: any = (subField?: string) => (subField !== undefined ? singleSteps[subField] : singleSteps);
+    Object.assign(stepsAccessor, singleSteps);
+    const ctx = Object.assign({}, rawOutput, {
+        [STEPS]: stepsAccessor,
+        [HISTORY]: stepsAccessor,
+    });
+    return toPOJO(ctx);
+}
 
 function extractNetworkViolation(err: any, seen: Set<any> = new Set()): any {
     if (!err || seen.has(err)) return undefined;
@@ -75,6 +106,17 @@ export default class StartChain {
         this.stackId = stackId;
         this.start = (initialParam: any, chains: any, options?: any) => {
             options = Object.assign({ stackId }, options);
+            if (chains && typeof chains === 'object' && chains.isCompute === true) {
+                try {
+                    const result = executeComputeStepSync(chains, initialParam, options);
+                    if (isThenable(result)) {
+                        return Promise.resolve(result).then((val: any) => finalizeComputeOutput(chains, val));
+                    }
+                    return Promise.resolve(finalizeComputeOutput(chains, result));
+                } catch (err) {
+                    return Promise.reject(err);
+                }
+            }
             logInfo('SingleChain', {
                 chain: chains,
                 message: 'Starting',
@@ -126,7 +168,10 @@ export default class StartChain {
                     const chainName = chain.func || (typeof chains === 'string' ? chains : chain.name || '');
 
                     const stepTimeoutMs =
-                        chain.timeoutMs || (typeof chain.timeout === 'number' ? chain.timeout : undefined);
+                        parseDuration(chain.timeoutMs) ??
+                        (typeof chain.timeout === 'number' || typeof chain.timeout === 'string'
+                            ? parseDuration(chain.timeout)
+                            : undefined);
                     let stepController: AbortController | undefined;
                     let stepTimer: any;
                     let stepSignalCleanup: () => void = () => {};
@@ -157,10 +202,18 @@ export default class StartChain {
                     };
 
                     try {
-                        const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(
-                            chain.networkPolicy || chain.networkPolicyConfig,
-                            options?.networkPolicy,
-                        );
+                        const enclosingPolicy = networkPolicyStorage.getStore();
+                        const rawStepPolicy =
+                            typeof chain.networkPolicy === 'function'
+                                ? chain.networkPolicyConfig
+                                : chain.networkPolicy || chain.networkPolicyConfig;
+                        let outerPolicy = options?.networkPolicy;
+                        if (enclosingPolicy?.enabled) {
+                            outerPolicy = outerPolicy
+                                ? resolveEffectiveNetworkPolicy(outerPolicy, enclosingPolicy)
+                                : enclosingPolicy;
+                        }
+                        const effectiveNetworkPolicy = resolveEffectiveNetworkPolicy(rawStepPolicy, outerPolicy);
                         // Include validation and before hooks in the same runtime identity
                         // as the action so rejected ecosystem inputs remain observable.
                         const executeInspectedStep = () =>
@@ -362,26 +415,29 @@ export default class StartChain {
                                                         const stepIdempStore =
                                                             chain.idempotencyOptions?.store || defaultIdempotencyStore;
 
-                                                        if (chain.idempotencyKey) {
+                                                        const idempKeySource =
+                                                            chain.idempotencyKey ?? chain.idempotencyOptions?.key;
+                                                        if (idempKeySource) {
                                                             try {
                                                                 // Preserve runtime identity for per-workflow keys; toPOJO removes reserved fields.
-                                                                const rawKey = isFunction(chain.idempotencyKey)
-                                                                    ? chain.idempotencyKey({
-                                                                          ...toPOJO(param),
-                                                                          $stackId: stackId,
-                                                                      })
-                                                                    : chain.idempotencyKey;
+                                                                const rawKey = resolveDynamic(idempKeySource, {
+                                                                    ...toPOJO(param),
+                                                                    $stackId: stackId,
+                                                                });
                                                                 stepIdempKey = buildIdempotencyKey(rawKey, {
                                                                     namespace: options?.namespace,
                                                                 });
+                                                                const stepIdempTtlMs =
+                                                                    parseDuration(chain.idempotencyOptions?.ttlMs) ??
+                                                                    parseDuration(chain.idempotencyOptions?.ttl);
                                                                 let claim = await stepIdempStore.claim(
                                                                     stepIdempKey,
-                                                                    chain.idempotencyOptions?.ttlMs,
+                                                                    stepIdempTtlMs,
                                                                 );
                                                                 const stepSettleTimeout =
                                                                     chain.idempotencyOptions?.settleTimeoutMs;
                                                                 const stepPollInterval =
-                                                                    chain.idempotencyOptions?.pollIntervalMs || 50;
+                                                                    chain.idempotencyOptions?.pollIntervalMs ?? 50;
 
                                                                 if (
                                                                     claim === Status.IN_PROGRESS &&
@@ -414,7 +470,7 @@ export default class StartChain {
                                                                             if (!rec) {
                                                                                 claim = await stepIdempStore.claim(
                                                                                     stepIdempKey,
-                                                                                    chain.idempotencyOptions?.ttlMs,
+                                                                                    stepIdempTtlMs,
                                                                                 );
                                                                                 // prettier-ignore
                                                                                 if (claim === Status.CLAIMED || claim === Status.COMPLETED) {
@@ -504,6 +560,7 @@ export default class StartChain {
                                                                             handlerName: chain.compensationHandlerName,
                                                                             payload: toPOJO(payload),
                                                                             options: chain.compensationOptions,
+                                                                            networkPolicy: effectiveNetworkPolicy,
                                                                         },
                                                                     );
                                                                 } catch (compErr) {
@@ -549,7 +606,7 @@ export default class StartChain {
                                                                         stepOptions,
                                                                     );
                                                                 },
-                                                                (afterErr: any) => {
+                                                                (afterErr: unknown) => {
                                                                     if (stepIdempKey) {
                                                                         if (
                                                                             isPermanentBusinessError(
@@ -559,9 +616,9 @@ export default class StartChain {
                                                                         ) {
                                                                             stepIdempStore
                                                                                 .complete(stepIdempKey, {
-                                                                                    error: afterErr.message,
+                                                                                    error: getErrorMessage(afterErr),
                                                                                     isPermanentError: true,
-                                                                                    name: afterErr.name,
+                                                                                    name: getErrorName(afterErr),
                                                                                 })
                                                                                 .catch(() => {});
                                                                         } else {
@@ -617,7 +674,7 @@ export default class StartChain {
                                                                     propertyToContext,
                                                                     undefined,
                                                                     stackId,
-                                                                ).reduce((err: any, result: any) => {
+                                                                ).reduce((err: unknown, result: any) => {
                                                                     clearStepTimeout();
                                                                     if (err) {
                                                                         if (stepIdempKey) {
@@ -629,9 +686,9 @@ export default class StartChain {
                                                                             ) {
                                                                                 stepIdempStore
                                                                                     .complete(stepIdempKey, {
-                                                                                        error: err.message,
+                                                                                        error: getErrorMessage(err),
                                                                                         isPermanentError: true,
-                                                                                        name: err.name,
+                                                                                        name: getErrorName(err),
                                                                                     })
                                                                                     .catch(() => {});
                                                                             } else {
@@ -801,9 +858,12 @@ export default class StartChain {
                                                                 (actionParam as any)[ATTEMPT] = attVal;
                                                                 (actionParam as any).$attempt = attVal;
                                                             }
-                                                            if (initialParam?.[RETRY_DELAY] || param[RETRY_DELAY]) {
+                                                            if (
+                                                                initialParam?.[RETRY_DELAY] !== undefined ||
+                                                                param[RETRY_DELAY] !== undefined
+                                                            ) {
                                                                 const delVal =
-                                                                    param[RETRY_DELAY] || initialParam[RETRY_DELAY];
+                                                                    param[RETRY_DELAY] ?? initialParam?.[RETRY_DELAY];
                                                                 (actionParam as any)[RETRY_DELAY] = delVal;
                                                                 (actionParam as any).$retryDelay = delVal;
                                                             }
@@ -855,7 +915,7 @@ export default class StartChain {
                                                                 } else {
                                                                     rawAction = runAction();
                                                                 }
-                                                            } catch (actionErr: any) {
+                                                            } catch (actionErr: unknown) {
                                                                 if (stepIdempKey) {
                                                                     if (
                                                                         isPermanentBusinessError(
@@ -865,9 +925,9 @@ export default class StartChain {
                                                                     ) {
                                                                         stepIdempStore
                                                                             .complete(stepIdempKey, {
-                                                                                error: actionErr.message,
+                                                                                error: getErrorMessage(actionErr),
                                                                                 isPermanentError: true,
-                                                                                name: actionErr.name,
+                                                                                name: getErrorName(actionErr),
                                                                             })
                                                                             .catch(() => {});
                                                                     } else {
@@ -962,7 +1022,7 @@ export default class StartChain {
                                                                             propertyToContext(context, props);
                                                                             executeOnAfterAndResolve(props, context);
                                                                         })
-                                                                        .catch(err => {
+                                                                        .catch((err: unknown) => {
                                                                             if (stepIdempKey) {
                                                                                 if (
                                                                                     isPermanentBusinessError(
@@ -972,9 +1032,9 @@ export default class StartChain {
                                                                                 ) {
                                                                                     stepIdempStore
                                                                                         .complete(stepIdempKey, {
-                                                                                            error: err.message,
+                                                                                            error: getErrorMessage(err),
                                                                                             isPermanentError: true,
-                                                                                            name: err.name,
+                                                                                            name: getErrorName(err),
                                                                                         })
                                                                                         .catch(() => {});
                                                                                 } else {

@@ -195,6 +195,183 @@ describe('package step coverage', () => {
         expect(doc.nodes.find(n => n.name === 'encrypt')?.properties).not.to.have.property('secretKey');
         expect(doc.nodes.find(n => n.name === 'model')?.stepKind).to.equal('ai');
     });
+
+    it('detects Step.compute and new ComputeStep with chained .spec(), .cache(), always-deny networkPolicy, and executionTarget', () => {
+        const doc = parseWorkflowFile({
+            uri: '/compute-workflow.ts',
+            content: `
+      import { Step, ComputeStep, flow } from '@siglo/core';
+
+      const fetchCart = Step.create('fetchCart', async (ctx: { cartId: string }) => ({
+          subtotal: 100,
+      }));
+
+      const calculateTotals = Step.compute(
+          'calculateTotals',
+          (ctx: { subtotal: number; discount: number; taxRate: number }) => {
+              const taxable = Math.max(0, ctx.subtotal - ctx.discount);
+              const tax = Math.round(taxable * ctx.taxRate * 100) / 100;
+              return { tax, total: taxable + tax };
+          },
+      )
+          .spec('subtotal', { require: true, validate: v => typeof v === 'number' && v >= 0 })
+          .spec('discount', { default: 0, transform: v => Math.max(0, Number(v)) })
+          .spec('taxRate', { default: 0.08 })
+          .cache({ ttl: '5m', maxEntries: 500 });
+
+      const scoreRisk = new ComputeStep('scoreRisk', (ctx: { total: number }) => ({
+          riskScore: ctx.total > 500 ? 'high' : 'low',
+      })).cache('1m');
+
+      export const checkoutFlow = flow(fetchCart, calculateTotals, scoreRisk);
+    `,
+        });
+
+        expect(doc.unresolved).to.have.lengthOf(0);
+        expect(doc.diagnostics).to.have.lengthOf(0);
+        expect(doc.nodes).to.have.lengthOf(3);
+
+        const totalsNode = doc.nodes.find(n => n.name === 'calculateTotals')!;
+        expect(totalsNode).to.exist;
+        expect(totalsNode.stepKind).to.equal('compute');
+        expect(totalsNode.properties?.operation).to.equal('Step.compute');
+        expect(totalsNode.properties?.networkPolicy).to.equal('deny');
+        expect(totalsNode.properties?.cache).to.equal("{ ttl: '5m', maxEntries: 500 }");
+        expect(totalsNode.specs).to.have.lengthOf(3);
+        expect(totalsNode.specs!.map(s => s.field)).to.deep.equal(['subtotal', 'discount', 'taxRate']);
+        expect(totalsNode.executionTarget).to.deep.equal({ exportName: 'checkoutFlow', stepIndex: 1 });
+
+        const riskNode = doc.nodes.find(n => n.name === 'scoreRisk')!;
+        expect(riskNode).to.exist;
+        expect(riskNode.stepKind).to.equal('compute');
+        expect(riskNode.properties?.operation).to.equal('ComputeStep');
+        expect(riskNode.properties?.networkPolicy).to.equal('deny');
+        expect(riskNode.properties?.cache).to.equal("'1m'");
+        expect(riskNode.executionTarget).to.deep.equal({ exportName: 'checkoutFlow', stepIndex: 2 });
+    });
+
+    it('extracts dynamic (ctx) => ... expressions and DurationInput across durable waits and ecosystem steps without leaking secrets', () => {
+        const doc = parseWorkflowFile({
+            uri: '/dynamic-options.ts',
+            content: `
+      import { Step, flow, wait, waitForEvent } from '@siglo/core';
+      import { httpStep } from '@siglo/http';
+      import { encryptFieldsStep, verifyWebhookStep } from '@siglo/crypto';
+      import { sendNotificationStep, sendInteractiveApprovalStep } from '@siglo/notifications';
+      import { aiStep } from '@siglo/ai';
+
+      const cooldown = wait(ctx => ctx.delayMs);
+      const eventWait = waitForEvent('invoice.paid', {
+          timeout: ctx => ctx.slaTimeout,
+          correlationKey: ctx => ctx.invoiceId,
+      });
+      const callApi = httpStep('callApi', {
+          method: 'POST',
+          url: ctx => ctx.endpointUrl,
+          headers: ctx => ({ Authorization: ctx.bearer }),
+          query: ctx => ({ tenant: ctx.tenantId }),
+          body: ctx => ({ amount: ctx.amount }),
+          timeout: '10s',
+      }).timeout('30s').idempotent(ctx => ctx.idemKey);
+      const sealPii = encryptFieldsStep('sealPii', {
+          fields: ['ssn'],
+          secretKey: 'super-secret-key',
+          aad: ctx => ctx.tenantId,
+          deriveKeyContext: ctx => ctx.keyContext,
+      });
+      const checkHook = verifyWebhookStep('checkHook', {
+          provider: ctx => ctx.webhookProvider,
+          secret: ctx => ctx.webhookSecret,
+          payload: ctx => ctx.rawBody,
+          signature: ctx => ctx.sigHeader,
+      });
+      const notify = sendNotificationStep('notify', {
+          channel: ctx => ctx.channel,
+          recipient: ctx => ctx.email,
+          subject: ctx => ctx.subject,
+          template: ctx => ctx.template,
+          data: ctx => ({ orderId: ctx.orderId }),
+          deduplicationTtl: '5m',
+      });
+      const approve = sendInteractiveApprovalStep('approve', {
+          recipient: ctx => ctx.approver,
+          title: ctx => ctx.approvalTitle,
+          description: ctx => ctx.approvalDesc,
+          correlationKey: ctx => ctx.approvalKey,
+          timeout: ctx => ctx.approvalSla,
+      });
+      const summarize = aiStep('summarize', {
+          model: { provider: 'openai', model: 'gpt-4o', apiKey: ctx => ctx.openAiKey, requestTimeoutMs: '15s' },
+          prompt: ctx => ctx.userPrompt,
+      });
+
+      flow(cooldown, eventWait, callApi, sealPii, checkHook, notify, approve, summarize);
+    `,
+        });
+
+        expect(doc.unresolved).to.have.lengthOf(0);
+        expect(doc.diagnostics).to.have.lengthOf(0);
+        expect(doc.nodes).to.have.lengthOf(8);
+
+        const waitNode = doc.nodes.find(n => n.name.startsWith('wait:'))!;
+        expect(waitNode.properties?.duration).to.equal('ctx => ctx.delayMs');
+
+        const eventNode = doc.nodes.find(n => n.name.startsWith('waitForEvent:'))!;
+        expect(eventNode.properties?.timeout).to.equal('ctx => ctx.slaTimeout');
+        expect(eventNode.properties?.correlationKey).to.equal('ctx => ctx.invoiceId');
+
+        const httpNode = doc.nodes.find(n => n.name === 'callApi')!;
+        expect(httpNode.ecosystemConfig).to.include({
+            kind: 'http',
+            method: 'POST',
+            url: 'ctx => ctx.endpointUrl',
+            isDynamicUrl: true,
+            timeoutMs: "'10s'",
+        });
+        expect(httpNode.properties?.timeout).to.equal("'30s'");
+        expect(httpNode.properties?.idempotent).to.equal('ctx => ctx.idemKey');
+        expect(httpNode.properties).not.to.have.property('headers');
+        expect(httpNode.properties).not.to.have.property('body');
+
+        const encryptNode = doc.nodes.find(n => n.name === 'sealPii')!;
+        expect(encryptNode.properties).not.to.have.property('secretKey');
+        expect(encryptNode.properties).not.to.have.property('aad');
+
+        const hookNode = doc.nodes.find(n => n.name === 'checkHook')!;
+        expect(hookNode.ecosystemConfig).to.include({
+            kind: 'crypto',
+            operation: 'verifyWebhook',
+            provider: 'ctx => ctx.webhookProvider',
+        });
+        expect(hookNode.properties).not.to.have.property('secret');
+        expect(hookNode.properties).not.to.have.property('payload');
+
+        const notifyNode = doc.nodes.find(n => n.name === 'notify')!;
+        expect(notifyNode.ecosystemConfig).to.include({
+            kind: 'notification',
+            isApproval: false,
+            channel: 'ctx => ctx.channel',
+            subject: 'ctx => ctx.subject',
+            template: 'ctx => ctx.template',
+        });
+        expect(notifyNode.properties).not.to.have.property('recipient');
+        expect(notifyNode.properties).not.to.have.property('data');
+
+        const approveNode = doc.nodes.find(n => n.name === 'approve')!;
+        expect(approveNode.ecosystemConfig).to.include({
+            kind: 'notification',
+            isApproval: true,
+            approvalExpiresIn: 'ctx => ctx.approvalSla',
+        });
+        expect(approveNode.properties?.correlationKey).to.equal('ctx => ctx.approvalKey');
+        expect(approveNode.properties?.timeout).to.equal('ctx => ctx.approvalSla');
+        expect(approveNode.properties).not.to.have.property('recipient');
+
+        const aiNode = doc.nodes.find(n => n.name === 'summarize')!;
+        expect(aiNode.ecosystemConfig).to.include({ kind: 'ai', provider: 'openai', model: 'gpt-4o' });
+        expect(JSON.stringify(aiNode)).not.to.include('openAiKey');
+        expect(JSON.stringify(aiNode)).not.to.include('userPrompt');
+    });
 });
 
 describe('underwriting and settlement fixture isolation', () => {

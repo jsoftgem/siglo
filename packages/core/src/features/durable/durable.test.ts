@@ -15,6 +15,7 @@ import {
     validateWorkflowVersion,
     clearStorage,
     WorkflowEventEmitter,
+    isWorkflowSuspended,
 } from '../../index';
 
 describe('Durable Waits, External Events, and Versioning Tests', () => {
@@ -37,6 +38,8 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(parseDuration('500ms')).to.equal(500);
             expect(parseDuration(1234)).to.equal(1234);
             expect(parseDuration(undefined)).to.be.undefined;
+            expect(parseDuration(null)).to.be.undefined;
+            expect(parseDuration('invalid')).to.be.undefined;
         });
     });
 
@@ -74,6 +77,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
                     pojo: true,
                 },
             );
+            if (!isWorkflowSuspended(suspensionResult)) {
+                expect.fail('Expected workflow to suspend');
+            }
 
             expect(suspensionResult.status).to.equal('waiting');
             expect(suspensionResult.correlationKey).to.equal('order:ord-999');
@@ -96,9 +102,134 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
         it('durable wait timer pauses execution and returns suspension descriptor', async () => {
             const stepTimer = wait(1000);
             const res = await flow(stepTimer).run({}, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(res)) {
+                expect.fail('Expected workflow to suspend');
+            }
             expect(res.status).to.equal('waiting');
             expect(res.eventName).to.equal('timer');
             expect(res.correlationKey).to.be.a('string');
+        });
+
+        it('supports synchronous dynamic timeout and correlationKey on waitForEvent in durable mode', async () => {
+            const prepare = Step.create('prepare', () => ({
+                tenantId: 't-42',
+                approvalSla: '20ms',
+            }));
+
+            const waitStep = waitForEvent<{ tenantId: string; approvalSla: string }>('tenant.approval', {
+                correlationKey: ctx => `approval:${ctx.tenantId}`,
+                timeout: ctx => ctx.approvalSla,
+            });
+
+            const workflow = flow(prepare, waitStep);
+            const before = Date.now();
+            const suspended = await workflow.run({}, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(suspended)) {
+                expect.fail('Expected workflow to suspend');
+            }
+
+            expect(suspended.status).to.equal('waiting');
+            expect(suspended.correlationKey).to.equal('approval:t-42');
+            expect(suspended.expiresAt).to.be.a('number');
+            expect(suspended.expiresAt).to.be.at.least(before + 15);
+
+            const record = defaultDurableManager.getWaiting('approval:t-42');
+            expect(record?.expiresAt).to.equal(suspended.expiresAt);
+
+            await new Promise(r => setTimeout(r, 30));
+            try {
+                await workflow.resume('approval:t-42');
+                expect.fail('Should have rejected expired dynamic wait');
+            } catch (err: any) {
+                expect(err).to.be.instanceOf(ExpiredWaitException);
+                expect(err.correlationKey).to.equal('approval:t-42');
+            }
+        });
+
+        it('gives timeoutMs precedence over dynamic timeout and skips timeout resolver evaluation', async () => {
+            let timeoutResolverCalls = 0;
+            const waitStep = waitForEvent('precedence.event', {
+                correlationKey: ctx => `prec:${ctx.id}`,
+                timeoutMs: 25,
+                timeout: () => {
+                    timeoutResolverCalls++;
+                    return '10h';
+                },
+            });
+
+            const before = Date.now();
+            const suspended = await flow(waitStep).run({ id: '1' }, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(suspended)) {
+                expect.fail('Expected workflow to suspend');
+            }
+            const after = Date.now();
+
+            expect(timeoutResolverCalls).to.equal(0);
+            expect(suspended.expiresAt).to.be.at.least(before + 20);
+            expect(suspended.expiresAt).to.be.at.most(after + 100);
+        });
+
+        it('skips dynamic timeout(ctx) evaluation in non-durable execution while resolving correlationKey', async () => {
+            let timeoutCalled = false;
+            const waitStep = waitForEvent('non.durable.event', {
+                correlationKey: ctx => `nd:${ctx.orderId}`,
+                timeout: () => {
+                    timeoutCalled = true;
+                    return '1h';
+                },
+            });
+
+            const result = await flow(waitStep).run({ orderId: 'ord-77' }, { pojo: true });
+            expect(timeoutCalled).to.equal(false);
+            expect(result.eventName).to.equal('non.durable.event');
+            expect(result.correlationKey).to.equal('nd:ord-77');
+            expect(result.waited).to.equal(true);
+        });
+
+        it('supports waitForEvent with undefined timeout in durable mode', async () => {
+            const waitStep = waitForEvent('no.timeout', {
+                correlationKey: 'no-ttl-key',
+                timeout: () => undefined as any,
+            });
+            const suspended = await flow(waitStep).run({}, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(suspended)) {
+                expect.fail('Expected workflow to suspend');
+            }
+            expect(suspended.status).to.equal('waiting');
+            expect(suspended.expiresAt).to.be.undefined;
+        });
+
+        it('supports synchronous dynamic durations in wait() for both non-durable and durable execution', async () => {
+            const computeDelay = Step.create('computeDelay', () => ({ cooldown: '15ms' }));
+            const dynamicWait = wait<{ cooldown: string }>(ctx => ctx.cooldown);
+
+            const wf = flow(computeDelay, dynamicWait);
+
+            // Non-durable path
+            const nonDurableRes = await wf.run({}, { pojo: true });
+            expect(nonDurableRes.waitedMs).to.equal(15);
+
+            // Durable path
+            const before = Date.now();
+            const durableRes = await wf.run({}, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(durableRes)) {
+                expect.fail('Expected workflow to suspend');
+            }
+            expect(durableRes.status).to.equal('waiting');
+            expect(durableRes.eventName).to.equal('timer');
+            expect(durableRes.expiresAt).to.be.at.least(before + 10);
+
+            // Dynamic resolver returning null/undefined/invalid falls back to 0ms
+            const zeroWait = flow(wait(() => undefined as any)).run({}, { pojo: true });
+            expect((await zeroWait).waitedMs).to.equal(0);
+        });
+
+        it('supports static numeric string and 0ms wait durations', async () => {
+            const resZero = await flow(wait(0)).run({}, { pojo: true });
+            expect(resZero.waitedMs).to.equal(0);
+
+            const resInvalid = await flow(wait('invalid')).run({}, { pojo: true });
+            expect(resInvalid.waitedMs).to.equal(0);
         });
     });
 
@@ -117,6 +248,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
             // 1. Run durable workflow until suspension
             const suspended = await userWorkflow.run({ userId: 'u-123' }, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(suspended)) {
+                expect.fail('Expected workflow to suspend');
+            }
             expect(suspended.status).to.equal('waiting');
 
             // 2. Resume workflow via flow.resume() with external event payload
@@ -141,6 +275,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
             const f = flow(waitStep, afterStep);
             const suspended = await f.run({}, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(suspended)) {
+                expect.fail('Expected workflow to suspend');
+            }
 
             const res = await resumeWorkflow(f, suspended.stackId, { token: 'jwt-xyz' }, { pojo: true });
             expect(res.completed).to.equal(true);
@@ -160,6 +297,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const f = flow(waitStep, afterStep);
             f.monitor(emitter);
             const suspended = await f.run({}, { durable: true, pojo: true });
+            if (!isWorkflowSuspended(suspended)) {
+                expect.fail('Expected workflow to suspend');
+            }
 
             const res = await resumeWorkflow(f, suspended.stackId, { token: 'jwt-mon' }, { pojo: true });
             expect(res.completed).to.equal(true);
@@ -205,6 +345,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
 
                 const f = flow(s1, waitStep, s2);
                 const suspended = await f.run({}, { durable: true, pojo: true });
+                if (!isWorkflowSuspended(suspended)) {
+                    expect.fail('Expected workflow to suspend');
+                }
                 expect(suspended.status).to.equal('waiting');
                 storedStackId = suspended.stackId;
 
@@ -476,6 +619,9 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             const invoiceFlow = flow(waitStep, contStep);
 
             const suspension = await invoiceFlow.run({}, { durable: true });
+            if (!isWorkflowSuspended(suspension)) {
+                expect.fail('Expected workflow to suspend');
+            }
             expect(suspension.status).to.equal('waiting');
             expect(savedWaitRecord).to.be.an('object');
             expect(savedWaitRecord.correlationKey).to.equal('inv-key');
@@ -558,6 +704,7 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             manager.registerWait({
                 stackId: 'stack-all-test',
                 correlationKey: 'corr-all-test',
+                eventName: 'event.all',
                 status: 'waiting' as any,
                 continuationStepIndex: 0,
                 stepId: 'step-1',
@@ -606,6 +753,31 @@ describe('Durable Waits, External Events, and Versioning Tests', () => {
             expect(manager.size).to.equal(0);
             expect(manager.getWaiting('corr-clear-test')).to.be.undefined;
             expect(manager.getWaitingByStack('stack-clear-test')).to.be.undefined;
+        });
+
+        it('cancels waiting records via cancelWait() and evaluates isWorkflowSuspended()', () => {
+            const manager = new DurableManager();
+            manager.registerWait({
+                stackId: 'stack-cancel-test',
+                correlationKey: 'corr-cancel-test',
+                eventName: 'event.cancel',
+                status: 'waiting',
+                continuationStepIndex: 0,
+                stepId: 'step-cancel',
+                createdAt: Date.now(),
+            });
+
+            expect(manager.cancelWait('corr-cancel-test')).to.be.true;
+            expect(manager.size).to.equal(0);
+            expect(manager.getWaiting('corr-cancel-test')).to.be.undefined;
+            expect(manager.getWaitingByStack('stack-cancel-test')).to.be.undefined;
+            expect(manager.cancelWait('missing-cancel-key')).to.be.false;
+
+            expect(isWorkflowSuspended(null)).to.be.false;
+            expect(isWorkflowSuspended(undefined)).to.be.false;
+            expect(isWorkflowSuspended('waiting')).to.be.false;
+            expect(isWorkflowSuspended({ status: 'completed' })).to.be.false;
+            expect(isWorkflowSuspended({ status: 'waiting', stackId: 's1' })).to.be.true;
         });
     });
 });

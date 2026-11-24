@@ -18,6 +18,8 @@ export type DetectedStep =
 
 export function isEcosystemStepCallee(name: string): GraphNode['stepKind'] | null {
     switch (name) {
+        case 'ComputeStep':
+            return 'compute';
         case 'HttpStep':
         case 'httpStep':
             return 'http';
@@ -142,7 +144,7 @@ export function detectStepFromExpression(
         };
     }
 
-    // Pattern: Step.create(...) or ecosystem steps
+    // Pattern: Step.create(...), Step.compute(...), or ecosystem steps
     if (ts.isCallExpression(expr) || ts.isNewExpression(expr)) {
         const args = expr.arguments || [];
         const callee = expr.expression;
@@ -155,9 +157,9 @@ export function detectStepFromExpression(
         if (
             ts.isPropertyAccessExpression(callee) &&
             ['Step', 'Func', 'Chain'].includes(callee.expression.getText(sourceFile)) &&
-            callee.name.text === 'create'
+            (callee.name.text === 'create' || callee.name.text === 'compute')
         ) {
-            stepKind = 'generic';
+            stepKind = callee.name.text === 'compute' ? 'compute' : 'generic';
             const firstArg = args[0];
             if (firstArg) {
                 if (ts.isStringLiteral(firstArg) || ts.isNoSubstitutionTemplateLiteral(firstArg)) {
@@ -234,6 +236,9 @@ export function detectStepFromExpression(
         }
 
         const properties: Record<string, string> = { operation: callee.getText(sourceFile) };
+        if (stepKind === 'compute') {
+            properties.networkPolicy = 'deny';
+        }
         for (const arg of args) {
             if (ts.isObjectLiteralExpression(arg)) {
                 extractObjectConfig(arg, sourceFile, (name, r, t, comp) => {
@@ -413,7 +418,7 @@ export function extractEcosystemConfig(
                         if (ts.isArrayLiteralExpression(prop.initializer)) {
                             config.retryOnStatus = prop.initializer.elements.map(e =>
                                 ts.isNumericLiteral(e) ? Number(e.text) : e.getText(sourceFile),
-                            ) as any;
+                            );
                         } else {
                             config.retryOnStatus = prop.initializer.getText(sourceFile);
                         }
@@ -572,7 +577,18 @@ export function extractDisplayProperties(
     for (const prop of obj.properties)
         if (ts.isPropertyAssignment(prop)) {
             const key = prop.name.getText(sourceFile).replace(/['"]/g, '');
-            if (keys.has(key)) result[key] = prop.initializer.getText(sourceFile);
+            if (key === 'model' && ts.isObjectLiteralExpression(prop.initializer)) {
+                for (const mProp of prop.initializer.properties) {
+                    if (ts.isPropertyAssignment(mProp)) {
+                        const mKey = mProp.name.getText(sourceFile).replace(/['"]/g, '');
+                        if (mKey === 'provider' || mKey === 'model' || mKey === 'requestTimeoutMs') {
+                            result[mKey] = mProp.initializer.getText(sourceFile);
+                        }
+                    }
+                }
+            } else if (keys.has(key)) {
+                result[key] = prop.initializer.getText(sourceFile);
+            }
         }
     return result;
 }

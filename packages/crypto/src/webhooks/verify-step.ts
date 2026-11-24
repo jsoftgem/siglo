@@ -8,6 +8,8 @@ import {
     observeEcosystem,
     recordInspection,
     EcosystemInspection,
+    resolveDynamic,
+    isPlainObject,
 } from '@siglo/core';
 import { WebhookVerifyOptions, WebhookVerificationResult, WebhookProtocol, WebhookPayloadRef } from '../types';
 import { getWebhookProtocol } from '../registry';
@@ -215,7 +217,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string> exte
             inspection.category = 'rejected';
 
             // 2. Resolve secret
-            const secret = typeof options.secret === 'function' ? options.secret(ctx) : options.secret;
+            const secret = resolveDynamic(options.secret, ctx);
             if (!secret) {
                 inspection.category = 'missing-secret';
                 throw new ValidationException([{ field: 'secret', message: 'Webhook secret is required' }], {
@@ -226,10 +228,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string> exte
             }
 
             // 3. Resolve protocol
-            let providerOrProtocol = options.provider;
-            if (typeof providerOrProtocol === 'function') {
-                providerOrProtocol = providerOrProtocol(ctx);
-            }
+            let providerOrProtocol = resolveDynamic(options.provider, ctx);
             if (!providerOrProtocol) {
                 providerOrProtocol = 'generic-hmac';
             }
@@ -257,20 +256,20 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string> exte
             if (options.headers) {
                 headers = options.headers(ctx);
             }
+            const ctxHeaders =
+                isPlainObject(ctx) && isPlainObject(ctx.headers)
+                    ? (ctx.headers as Record<string, string | string[] | undefined>)
+                    : undefined;
 
             if (typeof signatureOrHeaders === 'string') {
                 signatureHeader = signatureOrHeaders;
-                if (
-                    Object.keys(headers).length === 0 &&
-                    (ctx as any)?.headers &&
-                    typeof (ctx as any).headers === 'object'
-                ) {
-                    headers = (ctx as any).headers;
+                if (Object.keys(headers).length === 0 && ctxHeaders) {
+                    headers = ctxHeaders;
                 }
             } else if (typeof signatureOrHeaders === 'object' && signatureOrHeaders !== null) {
                 headers = signatureOrHeaders;
-            } else if ((ctx as any)?.headers && typeof (ctx as any).headers === 'object') {
-                headers = (ctx as any).headers;
+            } else if (ctxHeaders) {
+                headers = ctxHeaders;
             }
 
             const normalized = normalizeHeaders(headers);
@@ -432,10 +431,7 @@ export class WebhookVerifyStep<TInput = any, TName extends string = string> exte
                     );
                 }
 
-                let provider = options.provider;
-                if (typeof provider === 'function') {
-                    provider = provider(ctx);
-                }
+                const provider = resolveDynamic(options.provider, ctx);
                 if (typeof provider === 'string') {
                     const protocol = getWebhookProtocol(provider);
                     if (!protocol) {

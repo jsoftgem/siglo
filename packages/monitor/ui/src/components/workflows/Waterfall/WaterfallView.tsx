@@ -23,7 +23,7 @@ export const WaterfallView: React.FC<WaterfallViewProps> = ({ steps, totalDurati
         );
     }
 
-    const maxDuration = Math.max(totalDurationMs || 0, ...stepList.map(s => s.durationMs || 0), 1);
+    const maxDuration = Math.max(totalDurationMs ?? 0, ...stepList.map(s => s.durationMs ?? 0), 1);
 
     return (
         <div className="overflow-x-auto">
@@ -39,7 +39,7 @@ export const WaterfallView: React.FC<WaterfallViewProps> = ({ steps, totalDurati
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                     {stepList.map(step => {
-                        const dur = step.durationMs || 0;
+                        const dur = step.durationMs ?? 0;
 
                         return (
                             <tr key={step.stepId} className="hover:bg-slate-900/60 transition-colors">
@@ -49,7 +49,7 @@ export const WaterfallView: React.FC<WaterfallViewProps> = ({ steps, totalDurati
                                 <td className="py-2.5 px-3">
                                     <StatusBadge status={step.status} size="sm" />
                                 </td>
-                                <td className="py-2.5 px-3 text-slate-400">{step.attempts || 1}</td>
+                                <td className="py-2.5 px-3 text-slate-400">{step.attempts ?? 1}</td>
                                 <td className="py-2.5 px-3 text-slate-200">{dur} ms</td>
                                 <td className="py-2.5 px-3">
                                     <WaterfallBar durationMs={dur} maxDurationMs={maxDuration} status={step.status} />

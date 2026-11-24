@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'mocha';
-import { flow, waitForEvent, Step, WorkflowEventEmitter, defaultDurableManager, resumeWorkflow } from '@siglo/core';
+import {
+    flow,
+    waitForEvent,
+    Step,
+    WorkflowEventEmitter,
+    WorkflowExecutionEvent,
+    defaultDurableManager,
+    resumeWorkflow,
+} from '@siglo/core';
 import { MemoryWaitPoller } from '@siglo/scheduler';
 import { applyWaitEvent } from './wait-state';
 import { WorkflowExecutionStore } from './store';
@@ -10,9 +18,9 @@ import { StepDetailCard } from '../ui/src/components/workflows/Dag/StepDetailCar
 
 describe('durable wait inspection', () => {
     it('keeps explicit identities isolated and preserves deadlines across live resume updates', () => {
-        const steps = {
-            a: { stepId: 'a', stepName: 'waitForEvent:SAME', status: 'RUNNING' },
-            b: { stepId: 'b', stepName: 'waitForEvent:SAME', status: 'SUSPENDED' },
+        const steps: Record<string, { stepId: string; stepName: string; status: 'RUNNING' | 'SUSPENDED' }> = {
+            a: { stepId: 'a', stepName: 'waitForEvent:SAME', status: 'RUNNING' as const },
+            b: { stepId: 'b', stepName: 'waitForEvent:SAME', status: 'SUSPENDED' as const },
         };
         const waiting = applyWaitEvent(steps, { type: 'flow:suspended', stepId: 'a', expiresAt: 1800000000000 });
         const expired = applyWaitEvent(waiting, {
@@ -20,20 +28,16 @@ describe('durable wait inspection', () => {
             stepId: 'a',
             resumeReason: 'timer-expired',
             timestamp: 10,
-        }) as any;
+        });
         assert.equal(expired.a.waitState, 'expired');
         assert.equal(expired.a.waitExpiresAt, 1800000000000);
         assert.equal(expired.a.endTime, 10);
         assert.equal(expired.b, steps.b);
         assert.equal(steps.a.status, 'RUNNING');
-        assert.equal(
-            (applyWaitEvent(waiting, { type: 'flow:resumed', stepId: 'missing' }) as any).a.waitState,
-            'waiting',
-        );
+        assert.equal(applyWaitEvent(waiting, { type: 'flow:resumed', stepId: 'missing' }).a.waitState, 'waiting');
         for (const value of [-1, Infinity, 'private', 8640000000000001]) {
             assert.equal(
-                (applyWaitEvent(steps, { type: 'flow:suspended', stepId: 'a', expiresAt: value }) as any).a
-                    .waitExpiresAt,
+                applyWaitEvent(steps, { type: 'flow:suspended', stepId: 'a', expiresAt: value }).a.waitExpiresAt,
                 undefined,
             );
         }
@@ -45,7 +49,7 @@ describe('durable wait inspection', () => {
     for (const timer of [false, true]) {
         it(`records ${timer ? 'scheduled expiry' : 'event resume'} from the durable runtime`, async () => {
             const store = new WorkflowExecutionStore();
-            const events: any[] = [];
+            const events: WorkflowExecutionEvent[] = [];
             const monitor = new WorkflowEventEmitter().on('*', event => {
                 events.push(event);
                 store.addEvent(event);

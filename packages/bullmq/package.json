@@ -1,6 +1,6 @@
 {
   "name": "@siglo/bullmq",
-  "version": "1.2.8",
+  "version": "1.3.0",
   "description": "BullMQ job queue consumer and worker adapter for TypeScript workflows with Siglo.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -39,7 +39,7 @@
   },
   "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/bullmq#readme",
   "dependencies": {
-    "@siglo/core": "^1.0.0"
+    "@siglo/core": "^1.3.0"
   },
   "peerDependencies": {
     "bullmq": "^5.0.0"

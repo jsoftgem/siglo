@@ -19,11 +19,11 @@ type WorkflowNode = StepNode | SequenceNode | ParallelNode | BranchNode | WaitNo
 
 1. **`StepNode` (`type: 'step'`)**
     - Represents an atomic unit of execution.
-    - Contains: `id`, `name`, optional `metadata` (e.g. `reducer`, `isStrict`, `timeoutMs`, `cachedLast`).
+    - Contains: `id`, `name`, optional `metadata` (e.g. `compute`, `reducer`, `isStrict`, `timeoutMs`, `cachedLast`, `cacheOptions`, `hasCompensation`, `retryConfig`, `networkPolicy`).
 
 2. **`SequenceNode` (`type: 'sequence'`)**
     - Represents linear steps executed sequentially.
-    - Contains: `id`, `name`, and an ordered list of `children: WorkflowNode[]`.
+    - Contains: `id`, `name`, an ordered list of `children: WorkflowNode[]`, and optional `metadata` (`networkPolicy`).
 
 3. **`ParallelNode` (`type: 'parallel'`)**
     - Represents concurrent branches.
@@ -35,7 +35,7 @@ type WorkflowNode = StepNode | SequenceNode | ParallelNode | BranchNode | WaitNo
 
 5. **`WaitNode` (`type: 'wait'`)**
     - Represents an asynchronous pause (timer or external event).
-    - Contains: `id`, `name`, optional `eventName`, `correlationKey`, `durationMs`, and `timeoutMs`.
+    - Contains: `id`, `name`, optional `eventName`, `correlationKey` (`DynamicOption<string>`), `duration`, `durationMs`, `timeout`, and `timeoutMs`.
 
 6. **`MapNode` (`type: 'map'`)**
     - Represents controlled iteration with bounded concurrency.

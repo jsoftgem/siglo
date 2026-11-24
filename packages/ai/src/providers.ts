@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { assertNetworkPolicy, injectTraceHeaders } from '@siglo/http';
+import { isPlainObject } from '@siglo/core';
+import { assertNetworkPolicy, injectTraceHeaders, type SpanLike } from '@siglo/http';
 import { AiProviderError } from './execution';
 import type { AiModelConfig, AiProviderAdapter, AiProviderRequest, AiProviderResponse, ChatMessage } from './types';
 
@@ -7,7 +8,7 @@ export const STRUCTURED_OUTPUT_TOOL = 'siglo_structured_output';
 export type ResolvedAiModel = Omit<AiModelConfig, 'apiKey'> & { baseUrl: string; apiKey?: string };
 export interface ProviderTransportOptions {
     fetch?: typeof fetch;
-    span?: any;
+    span?: SpanLike;
     stepName?: string;
 }
 
@@ -44,7 +45,7 @@ function openaiMessages(messages: ChatMessage[]) {
     }));
 }
 function anthropicMessages(messages: ChatMessage[]) {
-    const result: { role: string; content: any[] }[] = [];
+    const result: { role: string; content: unknown[] }[] = [];
     for (const message of messages.filter(m => m.role !== 'system')) {
         const role = message.role === 'assistant' ? 'assistant' : 'user';
         const content =
@@ -66,19 +67,21 @@ function anthropicMessages(messages: ChatMessage[]) {
     return result;
 }
 function geminiMessages(messages: ChatMessage[]) {
-    const result: { role: string; parts: any[] }[] = [];
+    const result: { role: string; parts: unknown[] }[] = [];
     for (const message of messages.filter(m => m.role !== 'system')) {
         const role = message.role === 'assistant' ? 'model' : 'user';
         const parts =
             message.providerState?.provider === 'gemini'
-                ? (message.providerState.content as any[])
+                ? Array.isArray(message.providerState.content)
+                    ? message.providerState.content
+                    : []
                 : message.role === 'tool'
                   ? [
                         {
                             functionResponse: {
                                 name: message.name,
                                 id: message.toolCallId?.startsWith('siglo_') ? undefined : message.toolCallId,
-                                response: { result: JSON.parse(message.content) },
+                                response: { result: parseArgs(message.content) },
                             },
                         },
                     ]
@@ -124,7 +127,7 @@ export function createAiProvider(model: ResolvedAiModel, transport: ProviderTran
                 .map(m => m.content)
                 .join('\n\n');
             let path: string;
-            let body: any;
+            let body: Record<string, unknown>;
             const headers: Record<string, string> = { 'content-type': 'application/json' };
             if (provider === 'anthropic') {
                 path = '/v1/messages';
@@ -221,75 +224,100 @@ export function createAiProvider(model: ResolvedAiModel, transport: ProviderTran
                 await response.body?.cancel();
                 throw new AiProviderError(`AI provider ${provider} returned HTTP ${response.status}`, response.status);
             }
-            const data: any = await response.json();
+            const rawData: unknown = await response.json();
+            if (!isPlainObject(rawData)) {
+                throw new Error(`Invalid ${provider} response`);
+            }
+            const data = rawData as Record<string, unknown>;
             if (provider === 'anthropic') {
                 if (!Array.isArray(data.content)) throw new Error('Invalid Anthropic response');
                 if (data.stop_reason === 'refusal') throw new Error('Anthropic refused the response');
                 if (data.stop_reason === 'max_tokens') throw new Error('Anthropic response was truncated');
-                const final = data.content.filter(
-                    (p: any) => p.type === 'tool_use' && p.name === STRUCTURED_OUTPUT_TOOL,
-                );
-                const calls = data.content.filter(
-                    (p: any) => p.type === 'tool_use' && p.name !== STRUCTURED_OUTPUT_TOOL,
-                );
+                const blocks = data.content.filter(isPlainObject);
+                const final = blocks.filter(p => p.type === 'tool_use' && p.name === STRUCTURED_OUTPUT_TOOL);
+                const calls = blocks.filter(p => p.type === 'tool_use' && p.name !== STRUCTURED_OUTPUT_TOOL);
                 if (final.length > 1 || (final.length && calls.length))
                     throw new Error('Ambiguous Anthropic structured output');
+                const usage = isPlainObject(data.usage) ? data.usage : undefined;
                 return {
                     text: unwrap(
                         final.length
                             ? JSON.stringify(final[0].input)
-                            : data.content
-                                  .filter((p: any) => p.type === 'text')
-                                  .map((p: any) => requireText(p.text))
+                            : blocks
+                                  .filter(p => p.type === 'text')
+                                  .map(p => requireText(p.text))
                                   .join(''),
                     ),
-                    toolCalls: calls.map((p: any) => ({ id: p.id, name: p.name, arguments: p.input })),
-                    promptTokens: tokens(data.usage?.input_tokens),
-                    completionTokens: tokens(data.usage?.output_tokens),
+                    toolCalls: calls.map(p => ({
+                        id: String(p.id ?? ''),
+                        name: String(p.name ?? ''),
+                        arguments: p.input,
+                    })),
+                    promptTokens: tokens(usage?.input_tokens),
+                    completionTokens: tokens(usage?.output_tokens),
                 };
             }
             if (provider === 'gemini') {
-                const candidate = data.candidates?.[0];
-                if (!candidate?.content?.parts || (candidate.finishReason && candidate.finishReason !== 'STOP')) {
+                const candidates = Array.isArray(data.candidates) ? data.candidates : undefined;
+                const candidate = candidates && isPlainObject(candidates[0]) ? candidates[0] : undefined;
+                const candContent = candidate && isPlainObject(candidate.content) ? candidate.content : undefined;
+                if (
+                    !candContent ||
+                    !Array.isArray(candContent.parts) ||
+                    (candidate?.finishReason && candidate.finishReason !== 'STOP')
+                ) {
                     throw new Error('Gemini response was blocked, truncated or empty');
                 }
-                const parts = candidate.content.parts;
+                const parts = candContent.parts;
+                const objParts = parts.filter(isPlainObject);
+                const usageMeta = isPlainObject(data.usageMetadata) ? data.usageMetadata : undefined;
                 return {
-                    text: parts
-                        .filter((p: any) => typeof p.text === 'string' && !p.thought)
-                        .map((p: any) => p.text)
+                    text: objParts
+                        .filter(p => typeof p.text === 'string' && !p.thought)
+                        .map(p => String(p.text))
                         .join(''),
-                    toolCalls: parts
-                        .filter((p: any) => p.functionCall)
-                        .map((p: any) => ({
-                            id: p.functionCall.id ?? `siglo_${randomUUID()}`,
-                            name: p.functionCall.name,
-                            arguments: p.functionCall.args,
-                        })),
+                    toolCalls: objParts
+                        .filter(p => isPlainObject(p.functionCall))
+                        .map(p => {
+                            const fc = p.functionCall as Record<string, unknown>;
+                            return {
+                                id: typeof fc.id === 'string' ? fc.id : `siglo_${randomUUID()}`,
+                                name: String(fc.name ?? ''),
+                                arguments: fc.args,
+                            };
+                        }),
                     providerState: { provider: 'gemini', content: parts },
-                    promptTokens: tokens(data.usageMetadata?.promptTokenCount),
-                    completionTokens:
-                        tokens(data.usageMetadata?.candidatesTokenCount) +
-                        tokens(data.usageMetadata?.thoughtsTokenCount),
+                    promptTokens: tokens(usageMeta?.promptTokenCount),
+                    completionTokens: tokens(usageMeta?.candidatesTokenCount) + tokens(usageMeta?.thoughtsTokenCount),
                 };
             }
-            const choice = data.choices?.[0];
-            if (!choice?.message || choice.message.refusal || !['stop', 'tool_calls'].includes(choice.finish_reason)) {
+            const choices = Array.isArray(data.choices) ? data.choices : undefined;
+            const choice = choices && isPlainObject(choices[0]) ? choices[0] : undefined;
+            const choiceMsg = choice && isPlainObject(choice.message) ? choice.message : undefined;
+            if (
+                !choiceMsg ||
+                choiceMsg.refusal ||
+                typeof choice?.finish_reason !== 'string' ||
+                !['stop', 'tool_calls'].includes(choice.finish_reason)
+            ) {
                 throw new Error('OpenAI-compatible response was refused, truncated or invalid');
             }
+            const rawToolCalls = Array.isArray(choiceMsg.tool_calls)
+                ? choiceMsg.tool_calls.filter(isPlainObject)
+                : undefined;
+            const usage = isPlainObject(data.usage) ? data.usage : undefined;
             return {
-                text: unwrap(
-                    choice.message.content === null && choice.message.tool_calls?.length
-                        ? ''
-                        : requireText(choice.message.content),
-                ),
-                toolCalls: choice.message.tool_calls?.map((c: any) => ({
-                    id: c.id,
-                    name: c.function?.name,
-                    arguments: parseArgs(c.function?.arguments),
-                })),
-                promptTokens: tokens(data.usage?.prompt_tokens),
-                completionTokens: tokens(data.usage?.completion_tokens),
+                text: unwrap(choiceMsg.content === null && rawToolCalls?.length ? '' : requireText(choiceMsg.content)),
+                toolCalls: rawToolCalls?.map(c => {
+                    const fn = isPlainObject(c.function) ? c.function : undefined;
+                    return {
+                        id: String(c.id ?? ''),
+                        name: String(fn?.name ?? ''),
+                        arguments: parseArgs(fn?.arguments),
+                    };
+                }),
+                promptTokens: tokens(usage?.prompt_tokens),
+                completionTokens: tokens(usage?.completion_tokens),
             };
         },
     };

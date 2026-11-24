@@ -1,4 +1,4 @@
-import { SigloError } from '@siglo/core';
+import { SigloError, DurationInput, parseDuration } from '@siglo/core';
 import type { AiMetrics, AiStepResult } from './types';
 
 export class AiRequestTimeoutError extends SigloError {
@@ -39,9 +39,10 @@ export function shouldFallback(error: unknown, executionSignal?: AbortSignal): b
 export async function withAiRequest<T>(
     operation: (signal: AbortSignal) => Promise<T>,
     executionSignal?: AbortSignal,
-    timeoutMs?: number,
+    timeoutMs?: DurationInput,
 ): Promise<T> {
-    if (timeoutMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) {
+    const resolvedTimeoutMs = timeoutMs === undefined ? undefined : parseDuration(timeoutMs);
+    if (timeoutMs !== undefined && (resolvedTimeoutMs === undefined || resolvedTimeoutMs <= 0)) {
         throw new TypeError('requestTimeoutMs must be a positive finite number');
     }
     executionSignal?.throwIfAborted();
@@ -57,7 +58,8 @@ export async function withAiRequest<T>(
     };
     const onAbort = () => abort(executionSignal!.reason);
     executionSignal?.addEventListener('abort', onAbort, { once: true });
-    if (timeoutMs !== undefined) timer = setTimeout(() => abort(new AiRequestTimeoutError(timeoutMs)), timeoutMs);
+    if (resolvedTimeoutMs !== undefined)
+        timer = setTimeout(() => abort(new AiRequestTimeoutError(resolvedTimeoutMs)), resolvedTimeoutMs);
     try {
         return await Promise.race([operation(controller.signal), aborted]);
     } finally {

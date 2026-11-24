@@ -9,6 +9,7 @@ description: 'Formal runtime execution semantics, lifecycle phases, context accu
 - **Primitive (`string`, `number`, `boolean`, `symbol`, `bigint`, etc.)**: Primitive values cannot be keyed directly into an execution context object. They are wrapped as context accessors or mapped through custom reducers (`step.reduce('field')`). When executed as a single primitive step, the direct primitive value is returned.
 - **`undefined`**: If a step action returns `undefined` (or no return statement), the existing context passes through intact to the next step without modifying or removing existing properties.
 - **`Promise`**: If a step returns a `Promise` (or is declared `async`), the orchestrator awaits the promise resolution. Rejections trigger the step's failure lifecycle (`onFail`), while resolutions are handled according to the object/primitive/undefined rules above.
+- **Synchronous Compute Steps (`Step.compute`)**: Return values are merged identically into context, while consecutive `Step.compute` nodes in `flow()` execute in a tight synchronous batch without allocating intermediate Promises or timers. Returning a `Promise` or thenable from a `ComputeStep` throws a non-retryable `SigloError` (`phase: 'action'`).
 
 ---
 
@@ -37,6 +38,7 @@ Context **accumulates** across sequential steps within the same execution flow:
 - Synchronous exceptions are caught immediately, tagged with `phase: 'action'` and the corresponding `stepName`, and routed to the `onFail` lifecycle hook.
 - Promises that reject are intercepted via promise rejection handlers, tagged with `phase: 'action'` and `stepName`, and routed to the `onFail` lifecycle hook.
 - In both cases, timeouts are immediately cleared to avoid orphaned timer callbacks.
+- For `Step.compute`, there are no `onBefore`, `onAfter`, or `onFail` hooks: synchronous exceptions during `.spec()` (`phase: 'validation'`) or `action` / `.cache()` (`phase: 'action'`) emit `step:error` telemetry and abort immediately.
 
 ---
 
@@ -98,6 +100,8 @@ Any hook failure bypasses the remaining step logic and routes the error into `on
 - **Propagation via `AsyncLocalStorage` (ASL)**: When a step action begins, its effective network policy is bound to Node's `AsyncLocalStorage` (`networkPolicyStorage.run(...)`). All nested async calls&mdash;promises, timeouts, microtasks, or third-party libraries (e.g. `axios`, `got`, `undici`, AWS SDK)&mdash;automatically inherit the enclosing step's policy store across asynchronous context transitions.
 - **Concurrent Execution Isolation**: In concurrent execution constructs (`parallel`, `allSettled`, `map`), each parallel step executes within its own isolated ASL store on the single Node event loop. A network restriction or allowlist in one branch never leaks into or interferes with concurrent sibling branches. Operations running outside step execution (e.g. host server healthchecks, database connection pools, background log flushers) encounter no active policy store and proceed unrestricted.
 - **Outer Perimeter Enforcement ("Flow Supersedes Step")**: The flow's network policy defines the outer permissible envelope. An individual step can only narrow permissions within what the flow permits (by specifying a subset of hosts or calling `.denyNetwork()`). Any attempt by a step to permit a host outside the flow's allowlist is rejected.
+- **Nested ASL Policy Intersection**: When a nested workflow or step runs inside an enclosing `networkPolicyStorage` ASL store, `StartChain` and nested `flow.run()` calls intersect any nested `ExecutionOptions.networkPolicy` or step policy with the active enclosing perimeter, preventing nested flows from widening an outer restriction.
+- **Unconditional Zero-Network Compute Boundary (`Step.compute`)**: `ComputeStep` always binds `COMPUTE_NETWORK_POLICY` (`defaultPolicy: 'deny'`, `allowedHosts: []`, `allowLocalhost: false`, `throwSync: true`) across `.spec()`, `.cache()` key serialization, and `action`. Violations throw synchronously even if enclosing flow or execution options permit hosts.
 - **Localhost and Loopback Configuration**: When network policy is active, `allowLocalhost` defaults to `false`. When enabled (`allowLocalhost: true`), loopback hosts (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) and local Unix domain socket IPC (`allowUnixSockets`) bypass network policy blocks, preserving local inter-process communication, local mock services, and container-local sidecars.
 - **Multi-Layer Egress Interception**: Outbound traffic is governed across three runtime interception points:
     1. `globalThis.fetch`: Validates input URLs prior to request initiation.
@@ -114,6 +118,7 @@ Any hook failure bypasses the remaining step logic and routes the error into `on
     - `'strict'` _(default)_: Rollback aborts immediately upon the first failing compensation handler. Remaining compensations are halted.
     - `'best-effort'`: Siglo attempts every registered compensation even if one or more fail, aggregating all failures into `CompensationException`.
 - **Payload & Input Preservation**: Handlers receive `(output, input, ctx)` snapshots captured at step completion time.
+- **Network Perimeter Preservation**: Effective per-step network policies are captured on compensation records (and re-resolved during `flow.compensate(...)` if hydrated from durable checkpoints) so rollbacks execute inside the step's intended egress boundary.
 - **Named vs Inline Registrations**: For multi-process or durable workflows, handlers registered via `registerCompensationHandler(name, fn)` are resolved by name, surviving process restarts. Missing handlers throw `UnresolvableCompensationException`.
 
 ---

@@ -1,17 +1,19 @@
 import crypto from 'node:crypto';
+import { isPlainObject } from '@siglo/core';
 import { EncryptedEnvelope } from '../types';
 
 /**
  * Type guard for EncryptedEnvelope.
  */
 export function isEncryptedEnvelope(val: unknown): val is EncryptedEnvelope {
+    if (!isPlainObject(val)) {
+        return false;
+    }
     return (
-        typeof val === 'object' &&
-        val !== null &&
-        (val as any).__sigloCipher === 'aes-256-gcm' &&
-        typeof (val as any).iv === 'string' &&
-        typeof (val as any).tag === 'string' &&
-        typeof (val as any).data === 'string'
+        val.__sigloCipher === 'aes-256-gcm' &&
+        typeof val.iv === 'string' &&
+        typeof val.tag === 'string' &&
+        typeof val.data === 'string'
     );
 }
 
@@ -142,7 +144,7 @@ export function encryptAESGCM(data: unknown, key: string | Buffer, options?: Enc
  * Supports AAD verification and context-derived subkey reconstruction.
  * Throws if the auth tag, ciphertext, or AAD was tampered with.
  */
-export function decryptAESGCM(envelope: EncryptedEnvelope, key: string | Buffer, options?: DecryptOptions): any {
+export function decryptAESGCM(envelope: EncryptedEnvelope, key: string | Buffer, options?: DecryptOptions): unknown {
     if (!isEncryptedEnvelope(envelope)) {
         throw new TypeError('Invalid encrypted envelope structure');
     }

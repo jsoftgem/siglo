@@ -222,7 +222,7 @@ describe('StorageAdapter & Unified Distributed Storage Unit Tests', () => {
         const store = new Map<string, any>();
         const adapter: StorageAdapter = {
             name: 'SyncStoreAdapter',
-            setCachedStep(key, val) {
+            async setCachedStep(key, val) {
                 store.set(key, val);
             },
         };

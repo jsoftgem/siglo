@@ -48,6 +48,8 @@ export const processWebhook = flow(
 );
 ```
 
+> `provider` and `secret` accept `DynamicOption<T, TInput>` (static values or `(ctx) => value` resolvers).
+
 ### 2. Envelope Field Encryption across Durable Checkpoints
 
 ```typescript
@@ -80,6 +82,8 @@ export const sensitiveWorkflow = flow(
     }),
 );
 ```
+
+> `aad` and `deriveKeyContext` on `FieldCipherOptions` accept `DynamicOption<string | Buffer | undefined, TInput>`, and `secretKey` supports static keys, `KeyRing` instances, or dynamic `(ctx) => ...` resolvers.
 
 ### 3. Context Redaction / Masking
 

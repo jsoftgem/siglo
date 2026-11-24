@@ -1,4 +1,10 @@
-import { networkPolicyStorage, isHostAllowed, NetworkPolicyViolationException } from '@siglo/core';
+import {
+    networkPolicyStorage,
+    isHostAllowed,
+    NetworkPolicyViolationException,
+    type EffectiveNetworkPolicy,
+    type NetworkPolicyConfig,
+} from '@siglo/core';
 
 export interface HostInfo {
     hostname: string;
@@ -49,16 +55,25 @@ export function assertNetworkPolicy(
     resolvedUrl: string,
     host: string,
     port?: string | number,
-    fallbackPolicy?: any,
+    fallbackPolicy?: EffectiveNetworkPolicy | NetworkPolicyConfig,
 ): void {
     const activeStore = networkPolicyStorage.getStore() || fallbackPolicy;
     if (!activeStore || activeStore.enabled === false) {
         return;
     }
 
-    const allowed = isHostAllowed(resolvedUrl, host, activeStore, port);
+    const effectivePolicy: EffectiveNetworkPolicy = {
+        ...activeStore,
+        enabled: activeStore.enabled ?? true,
+        defaultPolicy: activeStore.defaultPolicy ?? 'deny',
+        allowedHosts: activeStore.allowedHosts ?? [],
+        allowLocalhost: activeStore.allowLocalhost ?? false,
+        allowUnixSockets: activeStore.allowUnixSockets,
+    };
+
+    const allowed = isHostAllowed(resolvedUrl, host, effectivePolicy, port);
     if (!allowed) {
-        const allowedHosts = activeStore.allowedHosts || [];
+        const allowedHosts = effectivePolicy.allowedHosts || [];
         const exception = new NetworkPolicyViolationException(stepName, resolvedUrl, host, allowedHosts, {
             phase: 'before',
             retryable: false,
@@ -69,7 +84,7 @@ export function assertNetworkPolicy(
             set: () => {},
             configurable: true,
         });
-        (exception as any).retryable = false;
+        (exception as unknown as { retryable: boolean }).retryable = false;
         throw exception;
     }
 }

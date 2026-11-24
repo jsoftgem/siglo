@@ -13,7 +13,7 @@ import { GitFork, BarChart2, Code2, ListOrdered, Play, RotateCw, Copy, Check, Al
 interface WorkflowDetailProps {
     run: WorkflowRun;
     events: MonitoringEvent[];
-    onResume: (stackId: string, eventName: string, payload: any) => Promise<void>;
+    onResume: (stackId: string, eventName: string, payload: unknown) => Promise<void>;
     onReplay: (stackId: string) => Promise<void>;
 }
 

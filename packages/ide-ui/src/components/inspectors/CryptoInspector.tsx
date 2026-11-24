@@ -47,34 +47,48 @@ export const CryptoInspector: React.FC<CryptoInspectorProps> = ({ config, teleme
                         {category}
                     </span>
                 );
-            default:
+            case 'rejected':
+            case 'missing-secret':
+            case 'unknown-provider':
+            case 'missing-signature':
+            case 'invalid-signature':
                 return (
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/80 text-rose-400 border border-rose-800/60 flex items-center gap-1">
                         <XCircle className="w-3 h-3 text-rose-400" />
                         {category}
                     </span>
                 );
+            default: {
+                const _exhaustive: never = category;
+                return _exhaustive;
+            }
         }
     };
 
     const renderCheckStatus = (check?: 'passed' | 'failed' | 'unavailable') => {
-        if (!check || check === 'unavailable') {
-            return <span className="font-mono text-[#868a98] italic text-[10px]">Unavailable</span>;
+        switch (check) {
+            case undefined:
+            case 'unavailable':
+                return <span className="font-mono text-[#868a98] italic text-[10px]">Unavailable</span>;
+            case 'passed':
+                return (
+                    <span className="font-mono text-emerald-400 text-[10px] flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Passed
+                    </span>
+                );
+            case 'failed':
+                return (
+                    <span className="font-mono text-rose-400 text-[10px] flex items-center gap-1">
+                        <XCircle className="w-3 h-3" />
+                        Failed
+                    </span>
+                );
+            default: {
+                const _exhaustive: never = check;
+                return _exhaustive;
+            }
         }
-        if (check === 'passed') {
-            return (
-                <span className="font-mono text-emerald-400 text-[10px] flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    Passed
-                </span>
-            );
-        }
-        return (
-            <span className="font-mono text-rose-400 text-[10px] flex items-center gap-1">
-                <XCircle className="w-3 h-3" />
-                Failed
-            </span>
-        );
     };
 
     return (

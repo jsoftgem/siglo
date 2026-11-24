@@ -155,7 +155,7 @@ describe('storage.unit.test', () => {
 
     it('storage.get resolves function values without val property', () => {
         const mgr = new StorageManager();
-        mgr.state.contexts.set('stepFn', { plainFn: () => 'computed' } as any);
+        mgr.getState().contexts.set('stepFn', { plainFn: () => 'computed' } as any);
         const res = mgr.get('stack1', 'stepFn');
         expect(res.plainFn).to.equal('computed');
     });
@@ -234,8 +234,10 @@ describe('storage.unit.test', () => {
         it('restoreCheckpoint restores stack and contexts with working getter closures', () => {
             const isolated = new StorageManager();
             const chk = {
+                version: 2,
                 stackId: 'saved_stack',
                 type: 'execution',
+                revision: 1,
                 chains: ['step_a'],
                 contexts: {
                     step_a: {
@@ -319,8 +321,10 @@ describe('storage.unit.test', () => {
         it('hydrateState restores from checkpoint object directly', () => {
             const isolated = new StorageManager();
             isolated.hydrateState({
+                version: 2,
                 stackId: 'direct_chk',
                 type: 'execution',
+                revision: 1,
                 chains: ['ch_1'],
                 contexts: {
                     ch_1: { result: 'ok' },

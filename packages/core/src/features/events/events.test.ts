@@ -63,7 +63,14 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             (emitter as any).on('*');
             (emitter as any).on('step:start');
 
-            emitter.emit({ type: 'step:start', stackId: 's1', stepId: 'step-1', stepName: 'step1', timestamp: 100 });
+            emitter.emit({
+                type: 'step:start',
+                stackId: 's1',
+                stepId: 'step-1',
+                stepName: 'step1',
+                attempt: 1,
+                timestamp: 100,
+            });
             expect(wildcardEvents).to.have.lengthOf(1);
             expect(fnEvents).to.have.lengthOf(1);
         });
@@ -76,8 +83,8 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 count++;
             });
 
-            emitter.emit('step:start', { stackId: 's1', stepId: 'st1', stepName: 'name', timestamp: 100 });
-            emitter.emit('step:start', { stackId: 's1', stepId: 'st1', stepName: 'name', timestamp: 200 });
+            emitter.emit('step:start', { stackId: 's1', stepId: 'st1', stepName: 'name', attempt: 1, timestamp: 100 });
+            emitter.emit('step:start', { stackId: 's1', stepId: 'st1', stepName: 'name', attempt: 1, timestamp: 200 });
 
             expect(count).to.equal(1);
         });
@@ -213,9 +220,14 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             });
 
             await adapter.saveCheckpoint?.({
+                version: 2,
                 stackId: 'stk-1',
+                type: 'execution',
+                chains: [],
+                contexts: {},
                 status: 'COMPLETED' as any,
                 revision: 1,
+                timestamp: 100,
             });
 
             expect(events.map(e => e.type)).to.deep.equal([
@@ -451,7 +463,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
             const failingStep = Step.create('failingStep', async () => {
                 attempts++;
                 throw new Error(`Attempt ${attempts} failed`);
-            }).onFail({ maxAttempts: 2, delayMs: 10 });
+            }).onFail({ maxRetries: 2, delay: 10 });
 
             try {
                 await Step.start([failingStep], {}, { monitor: emitter });
@@ -527,6 +539,7 @@ describe('Workflow Events & Monitoring Unit Tests', () => {
                 stepId: 'stp-1',
                 key: 'k1',
                 namespace: 'checkpoint-ns',
+                timestamp: Date.now(),
             });
 
             const types = events.map(e => e.type);

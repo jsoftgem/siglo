@@ -57,7 +57,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
                     SKIPPED
                 </span>
             );
-        default:
+        case 'RETRYING':
+        case 'WAITING':
+        case 'PENDING':
             return (
                 <span
                     className={`inline-flex items-center gap-1 font-medium rounded-full bg-slate-800 text-slate-400 ${sizeClasses}`}
@@ -66,5 +68,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
                     {status}
                 </span>
             );
+        default: {
+            const _exhaustive: never = status;
+            return _exhaustive;
+        }
     }
 };

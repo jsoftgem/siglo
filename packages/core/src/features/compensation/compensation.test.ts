@@ -6,6 +6,7 @@ import {
     CompensationException,
     clearStorage,
     defaultStorageManager,
+    isWorkflowSuspended,
 } from '../../index';
 
 describe('Compensation and Sagas Unit Tests', () => {
@@ -82,6 +83,50 @@ describe('Compensation and Sagas Unit Tests', () => {
             expect(err.message).to.equal('Downstream boom');
             expect(compAttempts).to.equal(2);
         }
+    });
+
+    it('supports DurationInput strings for CompensationOptions.delay and CompensationRunOptions.delay', async () => {
+        let compAttempts = 0;
+        const flakyStep = Step.create('durationCompStep', () => ({ ok: true })).compensate(
+            async () => {
+                compAttempts++;
+                if (compAttempts < 2) throw new Error('Transient retry');
+            },
+            { maxRetries: 1, delay: '15ms', retryIf: err => err.message.includes('Transient') },
+        );
+
+        const failStep = Step.create('failStep', () => {
+            throw new Error('Boom');
+        });
+
+        try {
+            await flow(flakyStep, failStep).run();
+            expect.fail('Should fail');
+        } catch (err: any) {
+            expect(err.message).to.equal('Boom');
+            expect(compAttempts).to.equal(2);
+        }
+
+        // Manual runCompensations with DurationInput delay
+        let manualAttempts = 0;
+        const stackId = 'duration-manual-stack';
+        defaultCompensationManager.registerCompensation(stackId, {
+            stepId: 's-manual',
+            stepName: 'manualDurationStep',
+            output: {},
+            input: {},
+            handler: () => {
+                manualAttempts++;
+                if (manualAttempts < 2) throw new Error('Retry me');
+            },
+        });
+
+        const manualRes = await defaultCompensationManager.runCompensations(stackId, undefined, {
+            maxRetries: 1,
+            delay: '15ms',
+        });
+        expect(manualRes.completed).to.deep.equal(['manualDurationStep']);
+        expect(manualAttempts).to.equal(2);
     });
 
     it('throws CompensationException when a compensation fails and exhausts retries', async () => {
@@ -224,6 +269,7 @@ describe('Compensation and Sagas Unit Tests', () => {
 
         const f = flow(step1, waitStep);
         const suspension = await f.run({}, { durable: true });
+        if (!isWorkflowSuspended(suspension)) expect.fail('Expected workflow suspension');
         const stackId = suspension.stackId;
 
         // Verify checkpoint contains compensations

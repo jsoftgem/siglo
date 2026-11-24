@@ -1,6 +1,6 @@
 {
   "name": "@siglo/redis",
-  "version": "1.2.8",
+  "version": "1.3.0",
   "description": "Redis adapter for Siglo TypeScript workflows with distributed caching, durable checkpoints, locking, and idempotency.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -39,7 +39,7 @@
   },
   "homepage": "https://github.com/jsoftgem/siglo/tree/main/packages/redis#readme",
   "dependencies": {
-    "@siglo/core": "^1.0.0"
+    "@siglo/core": "^1.3.0"
   },
   "peerDependencies": {
     "ioredis": "^5.0.0 || ^6.0.0"

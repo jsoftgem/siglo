@@ -1,31 +1,36 @@
-import { Flow, ExecutionOptions, IdempotencyStore } from '@siglo/core';
+import { Flow, ExecutionOptions, IdempotencyStore, isObject } from '@siglo/core';
 
-export interface SigloBullMQOptions<TJob = any, TInput = any, TOutput = any> {
+export interface BullMQLikeJob {
+    id?: string | number;
+    data?: unknown;
+    [key: string]: unknown;
+}
+
+export interface SigloBullMQOptions<TJob = BullMQLikeJob, TInput = any, TOutput = any> {
     input?: (job: TJob) => Promise<TInput> | TInput;
-    output?: (result: any, job: TJob) => Promise<TOutput> | TOutput;
+    output?: (result: unknown, job: TJob) => Promise<TOutput> | TOutput;
     idempotencyStore?: IdempotencyStore;
     idempotencyTtlMs?: number;
     timeout?: number;
     namespace?: string | ((job: TJob) => string | undefined);
 }
 
-function unwrapContext(obj: any): any {
+function unwrapContext(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') {
         return obj;
     }
-    const clean: Record<string, any> = {};
-    for (const key of Object.keys(obj)) {
+    const source = obj as Record<string, unknown>;
+    const clean: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) {
         if (key.startsWith('$')) {
             continue;
         }
-        const val =
-            typeof obj[key] === 'function'
-                ? obj[key].val !== undefined
-                    ? obj[key].val
-                    : obj[key].length === 0
-                      ? obj[key]()
-                      : obj[key]
-                : obj[key];
+        const rawVal = source[key];
+        let val = rawVal;
+        if (typeof rawVal === 'function') {
+            const fn = rawVal as (() => unknown) & { val?: unknown };
+            val = fn.val !== undefined ? fn.val : fn.length === 0 ? fn() : fn;
+        }
         clean[key] = val;
     }
     return clean;
@@ -34,19 +39,27 @@ function unwrapContext(obj: any): any {
 /**
  * Creates a BullMQ worker processor function that runs a siglo workflow.
  */
-export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
+export function createBullMQProcessor<TInput = any, TOutput = any, TJob extends BullMQLikeJob = BullMQLikeJob>(
     workflow: Flow<TInput, TOutput>,
     options: SigloBullMQOptions<TJob, TInput, TOutput> = {},
 ) {
-    return async (job: any): Promise<any> => {
-        const jobId = job.id || String(Date.now());
+    return async (job: TJob): Promise<any> => {
+        const jobId = job.id !== undefined && job.id !== null && job.id !== '' ? String(job.id) : String(Date.now());
         const idempKey = `bullmq:job:${jobId}`;
 
         // Idempotency check if store is provided
         if (options.idempotencyStore) {
             const status = await options.idempotencyStore.claim(idempKey, options.idempotencyTtlMs);
             if (status === 'completed') {
-                return (options.idempotencyStore as any).getResult?.(idempKey) ?? { alreadyProcessed: true };
+                const store = options.idempotencyStore as IdempotencyStore & {
+                    getResult?: (key: string) => Promise<unknown>;
+                };
+                const cached = store.getResult
+                    ? await store.getResult(idempKey)
+                    : store.get
+                      ? await store.get(idempKey)
+                      : undefined;
+                return cached ?? { alreadyProcessed: true };
             }
             if (status === 'in-progress') {
                 throw new Error(`Job ${jobId} is already in-progress concurrently`);
@@ -54,14 +67,14 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
         }
 
         try {
-            const inputData = options.input ? await options.input(job) : job.data || {};
+            const inputData = options.input ? await options.input(job) : job.data !== undefined ? job.data : {};
 
             let namespace: string | undefined;
             if (typeof options.namespace === 'function') {
                 namespace = options.namespace(job);
-            } else if (options.namespace) {
+            } else if (options.namespace !== undefined) {
                 namespace = options.namespace;
-            } else if (job.data?.namespace) {
+            } else if (isObject(job.data) && typeof job.data.namespace === 'string') {
                 namespace = job.data.namespace;
             }
 
@@ -70,7 +83,7 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
                 namespace,
             };
 
-            const rawResult: any = await workflow.run(inputData, execOptions);
+            const rawResult: unknown = await workflow.run(inputData as TInput, execOptions);
             const cleanResult = unwrapContext(rawResult);
 
             if (options.idempotencyStore) {
@@ -82,7 +95,7 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
             }
 
             return cleanResult;
-        } catch (err: any) {
+        } catch (err: unknown) {
             if (options.idempotencyStore) {
                 await options.idempotencyStore.fail(idempKey, err);
             }
@@ -91,4 +104,8 @@ export function createBullMQProcessor<TInput = any, TOutput = any, TJob = any>(
     };
 }
 
-export type RivuletBullMQOptions<TJob = any, TInput = any, TOutput = any> = SigloBullMQOptions<TJob, TInput, TOutput>;
+export type RivuletBullMQOptions<TJob = BullMQLikeJob, TInput = any, TOutput = any> = SigloBullMQOptions<
+    TJob,
+    TInput,
+    TOutput
+>;

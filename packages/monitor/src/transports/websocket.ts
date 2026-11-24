@@ -1,8 +1,26 @@
 import { IncomingMessage, Server as HttpServer } from 'http';
 import { Socket } from 'net';
 import * as crypto from 'crypto';
-import { WorkflowExecutionEvent, redactEvent, RedactionOptions } from '@siglo/core';
+import { WorkflowExecutionEvent, redactEvent, RedactionOptions, isPlainObject } from '@siglo/core';
 import { MonitorClientMessage } from '../types';
+
+const VALID_ACTIONS = new Set<MonitorClientMessage['action']>(['resume', 'replay', 'subscribe', 'ping', 'event']);
+
+function isMonitorClientMessage(value: unknown): value is MonitorClientMessage {
+    if (!isPlainObject(value)) return false;
+    if (typeof value.action !== 'string' || !VALID_ACTIONS.has(value.action as MonitorClientMessage['action'])) {
+        return false;
+    }
+    if (value.stackId !== undefined && typeof value.stackId !== 'string') return false;
+    if (value.eventName !== undefined && typeof value.eventName !== 'string') return false;
+    if (value.namespace !== undefined && typeof value.namespace !== 'string') return false;
+    if (value.stepId !== undefined && typeof value.stepId !== 'string') return false;
+    if (value.event !== undefined) {
+        if (!isPlainObject(value.event) || typeof value.event.type !== 'string') return false;
+        if (value.event.stackId !== undefined && typeof value.event.stackId !== 'string') return false;
+    }
+    return true;
+}
 
 export interface WSClient {
     id: string;
@@ -178,8 +196,8 @@ export class WebSocketBroadcaster {
 
     private handleMessage(client: WSClient, text: string, req: IncomingMessage): void {
         try {
-            const parsed = JSON.parse(text) as MonitorClientMessage;
-            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+            const parsed: unknown = JSON.parse(text);
+            if (!isMonitorClientMessage(parsed)) return;
             if (this.authorizeMessage && !this.authorizeMessage(parsed, req)) return;
             if (parsed.action === 'subscribe' && parsed.namespace) {
                 client.namespace = parsed.namespace;
@@ -223,7 +241,7 @@ export class WebSocketBroadcaster {
         }
     }
 
-    send(client: WSClient, message: any): void {
+    send(client: WSClient, message: unknown): void {
         const text = typeof message === 'string' ? message : JSON.stringify(message);
         const frame = this.encodeTextFrame(text);
         try {

@@ -5,7 +5,7 @@ import { formatJson, formatTime } from '../../../utils/formatters';
 import { Copy, Check } from 'lucide-react';
 
 interface ContextViewerProps {
-    context: Record<string, any>;
+    context: Record<string, unknown>;
     diffs?: ContextDiff[];
 }
 

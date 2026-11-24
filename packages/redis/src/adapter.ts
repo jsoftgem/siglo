@@ -1,4 +1,10 @@
-import { StorageAdapter, SerializedExecutionStack } from '@siglo/core';
+import {
+    StorageAdapter,
+    SerializedExecutionStack,
+    WaitingWorkflowRecord,
+    ContextChangeEvent,
+    isPlainObject,
+} from '@siglo/core';
 import { RedisStorageAdapterOptions, RedisClientInterface } from './types';
 
 export class RedisStorageAdapter implements StorageAdapter {
@@ -14,9 +20,9 @@ export class RedisStorageAdapter implements StorageAdapter {
             throw new Error('RedisStorageAdapter requires a valid Redis client instance.');
         }
         this.client = options.client;
-        this.keyPrefix = options.keyPrefix || 'siglo:';
-        this.cacheTtlMs = options.cacheTtlMs || 86400000; // 24 hours
-        this.checkpointTtlMs = options.checkpointTtlMs || 604800000; // 7 days
+        this.keyPrefix = options.keyPrefix ?? 'siglo:';
+        this.cacheTtlMs = options.cacheTtlMs ?? 86400000; // 24 hours
+        this.checkpointTtlMs = options.checkpointTtlMs ?? 604800000; // 7 days
         this.recordContextChanges = options.recordContextChanges ?? true;
     }
 
@@ -40,14 +46,7 @@ export class RedisStorageAdapter implements StorageAdapter {
             : `${this.keyPrefix}context:${stackId}:${stepId}`;
     }
 
-    async onContextChange(entry: {
-        namespace?: string;
-        stackId: string;
-        stepId: string;
-        field: string;
-        value: any;
-        timestamp: number;
-    }): Promise<void> {
+    async onContextChange(entry: ContextChangeEvent): Promise<void> {
         if (!this.recordContextChanges) {
             return;
         }
@@ -84,14 +83,18 @@ export class RedisStorageAdapter implements StorageAdapter {
         if (namespace) {
             data = await this.client.get(this.checkpointKey(stackId, namespace));
         }
-        if (!data) {
+        if (data === null) {
             data = await this.client.get(this.checkpointKey(stackId));
         }
         if (!data) {
             return undefined;
         }
         try {
-            return JSON.parse(data) as SerializedExecutionStack;
+            const parsed: unknown = JSON.parse(data);
+            if (!isPlainObject(parsed) || typeof parsed.stackId !== 'string') {
+                return undefined;
+            }
+            return parsed as unknown as SerializedExecutionStack;
         } catch {
             return undefined;
         }
@@ -101,7 +104,7 @@ export class RedisStorageAdapter implements StorageAdapter {
         return 0; // Handled automatically by Redis TTL expiration
     }
 
-    async saveWaitRecord(record: any): Promise<void> {
+    async saveWaitRecord(record: WaitingWorkflowRecord): Promise<void> {
         if (!record || (!record.correlationKey && !record.stackId)) {
             return;
         }
@@ -114,20 +117,21 @@ export class RedisStorageAdapter implements StorageAdapter {
         }
     }
 
-    async getWaitRecord(correlationKeyOrStackId: string): Promise<any | undefined> {
+    async getWaitRecord(correlationKeyOrStackId: string): Promise<WaitingWorkflowRecord | undefined> {
         if (!correlationKeyOrStackId) {
             return undefined;
         }
         const data = await this.client.get(this.waitRecordKey(correlationKeyOrStackId));
         if (data) {
             try {
-                return JSON.parse(data);
+                const parsed: unknown = JSON.parse(data);
+                return isPlainObject(parsed) ? (parsed as unknown as WaitingWorkflowRecord) : undefined;
             } catch {
                 return undefined;
             }
         }
         const cp = await this.getCheckpoint(correlationKeyOrStackId);
-        return cp?.metadata?.waitRecord;
+        return isPlainObject(cp?.metadata) ? (cp.metadata.waitRecord as WaitingWorkflowRecord | undefined) : undefined;
     }
 
     async getCachedStep(key: string): Promise<any | undefined> {
@@ -151,7 +155,7 @@ export class RedisStorageAdapter implements StorageAdapter {
             return;
         }
         const fullKey = this.cacheKey(key);
-        const effectiveTtl = ttlMs || this.cacheTtlMs;
+        const effectiveTtl = ttlMs ?? this.cacheTtlMs;
         const serialized =
             typeof value === 'object' && value !== null ? JSON.stringify(value) : JSON.stringify({ value });
         await this.client.set(fullKey, serialized, 'PX', effectiveTtl);

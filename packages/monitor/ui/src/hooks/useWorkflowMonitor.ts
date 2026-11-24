@@ -1,16 +1,44 @@
 import { applyWaitEvent } from '../../../src/wait-state';
 import { appendInspection } from './inspectionUpdates';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { WorkflowRun, MonitoringEvent } from '../types';
+import { WorkflowRun, MonitoringEvent, WorkflowStatus } from '../types';
 import { fetchWorkflows } from '../api/workflowApi';
 import { SIGLO_EVENT_TYPES } from '../constants/events';
+
+const EVENT_TYPE_SET = new Set<string>(SIGLO_EVENT_TYPES);
+
+function isMonitoringEvent(value: unknown): value is MonitoringEvent {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+    const record = value as Record<string, unknown>;
+    return typeof record.type === 'string' && EVENT_TYPE_SET.has(record.type);
+}
+
+function isWorkflowStatus(status: unknown): status is WorkflowStatus {
+    return (
+        status === 'RUNNING' ||
+        status === 'COMPLETED' ||
+        status === 'FAILED' ||
+        status === 'SUSPENDED' ||
+        status === 'SKIPPED'
+    );
+}
 
 interface UseWorkflowMonitorOptions {
     namespace?: string;
     maxEvents?: number;
 }
 
-export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkflowMonitorOptions = {}) {
+export interface UseWorkflowMonitorResult {
+    workflows: Record<string, WorkflowRun>;
+    events: MonitoringEvent[];
+    isConnected: boolean;
+    refresh: () => Promise<void>;
+}
+
+export function useWorkflowMonitor({
+    namespace = '',
+    maxEvents = 500,
+}: UseWorkflowMonitorOptions = {}): UseWorkflowMonitorResult {
     const [workflows, setWorkflows] = useState<Record<string, WorkflowRun>>({});
     const [events, setEvents] = useState<MonitoringEvent[]>([]);
     const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -48,14 +76,15 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
 
             setEvents(prev => [ev, ...prev].slice(0, maxEvents));
 
-            if (!ev.stackId) return;
+            const stackId = ev.stackId;
+            if (!stackId) return;
 
             setWorkflows(prev => {
-                const existing = prev[ev.stackId!] || {
-                    stackId: ev.stackId!,
+                const existing = prev[stackId] || {
+                    stackId,
                     namespace: ev.namespace,
                     status: 'RUNNING',
-                    startTime: ev.timestamp || Date.now(),
+                    startTime: ev.timestamp ?? Date.now(),
                     steps: {},
                     context: {},
                     contextDiffs: [],
@@ -80,7 +109,7 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
                         updated.status = 'RUNNING';
                         break;
                     case 'flow:complete':
-                        updated.status = (ev.status as any) || 'COMPLETED';
+                        updated.status = isWorkflowStatus(ev.status) ? ev.status : 'COMPLETED';
                         updated.durationMs = ev.durationMs;
                         break;
                     case 'flow:error':
@@ -120,7 +149,7 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
                                     stepName: ev.stepName || step.stepName,
                                     status: 'RUNNING',
                                     selectedRoute: undefined,
-                                    attempts: ev.attempt || 1,
+                                    attempts: ev.attempt ?? 1,
                                     startTime: ev.timestamp,
                                 },
                             };
@@ -147,8 +176,8 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
                                 ...updated.steps,
                                 [ev.stepId]: {
                                     ...step,
-                                    status: 'RETRYING' as any,
-                                    attempts: ev.attempt || step.attempts,
+                                    status: 'RETRYING',
+                                    attempts: ev.attempt ?? step.attempts,
                                     error: ev.error,
                                 },
                             };
@@ -187,17 +216,26 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
                             };
                             updated.contextDiffs = [
                                 ...(updated.contextDiffs || []),
-                                { field: ev.field, value: ev.value, timestamp: ev.timestamp || Date.now() },
+                                { field: ev.field, value: ev.value, timestamp: ev.timestamp ?? Date.now() },
                             ];
                         }
                         break;
-                    default:
+                    case 'notification:dispatched':
+                    case 'approval:requested':
+                    case 'cache:hit':
+                    case 'cache:miss':
+                    case 'checkpoint:save':
                         break;
+                    default: {
+                        const _exhaustive: never = ev.type;
+                        void _exhaustive;
+                        break;
+                    }
                 }
 
                 return {
                     ...prev,
-                    [ev.stackId!]: updated,
+                    [stackId]: updated,
                 };
             });
         },
@@ -226,8 +264,10 @@ export function useWorkflowMonitor({ namespace = '', maxEvents = 500 }: UseWorkf
         SIGLO_EVENT_TYPES.forEach(type => {
             es.addEventListener(type, (e: MessageEvent) => {
                 try {
-                    const ev: MonitoringEvent = JSON.parse(e.data);
-                    handleIncomingEvent(ev);
+                    const parsed: unknown = JSON.parse(String(e.data));
+                    if (isMonitoringEvent(parsed)) {
+                        handleIncomingEvent(parsed);
+                    }
                 } catch (err) {
                     console.error('Failed to parse SSE event data:', err);
                 }

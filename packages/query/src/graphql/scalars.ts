@@ -18,8 +18,13 @@ export function parseLiteralToJSON(ast: ValueNode, variables?: Record<string, un
             return null;
         case Kind.VARIABLE:
             return variables ? variables[ast.name.value] : undefined;
-        default:
+        case Kind.ENUM:
+            return ast.value;
+        default: {
+            const _exhaustive: never = ast;
+            void _exhaustive;
             return undefined;
+        }
     }
 }
 
@@ -33,7 +38,7 @@ export const GraphQLJSON = new GraphQLScalarType({
         return value;
     },
     parseLiteral(ast, variables) {
-        return parseLiteralToJSON(ast, variables as any);
+        return parseLiteralToJSON(ast, variables ?? undefined);
     },
 });
 
@@ -66,7 +71,7 @@ export const GraphQLDateTime = new GraphQLScalarType({
     },
     parseLiteral(ast, variables) {
         if (ast.kind === Kind.VARIABLE && variables) {
-            const val = (variables as any)[ast.name.value];
+            const val = variables[ast.name.value];
             return typeof val === 'string' || typeof val === 'number' || val instanceof Date ? new Date(val) : null;
         }
         if (ast.kind === Kind.STRING || ast.kind === Kind.INT) {

@@ -1,5 +1,15 @@
 import { FlowTimeoutException, WorkflowSuspendedException } from '../../exceptions';
-import { STEP_ID, ATTEMPT, RETRY_DELAY, STACK_ID, STACK_ID_KEY } from '../../../../shared';
+import {
+    STEP_ID,
+    ATTEMPT,
+    RETRY_DELAY,
+    STACK_ID,
+    STACK_ID_KEY,
+    DurationInput,
+    parseDuration,
+    isObject,
+    getErrorMessage,
+} from '../../../../shared';
 import { emitMonitoringEvent } from '../../../events';
 
 export type RetryPredicate = (error: any, attempt: number) => boolean;
@@ -7,8 +17,8 @@ export type RetryPredicate = (error: any, attempt: number) => boolean;
 export interface RetryConfig {
     maxRetries?: number;
     backoff?: 'fixed' | 'linear' | 'exponential' | ((attempt: number) => number);
-    delay?: number;
-    maxDelay?: number;
+    delay?: DurationInput;
+    maxDelay?: DurationInput;
     jitter?: boolean | ((delay: number) => number);
     randomFn?: () => number;
     retryIf?: RetryPredicate;
@@ -32,7 +42,11 @@ export default class OnFail {
         _Context?: any,
         options?: any,
     ) {
-        error = Object.assign(error || {}, { func: chain.func });
+        if (!error) {
+            error = { func: chain.func };
+        } else if (isObject(error) && Object.isExtensible(error)) {
+            Object.assign(error, { func: chain.func });
+        }
         logError('SingleChain', error);
         logInfo('SingleChain', {
             chain: chains,
@@ -54,7 +68,7 @@ export default class OnFail {
 
         let currentAttemptNumber = 1;
         const rawReject = reject;
-        const emitStepError = (err: any) => {
+        const emitStepError = (err: unknown) => {
             emitMonitoringEvent(options, {
                 type: 'step:error',
                 stackId: resolvedStackId,
@@ -62,15 +76,15 @@ export default class OnFail {
                 stepName,
                 attempt: currentAttemptNumber,
                 error: {
-                    message: err?.message || String(err),
-                    code: err?.code,
-                    stack: err?.stack,
+                    message: getErrorMessage(err),
+                    code: isObject(err) ? err.code : undefined,
+                    stack: isObject(err) ? err.stack : undefined,
                 },
                 timestamp: Date.now(),
                 namespace: options?.namespace,
             });
         };
-        const safeRejectWithEvent = (err: any) => {
+        const safeRejectWithEvent = (err: unknown) => {
             emitStepError(err);
             rawReject(err);
         };
@@ -123,8 +137,8 @@ export default class OnFail {
                         });
                 };
 
-                const rejectFn = (customError?: any) => {
-                    reject(customError || error);
+                const rejectFn = (customError?: unknown) => {
+                    reject(customError !== undefined ? customError : error);
                 };
 
                 try {
@@ -148,11 +162,11 @@ export default class OnFail {
                 const maxRetries =
                     config.maxRetries !== undefined
                         ? config.maxRetries
-                        : (config as any).maxAttempts !== undefined
-                          ? (config as any).maxAttempts
+                        : (config as RetryConfig & { maxAttempts?: number }).maxAttempts !== undefined
+                          ? (config as RetryConfig & { maxAttempts?: number }).maxAttempts!
                           : 3;
-                const baseDelay = config.delay !== undefined ? config.delay : 100;
-                const maxDelay = config.maxDelay !== undefined ? config.maxDelay : 10000;
+                const baseDelay = parseDuration(config.delay) ?? 100;
+                const maxDelay = parseDuration(config.maxDelay) ?? 10000;
                 const backoff = config.backoff || 'fixed';
 
                 if (initialParam && typeof initialParam === 'object') {
@@ -206,9 +220,9 @@ export default class OnFail {
                         attempt: currentAttempt,
                         maxAttempts: maxRetries,
                         error: {
-                            message: error?.message || String(error),
-                            code: error?.code,
-                            stack: error?.stack,
+                            message: getErrorMessage(error),
+                            code: isObject(error) ? error.code : undefined,
+                            stack: isObject(error) ? error.stack : undefined,
                         },
                         delayMs,
                         timestamp: Date.now(),
@@ -225,7 +239,7 @@ export default class OnFail {
                         initialParam[RETRY_DELAY] = delFn;
                     }
 
-                    let timerId: any;
+                    let timerId: ReturnType<typeof setTimeout> | undefined;
                     let abortHandler: (() => void) | undefined;
                     if (outerSignal) {
                         abortHandler = () => {

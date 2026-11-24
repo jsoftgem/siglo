@@ -30,8 +30,12 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, kind, isSelected, onSele
                 return base + 'bg-amber-950/30 border-amber-500/70 shadow-lg shadow-amber-500/20';
             case 'SKIPPED':
                 return base + 'bg-slate-900 border-slate-800 opacity-60';
-            default:
+            case 'PENDING':
                 return base + 'bg-slate-900 border-slate-800';
+            default: {
+                const _exhaustive: never = status;
+                return _exhaustive;
+            }
         }
     };
 
@@ -48,8 +52,12 @@ export const DagNode: React.FC<DagNodeProps> = ({ step, kind, isSelected, onSele
             case 'WAITING':
                 return <PauseCircle className="w-4 h-4 text-amber-400" />;
             case 'SKIPPED':
-            default:
+            case 'PENDING':
                 return <Clock className="w-4 h-4 text-slate-500" />;
+            default: {
+                const _exhaustive: never = status;
+                return _exhaustive;
+            }
         }
     };
 

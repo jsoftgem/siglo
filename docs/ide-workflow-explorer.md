@@ -84,6 +84,7 @@ Selecting any step in the visual graph opens the **Inspector Panel**:
 - **Validation Rules**: Shows required fields (`*`), default values, validator functions, and exception error messages.
 - **Transformations & Translations**: Inspects value transformers and translators with expandable source code snippets.
 - **Root Schemas**: Whole-input validation schemas (e.g. Zod, Standard Schema) are displayed under the `$root$` contract card.
+- **Compute Step Inspection**: `Step.compute` nodes display a cyan `compute` badge (`Sync · No Network`), reporting `Compute · Sync` runtime mode, `No Network (Always Deny)` perimeter status, in-memory cache TTL/max-entry settings, and sync `.spec()` contracts—while being automatically exempt from `SIGLO_MISSING_COMPENSATION` side-effect diagnostics.
 
 ![Step Input Contracts inspector displaying required fields, default values, transforms, and validation rules](assets/ide-workflow-explorer/02-step-input-contracts.png)
 
@@ -128,7 +129,7 @@ The static analyzer extracts graph topology across core Siglo patterns and ecosy
 
 | Category                     | Supported Syntax & Patterns                                                                                                                               |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core Step Constructors**   | `Step.create(...)`, `new Step(...)`, compatibility `Func`/`Chain` constructors and `.create(...)`, inline functions                                       |
+| **Core Step Constructors**   | `Step.create(...)`, `Step.compute(...)`, `new Step(...)`, `new ComputeStep(...)`, compatibility `Func`/`Chain` constructors and `.create(...)`, inline functions |
 | **Workflow Composition**     | `flow(...)`, `pipe(...)`, `Step.flow(...)`, `Step.pipe(...)`, nested flows (e.g. `flow(flow1, flow2)`), sequential arrays                                 |
 | **Combinators**              | `parallel(...)`, `all(...)`, `allSettled(...)`, `race(...)`, `branch(...)`, `when(...)`, `map(...)`, static helper equivalents (`Step.parallel`, etc.)    |
 | **Durable Waits**            | `wait(...)`, `waitForEvent(...)`, static `Step.wait(...)`, `Step.waitForEvent(...)`                                                                       |

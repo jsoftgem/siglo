@@ -7,8 +7,8 @@ export function appendInspection(step: StepRun, event: MonitoringEvent): StepRun
         inspections: [
             ...(step.inspections || []),
             {
-                attempt: event.attempt || step.attempts || 1,
-                timestamp: event.timestamp || Date.now(),
+                attempt: event.attempt ?? step.attempts ?? 1,
+                timestamp: event.timestamp ?? Date.now(),
                 data: event.inspection,
             },
         ].slice(-50),

@@ -30,7 +30,7 @@ async function post(
     body: unknown,
     signal: AbortSignal | undefined,
     request = publicNotificationFetch,
-): Promise<any> {
+): Promise<Record<string, unknown>> {
     const u = new URL(url);
     assertNetworkPolicy('notificationTransport', url, u.hostname, u.port);
     const r = await request(url, {
@@ -41,13 +41,13 @@ async function post(
         redirect: 'error',
     });
     if (!r.ok) throw new Error(`Notification provider failed (${r.status})`);
-    return r.status === 204 ? {} : r.json();
+    return r.status === 204 ? {} : ((await r.json()) as Record<string, unknown>);
 }
 export class SlackTransport implements NotificationTransport {
     readonly channel = 'slack';
     readonly allowedHosts = ['slack.com'];
     constructor(private options: HttpTransportOptions) {}
-    private async call(method: string, body: unknown, signal?: AbortSignal): Promise<any> {
+    private async call(method: string, body: unknown, signal?: AbortSignal): Promise<Record<string, unknown>> {
         const r = await post(
             `https://slack.com/api/${method}`,
             { Authorization: `Bearer ${this.options.apiKey}`, 'Content-Type': 'application/json' },
@@ -112,7 +112,7 @@ export class SlackTransport implements NotificationTransport {
             },
             signal,
         );
-        return result.view.id;
+        return (result.view as { id: string }).id;
     }
     async cancel(id: string, reason: string): Promise<void> {
         const [channel, ts] = id.split(':');
@@ -140,7 +140,7 @@ export class ResendTransport implements NotificationTransport {
             m.signal,
             this.options.fetch,
         );
-        return { id: r.id, timestamp: Date.now() };
+        return { id: r.id as string, timestamp: Date.now() };
     }
 }
 export class SendGridTransport implements NotificationTransport {
@@ -193,7 +193,7 @@ export class DiscordTransport implements NotificationTransport {
             m.signal,
             this.request,
         );
-        return { id: r.id, timestamp: Date.now() };
+        return { id: r.id as string, timestamp: Date.now() };
     }
 }
 export class TwilioTransport implements NotificationTransport {
@@ -216,7 +216,7 @@ export class TwilioTransport implements NotificationTransport {
             m.signal,
             this.options.fetch,
         );
-        return { id: r.sid, timestamp: Date.now() };
+        return { id: r.sid as string, timestamp: Date.now() };
     }
 }
 /** Inject an SMTP client (e.g. Nodemailer) without imposing an SMTP dependency. */
@@ -270,7 +270,7 @@ export class PostmarkTransport implements NotificationTransport {
             this.options.fetch,
         );
         if (result.ErrorCode) throw new Error('Postmark notification request failed');
-        return { id: result.MessageID, timestamp: Date.now() };
+        return { id: result.MessageID as string, timestamp: Date.now() };
     }
 }
 

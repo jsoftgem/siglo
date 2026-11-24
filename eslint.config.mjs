@@ -5,10 +5,13 @@ import prettier from 'eslint-config-prettier/flat';
 export default [
     {
         files: [
-            'packages/*/src/**/*.ts',
+            'packages/*/src/**/*.{ts,tsx}',
+            'packages/monitor/ui/src/**/*.{ts,tsx}',
+            'plugins/vscode/src/**/*.ts',
             'examples/src/**/*.ts',
             'examples/zero-code-apm-dashboards/src/order-routing/**/*.ts',
             'test/**/*.ts',
+            'packages/*/test/**/*.ts',
         ],
         languageOptions: {
             parser: tsParser,
@@ -29,6 +32,7 @@ export default [
     {
         files: [
             'packages/*/src/**/*.test.ts',
+            'packages/*/test/**/*.ts',
             'examples/src/**/*.test.ts',
             'examples/zero-code-apm-dashboards/src/order-routing/**/*.test.ts',
             'test/**/*.ts',

@@ -7,7 +7,7 @@ interface ResumeModalProps {
     waitingForEvent?: string | null;
     isOpen: boolean;
     onClose: () => void;
-    onResume: (key: string, eventName: string, payload: any) => Promise<void>;
+    onResume: (key: string, eventName: string, payload: unknown) => Promise<void>;
 }
 
 export const ResumeModal: React.FC<ResumeModalProps> = ({ stackId, waitingForEvent, isOpen, onClose, onResume }) => {
@@ -25,16 +25,17 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({ stackId, waitingForEve
         }
     }, [isOpen, stackId, waitingForEvent]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();
         setJsonError(null);
 
-        let parsedPayload = {};
+        let parsedPayload: unknown = {};
         if (payloadText.trim()) {
             try {
                 parsedPayload = JSON.parse(payloadText);
-            } catch (err: any) {
-                setJsonError('Invalid JSON format: ' + err.message);
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                setJsonError('Invalid JSON format: ' + msg);
                 return;
             }
         }
@@ -43,8 +44,8 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({ stackId, waitingForEve
             setIsSubmitting(true);
             await onResume(key.trim(), eventName.trim(), parsedPayload);
             onClose();
-        } catch (err: any) {
-            setJsonError(err?.message || 'Failed to resume workflow');
+        } catch (err: unknown) {
+            setJsonError(err instanceof Error ? err.message : 'Failed to resume workflow');
         } finally {
             setIsSubmitting(false);
         }
