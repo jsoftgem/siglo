@@ -115,6 +115,7 @@ jobs:
       - name: Install dependencies & build IDE packages
         run: |
           npm ci
+          npm run build --workspace=@siglo/core
           npm run build --workspace=@siglo/ide-protocol
           npm run build --workspace=@siglo/ide-analysis
           npm run build --workspace=@siglo/ide-ui

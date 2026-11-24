@@ -755,9 +755,22 @@ describe('Step.compute — Synchronous Compute Steps', () => {
                 expect(err.message).to.include('keySerializer');
             }
 
-            // Direct ComputeCache API checks (primitive input, overwrite existing key, clear, size, TTL expiry cleanup)
+            // Direct ComputeCache API checks (primitive input, internal key stripping, overwrite existing key, clear, size, TTL expiry cleanup)
             const c = new ComputeCache({ ttl: 15, maxEntries: 2 });
             expect(c.buildKey('s', 42)).to.equal('s:42');
+            expect(
+                c.buildKey('s', {
+                    x: 42,
+                    $steps: () => ({}),
+                    $history: () => ({}),
+                    $stackId: 'stack-1',
+                    $namespace: 'ns-ignored',
+                    $attempt: 2,
+                    $retryDelay: 100,
+                    $isDurable: true,
+                    $workflowId: 'wf-1',
+                }),
+            ).to.equal(c.buildKey('s', { x: 42 }));
             c.set('k1', undefined);
             c.set('k1', 'updated');
             expect(c.size).to.equal(1);
