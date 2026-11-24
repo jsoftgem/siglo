@@ -23,7 +23,7 @@ class WorkflowHarness {
     execute(input?: any, options?: ExecutionOptions): Promise<any>;
 
     // Mocking & Spying
-    mockStep(stepName: string, mockFn: (param: any) => Promise<any> | any): this;
+    mockStep(stepName: string, mockFn: (param: any) => Promise<any> | any): this; // Must stay sync for Step.compute
     spyStep(stepName: string): StepSpy;
 
     // Assertions
@@ -38,6 +38,8 @@ class WorkflowHarness {
     getTrace(): ExecutionTraceItem[];
     exportExecutionRecord(options?: { excludeKeys?: string[] }): ExecutionRecord;
 }
+// Note: Each WorkflowHarness isolates Step.compute in-memory LRU caches per harness instance
+// and clears cached entries for any step overridden with mockStep().
 ```
 
 ---

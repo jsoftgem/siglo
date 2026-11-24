@@ -37,13 +37,14 @@ interface NetworkPolicyConfig {
 
 ## 2. Step and Flow Guardrail Methods
 
-| Method                         | Target | Description                                                     |
-| :----------------------------- | :----- | :-------------------------------------------------------------- |
-| `step.allowNetwork(hosts)`     | `Step` | Declares permitted hosts/subdomains for this step.              |
-| `step.denyNetwork()`           | `Step` | Shorthand for `.allowNetwork([])`. Blocks all outbound traffic. |
-| `step.allowUnixSockets(paths)` | `Step` | Permits local Unix domain socket IPC paths.                     |
-| `step.networkPolicy(policy)`   | `Step` | Applies granular `NetworkPolicyConfig` to the step.             |
-| `flow.networkPolicy(policy)`   | `Flow` | Establishes the outer security perimeter across all steps.      |
+| Method                                              | Target        | Description                                                                   |
+| :-------------------------------------------------- | :------------ | :---------------------------------------------------------------------------- |
+| `step.allowNetwork(hosts)`                          | `Step`        | Declares permitted hosts/subdomains for this step.                            |
+| `step.denyNetwork()`                                | `Step`        | Shorthand for `.allowNetwork([])`. Blocks all outbound traffic.               |
+| `step.allowUnixSockets(paths)`                      | `Step`        | Permits local Unix domain socket IPC paths.                                   |
+| `step.networkPolicy(policy)`                        | `Step`        | Applies granular `NetworkPolicyConfig` to the step.                           |
+| `flow.networkPolicy(policy)`                        | `Flow`        | Establishes the outer security perimeter across all steps.                    |
+| `Step.compute(name, fn)` / `COMPUTE_NETWORK_POLICY` | `ComputeStep` | Unconditional `defaultPolicy: 'deny'` (`throwSync: true`); cannot be widened. |
 
 ---
 
