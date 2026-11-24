@@ -8,8 +8,10 @@ Quick reference for core classes, functions, options, and error hierarchies in `
 
 | Export                                          | Signature                                                                                          | Description                                                          |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `Step.create(name, fn)`                         | `Step.create<TIn, TOut>(name: string, action: (ctx: TIn) => Promise<TOut> \| TOut): Step`          | Creates a typed atomic step.                                         |
+| `Step.create(name, fn)`                         | `Step.create<TIn, TOut>(name: string, action: (ctx: TIn) => Promise<TOut> \| TOut): Step`          | Creates a typed asynchronous I/O step with full lifecycle hooks.     |
+| `Step.compute(name, fn)`                        | `Step.compute<TIn, TOut>(name: string, action: (ctx: TIn) => SyncValue<TOut>): ComputeStep`        | Creates a synchronous pure compute step with always-deny egress.     |
 | `flow(...items)`                                | `flow<TIn, TOut>(...items: FlowItem[]): Flow<TIn, TOut>`                                           | Chains steps and combinators into an executable sequential pipeline. |
+| `clearComputeCaches()`                          | `clearComputeCaches(): void`                                                                       | Clears all active in-memory `Step.compute` LRU+TTL caches.           |
 | `parallel(branches, options?)`                  | `parallel(branches: FlowItem[], options?: ParallelOptions): Step`                                  | Concurrent fan-out with configurable merge strategy.                 |
 | `race(branches)`                                | `race(branches: FlowItem[]): Step`                                                                 | Competitive concurrency; fastest branch wins.                        |
 | `when(predicate, thenStep, elseStep?)`          | `when(predicate: (ctx) => boolean, thenStep, elseStep?): Step`                                     | Conditional binary branch.                                           |
@@ -23,7 +25,7 @@ Quick reference for core classes, functions, options, and error hierarchies in `
 
 ## 2. Step Builder Methods
 
-All methods are chainable on a `Step` instance:
+All methods below are chainable on `Step.create()` (`ComputeStep` from `Step.compute()` intentionally exposes only synchronous `.spec()`, `.cache(ttlOrOptions)`, and `.run()`):
 
 ```typescript
 const step = Step.create('myStep', async ctx => ({ result: 1 }))

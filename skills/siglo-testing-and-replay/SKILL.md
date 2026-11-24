@@ -58,6 +58,8 @@ const result = await harness.run({
 
 Replace external third-party calls (payment gateways, notification APIs, LLMs) without editing workflow code:
 
+> **Note on `Step.compute`**: `createWorkflowHarness` isolates `.cache()` state per harness instance, invalidates the step's cache when `mockStep()` is registered, and enforces the synchronous thenable guard — any mock registered for a `Step.compute` step must return synchronously (not a `Promise`). Call `clearComputeCaches()` when testing raw flows outside a harness.
+
 ```typescript
 // Replace Stripe call with a deterministic success mock
 harness.mockStep('chargePayment', async param => {
